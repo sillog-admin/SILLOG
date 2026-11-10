@@ -20,7 +20,7 @@ public enum TranscriptionError: Error, Equatable, Sendable {
     public var message: String {
         switch self {
         case .dictationDisabled: "받아쓰기가 꺼져 있어요. 시스템 설정 → 키보드 → 받아쓰기를 켠 뒤 다시 받아쓰세요."
-        case .speechDenied: "음성 인식 권한이 꺼져 있어요. 시스템 설정 → 개인정보 보호 및 보안 → 음성 인식에서 Sillog을 켜 주세요."
+        case .speechDenied: "음성 인식 권한이 꺼져 있어요. 시스템 설정 → 개인정보 보호 및 보안 → 음성 인식에서 SILLOG을 켜 주세요."
         case .unavailable(let reason): reason
         case .failed(let reason): "받아쓰지 못했어요: \(reason)"
         }

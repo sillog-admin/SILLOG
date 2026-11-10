@@ -52,7 +52,7 @@ final class MenuBarModelTests: XCTestCase {
     func testNotReadyMessage() {
         XCTAssertEqual(MenuBarModel.notReadyMessage(phase: .login, startupFailed: false), "시작하려면 ChatGPT 로그인이 필요해요")
         XCTAssertEqual(MenuBarModel.notReadyMessage(phase: .permissions, startupFailed: false), "시작하려면 권한 설정을 마쳐 주세요")
-        XCTAssertEqual(MenuBarModel.notReadyMessage(phase: .ready, startupFailed: true), "Sillog을 시작하지 못했어요")
+        XCTAssertEqual(MenuBarModel.notReadyMessage(phase: .ready, startupFailed: true), "SILLOG을 시작하지 못했어요")
     }
 
     func testStatusText() {

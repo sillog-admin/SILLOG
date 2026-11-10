@@ -467,7 +467,7 @@ private final class LoopbackOAuth {
             let accepted = line.hasPrefix("GET ") && path.hasPrefix("/callback?") && receivedState == state && !(code ?? "").isEmpty
                 && values.filter({ $0.name == "state" }).count == 1 && values.filter({ $0.name == "code" }).count == 1
                 && !values.contains(where: { $0.name == "error" })
-            let html = accepted ? "<h2>승인을 받았습니다. 연결 결과는 Sillog 앱에서 확인하세요.</h2>" : "<h2>승인이 완료되지 않았습니다. Sillog에서 다시 시도하세요.</h2>"
+            let html = accepted ? "<h2>승인을 받았습니다. 연결 결과는 SILLOG 앱에서 확인하세요.</h2>" : "<h2>승인이 완료되지 않았습니다. SILLOG에서 다시 시도하세요.</h2>"
             let body = Data(html.utf8)
             let header = "HTTP/1.1 \(accepted ? "200 OK" : "400 Bad Request")\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n"
             let reply = Data(header.utf8) + body

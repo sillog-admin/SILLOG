@@ -31,7 +31,7 @@ struct ConnectorEntry: Identifiable {
               description: "접근 권한이 있는 저장소의 코드와 PR을 읽어요. 저장소를 변경하지 않아요.",
               examples: ["내가 작업한 저장소의 구조와 주요 기능을 설명해 줘.", "최근 PR을 바탕으로 프로젝트 진행 상황을 정리해 줘."]),
         .init(id: "notion", name: "Notion", summary: "페이지 검색과 읽기",
-              description: "승인한 Notion 자료를 검색하고 페이지 내용을 읽어요. Sillog에서는 검색과 읽기만 실행해요.",
+              description: "승인한 Notion 자료를 검색하고 페이지 내용을 읽어요. SILLOG에서는 검색과 읽기만 실행해요.",
               examples: ["최근 회의록에서 결정 사항과 다음 할 일을 찾아 줘.", "Notion에 정리한 자료를 바탕으로 계획을 세워줘."]),
         .init(id: "figma", name: "Figma", summary: "디자인 파일과 화면 텍스트",
               description: "지정한 폴더에서 디자인 파일을 찾고, 화면과 레이어 이름 및 텍스트를 읽어요.",
@@ -191,7 +191,7 @@ struct ConnectorCatalogView: View {
                             .font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 10)
                     }
                     if connector.id == "notion" || connector.id == "higgsfield" {
-                        Text("서비스의 승인 화면에는 편집·생성 권한이 함께 포함될 수 있어요. Sillog은 검색·읽기 도구만 허용해요. 승인할 권한은 브라우저에서 확인해 주세요.")
+                        Text("서비스의 승인 화면에는 편집·생성 권한이 함께 포함될 수 있어요. SILLOG은 검색·읽기 도구만 허용해요. 승인할 권한은 브라우저에서 확인해 주세요.")
                             .font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 10)
                     }
                     if on {
@@ -207,7 +207,7 @@ struct ConnectorCatalogView: View {
                     Text("정보").font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink).padding(.top, 24).padding(.bottom, 8)
                     Rectangle().fill(Brand.line).frame(height: 1)
                     VStack(alignment: .leading, spacing: 10) {
-                        infoRow("Sillog에서 실행", "검색·읽기만 해요")
+                        infoRow("SILLOG에서 실행", "검색·읽기만 해요")
                         infoRow("연결 정보", "이 Mac의 키체인에 보관해요")
                         infoRow("제공", ["gmail", "drive"].contains(connector.id) ? "Google" : connector.name)
                     }.padding(.top, 11)
@@ -286,7 +286,7 @@ struct ConnectorCatalogView: View {
         case .discord:
             (resourceLabel, instructions) = ("채널 ID", "채널 보기, 메시지 기록 읽기, Message Content 권한이 있는 Discord 봇 토큰을 입력하세요.")
         case .canva:
-            (resourceLabel, instructions) = ("클라이언트 ID", "Canva 개발자 화면에서 Sillog의 클라이언트 ID와 비밀키를 확인한 뒤 브라우저에서 디자인 기본 정보 읽기를 승인하세요.")
+            (resourceLabel, instructions) = ("클라이언트 ID", "Canva 개발자 화면에서 SILLOG의 클라이언트 ID와 비밀키를 확인한 뒤 브라우저에서 디자인 기본 정보 읽기를 승인하세요.")
         default:
             (resourceLabel, instructions) = (nil, "이 서비스는 브라우저 로그인으로 연결해 주세요.")
         }

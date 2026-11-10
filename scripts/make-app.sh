@@ -1,5 +1,5 @@
 #!/bin/bash
-# release 빌드 → 코드 서명 → ~/Applications/Sillog.app 설치.
+# release 빌드 → 코드 서명 → ~/Applications/SILLOG.app 설치.
 # 서명 인증서를 고정해 두면 다시 빌드해도 macOS 권한(손쉬운 사용·화면 기록)이 유지된다.
 #   SIGN_IDENTITY="Apple Development: ..." scripts/make-app.sh   # 인증서 지정
 #   SIGN_IDENTITY=- scripts/make-app.sh                          # ad-hoc (빌드할 때마다 권한을 다시 줘야 함)
@@ -21,8 +21,8 @@ cp "$ROOT/Package.swift" "$ROOT/Package.resolved" "$STAGE_DIR/"
 swift build --package-path "$STAGE_DIR" -c release --product WorkGraphApp --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox -j 2
 BIN_DIR="$(swift build --package-path "$STAGE_DIR" -c release --show-bin-path --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox)"
 APP="$BUILD_DIR/Sillog.app"
-APP_LINK="$ROOT/build/Sillog.app"
-INSTALLED_APP="$HOME/Applications/Sillog.app"
+APP_LINK="$ROOT/build/SILLOG.app"
+INSTALLED_APP="$HOME/Applications/SILLOG.app"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -43,8 +43,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key><string>com.sillog.app</string>
-  <key>CFBundleName</key><string>Sillog</string>
-  <key>CFBundleDisplayName</key><string>Sillog</string>
+  <key>CFBundleName</key><string>SILLOG</string>
+  <key>CFBundleDisplayName</key><string>SILLOG</string>
   <key>CFBundleExecutable</key><string>Sillog</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>
@@ -61,7 +61,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>NSDownloadsFolderUsageDescription</key><string>새로 내려받은 파일을 하던 업무와 연결해 기록합니다.</string>
   <key>NSMicrophoneUsageDescription</key><string>메뉴 막대에서 녹음할 때 마이크 소리를 녹음합니다.</string>
   <key>NSSpeechRecognitionUsageDescription</key><string>녹음한 말을 이 Mac 안에서 글로 받아씁니다.</string>
-  <key>NSDocumentsFolderUsageDescription</key><string>받아쓴 녹음을 문서 폴더의 'Sillog 녹음'에 저장합니다.</string>
+  <key>NSDocumentsFolderUsageDescription</key><string>받아쓴 녹음을 문서 폴더의 'SILLOG 녹음'에 저장합니다.</string>
   <key>NSCalendarsFullAccessUsageDescription</key><string>오늘 일정을 메뉴 막대에 보여 주고, 기록에서 찾은 일정을 확인한 뒤 캘린더에 등록합니다.</string>
   <key>NSCalendarsUsageDescription</key><string>오늘 일정을 메뉴 막대에 보여 주고, 기록에서 찾은 일정을 확인한 뒤 캘린더에 등록합니다.</string>
   <key>NSAppTransportSecurity</key>

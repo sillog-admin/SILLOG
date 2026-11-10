@@ -197,7 +197,7 @@ struct SettingsView: View {
             if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
             launchError = nil
         } catch {
-            launchError = "자동 실행을 바꾸지 못했어요. build/Sillog.app으로 실행했는지 확인해 주세요. (\(error.localizedDescription))"
+            launchError = "자동 실행을 바꾸지 못했어요. build/SILLOG.app으로 실행했는지 확인해 주세요. (\(error.localizedDescription))"
         }
     }
 

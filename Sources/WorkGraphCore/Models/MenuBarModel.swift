@@ -26,7 +26,7 @@ public enum MenuBarModel {
 
     /// W2 의 안내 한 줄
     public static func notReadyMessage(phase: AppPhase, startupFailed: Bool) -> String {
-        if startupFailed { return "Sillog을 시작하지 못했어요" }
+        if startupFailed { return "SILLOG을 시작하지 못했어요" }
         return phase == .login ? "시작하려면 ChatGPT 로그인이 필요해요" : "시작하려면 권한 설정을 마쳐 주세요"
     }
 
