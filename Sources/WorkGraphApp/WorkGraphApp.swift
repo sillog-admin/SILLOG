@@ -105,18 +105,30 @@ struct MenuBarLabel: View {
             image.isTemplate = true
             return image
         }
-        let eye: CGSize = recording ? CGSize(width: 0.15, height: 0.15)
+        let solid = Brand.menubarBody
+        // 새 실루엣: 눈 크기는 그림 속 눈(폭 50, 높이 100 / 490) 그대로, 녹음 중 지름은 눈 높이의 0.7, 정리 중 폭은 눈 높이의 0.75
+        let tall: CGFloat = 0.204
+        let eye: CGSize = solid != nil ? (recording ? CGSize(width: tall * 0.7, height: tall * 0.7)
+                : tidying ? CGSize(width: tall * 0.75, height: tall * 0.25) : CGSize(width: 0.102, height: tall))
+            : recording ? CGSize(width: 0.15, height: 0.15)
             : tidying ? CGSize(width: 0.15, height: 0.05)
             : CGSize(width: 0.09, height: 0.2)
+        // 눈 중심(왼쪽 아래 기준 비율)과 기울기: 새 그림은 눈이 시계 방향 17도 기울어 있다
+        let eyes: [(x: CGFloat, y: CGFloat, tilt: CGFloat)] = solid != nil ? [(0.4038, 0.5068, -17), (0.6071, 0.4599, -17)] : [(0.404, 0.34, 0), (0.596, 0.34, 0)]
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
-            let canvas = rect.insetBy(dx: -1.6, dy: -1.6)                    // 심볼 그림의 빈 여백을 밖으로 밀어 크게 그린다
-            body.draw(in: canvas)
+            let canvas = solid != nil ? rect : rect.insetBy(dx: -1.6, dy: -1.6)      // 옛 심볼 그림의 빈 여백은 밖으로 밀어 크게 그린다
+            (solid ?? body).draw(in: canvas)
             NSGraphicsContext.current?.compositingOperation = .destinationOut
             NSColor.black.setFill()
-            for x in [0.404, 0.596] {
+            for e in eyes {
                 let w = canvas.width * eye.width, h = canvas.height * eye.height
-                let frame = NSRect(x: canvas.minX + canvas.width * x - w / 2, y: canvas.minY + canvas.height * 0.34 - h / 2, width: w, height: h)
-                NSBezierPath(roundedRect: frame, xRadius: min(w, h) / 2, yRadius: min(w, h) / 2).fill()
+                let turn = NSAffineTransform()
+                turn.translateX(by: canvas.minX + canvas.width * e.x, yBy: canvas.minY + canvas.height * e.y)
+                turn.rotate(byDegrees: e.tilt)
+                NSGraphicsContext.saveGraphicsState()
+                turn.concat()
+                NSBezierPath(roundedRect: NSRect(x: -w / 2, y: -h / 2, width: w, height: h), xRadius: min(w, h) / 2, yRadius: min(w, h) / 2).fill()
+                NSGraphicsContext.restoreGraphicsState()
             }
             return true
         }

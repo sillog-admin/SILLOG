@@ -49,6 +49,12 @@ enum Brand {
     static let iconMatte: NSImage? = brandImage("icon")
     /// 눈을 지운 심볼. GazingMark 가 위에 눈을 그린다
     static let iconBody: NSImage? = brandImage("icon_body")
+    /// 3D 심볼: 눈 없는 몸, 기본 눈, 웃는 눈(같은 512 칸, 같은 위치). 셋 다 있을 때만 GazingMark 가 쓴다
+    static let mascot3dBody: NSImage? = brandImage("mascot3d_body")
+    static let mascot3dEyesIdle: NSImage? = brandImage("mascot3d_eyes_idle")
+    static let mascot3dEyesSmile: NSImage? = brandImage("mascot3d_eyes_smile")
+    /// 메뉴 막대용 검은 실루엣(3D 심볼 비스듬한 자세, 내용에 꽉 찬 정사각). 있으면 icon() 이 이것으로 그린다
+    static let menubarBody: NSImage? = brandImage("menubar_body")
     /// OpenAI 마크: 검은 한 색 판이라 template 로 칠해 쓴다
     static let openAIMark: NSImage? = brandImage("openai_mark")
     /// Claude 로고 (24 칸 SVG 경로, 채워 그린다)
@@ -433,7 +439,24 @@ struct GazingMark: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        if Brand.iconBody == nil {
+        if let body = Brand.mascot3dBody, let idle = Brand.mascot3dEyesIdle, let smile = Brand.mascot3dEyesSmile {
+            if reduceMotion { solid(body, idle, smile, blink: 1, glance: 0).frame(width: size, height: size) } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: activeState != .key)) { context in
+                    let t = context.date.timeIntervalSinceReferenceDate
+                    // 가만히 있어도 스스로 조금 움직인다: 들썩임(2.9초), 폴짝(9.7초 칸마다 0.36초), 두리번(6.3초 칸마다 1.2초, 눈만)
+                    let hop: CGFloat = Self.once(at: t, slot: 9.7, length: 0.36, salt: 1).map { -0.05 * size * sin(.pi * $0.p) } ?? 0
+                    let glance: CGFloat = Self.once(at: t, slot: 6.3, length: 1.2, salt: 2).map { g -> CGFloat in
+                        let s = g.p * 1.2, ease: (Double) -> Double = { let c = min(max($0, 0), 1); return c * c * (3 - 2 * c) }
+                        return 0.03 * size * ((g.h * 100).truncatingRemainder(dividingBy: 1) < 0.5 ? -1 : 1) * ease(s / 0.25) * (1 - ease((s - 0.95) / 0.25))
+                    } ?? 0
+                    solid(body, idle, smile, blink: smiling ? 1 : Self.openness(at: t, floor: 0.06), glance: glance)
+                        .scaleEffect(x: 1, y: 1 + 0.012 * sin(t * 2 * .pi / 5.3), anchor: .bottom)
+                        .rotationEffect(.degrees(2.2 * sin(t * 2 * .pi / 7.1) + 0.5 * sin(t * 2 * .pi / 3.1)), anchor: .bottom)
+                        .offset(y: -0.012 * size * sin(t * 2 * .pi / 2.9) + hop)
+                }
+                .frame(width: size, height: size)
+            }
+        } else if Brand.iconBody == nil {
             if let icon = Brand.iconMatte { Image(nsImage: icon).resizable().scaledToFit().frame(width: size, height: size) }
         } else if reduceMotion {
             eyes(offset: .zero).frame(width: size, height: size)
@@ -451,13 +474,44 @@ struct GazingMark: View {
         }
     }
 
-    /// 눈이 뜬 정도(1 뜸, 0.1 감음). 3.7초 칸마다 칸 안의 정해진 시각에 0.18초 깜빡인다
-    private static func openness(at t: TimeInterval) -> CGFloat {
+    /// 몸은 늘 불투명 그대로 두고 눈 그림 둘만 바꾼다(통째로 섞으면 몸이 비쳐 번쩍인다).
+    /// 눈은 긴 축(시계 방향 17도 기울어 있음) 방향으로 납작해지며 감겼다 뜬다: 감기고, 가는 선 한 순간, 다른 눈이 뜬다.
+    /// animation 은 smiling 변화에만 걸려 깜빡임·두리번 값은 느려지지 않는다. glance 는 눈만 옮기는 x 거리
+    private func solid(_ body: NSImage, _ idle: NSImage, _ smile: NSImage, blink: CGFloat, glance: CGFloat) -> some View {
+        ZStack {
+            Image(nsImage: body).resizable().scaledToFit()
+            eye(idle, on: !smiling, scale: smiling ? 0.06 : blink, at: UnitPoint(x: 0.5027, y: 0.5144), glance,
+                smiling ? .easeIn(duration: 0.11) : .easeOut(duration: 0.16).delay(0.10),
+                smiling ? .linear(duration: 0.03).delay(0.08) : .linear(duration: 0.03).delay(0.10))
+            eye(smile, on: smiling, scale: smiling ? 1 : 0.08, at: UnitPoint(x: 0.5004, y: 0.5097), glance,
+                smiling ? .spring(response: 0.30, dampingFraction: 0.68).delay(0.11) : .easeIn(duration: 0.10),
+                smiling ? .linear(duration: 0.03).delay(0.11) : .linear(duration: 0.03).delay(0.07))
+        }
+    }
+
+    private func eye(_ image: NSImage, on: Bool, scale: CGFloat, at a: UnitPoint, _ glance: CGFloat, _ scaleAnim: Animation, _ fadeAnim: Animation) -> some View {
+        Image(nsImage: image).resizable().scaledToFit()
+            .rotationEffect(.degrees(-17), anchor: a).scaleEffect(x: 1, y: reduceMotion ? 1 : scale, anchor: a).rotationEffect(.degrees(17), anchor: a)
+            .animation(reduceMotion ? nil : scaleAnim, value: smiling)      // 안쪽 animation 이 크기에, 바깥 것이 투명도에 쓰인다
+            .offset(x: glance)
+            .opacity(on ? 1 : 0)
+            .animation(reduceMotion ? nil : fadeAnim, value: smiling)
+    }
+
+    /// 칸(slot 초)마다 한 번, 칸 안의 정해진 시각에 length 초 동안: 진행도 p(0~1)와 해시 h(0~1). 그 밖이면 nil
+    private static func once(at t: TimeInterval, slot: Double, length: Double, salt: Double) -> (p: Double, h: Double)? {
+        let hash = abs(sin((floor(t / slot) + salt) * 12.9898) * 43758.5453), h = hash - floor(hash)
+        let since = t.truncatingRemainder(dividingBy: slot) - h * (slot - length)
+        return since >= 0 && since < length ? (since / length, h) : nil
+    }
+
+    /// 눈이 뜬 정도(1 뜸, minimum 감음). 3.7초 칸마다 칸 안의 정해진 시각에 0.18초 깜빡인다
+    private static func openness(at t: TimeInterval, floor minimum: CGFloat = 0.1) -> CGFloat {
         let slot = 3.7, length = 0.18
         let hash = abs(sin(floor(t / slot) * 12.9898) * 43758.5453)
         let since = t.truncatingRemainder(dividingBy: slot) - (hash - floor(hash)) * (slot - length)
         guard since >= 0, since < length else { return 1 }
-        return max(0.1, abs(since / (length / 2) - 1))
+        return max(minimum, abs(since / (length / 2) - 1))
     }
 
     private func eyes(offset: CGSize, openness: CGFloat = 1) -> some View {

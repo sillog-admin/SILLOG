@@ -59,9 +59,9 @@ private struct MenuBarHeader: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            if let icon = Brand.iconMatte {
-                Image(nsImage: icon).resizable().scaledToFit().frame(width: 24, height: 24).accessibilityHidden(true)
-            }
+            // 메뉴 막대 아이콘과 같은 검은 실루엣
+            Image(nsImage: MenuBarLabel.icon(paused: false, recording: false)).renderingMode(.template).resizable().scaledToFit()
+                .frame(width: 24, height: 24).foregroundStyle(.black).accessibilityHidden(true)
             if let mark = Brand.wordmark {
                 Image(nsImage: mark).resizable().scaledToFit().frame(height: 10).accessibilityLabel("SILLOG")
             } else {

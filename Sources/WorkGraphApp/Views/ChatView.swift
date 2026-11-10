@@ -204,8 +204,8 @@ struct ChatView: View {
                 ChatComposer(chat: chat, library: library, modelName: modelName, openSettings: openSettings,
                              pendingRecords: pendingRecords, tidyNow: tidyNow, onOpenConnectors: { state.selectedTab = .connectors },
                              showsNotice: false)
-                    .overlay(alignment: .topTrailing) {             // Figma 1591:18788: 입력칸 오른쪽 위에 올라앉은 심볼
-                        GazingMark(size: 72, smiling: !chat.draft.isEmpty).offset(x: -24, y: -63).allowsHitTesting(false)
+                    .background(alignment: .topTrailing) {             // Figma 1591:18788: 입력칸 오른쪽 위에 올라앉은 심볼
+                        GazingMark(size: 104, smiling: !chat.draft.isEmpty).offset(x: -20, y: -68).allowsHitTesting(false)
                     }
                     .padding(.top, 28)
                 if !results.isEmpty {
