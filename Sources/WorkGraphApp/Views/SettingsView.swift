@@ -398,7 +398,7 @@ private struct ConnectionSection: View {
 
     // MARK: 줄 틀
 
-    /// 키가 큰 줄(알약, 모델 목록, Jev 키): 제목은 왼쪽 위 slot 높이 칸 안에 가운데, 조작 요소는 오른쪽 column 폭 칸 안에 왼쪽 맞춤.
+    /// 키가 큰 줄(알약, 모델 목록, Jev 키): 제목은 왼쪽 위 slot 높이 칸 안에 가운데, 조작 요소는 오른쪽 column 폭 칸 안에 오른쪽 맞춤.
     /// 위 20, 아래 11(구분선 1pt 포함)이 모델 줄, 위 16, 아래 7이 키 줄이다. sub 는 제목 아래 작은 회색 글
     private func tallRow<Content: View>(_ title: String, sub: String? = nil, slot: CGFloat = 28, top: CGFloat = 20, bottom: CGFloat = 11,
                                         column: CGFloat? = 460, @ViewBuilder _ content: () -> Content) -> some View {
@@ -408,7 +408,7 @@ private struct ConnectionSection: View {
                 if let sub { Text(sub).font(Brand.suit(11)).foregroundStyle(Brand.gray).frame(height: 13).offset(y: 1) }
             }
             Spacer(minLength: 16)
-            if let column { content().frame(width: column, alignment: .leading) } else { content() }
+            if let column { content().frame(width: column, alignment: .trailing) } else { content() }
         }
         .padding(.top, top).padding(.bottom, bottom)
         .frame(maxWidth: .infinity)
@@ -522,7 +522,7 @@ private struct ConnectionSection: View {
 
     private var judgeRow: some View {
         tallRow("판단 모델", sub: "활동 기록을 어느 업무에 넣을지 판단해요") {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .trailing, spacing: 8) {
                 HStack(spacing: 6) {
                     SettingPill(on: judge == "gpt", action: { judge = "gpt" }) { Text("GPT") }
                     SettingPill(on: judge != "gpt", action: { if judge == "gpt" { judge = "jev" } }) { jevLabel("Jev") }
@@ -605,7 +605,7 @@ private struct ConnectionSection: View {
     /// 채팅 모델: 정리 모델과 같이(기본) 또는 따로 고르기. 따로 고르면 알약 아래에 같은 연결 방식의 모델 목록이 펼쳐진다
     private var chatRow: some View {
         tallRow("채팅 모델", sub: "채팅에서 질문을 읽고 답변을 작성해요") {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .trailing, spacing: 8) {
                 HStack(spacing: 6) {
                     SettingPill(on: chatSame, action: { chatSame = true }) { Text("정리 모델과 같이") }
                     SettingPill(on: !chatSame, action: { chatSame = false }) { Text("따로 고르기") }
