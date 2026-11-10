@@ -1,0 +1,299 @@
+{
+  "persona": "태호 — 석사 2년차. 그래프 신경망 논문을 쓰고(LaTeX, 실험 코드), 지도교수 미팅을 준비하고, 조교로 과목 채점을 한다. 게임과 커뮤니티로 샌다.",
+  "open_tasks": [
+    {
+      "id": "t_paper",
+      "title": "GNN 링크 예측 논문 작성",
+      "type": "문서작성",
+      "topics": [
+        "그래프 신경망",
+        "링크 예측"
+      ],
+      "recent": [
+        "실험 섹션 표를 채우고 관련 연구를 보강했다"
+      ],
+      "resources": [
+        "main.tex",
+        "train.py"
+      ]
+    },
+    {
+      "id": "t_ta",
+      "title": "데이터베이스 과목 조교 채점",
+      "type": "기타",
+      "topics": [
+        "채점"
+      ],
+      "recent": [
+        "과제 2 SQL 답안 30개를 채점했다"
+      ],
+      "resources": [
+        "hw2_grades.xlsx"
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "min": 0,
+      "dur": 12,
+      "app": "Code",
+      "bundle": "com.microsoft.VSCode",
+      "title": "main.tex — gnn-paper",
+      "uri": "file:~/research/gnn-paper/main.tex",
+      "type": "CodeFile",
+      "project": "file:~/research/gnn-paper",
+      "text": "\\section{Experiments} We evaluate on Cora, Citeseer and PubMed ... AUC",
+      "expect": {
+        "task": "t_paper",
+        "resource": true
+      },
+      "why": "논문 본문 편집"
+    },
+    {
+      "min": 12,
+      "dur": 5,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Graph Attention Networks - arXiv",
+      "uri": "https://arxiv.org/abs/1710.10903",
+      "type": "Paper",
+      "text": "We present graph attention networks (GATs) ... attention coefficients",
+      "expect": {
+        "task": "t_paper",
+        "resource": true
+      },
+      "why": "관련 연구 논문 읽기"
+    },
+    {
+      "min": 17,
+      "dur": 8,
+      "app": "Code",
+      "bundle": "com.microsoft.VSCode",
+      "title": "train.py — gnn-paper",
+      "uri": "file:~/research/gnn-paper/train.py",
+      "type": "CodeFile",
+      "project": "file:~/research/gnn-paper",
+      "text": "for epoch in range(200): loss = model(data) ... RuntimeError: CUDA out of memory",
+      "expect": {
+        "task": "t_paper",
+        "resource": true
+      },
+      "why": "실험 코드 (에러 발생)"
+    },
+    {
+      "min": 25,
+      "dur": 4,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "CUDA out of memory 해결 - PyTorch Forums",
+      "uri": "https://discuss.pytorch.org/t/cuda-out-of-memory/12345",
+      "type": "QnA",
+      "text": "batch size 를 줄이거나 torch.cuda.empty_cache() 를 호출하세요",
+      "expect": {
+        "task": "t_paper",
+        "resource": true
+      },
+      "why": "에러 해결 Q&A"
+    },
+    {
+      "min": 29,
+      "dur": 6,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "디시인사이드 대학원 갤러리",
+      "uri": "https://gall.dcinside.com/gradschool",
+      "type": "WebPage",
+      "text": "교수님이 또 미팅 미루심 ㅋㅋ 다들 논문 몇 편",
+      "expect": {
+        "task": "off",
+        "resource": false
+      },
+      "why": "커뮤니티 눈팅"
+    },
+    {
+      "min": 35,
+      "dur": 10,
+      "app": "Microsoft Excel",
+      "bundle": "com.microsoft.Excel",
+      "title": "hw3_grades.xlsx",
+      "uri": "file:~/ta/db2026/hw3_grades.xlsx",
+      "type": "Document",
+      "text": "학번 이름 문제1 문제2 총점 20210001 8 7 15",
+      "expect": {
+        "task": "t_ta",
+        "resource": true
+      },
+      "why": "조교 채점표"
+    },
+    {
+      "min": 45,
+      "dur": 4,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "hw3 제출물 목록 - LMS",
+      "uri": "https://lms.example.com/course/db2026/assign/3/submissions",
+      "type": "WebPage",
+      "text": "제출 42건 미제출 3건",
+      "expect": {
+        "task": "t_ta",
+        "resource": "any"
+      },
+      "why": "채점 대상 제출물 목록"
+    },
+    {
+      "min": 49,
+      "dur": 7,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "리그 오브 레전드 - 패치 노트 14.19",
+      "uri": "https://www.leagueoflegends.com/ko-kr/news/game-updates/patch-14-19-notes/",
+      "type": "WebPage",
+      "text": "챔피언 밸런스 조정 아이템 변경",
+      "expect": {
+        "task": "off",
+        "resource": false
+      },
+      "why": "게임"
+    },
+    {
+      "min": 56,
+      "dur": 5,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Google 학술 검색: link prediction graph neural network",
+      "uri": "https://scholar.google.com/scholar?q=link+prediction+gnn",
+      "type": "WebPage",
+      "text": "link prediction graph neural network 검색 결과 SEAL GraphSAGE",
+      "expect": {
+        "task": "t_paper",
+        "resource": false
+      },
+      "why": "논문용 학술 검색이지만 결과 페이지는 자료 아님"
+    },
+    {
+      "min": 61,
+      "dur": 6,
+      "app": "미리보기",
+      "bundle": "com.apple.Preview",
+      "title": "SEAL_link_prediction.pdf",
+      "uri": "file:~/research/papers/SEAL_link_prediction.pdf",
+      "type": "Document",
+      "text": "Link Prediction Based on Graph Neural Networks — enclosing subgraph",
+      "expect": {
+        "task": "t_paper",
+        "resource": true
+      },
+      "why": "읽은 논문 PDF"
+    },
+    {
+      "min": 67,
+      "dur": 1,
+      "app": "loginwindow",
+      "bundle": "com.apple.loginwindow",
+      "title": null,
+      "uri": null,
+      "type": null,
+      "text": null,
+      "expect": {
+        "task": null,
+        "resource": false
+      },
+      "why": "잠금 화면"
+    },
+    {
+      "min": 68,
+      "dur": 5,
+      "app": "Slack",
+      "bundle": "com.tinyspeck.slackmacgap",
+      "title": "지도교수 - DM",
+      "uri": null,
+      "type": "Message",
+      "text": "교수: 목요일 미팅 때 실험 결과 표 가져오게 / 태호: 네 준비하겠습니다",
+      "expect": {
+        "task": [
+          "new:미팅",
+          "t_paper"
+        ],
+        "resource": false
+      },
+      "why": "지도교수 미팅 준비: 새 목표로 봐도, 논문 업무의 일부로 봐도 맞음"
+    },
+    {
+      "min": 73,
+      "dur": 8,
+      "app": "Code",
+      "bundle": "com.microsoft.VSCode",
+      "title": "hw3_grades.xlsx — ta",
+      "uri": "file:~/ta/db2026/hw3_grades.xlsx",
+      "type": "Document",
+      "project": null,
+      "text": "Claude Code: Cora 실험 로그를 표로 정리했습니다. main.tex 의 Table 2 에 붙여 넣으세요",
+      "expect": {
+        "task": "t_paper",
+        "resource": false
+      },
+      "why": "편집기 앞 파일은 채점표지만 화면 텍스트는 논문 실험 정리 (탭만 보임)"
+    },
+    {
+      "min": 81,
+      "dur": 4,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Overleaf 요금제",
+      "uri": "https://www.overleaf.com/user/subscription/plans",
+      "type": "WebPage",
+      "text": "Standard 협업자 10명 월 $21",
+      "expect": {
+        "task": "t_paper",
+        "resource": false
+      },
+      "why": "논문 도구의 요금 페이지: 논문 행이지만 자료는 아님"
+    },
+    {
+      "min": 85,
+      "dur": 5,
+      "app": "카카오톡",
+      "bundle": "com.kakao.KakaoTalkMac",
+      "title": "카카오톡",
+      "uri": null,
+      "type": "Message",
+      "text": "야 이번 주말 롤 한판?",
+      "expect": {
+        "task": "off",
+        "resource": false
+      },
+      "why": "개인 잡담"
+    },
+    {
+      "min": 90,
+      "dur": 3,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "로그인 - LMS",
+      "uri": "https://lms.example.com/login",
+      "type": "WebPage",
+      "text": "아이디 비밀번호",
+      "expect": {
+        "task": null,
+        "resource": false
+      },
+      "why": "로그인 페이지"
+    },
+    {
+      "min": 93,
+      "dur": 9,
+      "app": "Code",
+      "bundle": "com.microsoft.VSCode",
+      "title": "main.tex — gnn-paper",
+      "uri": "file:~/research/gnn-paper/main.tex",
+      "type": "CodeFile",
+      "project": "file:~/research/gnn-paper",
+      "text": "\\begin{table} Cora AUC 0.93 Citeseer 0.91",
+      "expect": {
+        "task": "t_paper",
+        "resource": true
+      },
+      "why": "논문 표 작성"
+    }
+  ]
+}

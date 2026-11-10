@@ -1,0 +1,10 @@
+description: Sillog 기본 스킬의 이전·변경 지침 비교
+prompts:
+  - file://prompts.py:before
+  - file://prompts.py:after
+providers:
+  - file://provider.py
+defaultTest:
+  options:
+    provider: file://provider.py
+tests: file://cases.yaml

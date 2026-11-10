@@ -1,0 +1,355 @@
+{
+  "persona": "지수 — 스타트업 마케터. 분기 성과 보고서를 쓰고, 신제품 런칭 캠페인을 준비하고, 팀 Slack 을 챙긴다. 뉴스와 쇼핑으로 샌다.",
+  "open_tasks": [
+    {
+      "id": "t_report",
+      "title": "3분기 마케팅 성과 보고서 작성",
+      "type": "문서작성",
+      "topics": [
+        "성과 지표",
+        "전환율"
+      ],
+      "recent": [
+        "채널별 전환율 표를 만들고 요약을 썼다"
+      ],
+      "resources": [
+        "Q3_report.docx",
+        "channel_metrics.xlsx"
+      ]
+    },
+    {
+      "id": "t_launch",
+      "title": "신제품 런칭 캠페인 기획",
+      "type": "기획",
+      "topics": [
+        "캠페인",
+        "인플루언서"
+      ],
+      "recent": [
+        "인플루언서 후보 목록을 정리했다"
+      ],
+      "resources": [
+        "launch_plan.pptx"
+      ]
+    },
+    {
+      "id": "t_hire",
+      "title": "콘텐츠 마케터 채용",
+      "type": "기타",
+      "topics": [
+        "채용"
+      ],
+      "recent": [
+        "지원자 두 명의 포트폴리오를 봤다"
+      ],
+      "resources": [
+        "원티드 공고"
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "min": 0,
+      "dur": 10,
+      "app": "Microsoft Word",
+      "bundle": "com.microsoft.Word",
+      "title": "Q3_report.docx",
+      "uri": "file:~/Documents/marketing/Q3_report.docx",
+      "type": "Document",
+      "text": "3. 채널별 성과 — 검색 광고 전환율 2.1% 로 전분기 대비 0.4%p 상승",
+      "expect": {
+        "task": "t_report",
+        "resource": true
+      },
+      "why": "보고서 본문 작성"
+    },
+    {
+      "min": 10,
+      "dur": 6,
+      "app": "Microsoft Excel",
+      "bundle": "com.microsoft.Excel",
+      "title": "channel_metrics.xlsx",
+      "uri": "file:~/Documents/marketing/channel_metrics.xlsx",
+      "type": "Document",
+      "text": "채널 노출 클릭 전환 CPA 검색 12000 840 18",
+      "expect": {
+        "task": "t_report",
+        "resource": true
+      },
+      "why": "보고서의 근거 데이터"
+    },
+    {
+      "min": 16,
+      "dur": 3,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "전환율 계산 방법 - Google 검색",
+      "uri": "https://google.com/search?q=전환율+계산",
+      "type": "WebPage",
+      "text": "전환율 계산 검색 결과",
+      "expect": {
+        "task": "t_report",
+        "resource": false
+      },
+      "why": "보고서용 검색이지만 결과 페이지는 자료 아님"
+    },
+    {
+      "min": 19,
+      "dur": 4,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "GA4 전환 이벤트 설정 가이드 - Google 애널리틱스 고객센터",
+      "uri": "https://support.google.com/analytics/answer/9267568",
+      "type": "Documentation",
+      "text": "전환 이벤트로 표시하면 전환수 보고서에 집계됩니다",
+      "expect": {
+        "task": "t_report",
+        "resource": true
+      },
+      "why": "읽은 가이드 문서"
+    },
+    {
+      "min": 23,
+      "dur": 5,
+      "app": "Slack",
+      "bundle": "com.tinyspeck.slackmacgap",
+      "title": "#marketing - 우리회사",
+      "uri": null,
+      "type": "Message",
+      "text": "대표님: 보고서 금요일까지 부탁해요 / 지수: 넵",
+      "expect": {
+        "task": "t_report",
+        "resource": false
+      },
+      "why": "보고서 관련 팀 대화"
+    },
+    {
+      "min": 28,
+      "dur": 8,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "연합뉴스 - 오늘의 주요 뉴스",
+      "uri": "https://www.yna.co.kr/",
+      "type": "WebPage",
+      "text": "속보 정치 경제 사회 스포츠 날씨",
+      "expect": {
+        "task": "off",
+        "resource": false
+      },
+      "why": "업무와 무관한 뉴스"
+    },
+    {
+      "min": 36,
+      "dur": 7,
+      "app": "Keynote",
+      "bundle": "com.apple.iWork.Keynote",
+      "title": "launch_plan.key",
+      "uri": "file:~/Documents/marketing/launch_plan.key",
+      "type": "Design",
+      "text": "런칭 캠페인 타임라인 티저 D-14 인플루언서 시딩 D-7",
+      "expect": {
+        "task": "t_launch",
+        "resource": true
+      },
+      "why": "캠페인 기획서 편집"
+    },
+    {
+      "min": 43,
+      "dur": 5,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "@beauty_hana • Instagram",
+      "uri": "https://www.instagram.com/beauty_hana/",
+      "type": "WebPage",
+      "text": "팔로워 12.4만 뷰티 리뷰 협찬 문의 DM",
+      "expect": {
+        "task": "t_launch",
+        "resource": "any"
+      },
+      "why": "인스타그램이지만 캠페인 인플루언서 후보 검토"
+    },
+    {
+      "min": 48,
+      "dur": 6,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Instagram",
+      "uri": "https://www.instagram.com/",
+      "type": "WebPage",
+      "text": "릴스 홈 피드 추천 좋아요",
+      "expect": {
+        "task": "off",
+        "resource": false
+      },
+      "why": "같은 인스타그램이라도 내 피드 구경은 이탈"
+    },
+    {
+      "min": 54,
+      "dur": 4,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "콘텐츠 마케터 채용 | 원티드",
+      "uri": "https://www.wanted.co.kr/wd/123456",
+      "type": "WebPage",
+      "text": "콘텐츠 마케터 지원자 14명 서류 검토",
+      "expect": {
+        "task": "t_hire",
+        "resource": "any"
+      },
+      "why": "채용 공고 페이지"
+    },
+    {
+      "min": 58,
+      "dur": 6,
+      "app": "미리보기",
+      "bundle": "com.apple.Preview",
+      "title": "김하늘_포트폴리오.pdf",
+      "uri": "file:~/Downloads/김하늘_포트폴리오.pdf",
+      "type": "Document",
+      "text": "콘텐츠 마케터 김하늘 SNS 운영 성과 팔로워 3배 성장",
+      "expect": {
+        "task": "t_hire",
+        "resource": true
+      },
+      "why": "지원자 포트폴리오"
+    },
+    {
+      "min": 64,
+      "dur": 5,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "무신사 스토어 - 가을 아우터",
+      "uri": "https://www.musinsa.com/category/outer",
+      "type": "WebPage",
+      "text": "가을 아우터 세일 49,000원",
+      "expect": {
+        "task": "off",
+        "resource": false
+      },
+      "why": "쇼핑"
+    },
+    {
+      "min": 69,
+      "dur": 1,
+      "app": "loginwindow",
+      "bundle": "com.apple.loginwindow",
+      "title": null,
+      "uri": null,
+      "type": null,
+      "text": null,
+      "expect": {
+        "task": null,
+        "resource": false
+      },
+      "why": "잠금 화면"
+    },
+    {
+      "min": 70,
+      "dur": 9,
+      "app": "Microsoft Word",
+      "bundle": "com.microsoft.Word",
+      "title": "Q3_report.docx",
+      "uri": "file:~/Documents/marketing/Q3_report.docx",
+      "type": "Document",
+      "text": "4. 다음 분기 계획 — 신제품 런칭 캠페인에 예산 30% 배정",
+      "expect": {
+        "task": "t_report",
+        "resource": true
+      },
+      "why": "보고서 이어서 작성 (캠페인 언급이 있어도 보고서 행)"
+    },
+    {
+      "min": 79,
+      "dur": 3,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "Google Workspace 관리 콘솔 - 결제",
+      "uri": "https://admin.google.com/billing",
+      "type": "WebPage",
+      "text": "Business Standard 12명 월 결제",
+      "expect": {
+        "task": [
+          "off",
+          null
+        ],
+        "resource": false
+      },
+      "why": "어떤 목표와도 무관한 관리 페이지: 이탈이든 없음이든 업무에만 안 붙으면 됨"
+    },
+    {
+      "min": 82,
+      "dur": 4,
+      "app": "Slack",
+      "bundle": "com.tinyspeck.slackmacgap",
+      "title": "#random - 우리회사",
+      "uri": null,
+      "type": "Message",
+      "text": "점심 뭐 먹지 마라탕 ㄱㄱ",
+      "expect": {
+        "task": "off",
+        "resource": false
+      },
+      "why": "잡담 채널"
+    },
+    {
+      "min": 86,
+      "dur": 5,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "2026 인플루언서 마케팅 트렌드 리포트 - 오픈서베이",
+      "uri": "https://blog.opensurvey.co.kr/trendreport/influencer-2026/",
+      "type": "WebPage",
+      "text": "마이크로 인플루언서 전환율이 메가 인플루언서보다 2.3배",
+      "expect": {
+        "task": "t_launch",
+        "resource": true
+      },
+      "why": "캠페인 기획에 읽은 리포트"
+    },
+    {
+      "min": 91,
+      "dur": 2,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "새 탭",
+      "uri": null,
+      "type": null,
+      "text": null,
+      "expect": {
+        "task": null,
+        "resource": false
+      },
+      "why": "빈 탭"
+    },
+    {
+      "min": 93,
+      "dur": 6,
+      "app": "Google Chrome",
+      "bundle": "com.google.Chrome",
+      "title": "YouTube",
+      "uri": "https://www.youtube.com/watch?v=lol999",
+      "type": "Video",
+      "text": "고양이가 상자에 들어가는 영상 모음",
+      "expect": {
+        "task": "off",
+        "resource": false
+      },
+      "why": "오락 영상"
+    },
+    {
+      "min": 99,
+      "dur": 4,
+      "app": "Notion",
+      "bundle": "notion.id",
+      "title": "채용 후보 정리 - Notion",
+      "uri": "notion:page/hiring-2026",
+      "type": "Note",
+      "text": "김하늘 ○ 포트폴리오 우수 / 박준호 △ 경력 짧음",
+      "expect": {
+        "task": "t_hire",
+        "resource": true
+      },
+      "why": "채용 메모"
+    }
+  ]
+}

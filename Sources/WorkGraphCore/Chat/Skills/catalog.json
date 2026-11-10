@@ -1,0 +1,8 @@
+[
+  {"id":"writing","title":"문서 작성","icon":"doc.text","summary":"보고서·제안서·포트폴리오","instructionFile":"writing.md"},
+  {"id":"research","title":"리서치","icon":"magnifyingglass","summary":"자료 조사·비교·근거 정리","instructionFile":"research.md"},
+  {"id":"planning","title":"기획·계획","icon":"list.bullet.clipboard","summary":"요구사항·우선순위·실행 계획","instructionFile":"planning.md"},
+  {"id":"learning","title":"학습","icon":"graduationcap","summary":"개념 이해·연습·피드백","instructionFile":"learning.md"},
+  {"id":"content","title":"콘텐츠 제작","icon":"rectangle.and.pencil.and.ellipsis","summary":"블로그·발표·소개 페이지","instructionFile":"content.md"},
+  {"id":"automation","title":"작업 자동화","icon":"clock.arrow.circlepath","summary":"반복 조사·보고서 예약","instructionFile":"automation.md"}
+]

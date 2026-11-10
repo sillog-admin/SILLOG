@@ -1,0 +1,65 @@
+/* 캘린더 화면: 앱과 같은 SUIT 글꼴과 색 (BrandStyle.swift) */
+@font-face { font-family: "SUIT"; src: url("../Brand/Fonts/SUIT-Regular.otf"); font-weight: 400; }
+@font-face { font-family: "SUIT"; src: url("../Brand/Fonts/SUIT-Medium.otf"); font-weight: 500; }
+@font-face { font-family: "SUIT"; src: url("../Brand/Fonts/SUIT-SemiBold.otf"); font-weight: 600; }
+@font-face { font-family: "SUIT"; src: url("../Brand/Fonts/SUIT-Bold.otf"); font-weight: 700; }
+
+:root {
+  --ink: #24150F;
+  --text: #141210;
+  --gray: #736D68;
+  --line: #E5E2DF;
+  --paper: #F6F5F4;
+  --accent: #8A7566;
+  --fc-border-color: var(--line);
+  --fc-page-bg-color: #fff;
+  --fc-neutral-bg-color: var(--paper);
+  --fc-today-bg-color: rgba(180, 208, 228, 0.16);
+  --fc-now-indicator-color: #C0573F;
+  --fc-button-text-color: var(--text);
+  --fc-button-bg-color: #fff;
+  --fc-button-border-color: var(--line);
+  --fc-button-hover-bg-color: var(--paper);
+  --fc-button-hover-border-color: var(--line);
+  --fc-button-active-bg-color: var(--ink);
+  --fc-button-active-border-color: var(--ink);
+  --fc-event-bg-color: var(--accent);
+  --fc-event-border-color: var(--accent);
+}
+
+html, body { margin: 0; height: 100%; background: #fff; color: var(--text); font-family: "SUIT", -apple-system, sans-serif; -webkit-user-select: none; cursor: default; }
+#calendar { height: 100%; padding: 14px 20px 12px; box-sizing: border-box; }
+
+.fc .fc-toolbar.fc-header-toolbar { margin-bottom: 12px; }
+.fc .fc-toolbar-chunk { display: flex; align-items: center; gap: 8px; }   /* 제목이 단추 아래로 내려가지 않게 한 줄로 */
+.fc .fc-toolbar-chunk > .fc-button-group, .fc .fc-toolbar-chunk > .fc-button { margin-left: 0 !important; }
+.fc .fc-toolbar-title { font-size: 17px; font-weight: 700; color: var(--text); margin-left: 6px; }
+.fc .fc-button { font-family: inherit; font-size: 12px; font-weight: 500; padding: 5px 12px; box-shadow: none !important; }
+.fc .fc-button-primary:not(:disabled).fc-button-active, .fc .fc-button-primary:not(:disabled):active { color: #fff; }
+.fc .fc-button .fc-icon { font-size: 1.1em; }
+.fc .fc-col-header-cell-cushion, .fc .fc-daygrid-day-number { color: var(--text); font-weight: 500; text-decoration: none; font-size: 12px; }
+.fc .fc-timegrid-slot-label-cushion, .fc .fc-timegrid-axis-cushion { color: var(--gray); font-size: 11px; }
+.fc .fc-day-today .fc-daygrid-day-number { color: #fff; background: var(--ink); border-radius: 999px; min-width: 22px; text-align: center; }
+.fc-theme-standard .fc-scrollgrid { border-radius: 8px; overflow: hidden; }
+.fc .fc-more-link { color: var(--gray); font-size: 11px; }
+
+/* 캘린더 일정: 옅은 바탕에 왼쪽 색 줄 (캘린더 색이 밝아도 글씨가 읽히게) */
+.fc .fc-event.sillog-event { background: color-mix(in srgb, var(--ev, #8A7566) 16%, #fff); border: none; border-left: 3px solid var(--ev, #8A7566); border-radius: 4px; }
+.fc .fc-event.sillog-event .fc-event-main, .fc .fc-event.sillog-event .fc-event-title, .fc .fc-event.sillog-event .fc-event-time { color: var(--text); }
+/* 아직 등록 안 한 제안: 점선 */
+.fc .fc-event.sillog-suggestion { background: #fff; border: 1.5px dashed var(--accent); border-radius: 4px; }
+.fc .fc-event.sillog-suggestion .fc-event-main, .fc .fc-event.sillog-suggestion .fc-event-title, .fc .fc-event.sillog-suggestion .fc-event-time { color: var(--accent); }
+.fc .fc-event { cursor: pointer; font-size: 11.5px; }
+.fc .fc-event .fc-event-main { padding: 1px 4px; }
+
+/* 일정을 누르면 뜨는 상자 */
+#detail { position: fixed; z-index: 10; width: 280px; box-sizing: border-box; background: #fff; border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(36, 21, 15, 0.14); padding: 14px 16px; font-size: 12.5px; }
+#detail h3 { margin: 0 0 4px; font-size: 14px; font-weight: 700; line-height: 1.35; word-break: keep-all; }
+#detail .when, #detail .meta { color: var(--gray); margin-top: 3px; line-height: 1.4; }
+#detail .meta .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+#detail .quote { margin-top: 8px; padding: 7px 9px; background: var(--paper); border-radius: 6px; line-height: 1.45; white-space: pre-wrap; max-height: 120px; overflow: auto; -webkit-user-select: text; }
+#detail .actions { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+#detail button { font: inherit; font-weight: 500; border-radius: 999px; padding: 5px 14px; border: 1px solid var(--line); background: #fff; color: var(--text); cursor: pointer; }
+#detail button:hover { background: var(--paper); }
+#detail button.primary { background: var(--text); color: #fff; border-color: var(--text); }
