@@ -251,3 +251,14 @@ final class RetentionPolicyTests: XCTestCase {
         XCTAssertEqual(loaded.preset, .keepRaw)
     }
 }
+
+final class TextIndexTests: XCTestCase {
+    func testOrphanTextCleanupUsesTheTextIndex() throws {
+        let db = try SillogDatabase.inMemory()
+        let plan = try db.writer.read {
+            try Row.fetchAll($0, sql: "EXPLAIN QUERY PLAN SELECT 1 FROM text_snapshots WHERE NOT EXISTS (SELECT 1 FROM observations WHERE text_id = text_snapshots.id)")
+                .map { $0["detail"] as String }
+        }
+        XCTAssertTrue(plan.contains { $0.contains("idx_observations_text") }, plan.joined(separator: "\n"))
+    }
+}

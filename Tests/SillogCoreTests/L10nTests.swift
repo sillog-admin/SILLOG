@@ -24,7 +24,7 @@ final class L10nTests: XCTestCase {
     func testEveryTranslationKeepsItsPlaceholders() {
         XCTAssertFalse(L10n.english.isEmpty, "en.json must load from the Core bundle")
         for (ko, en) in L10n.english {
-            let plain = { (s: String) in s.components(separatedBy: "%@").count - 1 + s.matches(of: /%\d+\$@/).count }
+            let plain = { (s: String) in s.components(separatedBy: "%@").count + s.components(separatedBy: "$@").count - 2 }
             XCTAssertEqual(plain(ko), plain(en), "placeholders differ: \(ko) → \(en)")
         }
     }

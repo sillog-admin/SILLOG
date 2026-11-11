@@ -362,6 +362,10 @@ public final class SillogDatabase: @unchecked Sendable {
         EventSuggestionStore.migrate(&migrator)
         ReviewStore.migrate(&migrator)
         ChatStore.migrateSkills(&migrator)
+        migrator.registerMigration("v22-text-index") { db in
+            // Orphan-text cleanup checks every deleted snapshot against observations; without this it scans the table each time.
+            try db.execute(sql: "CREATE INDEX idx_observations_text ON observations(text_id)")
+        }
         return migrator
     }
 }
