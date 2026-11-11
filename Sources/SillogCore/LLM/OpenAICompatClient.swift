@@ -72,7 +72,7 @@ public final class OpenAICompatClient: LLMClient, @unchecked Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let apiKey, !apiKey.isEmpty { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
         let body = RequestBody(model: model,
-                               messages: [.init(role: "system", content: system), .init(role: "user", content: user)],
+                               messages: [.init(role: "system", content: PIIMasker.mask(system)), .init(role: "user", content: PIIMasker.mask(user))],
                                tools: [.init(function: .init(name: tool.name, description: tool.description, parameters: tool.parameters))],
                                tool_choice: forceTool ? "required" : nil)
         request.httpBody = try JSONEncoder().encode(body)

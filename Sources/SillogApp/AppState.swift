@@ -8,7 +8,11 @@ import SillogCore
 @MainActor
 final class AppState: ObservableObject {
     @Published var settings: AppSettings {
-        didSet { if !isPreview, settings.language != L10n.current { L10n.current = settings.language } }
+        didSet {
+            guard !isPreview else { return }
+            if settings.language != L10n.current { L10n.current = settings.language }
+            PIIMasker.enabled = settings.maskPII
+        }
     }
     @Published var status = CollectorStatus()
     @Published var todayCount = 0
@@ -139,6 +143,7 @@ final class AppState: ObservableObject {
     init() {
         settings = AppSettings.load()
         L10n.current = settings.language
+        PIIMasker.enabled = settings.maskPII
         guard instanceLock.acquire() else {
             startupError = Self.alreadyRunningMessage
             AppLog.write("이미 실행 중인 Sillog 이 있어 시작하지 않음 (터미널에서 swift run 으로 띄운 실행도 확인)")
