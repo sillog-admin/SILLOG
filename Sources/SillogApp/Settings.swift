@@ -92,7 +92,9 @@ struct AppSettings: Codable, Equatable {
         readChatLogs = try c.decodeIfPresent(Bool.self, forKey: .readChatLogs) ?? d.readChatLogs
         retentionDays = try c.decodeIfPresent(Int.self, forKey: .retentionDays) ?? d.retentionDays
         showDockIcon = try c.decodeIfPresent(Bool.self, forKey: .showDockIcon) ?? d.showDockIcon
-        excludedBundles = try c.decodeIfPresent([String].self, forKey: .excludedBundles) ?? d.excludedBundles
+        // Older saves list system windows that are now always excluded.
+        excludedBundles = (try c.decodeIfPresent([String].self, forKey: .excludedBundles) ?? d.excludedBundles)
+            .filter { !PrivacyFilter.alwaysExcludedBundles.contains($0) }
         suggestFolders = try c.decodeIfPresent(Bool.self, forKey: .suggestFolders) ?? d.suggestFolders
         screenCards = try c.decodeIfPresent(Bool.self, forKey: .screenCards) ?? d.screenCards
         folderRoots = try c.decodeIfPresent([String].self, forKey: .folderRoots) ?? d.folderRoots
@@ -105,6 +107,13 @@ struct AppSettings: Codable, Equatable {
         ("settings.llm", \.llmAPIKey), ("settings.chat", \.chatAPIKey), ("settings.judge", \.judgeAPIKey),
         ("settings.jev", \.jevAPIKey), ("settings.decisions", \.decisionsAPIKey),
     ]
+
+    /// The Dock setting alone, read without the Keychain: launch needs it before AppState loads the full settings,
+    /// and a second full load asked for Keychain access twice.
+    static var savedShowDockIcon: Bool {
+        let saved = UserDefaults.standard.data(forKey: key).flatMap { try? JSONDecoder().decode(AppSettings.self, from: $0) }
+        return (saved ?? AppSettings()).showDockIcon
+    }
 
     static func load() -> AppSettings {
         guard let data = UserDefaults.standard.data(forKey: key),
@@ -149,6 +158,15 @@ struct AppSettings: Codable, Equatable {
     var chatEndpoint: (url: String, model: String, key: String) {
         if chatSameAsOrganize { return llmEndpoint }
         return (chatBaseURL, chatModel, chatAPIKey)
+    }
+    /// Chat picks its own connection and model now; a save that followed organize starts from the same values.
+    mutating func splitChatFromOrganize() {
+        if chatSameAsOrganize {
+            chatProvider = llmProvider; chatCodexModel = codexModel; chatModel = llmModel
+            chatSameAsOrganize = false
+        }
+        // Organize and chat share one API server.
+        chatBaseURL = llmBaseURL; chatAPIKey = llmAPIKey
     }
     var effectiveChatCodexModel: String { chatSameAsOrganize ? codexModel : chatCodexModel }
     var chatModelName: String { chatUsesAPI ? chatEndpoint.model : effectiveChatCodexModel }

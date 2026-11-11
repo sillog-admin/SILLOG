@@ -3,7 +3,7 @@ import SillogCore
 import SwiftUI
 import SillogCollectors
 
-/// 기록하지 않을 앱 목록. 제외한 앱은 이름과 시간만 남고 창 제목·주소·텍스트·스크린샷은 기록되지 않는다.
+// Excluded apps keep only their name and time.
 struct ExcludedAppsView: View {
     @EnvironmentObject private var state: AppState
 
@@ -34,12 +34,18 @@ struct ExcludedAppsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            SectionLabel(tr("항상 기록하지 않아요"), top: 16)
+            SettingCard {
+                SettingRow(tr("브라우저의 시크릿·비공개 창"), icon: "eye.slash") { EmptyView() }
+                SettingRow(tr("잠금 화면과 시스템 암호 확인 창"), icon: "lock") { EmptyView() }
+            }
             SectionLabel(tr("기록하지 않을 앱"))
             SettingCard {
                 ForEach(entries) { entry in
                     SettingRow(entry.name, icon: entry.icon == nil ? "app.dashed" : nil, iconImage: entry.icon) {   // 앱 아이콘을 이름 앞에
-                        Button(tr("제거")) { remove(entry.id) }
-                            .buttonStyle(.plain).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                        Button { remove(entry.id) } label: { Image(systemName: "trash").font(.system(size: 12)) }
+                            .buttonStyle(.plain).foregroundStyle(Brand.gray)
+                            .help(tr("제거")).accessibilityLabel(tr("제거"))
                     }
                 }
                 if entries.isEmpty { SettingRow(tr("없음")) { EmptyView() } }
@@ -60,7 +66,6 @@ struct ExcludedAppsView: View {
                 }
                 .frame(height: 44)
             }
-            InfoLine(tr("제외한 앱은 이름과 시간만 남고 창 제목, 주소, 화면 텍스트, 스크린샷은 기록되지 않아요."))
         }
     }
 

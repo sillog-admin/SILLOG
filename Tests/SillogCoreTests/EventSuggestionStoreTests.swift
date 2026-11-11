@@ -5,7 +5,8 @@ final class EventSuggestionStoreTests: XCTestCase {
     func testDuplicateTitleAndDayIsIgnoredAndStatusHidesFromPending() throws {
         let db = try SillogDatabase.inMemory()
         let store = EventSuggestionStore(db)
-        let day = Date().addingTimeInterval(2 * 86400)
+        // Noon, so the +1 hour below stays on the same day whenever the test runs.
+        let day = Calendar.current.startOfDay(for: Date()).addingTimeInterval(2 * 86400 + 12 * 3600)
         let first = try db.writer.write { try EventSuggestionStore.insert($0, title: "중간고사", start: day, end: nil, allDay: true, evidenceId: nil, evidence: "공지", now: 0) }
         let again = try db.writer.write { try EventSuggestionStore.insert($0, title: "중간고사", start: day.addingTimeInterval(3600), end: nil, allDay: false, evidenceId: nil, evidence: "", now: 0) }
         XCTAssertNotNil(first)

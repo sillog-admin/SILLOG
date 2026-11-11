@@ -358,7 +358,7 @@ enum SnapshotCatalog {
     static var storage: [Snapshot] {
         [
             shot("ST-STORAGE", SettingsView(), size: window) { s in storageState(s); s.settingsSection = .general },
-            shot("ST-STORAGE-ADVANCED", ScrollView { StorageSettingsView(advanced: true).padding(.horizontal, 34).padding(.bottom, 40) }.background(.white),
+            shot("ST-STORAGE-ADVANCED", ScrollView { StorageDetailView(advanced: true).padding(.horizontal, 34).padding(.bottom, 40) }.background(.white),
                  size: CGSize(width: 946, height: 1500)) { s in storageState(s) },
             shot("ST-CLEANUP-CONSENT", CleanupPreviewSheet(preview: sampleCleanup)) { s in storageState(s) },
             digestShot("TK-DIGEST"),

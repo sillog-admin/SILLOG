@@ -207,18 +207,19 @@ final class MenuLayoutTests: XCTestCase {
         defer { L10n.current = .ko }
         let general = longText(of: SettingsView(), height: 3200) { s in s.settingsSection = .general }
         XCTAssertTrue(general.contains("Language"), general)
-        XCTAssertFalse(general.contains("앱실행"), general)
+        XCTAssertFalse(general.contains("기록할내용"), general)
     }
 
     func testSettingsHasGeneralAndAIConnectionTabsOnTop() {
         let general = longText(of: SettingsView(), height: 3200) { s in s.settingsSection = .general }   // 한 쪽 전체가 보이게 길게
         XCTAssertTrue(general.hasPrefix("일반"), general)
         XCTAssertTrue(general.contains("연결"), general)                      // 'AI' 를 'Al' 로 읽기도 한다
-        for part in ["권한", "수집", "기록하지않을앱", "앱실행"] {
+        for part in ["기본설정", "권한", "기록할내용", "기록하지않을앱", "업무정리", "저장공간"] {
             XCTAssertTrue(general.contains(part), "일반 한 쪽에 \(part) 가 있어야 한다: \(general)")
         }
         let ai = text(of: SettingsView()) { s in s.settingsSection = .ai }
-        XCTAssertTrue(ai.contains("정리모델과같음") && ai.contains("판단모델") && ai.contains("용도별모델"), ai)
+        XCTAssertTrue(ai.contains("정리모델") && ai.contains("채팅모델") && ai.contains("판단모델"), ai)
+        XCTAssertFalse(ai.contains("정리모델과같음"), "채팅 모델도 연결과 모델을 따로 고른다: \(ai)")
     }
 
     // 파일 구역: 대기 중인 제안 옆에 '옮겨질 곳' 나무 (원래 폴더 → 옮길 폴더 → 파일, 같은 폴더로 가는 파일은 한 가지에)

@@ -150,7 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let event = NSAppleEventManager.shared().currentAppleEvent
         Launch.asLoginItem = event?.eventID == kAEOpenApplication
             && event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
-        NSApp.setActivationPolicy(AppSettings.load().showDockIcon ? .regular : .accessory)
+        NSApp.setActivationPolicy(AppSettings.savedShowDockIcon ? .regular : .accessory)
 
         // SILLOG_REQUEST_PERMISSIONS=1 로 띄우면 실행하자마자 두 권한을 요청해 시스템 설정 목록에 등록시킨다.
         if SillogEnv.value("REQUEST_PERMISSIONS") == "1" {
