@@ -378,8 +378,8 @@ final class ThemeViewTests: XCTestCase {
             return try tx.subgraph(since: nil, includeTBox: false)
         }
         let turtle = RDFExporter.export(graph)
-        XCTAssertTrue(turtle.contains("wg:Theme a rdfs:Class ;\n    rdfs:subClassOf skos:Concept"))
-        XCTAssertTrue(turtle.contains("a wg:Theme, skos:Concept"))
+        XCTAssertTrue(turtle.contains("sl:Theme a rdfs:Class ;\n    rdfs:subClassOf skos:Concept"))
+        XCTAssertTrue(turtle.contains("a sl:Theme, skos:Concept"))
         XCTAssertTrue(turtle.contains("dcterms:isPartOf"))
     }
 }
