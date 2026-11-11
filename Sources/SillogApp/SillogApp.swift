@@ -134,7 +134,7 @@ struct MenuBarLabel: View {
             return true
         }
         image.isTemplate = true
-        image.accessibilityDescription = "SILLOG"
+        image.accessibilityDescription = recording ? tr("녹음 중") : "SILLOG"
         return image
     }
 }
