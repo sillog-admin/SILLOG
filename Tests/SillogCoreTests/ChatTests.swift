@@ -215,7 +215,7 @@ final class ChatTests: XCTestCase {
         let systems = await model.systems
         let main = try XCTUnwrap(systems.first), sub = try XCTUnwrap(systems.first { $0.contains("agent_role: context") })
         XCTAssertTrue(main.hasPrefix("You are the chat assistant inside Sillog"))
-        XCTAssertTrue(main.contains("<skill_instructions>\n## 문서 작성\nUse this for reports"))
+        XCTAssertTrue(main.contains("<skill_instructions>\n## 문서 작성\n# 문서 작성\n\n## 목표"))
         XCTAssertTrue(main.contains("chat_model: scripted\nrun_mode: interactive\nagent_role: main\nraw_records_since: all"))
         XCTAssertFalse(main.contains("{{"))
         XCTAssertFalse(sub.contains("<skill_instructions>\n"))
