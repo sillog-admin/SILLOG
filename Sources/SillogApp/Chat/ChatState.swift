@@ -489,7 +489,7 @@ final class ChatState: ObservableObject {
         for conversation in conversations {
             if Task.isCancelled { return }
             do {
-                guard let first = try store.messages(conversation.id).first, first.role == "user" else { continue }
+                guard let first = try store.firstMessage(conversation.id), first.role == "user" else { continue }
                 let oldTitle = String(first.text.prefix(48))
                 guard conversation.title == oldTitle else { continue }
                 let title = try await makeClient().conversationTitle(for: first.text)

@@ -373,3 +373,20 @@ private actor WebReadModel: ChatModelClient {
         return .init(text: "", calls: [.init(id: "read", name: "web_read", arguments: #"{"url":"\#(url)"}"#)])
     }
 }
+
+final class ChatStartupQueryTests: XCTestCase {
+    func testFirstMessageAndArtifactMessagesReadOnlyWhatTheyNeed() throws {
+        let store = ChatStore(try .inMemory())
+        var conversation = ChatConversation(); conversation.title = "보고서"
+        let question = ConversationMessage(conversationID: conversation.id, role: "user", text: "보고서 써줘")
+        var answer = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "완료")
+        answer.createdAt = question.createdAt + 1
+        answer.artifacts = [ChatArtifact(title: "보고서", format: "markdown", content: "# 결과")]
+        try store.startTurn(conversation: conversation, user: question, answer: answer)
+        var later = ConversationMessage(conversationID: conversation.id, role: "user", text: "고마워")
+        later.createdAt += 10
+        try store.save(later)
+        XCTAssertEqual(try store.firstMessage(conversation.id)?.text, "보고서 써줘")
+        XCTAssertEqual(try store.messagesWithArtifacts().map(\.id), [answer.id])
+    }
+}

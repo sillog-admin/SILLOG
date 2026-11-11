@@ -439,6 +439,21 @@ public struct ChatStore: Sendable {
         }
     }
 
+    public func firstMessage(_ conversationID: String) throws -> ConversationMessage? {
+        try db.writer.read { conn in
+            try String.fetchOne(conn, sql: "SELECT payload FROM app_messages WHERE conversation_id = ? ORDER BY created_at, rowid LIMIT 1", arguments: [conversationID])
+                .map { try JSONDecoder().decode(ConversationMessage.self, from: Data($0.utf8)) }
+        }
+    }
+
+    /// Messages of every conversation that carry artifacts, so the library can collect them without decoding the rest.
+    public func messagesWithArtifacts() throws -> [ConversationMessage] {
+        try db.writer.read { conn in
+            try String.fetchAll(conn, sql: "SELECT payload FROM app_messages WHERE json_array_length(payload, '$.artifacts') > 0 ORDER BY created_at, rowid")
+                .map { try JSONDecoder().decode(ConversationMessage.self, from: Data($0.utf8)) }
+        }
+    }
+
     /// Args: message는 저장할 요청·응답·진행 기록이다.
     /// Returns: 없음. 기존 ID가 있으면 갱신한다.
     /// Raises: 인코딩·DB 오류.

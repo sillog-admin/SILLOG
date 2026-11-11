@@ -30,8 +30,7 @@ final class LibraryState: ObservableObject {
         Task {
             do {
                 try await Task.detached {
-                    let chats = ChatStore(db)
-                    for conversation in try chats.conversations() { try store.collectArtifacts(chats.messages(conversation.id)) }
+                    try store.collectArtifacts(ChatStore(db).messagesWithArtifacts())
                 }.value
                 changed()
             } catch { self.error = tr("기존 결과물 보관 실패: \(error.localizedDescription)") }
