@@ -55,7 +55,9 @@ final class OnboardingOverlayTests: XCTestCase {
         window.contentView?.addSubview(field)
         XCTAssertTrue(window.makeFirstResponder(field))
         state.onboardingStep = .login                                                     // 인증이 끊겨 시트가 뜬 순간
-        settle(window)
+        // The sheet takes focus a few run-loop turns after it appears; a fixed wait was too short on CI runners.
+        let deadline = Date().addingTimeInterval(3)
+        repeat { settle(window) } while window.firstResponder === field && Date() < deadline
         XCTAssertFalse(window.firstResponder === field, "시트가 뜨면 뒤의 입력칸이 타이핑을 받으면 안 된다")
     }
 
