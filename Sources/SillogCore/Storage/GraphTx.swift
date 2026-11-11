@@ -146,6 +146,21 @@ public struct GraphTx {
         return try Row.fetchAll(db, sql: "SELECT * FROM edges WHERE dst = ? ORDER BY id", arguments: [dst]).map(Self.edge)
     }
 
+    /// Ends of every edge of these types, oldest first. For list screens that would otherwise query per node.
+    public func edgeEnds(types: [String]) throws -> [(src: Int64, dst: Int64, type: String)] {
+        let marks = types.map { _ in "?" }.joined(separator: ",")
+        return try Row.fetchAll(db, sql: "SELECT src, dst, type FROM edges WHERE type IN (\(marks)) ORDER BY id", arguments: StatementArguments(types))
+            .map { (src: $0["src"], dst: $0["dst"], type: $0["type"]) }
+    }
+
+    /// Label and title of every node that an edge of these types points to.
+    public func targets(ofEdgeTypes types: [String]) throws -> [Int64: (label: String, title: String)] {
+        let marks = types.map { _ in "?" }.joined(separator: ",")
+        let rows = try Row.fetchAll(db, sql: "SELECT id, label, title FROM nodes WHERE id IN (SELECT dst FROM edges WHERE type IN (\(marks)))",
+                                    arguments: StatementArguments(types))
+        return Dictionary(uniqueKeysWithValues: rows.map { ($0["id"], (label: $0["label"], title: $0["title"])) })
+    }
+
     public func counts() throws -> (nodesByLabel: [String: Int], edgesByType: [String: Int]) {
         var nodes: [String: Int] = [:], edges: [String: Int] = [:]
         for row in try Row.fetchAll(db, sql: "SELECT label, COUNT(*) AS n FROM nodes GROUP BY label") { nodes[row["label"]] = row["n"] }

@@ -42,6 +42,26 @@ final class TaskTreeTests: XCTestCase {
         XCTAssertEqual(state.taskList.map(\.key), ["flask"])
     }
 
+    // 분야가 없으면 업무 종류를 SUBCLASS_OF 로 끝까지 올라간 최상위 분류가 분야 색이 된다
+    func testATaskWithoutAThemeTakesItsTopTypeAsTheField() throws {
+        let database = try SillogDatabase.inMemory()
+        try database.writer.write { conn in
+            let tx = GraphTx(conn)
+            let root = try tx.upsertNode(label: NodeLabel.taskType, key: "root", subtype: nil, title: "학습", props: [:], at: 1)
+            let leaf = try tx.upsertNode(label: NodeLabel.taskType, key: "leaf", subtype: nil, title: "복습", props: [:], at: 1)
+            _ = try tx.upsertEdge(src: leaf, dst: root, type: EdgeType.subclassOf, props: [:], addWeight: 0, at: 1)
+            let task = try tx.upsertNode(label: NodeLabel.task, key: "review", subtype: nil, title: "자료구조 복습", props: [:], at: 1)
+            let session = try tx.upsertNode(label: NodeLabel.session, key: "s", subtype: nil, title: "세션", props: [:], at: 1)
+            _ = try tx.upsertEdge(src: session, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: 1)
+            _ = try tx.upsertEdge(src: task, dst: leaf, type: EdgeType.instanceOf, props: [:], addWeight: 0, at: 1)
+        }
+        let state = AppState(preview: { s in s.phase = .ready }, database: database)
+        state.refreshTasks()
+        let task = try XCTUnwrap(state.taskList.first)
+        XCTAssertEqual([task.taskType, task.field, task.theme], ["복습", "학습", nil])
+        XCTAssertEqual(task.sessionCount, 1)
+    }
+
     func testFoldersGroupByFieldNewestFirstWithNoFieldLast() {
         let tasks = [task(1, "회귀 실습", theme: "학업", last: 300), task(2, "분류 안 된 일", theme: nil, last: 290),
                      task(3, "Sillog UI", theme: "프로젝트", last: 280, seconds: 600), task(4, "자료구조 수업", theme: "학업", last: 100),

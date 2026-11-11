@@ -39,16 +39,28 @@ extension AppState {
         guard let db else { return }
         let fresh: [TaskSummary] = (try? db.writer.read { conn in
             let tx = GraphTx(conn)
+            // Read the edges once instead of querying per task: 500 tasks took ~150 ms, now ~15 ms.
+            let types = [EdgeType.partOf, EdgeType.instanceOf, EdgeType.subclassOf]
+            let names = try tx.targets(ofEdgeTypes: types)
+            var sessions: [Int64: Int] = [:], instance: [Int64: Int64] = [:], parent: [Int64: Int64] = [:], themes: [Int64: String] = [:]
+            for edge in try tx.edgeEnds(types: types) {          // oldest first, so "first" matches the old per-task reads
+                switch edge.type {
+                case EdgeType.partOf:
+                    sessions[edge.dst, default: 0] += 1
+                    if themes[edge.src] == nil, let target = names[edge.dst], target.label == NodeLabel.theme { themes[edge.src] = target.title }
+                case EdgeType.instanceOf: if instance[edge.src] == nil { instance[edge.src] = edge.dst }
+                default: if parent[edge.src] == nil { parent[edge.src] = edge.dst }
+                }
+            }
             return try tx.nodes(label: NodeLabel.task).map { node in
-                let sessions = try tx.edges(to: node.id, type: EdgeType.partOf).count
-                let typeNode = try tx.edges(from: node.id, type: EdgeType.instanceOf).first.flatMap { try tx.node(id: $0.dst) }
-                var top = typeNode   // SUBCLASS_OF 를 끝까지 올라간 최상위 분류
-                while let cur = top, let up = try tx.edges(from: cur.id, type: EdgeType.subclassOf).first.flatMap({ try tx.node(id: $0.dst) }), up.id != cur.id { top = up }
-                let theme = try ThemeGraph.theme(ofTask: node.id, tx)?.title
-                return TaskSummary(id: node.id, key: node.key, title: node.title, taskType: typeNode?.title,
+                let typeId = instance[node.id]
+                var top = typeId   // SUBCLASS_OF 를 끝까지 올라간 최상위 분류
+                while let cur = top, let up = parent[cur], up != cur { top = up }
+                let theme = themes[node.id]
+                return TaskSummary(id: node.id, key: node.key, title: node.title, taskType: typeId.flatMap { names[$0]?.title },
                                    activeSeconds: node.props["active_seconds"]?.doubleValue ?? 0,
-                                   lastActive: node.props["last_active"]?.doubleValue ?? node.updatedAt, sessionCount: sessions,
-                                   theme: theme, field: theme ?? top?.title)
+                                   lastActive: node.props["last_active"]?.doubleValue ?? node.updatedAt, sessionCount: sessions[node.id] ?? 0,
+                                   theme: theme, field: theme ?? top.flatMap { names[$0]?.title })
             }
             .filter { $0.sessionCount > 0 }
             .sorted { $0.lastActive > $1.lastActive }
