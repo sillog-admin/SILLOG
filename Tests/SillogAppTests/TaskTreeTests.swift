@@ -1,0 +1,75 @@
+import XCTest
+@testable import SillogApp
+import SillogCore
+
+/// 업무 탭 왼쪽: 분야 폴더 안에 업무 (파일 트리처럼)
+@MainActor
+final class TaskTreeTests: XCTestCase {
+    private func task(_ id: Int64, _ title: String, theme: String?, last: Double, seconds: Double = 60) -> TaskSummary {
+        TaskSummary(id: id, key: "t\(id)", title: title, taskType: "코드작성", activeSeconds: seconds, lastActive: last, sessionCount: 1, theme: theme)
+    }
+
+    func testTaskListCarriesEachTasksField() throws {
+        let database = try SillogDatabase.inMemory()
+        try database.writer.write { conn in
+            let tx = GraphTx(conn)
+            for (key, title, theme) in [("flask", "Flask 웹앱 개발", Optional("프로젝트")), ("misc", "아직 분야 없는 업무", nil)] {
+                let taskId = try tx.upsertNode(label: NodeLabel.task, key: key, subtype: nil, title: title,
+                                               props: ["active_seconds": .number(600), "last_active": .number(100)], at: 100)
+                let sessionId = try tx.upsertNode(label: NodeLabel.session, key: "s-\(key)", subtype: nil, title: "세션", props: [:], at: 100)
+                _ = try tx.upsertEdge(src: sessionId, dst: taskId, type: EdgeType.partOf, props: [:], addWeight: 0, at: 100)
+                if let theme { _ = try ThemeGraph.attach(taskId: taskId, to: theme, tx, now: 100) }
+            }
+        }
+        let state = AppState(preview: { s in s.phase = .ready }, database: database)
+        state.refreshTasks()
+        XCTAssertEqual(state.taskList.first { $0.key == "flask" }?.theme, "프로젝트")
+        XCTAssertNil(state.taskList.first { $0.key == "misc" }?.theme)
+    }
+
+    // 업무 화면이 닫혀 있어도 그래프가 바뀌면 업무 목록이 따라온다 (분야 다시 매기기, 녹음 연결 등)
+    func testAGraphChangeRefreshesTheTaskList() throws {
+        let database = try SillogDatabase.inMemory()
+        let state = AppState(preview: { s in s.phase = .ready }, database: database)
+        XCTAssertTrue(state.taskList.isEmpty)
+        try database.writer.write { conn in
+            let tx = GraphTx(conn)
+            let taskId = try tx.upsertNode(label: NodeLabel.task, key: "flask", subtype: nil, title: "Flask 웹앱 개발", props: [:], at: 100)
+            let sessionId = try tx.upsertNode(label: NodeLabel.session, key: "s-flask", subtype: nil, title: "세션", props: [:], at: 100)
+            _ = try tx.upsertEdge(src: sessionId, dst: taskId, type: EdgeType.partOf, props: [:], addWeight: 0, at: 100)
+        }
+        state.graphVersion += 1
+        XCTAssertEqual(state.taskList.map(\.key), ["flask"])
+    }
+
+    // 분야가 없으면 업무 종류를 SUBCLASS_OF 로 끝까지 올라간 최상위 분류가 분야 색이 된다
+    func testATaskWithoutAThemeTakesItsTopTypeAsTheField() throws {
+        let database = try SillogDatabase.inMemory()
+        try database.writer.write { conn in
+            let tx = GraphTx(conn)
+            let root = try tx.upsertNode(label: NodeLabel.taskType, key: "root", subtype: nil, title: "학습", props: [:], at: 1)
+            let leaf = try tx.upsertNode(label: NodeLabel.taskType, key: "leaf", subtype: nil, title: "복습", props: [:], at: 1)
+            _ = try tx.upsertEdge(src: leaf, dst: root, type: EdgeType.subclassOf, props: [:], addWeight: 0, at: 1)
+            let task = try tx.upsertNode(label: NodeLabel.task, key: "review", subtype: nil, title: "자료구조 복습", props: [:], at: 1)
+            let session = try tx.upsertNode(label: NodeLabel.session, key: "s", subtype: nil, title: "세션", props: [:], at: 1)
+            _ = try tx.upsertEdge(src: session, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: 1)
+            _ = try tx.upsertEdge(src: task, dst: leaf, type: EdgeType.instanceOf, props: [:], addWeight: 0, at: 1)
+        }
+        let state = AppState(preview: { s in s.phase = .ready }, database: database)
+        state.refreshTasks()
+        let task = try XCTUnwrap(state.taskList.first)
+        XCTAssertEqual([task.taskType, task.field, task.theme], ["복습", "학습", nil])
+        XCTAssertEqual(task.sessionCount, 1)
+    }
+
+    func testFoldersGroupByFieldNewestFirstWithNoFieldLast() {
+        let tasks = [task(1, "회귀 실습", theme: "학업", last: 300), task(2, "분류 안 된 일", theme: nil, last: 290),
+                     task(3, "Sillog UI", theme: "프로젝트", last: 280, seconds: 600), task(4, "자료구조 수업", theme: "학업", last: 100),
+                     task(5, "발표 자료", theme: "프로젝트", last: 50, seconds: 120)]
+        let folders = TasksView.folders(tasks)
+        XCTAssertEqual(folders.map(\.name), ["학업", "프로젝트", "분야 없음"], "최근에 일한 분야가 위, 분야 없음은 늘 맨 아래")
+        XCTAssertEqual(folders[0].tasks.map(\.id), [1, 4], "폴더 안은 받은 순서(최근 활동 순) 그대로")
+        XCTAssertEqual(folders[1].seconds, 720)
+        XCTAssertEqual(folders[2].tasks.map(\.id), [2])
+    }
+}

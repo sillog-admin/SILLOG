@@ -3,7 +3,7 @@
 import AppKit
 
 let output = CommandLine.arguments.dropFirst().first ?? "AppIcon.icns"
-let iconset = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("WorkGraph-\(UUID().uuidString).iconset")
+let iconset = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("Sillog-\(UUID().uuidString).iconset")
 try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 
 func draw(_ pixels: Int) -> Data {

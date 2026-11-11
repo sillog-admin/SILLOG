@@ -1,5 +1,5 @@
 import Foundation
-import WorkGraphCore
+import SillogCore
 
 /// 합성 평가 문항만 전달한다. 앱의 자료 조회·변경 도구는 실행하지 않는다.
 @main

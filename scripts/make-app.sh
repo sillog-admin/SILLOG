@@ -7,9 +7,10 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+if [ -f .env ]; then set -a; . ./.env; set +a; fi
 
 # Documents의 동기화 파일 때문에 SwiftPM 의존성 체크아웃이 멈추지 않도록 임시 빌드 경로를 쓴다.
-BUILD_DIR="${WORKGRAPH_BUILD_DIR:-${TMPDIR:-/tmp}/Sillog-swift-build}"
+BUILD_DIR="${SILLOG_BUILD_DIR:-${WORKGRAPH_BUILD_DIR:-${TMPDIR:-/tmp}/Sillog-swift-build}}"
 mkdir -p "$BUILD_DIR/cache" "$BUILD_DIR/config" "$BUILD_DIR/security" "$BUILD_DIR/clang-cache"
 export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$BUILD_DIR/clang-cache}"
 # 동기화 중인 Documents 원본의 메타데이터가 컴파일 도중 바뀌지 않도록 소스를 임시 경로에 고정한다.
@@ -18,7 +19,7 @@ mkdir -p "$STAGE_DIR/Sources" "$STAGE_DIR/Tests"
 rsync -a --delete "$ROOT/Sources/" "$STAGE_DIR/Sources/"
 rsync -a --delete "$ROOT/Tests/" "$STAGE_DIR/Tests/"
 cp "$ROOT/Package.swift" "$ROOT/Package.resolved" "$STAGE_DIR/"
-swift build --package-path "$STAGE_DIR" -c release --product WorkGraphApp --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox -j 2
+swift build --package-path "$STAGE_DIR" -c release --product SillogApp --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox -j 2
 BIN_DIR="$(swift build --package-path "$STAGE_DIR" -c release --show-bin-path --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox)"
 APP="$BUILD_DIR/Sillog.app"
 APP_LINK="$ROOT/build/SILLOG.app"
@@ -26,16 +27,16 @@ INSTALLED_APP="$HOME/Applications/SILLOG.app"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN_DIR/WorkGraphApp" "$APP/Contents/MacOS/Sillog"
-cp -R "$ROOT/Sources/WorkGraphApp/Resources/graph" "$APP/Contents/Resources/graph"
-cp -R "$ROOT/Sources/WorkGraphApp/Resources/calendar" "$APP/Contents/Resources/calendar"   # 캘린더 화면 (FullCalendar 6, MIT)
-cp -R "$ROOT/Sources/WorkGraphApp/Resources/ConnectorIcons" "$APP/Contents/Resources/ConnectorIcons"
-cp -R "$ROOT/Sources/WorkGraphApp/Resources/Brand" "$APP/Contents/Resources/Brand"
-cp -R "$BIN_DIR/WorkGraph_WorkGraphCore.bundle" "$APP/Contents/Resources/"
+cp "$BIN_DIR/SillogApp" "$APP/Contents/MacOS/Sillog"
+cp -R "$ROOT/Sources/SillogApp/Resources/graph" "$APP/Contents/Resources/graph"
+cp -R "$ROOT/Sources/SillogApp/Resources/calendar" "$APP/Contents/Resources/calendar"   # 캘린더 화면 (FullCalendar 6, MIT)
+cp -R "$ROOT/Sources/SillogApp/Resources/ConnectorIcons" "$APP/Contents/Resources/ConnectorIcons"
+cp -R "$ROOT/Sources/SillogApp/Resources/Brand" "$APP/Contents/Resources/Brand"
+cp -R "$BIN_DIR/Sillog_SillogCore.bundle" "$APP/Contents/Resources/"
 cp -R "$BIN_DIR/SwiftMath_SwiftMath.bundle" "$APP/Contents/Resources/"    # 채팅 수식 글꼴 (없으면 수식을 그릴 때 앱이 멈춘다)
 chmod -R u+w "$APP/Contents/Resources/SwiftMath_SwiftMath.bundle"                    # 패키지 체크아웃에서 읽기 전용으로 오므로 서명 전 xattr 정리가 되게
-[ -f "$ROOT/Sources/WorkGraphApp/Resources/AppIcon.icns" ] || swift "$ROOT/scripts/make-icon.swift" "$ROOT/Sources/WorkGraphApp/Resources/AppIcon.icns"
-cp "$ROOT/Sources/WorkGraphApp/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+[ -f "$ROOT/Sources/SillogApp/Resources/AppIcon.icns" ] || swift "$ROOT/scripts/make-icon.swift" "$ROOT/Sources/SillogApp/Resources/AppIcon.icns"
+cp "$ROOT/Sources/SillogApp/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -73,11 +74,12 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-# 공식 배포의 공개 클라이언트 설정을 기본으로 쓰고, 별도 배포자는 환경 변수로 바꿀 수 있다.
-# 구글 설치형 클라이언트 시크릿은 공개 클라이언트 정보이며, 사용자 토큰·서버 비밀키는 넣지 않는다.
+# OAuth client settings: env (SILLOG_* or legacy WORKGRAPH_*), then Config/OAuthClients.plist.
 OAUTH_CONFIG="$ROOT/Config/OAuthClients.plist"
-for key in WORKGRAPH_GOOGLE_CLIENT_ID WORKGRAPH_GOOGLE_CLIENT_SECRET WORKGRAPH_GITHUB_CLIENT_ID WORKGRAPH_NOTION_CLIENT_ID WORKGRAPH_SLACK_CLIENT_ID; do
-  oauth_value="${!key:-}"
+for name in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID NOTION_CLIENT_ID SLACK_CLIENT_ID; do
+  key="SILLOG_$name"
+  legacy="WORKGRAPH_$name"
+  oauth_value="${!key:-${!legacy:-}}"
   if [ -z "$oauth_value" ] && [ -f "$OAUTH_CONFIG" ]; then
     if ! oauth_value="$(plutil -extract "$key" raw -o - "$OAUTH_CONFIG" 2>/dev/null)"; then oauth_value=""; fi
   fi

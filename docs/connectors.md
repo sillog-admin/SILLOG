@@ -20,13 +20,13 @@ Gmail·Google Drive·Slack은 설치형 OAuth로, Notion·Higgsfield·Lovable은
 
 - [데스크톱 앱용 OAuth 클라이언트](https://developers.google.com/identity/protocols/oauth2/native-app)를 등록합니다.
 - Gmail·Drive·Calendar API를 사용할 수 있도록 프로젝트를 설정합니다. Gmail·Drive는 읽기 전용, 캘린더(캘린더 탭의 [구글 계정 연결])는 캘린더 목록 읽기(`calendar.calendarlist.readonly`)와 일정 읽기·쓰기(`calendar.events`)를 요청합니다. 캘린더 권한은 구글이 민감한 권한으로 분류해, 앱 검수 전에는 OAuth 동의 화면에 등록한 테스트 사용자만 로그인할 수 있습니다.
-- 빌드할 때 `WORKGRAPH_GOOGLE_CLIENT_ID`를 설정합니다. 데스크톱 앱 클라이언트는 토큰 교환에 클라이언트 시크릿도 요구하므로 `WORKGRAPH_GOOGLE_CLIENT_SECRET`도 함께 넣습니다(설치형 앱의 시크릿은 비밀로 취급되지 않습니다).
+- 빌드할 때 `SILLOG_GOOGLE_CLIENT_ID`를 설정합니다. 데스크톱 앱 클라이언트는 토큰 교환에 클라이언트 시크릿도 요구하므로 `SILLOG_GOOGLE_CLIENT_SECRET`도 함께 넣습니다(설치형 앱의 시크릿은 비밀로 취급되지 않습니다).
 - 캘린더 탭에서 연결하면 맥 캘린더에 이미 같은 구글 계정이 있을 때 같은 이름의 캘린더는 맥 쪽만 보여 줍니다. [등록할 캘린더]에서 구글 캘린더를 고르면 [등록]이 구글 API로 바로 넣습니다.
 - 사용자는 필요한 Gmail·Drive 항목만 고르고 Google에서 승인합니다. 선택한 항목에 해당하는 권한을 요청합니다.
 - 로컬 콜백은 `http://127.0.0.1:8765/callback`입니다. 승인 중 앱이 실행되고 포트를 사용할 수 있어야 합니다.
 
 ```bash
-WORKGRAPH_GOOGLE_CLIENT_ID="등록한 클라이언트 ID" WORKGRAPH_GOOGLE_CLIENT_SECRET="클라이언트 시크릿" ./scripts/make-app.sh
+SILLOG_GOOGLE_CLIENT_ID="등록한 클라이언트 ID" SILLOG_GOOGLE_CLIENT_SECRET="클라이언트 시크릿" ./scripts/make-app.sh
 ```
 
 ## GitHub
@@ -35,11 +35,11 @@ WORKGRAPH_GOOGLE_CLIENT_ID="등록한 클라이언트 ID" WORKGRAPH_GOOGLE_CLIEN
 
 - [GitHub App](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app)을 등록하고 디바이스 인증을 활성화합니다.
 - 저장소 **Contents**, **Pull requests** 접근을 읽기 전용으로 설정합니다.
-- 빌드할 때 `WORKGRAPH_GITHUB_CLIENT_ID`를 설정합니다.
+- 빌드할 때 `SILLOG_GITHUB_CLIENT_ID`를 설정합니다.
 - 사용자는 Sillog에 표시된 코드를 GitHub 승인 페이지에 입력합니다. 로컬 콜백 포트는 사용하지 않습니다.
 
 ```bash
-WORKGRAPH_GITHUB_CLIENT_ID="등록한 클라이언트 ID" ./scripts/make-app.sh
+SILLOG_GITHUB_CLIENT_ID="등록한 클라이언트 ID" ./scripts/make-app.sh
 ```
 
 디바이스 인증으로 발급한 토큰은 클라이언트 비밀키나 별도 서버 없이 자동 갱신합니다. GitHub App의 기본 액세스 토큰은 8시간 후 만료되며 갱신 토큰은 6개월 동안 유효합니다. 갱신 토큰이 만료되거나 사용자가 권한을 철회하면 다시 연결해야 합니다. [GitHub 토큰 갱신 안내](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/refreshing-user-access-tokens)
@@ -49,7 +49,7 @@ WORKGRAPH_GITHUB_CLIENT_ID="등록한 클라이언트 ID" ./scripts/make-app.sh
 - 앱 제공자가 Slack 앱을 등록하고 `oauth_config.pkce_enabled`를 활성화합니다. 공개 클라이언트로 전환하면 되돌리기 위해 Slack 지원이 필요하므로 별도 배포 앱을 등록하세요.
 - 사용자 범위는 `search:read`만 요청합니다. 봇 범위는 요청하지 않습니다.
 - 리다이렉트 URI는 `sillog://oauth/slack`입니다. 공개 배포에서 HTTP localhost 주소가 거부되므로 앱 매니페스트의 `oauth_config.redirect_urls`에 등록합니다. macOS URL 등록과 앱의 콜백 처리도 같은 주소를 사용합니다.
-- 빌드할 때 `WORKGRAPH_SLACK_CLIENT_ID`를 설정합니다. 클라이언트 비밀키는 사용하거나 배포하지 않습니다.
+- 빌드할 때 `SILLOG_SLACK_CLIENT_ID`를 설정합니다. 클라이언트 비밀키는 사용하거나 배포하지 않습니다.
 - 브라우저에서 선택한 워크스페이스를 승인하면 사용자 토큰을 저장합니다. PKCE 토큰 교환과 갱신을 앱에서 수행합니다. 워크스페이스의 앱 승인 정책에 따라 관리자 승인이 필요할 수 있습니다.
 - 배포 시 Slack의 외부 워크스페이스 설치·배포 설정도 별도로 완료해야 합니다.
 
