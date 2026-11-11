@@ -18,7 +18,7 @@ final class AppState: ObservableObject {
     /// 업무를 지우는 중 (그동안 정리를 멈춘다)
     @Published var erasing = false
     @Published var batchResult: Bool?                  // 방금 끝난 지금 정리 결과(창 머리에 체크나 X 로 잠깐 보임). nil = 보이지 않음
-    @Published var graphVersion = 0
+    @Published var graphVersion = 0 { didSet { refreshTasks() } }   // Every graph change refreshes the task list here, once.
     @Published var recent: [Observation] = []
     @Published var batches: [BatchRecord] = []
     /// Connection check results by provider ("codex" / "openai").
@@ -658,7 +658,7 @@ final class AppState: ObservableObject {
             }
             break
         }
-        if applied { graphVersion += 1; refreshTasks() }
+        if applied { graphVersion += 1 }
         refresh()
         if force {                                         // 직접 누른 정리만 결과를 잠깐 보여 준다
             batchResult = !failed

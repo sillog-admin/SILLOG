@@ -71,7 +71,7 @@ struct TasksView: View {
         }
         .onChange(of: state.selectedTaskId) { _, id in if let id, id != selectedTask { selectedTask = id } }   // 그래프, 같은 맥락 업무에서 고를 때
         .onChange(of: selectedTask) { _, id in openKinds = []; reload(); moveBox(to: id) }
-        .onChange(of: state.graphVersion) { _, _ in state.refreshTasks(); reload() }
+        .onChange(of: state.graphVersion) { _, _ in reload() }
         .sheet(item: $editing) { digest in
             DigestEditSheet(digest: digest) { body in
                 if let id = digest.id { state.editDigest(id: id, body: body) }

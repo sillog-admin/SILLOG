@@ -27,6 +27,21 @@ final class TaskTreeTests: XCTestCase {
         XCTAssertNil(state.taskList.first { $0.key == "misc" }?.theme)
     }
 
+    // 업무 화면이 닫혀 있어도 그래프가 바뀌면 업무 목록이 따라온다 (분야 다시 매기기, 녹음 연결 등)
+    func testAGraphChangeRefreshesTheTaskList() throws {
+        let database = try SillogDatabase.inMemory()
+        let state = AppState(preview: { s in s.phase = .ready }, database: database)
+        XCTAssertTrue(state.taskList.isEmpty)
+        try database.writer.write { conn in
+            let tx = GraphTx(conn)
+            let taskId = try tx.upsertNode(label: NodeLabel.task, key: "flask", subtype: nil, title: "Flask 웹앱 개발", props: [:], at: 100)
+            let sessionId = try tx.upsertNode(label: NodeLabel.session, key: "s-flask", subtype: nil, title: "세션", props: [:], at: 100)
+            _ = try tx.upsertEdge(src: sessionId, dst: taskId, type: EdgeType.partOf, props: [:], addWeight: 0, at: 100)
+        }
+        state.graphVersion += 1
+        XCTAssertEqual(state.taskList.map(\.key), ["flask"])
+    }
+
     func testFoldersGroupByFieldNewestFirstWithNoFieldLast() {
         let tasks = [task(1, "회귀 실습", theme: "학업", last: 300), task(2, "분류 안 된 일", theme: nil, last: 290),
                      task(3, "Sillog UI", theme: "프로젝트", last: 280, seconds: 600), task(4, "자료구조 수업", theme: "학업", last: 100),

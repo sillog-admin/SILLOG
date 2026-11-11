@@ -109,7 +109,6 @@ extension AppState {
         reviewSheetOpen = false
         loadReview()
         graphVersion += 1
-        refreshTasks()
         refresh()
     }
 }

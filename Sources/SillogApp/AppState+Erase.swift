@@ -58,7 +58,6 @@ extension AppState {
         if ref.label == NodeLabel.task || ref.label == NodeLabel.theme { selectedTaskId = nil }
         taskDetailOpen = false
         graphVersion += 1
-        refreshTasks()
         refresh()
         if AppFeatures.calendarOn { CalendarService.shared.refresh() }
         let compacting = Task.detached { try TaskEraser.compact(db) }
