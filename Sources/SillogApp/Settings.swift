@@ -16,14 +16,16 @@ struct AppSettings: Codable, Equatable {
     var chatBaseURL = "http://localhost:5010/v1"
     var chatModel = "gpt-5.4-mini"
     var chatAPIKey = ""
-    /// 판단은 정리 설정과 별도로 저장한다. jev는 Jev 연결 방식이다.
+    /// Stored as "gpt" / "jev" / "decisions"; read through `judgeChoice`.
     var judgeProvider = "gpt"
+    /// For the gpt judge: "codex", "openai" (the shared API server) or "custom" (its own URL and key).
     var judgeGPTProvider = "codex"
     var judgeCodexModel = CodexResponsesClient.defaultModel
     var judgeBaseURL = "http://localhost:5010/v1"
     var judgeAPIModel = "gpt-5.4-mini"
     var judgeAPIKey = ""
     var jevAPIKey = ""
+    var decisionsAPIKey = ""
     /// 채팅 모델을 정리 모델과 같게 쓴다(기본). 끄면 chatProvider 와 채팅 모델을 따로 고른다
     var chatSameAsOrganize = true
     var batchEnabled = true
@@ -64,13 +66,16 @@ struct AppSettings: Codable, Equatable {
         chatModel = try c.decodeIfPresent(String.self, forKey: .chatModel) ?? llmModel
         chatAPIKey = try c.decodeIfPresent(String.self, forKey: .chatAPIKey) ?? llmAPIKey
         let oldJudge = try c.decodeIfPresent(String.self, forKey: .judgeProvider) ?? "gpt"
-        judgeProvider = oldJudge == "jev" ? "jev" : "gpt"
+        judgeProvider = ["jev", "decisions"].contains(oldJudge) ? oldJudge : "gpt"
         judgeGPTProvider = try c.decodeIfPresent(String.self, forKey: .judgeGPTProvider) ?? llmProvider
         judgeCodexModel = try c.decodeIfPresent(String.self, forKey: .judgeCodexModel) ?? codexModel
         judgeBaseURL = try c.decodeIfPresent(String.self, forKey: .judgeBaseURL) ?? llmBaseURL
         judgeAPIModel = try c.decodeIfPresent(String.self, forKey: .judgeAPIModel) ?? llmModel
         judgeAPIKey = try c.decodeIfPresent(String.self, forKey: .judgeAPIKey) ?? llmAPIKey
         jevAPIKey = try c.decodeIfPresent(String.self, forKey: .jevAPIKey) ?? d.jevAPIKey
+        decisionsAPIKey = try c.decodeIfPresent(String.self, forKey: .decisionsAPIKey) ?? d.decisionsAPIKey
+        // Before "custom" existed, an API judge always had its own address and key.
+        if judgeGPTProvider == "openai", (judgeBaseURL, judgeAPIKey) != (llmBaseURL, llmAPIKey) { judgeGPTProvider = "custom" }
         // 예전 사용자는 채팅을 따로 골라 두었을 수 있다: 저장값이 없으면 정리와 채팅 설정이 이미 같을 때만 '같게'로 본다
         chatSameAsOrganize = try c.decodeIfPresent(Bool.self, forKey: .chatSameAsOrganize)
             ?? (chatProvider == llmProvider && chatCodexModel == codexModel && chatModel == llmModel)
@@ -78,7 +83,7 @@ struct AppSettings: Codable, Equatable {
         let known = ["codex", "openai"]
         if !known.contains(llmProvider) { llmProvider = "codex" }
         if !known.contains(chatProvider) { chatProvider = "codex" }
-        if !known.contains(judgeGPTProvider) { judgeGPTProvider = "codex" }
+        if !(known + ["custom"]).contains(judgeGPTProvider) { judgeGPTProvider = "codex" }
         batchEnabled = try c.decodeIfPresent(Bool.self, forKey: .batchEnabled) ?? d.batchEnabled
         captureText = try c.decodeIfPresent(Bool.self, forKey: .captureText) ?? d.captureText
         captureScreenshots = try c.decodeIfPresent(Bool.self, forKey: .captureScreenshots) ?? d.captureScreenshots
@@ -92,14 +97,32 @@ struct AppSettings: Codable, Equatable {
         folderRoots = try c.decodeIfPresent([String].self, forKey: .folderRoots) ?? d.folderRoots
     }
 
+    /// API keys go to the Keychain; the UserDefaults JSON keeps them blank.
+    private static let secrets: [(account: String, field: WritableKeyPath<AppSettings, String>)] = [
+        ("settings.llm", \.llmAPIKey), ("settings.chat", \.chatAPIKey), ("settings.judge", \.judgeAPIKey),
+        ("settings.jev", \.jevAPIKey), ("settings.decisions", \.decisionsAPIKey),
+    ]
+
     static func load() -> AppSettings {
         guard let data = UserDefaults.standard.data(forKey: key),
-              let saved = try? JSONDecoder().decode(AppSettings.self, from: data) else { return AppSettings() }
+              var saved = try? JSONDecoder().decode(AppSettings.self, from: data) else { return AppSettings() }
+        var plaintext = false
+        for secret in secrets {
+            // A key still in the JSON is from before the move, so it wins and gets moved now.
+            if !saved[keyPath: secret.field].isEmpty { plaintext = true; continue }
+            saved[keyPath: secret.field] = (try? ChatSecrets.load(secret.account)) ?? ""
+        }
+        if plaintext { saved.save() }
         return saved
     }
 
     func save() {
-        if let data = try? JSONEncoder().encode(self) { UserDefaults.standard.set(data, forKey: Self.key) }
+        var stored = self
+        for secret in Self.secrets {
+            // Keep the plaintext copy if the Keychain refuses, so the key is not lost.
+            if (try? ChatSecrets.save(self[keyPath: secret.field], account: secret.account)) != nil { stored[keyPath: secret.field] = "" }
+        }
+        if let data = try? JSONEncoder().encode(stored) { UserDefaults.standard.set(data, forKey: Self.key) }
     }
 
     var collector: CollectorSettings {
@@ -134,6 +157,34 @@ struct AppSettings: Codable, Equatable {
         }
     }
     static let jevSite = URL(string: "https://typesafe.ai")!
+    static let openAIKeySite = URL(string: "https://platform.openai.com/api-keys")!
+
+    enum JudgeChoice: String, CaseIterable {
+        case codex, api, customAPI, jev, decisions
+    }
+
+    var judgeChoice: JudgeChoice {
+        get {
+            switch judgeProvider {
+            case "jev": return .jev
+            case "decisions": return .decisions
+            default:
+                switch judgeGPTProvider {
+                case "openai": return .api
+                case "custom": return .customAPI
+                default: return .codex
+                }
+            }
+        }
+        set {
+            switch newValue {
+            case .jev, .decisions: judgeProvider = newValue == .jev ? "jev" : "decisions"
+            case .codex, .api, .customAPI:
+                judgeProvider = "gpt"
+                judgeGPTProvider = [.codex: "codex", .api: "openai", .customAPI: "custom"][newValue]!
+            }
+        }
+    }
     static func providerName(_ provider: String) -> String { provider == "openai" ? "API" : "ChatGPT 구독" }
 }
 

@@ -130,24 +130,24 @@ enum SnapshotCatalog {
             shot("ST-AI-CHECK-SUCCESS", MainWindow(), size: window) { s in
                 s.phase = .ready; s.selectedTab = .settings; s.settingsSection = .ai
                 s.codexStatus = .loggedIn(email: "sillog@example.com", plan: "plus", expiresAt: nil)
-                s.llmTestResult = "연결됨 · 정리 모델 응답 확인"
-                s.chatTestResult = "연결됨 · 응답과 도구 호출 확인"
+                s.connectionChecks["codex"] = .ok("연결됨 · 정리 모델 응답 확인")
+                s.chatTestResult = .ok("연결됨 · 응답과 도구 호출 확인")
             },
             shot("ST-AI-CHECK-FAILURE", MainWindow(), size: window) { s in
                 s.phase = .ready; s.selectedTab = .settings; s.settingsSection = .ai
                 s.codexStatus = .loggedIn(email: "sillog@example.com", plan: "plus", expiresAt: nil)
-                s.llmTestResult = "연결됨 · 정리 모델 응답 확인"
-                s.chatTestResult = "채팅 모델 연결 확인 시간이 초과되었습니다."
+                s.connectionChecks["codex"] = .ok("연결됨 · 정리 모델 응답 확인")
+                s.chatTestResult = .failed("채팅 모델 연결 확인 시간이 초과되었습니다.")
             },
             shot("ST-AI-CHECK-RUNNING", MainWindow(), size: window) { s in
                 s.phase = .ready; s.selectedTab = .settings; s.settingsSection = .ai
                 s.codexStatus = .loggedIn(email: "sillog@example.com", plan: "plus", expiresAt: nil)
-                s.llmTestResult = "확인 중…"
+                s.connectionChecks["codex"] = .checking
             },
             shot("ST-AI-FAIL", MainWindow(), size: window) { s in
                 s.phase = .ready; s.status = collector(); s.taskList = recentTasks
                 s.settings.llmProvider = "openai"; s.settings.chatProvider = "openai"
-                s.llmTestResult = "서버에 연결할 수 없습니다. 서버가 켜져 있는지 확인하세요."
+                s.connectionChecks["openai"] = .failed("서버에 연결할 수 없습니다. 서버가 켜져 있는지 확인하세요.")
                 s.selectedTab = .settings; s.settingsSection = .ai
             },
             // 설정의 활동 로그: 대기와 정리 묶음을 한 줄기로

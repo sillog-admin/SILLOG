@@ -27,6 +27,23 @@ final class SettingsCompatTests: XCTestCase {
         XCTAssertEqual(s.judgeEndpoint?.key, "tk")
     }
 
+    func testAnOldAPIJudgeWithItsOwnServerBecomesCustom() throws {
+        let own = try decode(#"{"llmProvider":"openai","llmBaseURL":"http://a/v1","judgeGPTProvider":"openai","judgeBaseURL":"http://b/v1"}"#)
+        XCTAssertEqual(own.judgeChoice, .customAPI)
+        let same = try decode(#"{"llmProvider":"openai","llmBaseURL":"http://a/v1","judgeGPTProvider":"openai","judgeBaseURL":"http://a/v1"}"#)
+        XCTAssertEqual(same.judgeChoice, .api)
+    }
+
+    func testJudgeChoiceRoundTrips() throws {
+        var s = AppSettings()
+        for choice in AppSettings.JudgeChoice.allCases {
+            s.judgeChoice = choice
+            let decoded = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s))
+            XCTAssertEqual(decoded.judgeChoice, choice)
+        }
+        XCTAssertEqual(try decode(#"{"judgeProvider":"decisions","decisionsAPIKey":"sk"}"#).decisionsAPIKey, "sk")
+    }
+
     func testLegacyDefaultsKeysMoveOnce() throws {
         let suite = "sillog-tests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

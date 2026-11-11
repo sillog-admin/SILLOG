@@ -9,10 +9,11 @@ Sillog(실록)는 macOS에서 앱·창·URL·화면 텍스트·파일·AI 코딩
 ```bash
 swift build                                   # 디버그 빌드 (처음에는 의존성 때문에 몇 분 걸림)
 swift test                                    # 전체 테스트. XCTest를 쓰므로 Xcode가 있어야 함
-swift test --filter SillogCoreTests.JevAssignTests             # 테스트 클래스 하나
-swift test --filter SillogCoreTests.JevAssignTests/testName    # 테스트 하나
+swift test --filter SillogCoreTests.JevClientTests             # 테스트 클래스 하나
+swift test --filter SillogCoreTests.JevClientTests/testName    # 테스트 하나
 ./scripts/make-app.sh && open build/SILLOG.app   # 릴리스 빌드, 서명, ~/Applications 설치
 swift run sillogctl                               # 개발용 CLI. 기본 DB가 실제 기록이므로 실험할 때는 --db로 다른 파일 지정
+swift run sillogctl check-judge jev|decisions     # 판단 모델 실제 호출 확인. 키는 .env에서 읽음
 ```
 
 - 린트·포매터 설정은 없습니다. 컴파일 경고를 늘리지 않으면 됩니다.
@@ -36,7 +37,7 @@ SwiftPM 패키지 하나에 타깃이 네 개 있습니다(`Package.swift`). 의
 
 1. **수집**: `CollectorCoordinator`가 모은 관측 행을 `EventStore`가 SQLite에 씁니다.
 2. **정리 배치**: `OntologyBatcher`(actor)가 5분마다 미처리 행을 가져와 `EventCompressor`로 압축한 뒤 둘 중 한 경로로 보냅니다.
-   - 앱 기본 경로(`Ontology/Staged/SeparatedJudgment.swift`): **판단 모델**(`ActivityJudging`)이 행마다 기존 업무 / `new` / `off` / `none` 중 하나를 고르고(`decideSeparately`), **정리 모델**이 새 업무의 이름과 요약을 씁니다(`organizeDecisions`).
+   - 앱 기본 경로(`Ontology/Staged/SeparatedJudgment.swift`): **판단 모델**(`ActivityJudging`)이 행마다 기존 업무 / `new` / `off` / `none` 중 하나를 고르고(`decideSeparately`), **정리 모델**이 새 업무의 이름과 요약을 씁니다(`organizeDecisions`). 고르기 전용 모델(Jev, Decisions)은 행 4개씩 동시에 묻고, 확신이 낮으면 `none`으로 봅니다. 앞에서부터 이어서 판단된 행만 반영하고 나머지는 다음 배치로 넘깁니다.
    - 판단 모델이 없을 때(CLI·평가): `StagedPipeline.run`의 분류→배정→서술 3단계, 또는 한 번에 묻는 `single`.
 
    결과(`AssignmentPatch`)는 `AssignmentApplier`가 한 트랜잭션으로 그래프에 반영하고 처리 완료로 표시합니다. 실패하면 행을 그대로 두고 잠시 뒤 다시 시도합니다. 건너뛰지 않습니다.
@@ -51,10 +52,10 @@ LLM 클라이언트는 `Settings.swift`(`AppSettings`)의 값으로 `AppState.ma
 | 용도 | 인터페이스 | 구현 |
 | --- | --- | --- |
 | 정리 모델 | `LLMClient.callFunction` (도구 하나를 강제 호출해서 JSON을 받음) | `CodexResponsesClient`, `OpenAICompatClient` |
-| 판단 모델 | `ActivityJudging`: `.gpt(LLMClient)` 또는 `.jev(JevChoosing)` (보기 중 하나와 확률만 받음) | 위 둘 + `JevClient` (TypeSafe `/v1/systemone`) |
+| 판단 모델 | `ActivityJudging`: `.gpt(LLMClient)` 또는 `.choice(ChoiceModel)` (보기 중 하나와 확률만 받음) | 위 둘 + `JevClient` (TypeSafe `/v1/systemone`), `DecisionsClient` (OpenAI `/v1/decisions`) |
 | 채팅 모델 | `ChatBackend`: `.codex` / `.model` | `CodexAppServerClient`, `OpenAICompatClient` |
 
-연결 방식은 두 가지입니다. "ChatGPT 구독"은 앱 전용 OAuth 토큰으로 Codex 백엔드를 부르는 방식이고 공개 API가 아닙니다. "API"는 OpenAI 호환 서버를 부르는 방식입니다.
+연결은 네 가지입니다. "ChatGPT 구독"은 앱 전용 OAuth 토큰으로 Codex 백엔드를 부르는 방식이고 공개 API가 아닙니다. "API 서버"는 OpenAI 호환 서버, "Jev"와 "OpenAI Decisions"는 판단 모델 전용입니다. 설정 화면은 [연결](계정·키)과 [용도별 모델](정리·채팅·판단이 어느 연결을 쓰는지)로 나뉩니다. 판단 모델 선택은 `AppSettings.judgeChoice`로 읽고 씁니다. API 키는 `AppSettings.save()`가 Keychain에 넣고 UserDefaults JSON에는 비워 둡니다.
 
 ## 코드 작성 규칙
 
@@ -63,9 +64,9 @@ LLM 클라이언트는 `Settings.swift`(`AppSettings`)의 값으로 `AppState.ma
 - **ponytail 기준으로 작성합니다.** 코드를 쓰거나 고칠 때는 ponytail 스킬(`/ponytail`)을 켜고, 문제를 다 푸는 가장 작은 변경을 고릅니다. 요청받지 않은 추상화·옵션·재시도·검증은 넣지 않습니다. 알고도 택한 지름길에는 `// shortcut: <limit>, <when to upgrade>`를 남깁니다.
 - **주석은 영어로 짧게 씁니다.** 코드만 봐서는 알 수 없는 이유만 한 줄로 적습니다. 사용법 안내나 괄호 속 덧붙임은 쓰지 않습니다. 기존 한국어 주석은 그 코드를 고칠 때 함께 정리합니다. throw하는 함수와 Core의 public 함수에는 `Args:` / `Returns:` / `Raises:`를 씁니다. Swift `throws`만으로는 어떤 오류가 나는지 알 수 없기 때문입니다.
 - **로직은 Core에 둡니다.** 화면 없이 테스트할 수 있는 판단·변환·저장은 `SillogCore`로 보내고, App에는 상태 연결과 화면만 둡니다. `sillogctl`도 같은 로직을 써야 하기 때문입니다.
-- **외부 호출은 프로토콜 뒤에 둡니다.** 모델·HTTP 호출은 `LLMClient`, `JevChoosing` 같은 프로토콜로 받고, 테스트에서는 대역(`StubLLM`, `StubURLProtocol`)으로 바꿉니다. 새 공급자를 붙일 때는 새 프로토콜을 만들지 말고 용도가 같은 기존 프로토콜을 구현합니다.
+- **외부 호출은 프로토콜 뒤에 둡니다.** 모델·HTTP 호출은 `LLMClient`, `ChoiceModel` 같은 프로토콜로 받고, 테스트에서는 대역(`StubLLM`, `StubURLProtocol`)으로 바꿉니다. 새 공급자를 붙일 때는 새 프로토콜을 만들지 말고 용도가 같은 기존 프로토콜을 구현합니다.
 - **종류를 나타내는 값은 enum으로 만듭니다.** 지금은 `"codex"`, `"openai"`, `"jev"` 같은 문자열을 직접 비교하는 코드가 많습니다. 새 값은 `String` raw value enum으로 만들고, 저장되는 JSON 문자열은 그대로 둬서 예전 설정과 호환되게 합니다.
-- **오류는 `LocalizedError`로 던집니다.** `errorDescription`에는 사용자에게 보여 줄 문장을 넣습니다. 지금은 `LLMError`(`CustomStringConvertible`)와 `JevError`(`LocalizedError`)가 섞여 있어서 UI가 `(error as? LLMError)?.description ?? error.localizedDescription`처럼 나눠 읽습니다. 원래 오류 문구는 버리지 말고 배치 기록(`StageCall`)이나 `AppLog`에 남깁니다.
+- **오류는 `LocalizedError`로 던집니다.** `errorDescription`에는 사용자에게 보여 줄 문장을 넣습니다. UI는 `error.localizedDescription`을 그대로 씁니다. 원래 오류 문구는 버리지 말고 배치 기록(`StageCall`)이나 `AppLog`에 남깁니다.
 - **시각은 Unix 초(`Double`)로** 저장하고 주고받습니다. DB와 Core 전체가 이미 이렇게 되어 있습니다.
 - **비밀값은 Keychain에 둡니다.** API 키와 토큰은 `ChatSecrets`(서비스 `com.sillog.app.chat`)에 저장하고, UserDefaults·로그·DB·배치 기록에는 넣지 않습니다.
 - **화면 문구는 지역화 리소스에서 가져옵니다.** 한국어가 기본이고 영어를 지원합니다.

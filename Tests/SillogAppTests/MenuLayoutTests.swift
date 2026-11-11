@@ -210,7 +210,7 @@ final class MenuLayoutTests: XCTestCase {
             XCTAssertTrue(general.contains(part), "일반 한 쪽에 \(part) 가 있어야 한다: \(general)")
         }
         let ai = text(of: SettingsView()) { s in s.settingsSection = .ai }
-        XCTAssertTrue(ai.contains("정리모델과같이") && ai.contains("판단모델"), ai)
+        XCTAssertTrue(ai.contains("정리모델과같음") && ai.contains("판단모델") && ai.contains("용도별모델"), ai)
     }
 
     // 파일 구역: 대기 중인 제안 옆에 '옮겨질 곳' 나무 (원래 폴더 → 옮길 폴더 → 파일, 같은 폴더로 가는 파일은 한 가지에)

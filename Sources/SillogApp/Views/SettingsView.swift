@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var launchAtLogin = false
     @State private var launchStatusLoaded = false
     @State private var launchError: String?
+    @State private var applyTask: Task<Void, Never>?
 
     enum Section: String, CaseIterable, Identifiable {
         case general = "일반"                            // 권한, 수집, 개인정보와 저장 공간, 앱 실행
@@ -34,7 +35,12 @@ struct SettingsView: View {
                 .background(.white)
             }
         }
-        .onChange(of: state.settings) { _, _ in state.applySettings() }
+        // Typing a key or URL should not rebuild every client per keystroke.
+        .onChange(of: state.settings) { _, _ in
+            applyTask?.cancel()
+            applyTask = Task { try? await Task.sleep(nanoseconds: 400_000_000); guard !Task.isCancelled else { return }; applyTask = nil; state.applySettings() }
+        }
+        .onDisappear { if applyTask != nil { applyTask?.cancel(); applyTask = nil; state.applySettings() } }
         .onChange(of: state.settings.llmProvider) { _, _ in state.updateCodexModelProviders() }
         .onChange(of: state.settings.chatProvider) { _, _ in state.updateCodexModelProviders() }
         .onChange(of: state.settings.judgeProvider) { _, _ in state.updateCodexModelProviders() }
@@ -203,44 +209,7 @@ struct SettingsView: View {
 
     // MARK: AI 연결
 
-    /// 연결 구역 하나: 채팅도 같은 연결 방식, 주소, 키를 쓴다. 저장 키는 그대로 두고, 값을 바꿀 때 채팅 쪽에도 같이 적는다.
-    private func chatBinding(_ main: WritableKeyPath<AppSettings, String>, _ chat: WritableKeyPath<AppSettings, String>) -> Binding<String> {
-        Binding(get: { state.settings[keyPath: main] },
-                set: { state.settings[keyPath: main] = $0; state.settings[keyPath: chat] = $0 })
-    }
-
-    /// '정리 모델과 같이' 고르기. 같이에서 따로로 바꾸는 순간에는 지금 쓰던 정리 모델을 채팅 모델 칸에 채워 채팅 모델이 갑자기 바뀌지 않게 한다.
-    /// 채팅 연결 방식(chatProvider)은 늘 정리와 같게 맞춘다.
-    private var chatSameBinding: Binding<Bool> {
-        Binding(get: { state.settings.chatSameAsOrganize },
-                set: { same in
-                    if !same, state.settings.chatSameAsOrganize {
-                        state.settings.chatCodexModel = state.settings.codexModel
-                        state.settings.chatModel = state.settings.llmModel
-                    }
-                    state.settings.chatSameAsOrganize = same
-                    state.settings.chatProvider = state.settings.llmProvider
-                })
-    }
-
-    private var aiConnection: some View {
-        ConnectionSection(
-            provider: chatBinding(\.llmProvider, \.chatProvider),
-            openAIModel: $state.settings.llmModel, chatOpenAIModel: $state.settings.chatModel,
-            baseURL: chatBinding(\.llmBaseURL, \.chatBaseURL), apiKey: chatBinding(\.llmAPIKey, \.chatAPIKey),
-            codexModel: $state.settings.codexModel, chatCodexModel: $state.settings.chatCodexModel,
-            judge: $state.settings.judgeProvider, jevKey: $state.settings.jevAPIKey, chatSame: chatSameBinding,
-            test: { Task { await state.testLLM(); await state.testChatLLM() } })
-        .onAppear { unifyChat() }
-    }
-
-    /// 예전에 채팅만 다른 연결을 쓰던 저장값은 연결 구역 하나에 맞춘다 (모델과 저장된 다른 값은 그대로)
-    private func unifyChat() {
-        let c = state.settings
-        if c.chatProvider != c.llmProvider { state.settings.chatProvider = c.llmProvider }
-        if c.chatBaseURL != c.llmBaseURL { state.settings.chatBaseURL = c.llmBaseURL }
-        if c.chatAPIKey != c.llmAPIKey { state.settings.chatAPIKey = c.llmAPIKey }
-    }
+    private var aiConnection: some View { ConnectionSection() }
 }
 
 // MARK: AI 연결 한 구역 (Figma ST-03, 08, 09, 10, 27, 37)
@@ -286,18 +255,18 @@ private struct SettingJevLogo: View {
 
 /// 연결 확인 결과: 확인 중은 회색, 성공은 초록 체크, 실패는 빨간 오류 표시.
 private struct SettingCheckStatus: View {
-    let result: String?
-    let testing: Bool
+    let result: CheckResult?
     let action: () -> Void
+
+    private var testing: Bool { result == .checking }
 
     var body: some View {
         HStack(spacing: 14) {
             if let result {
-                let ok = result.hasPrefix("연결됨")
                 HStack(spacing: 6) {
-                    if !testing { Image(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill").font(.system(size: 13)) }
-                    Text(result).font(Brand.suit(11)).lineLimit(3).multilineTextAlignment(.trailing).textSelection(.enabled)
-                }.foregroundStyle(testing ? Brand.gray : ok ? Color(hex: 0x2D8053) : Color(hex: 0xC9452E))
+                    if !testing { Image(systemName: result.isOK ? "checkmark.circle.fill" : "xmark.circle.fill").font(.system(size: 13)) }
+                    Text(result.message).font(Brand.suit(11)).lineLimit(3).multilineTextAlignment(.trailing).textSelection(.enabled)
+                }.foregroundStyle(testing ? Brand.gray : result.isOK ? Color(hex: 0x2D8053) : Color(hex: 0xC9452E))
             } else {
                 Text("확인 전").font(Brand.suit(11)).foregroundStyle(Brand.gray)
             }
@@ -328,72 +297,93 @@ private struct ModelDropdown: View {
     }
 }
 
+/// AI settings in two parts: the connections (accounts and keys) and which connection each role uses.
 private struct ConnectionSection: View {
     @EnvironmentObject private var state: AppState
-    @Binding var provider: String
-    @Binding var openAIModel: String
-    @Binding var chatOpenAIModel: String
-    @Binding var baseURL: String
-    @Binding var apiKey: String
-    @Binding var codexModel: String
-    @Binding var chatCodexModel: String
-    @Binding var judge: String
-    @Binding var jevKey: String
-    @Binding var chatSame: Bool
-    let test: () -> Void
-    @State private var jevResult: String?
-    @State private var jevChecking = false
     @State private var apiModels: [String] = []
     @State private var judgeAPIModels: [String] = []
-    @FocusState private var jevFocused: Bool
+    @State private var choiceChecks: [AppSettings.JudgeChoice: CheckResult] = [:]
+    @FocusState private var focusedKey: AppSettings.JudgeChoice?
 
-    private var testing: Bool { state.llmTestResult == "확인 중…" || state.chatTesting }
+    private var provider: String { state.settings.llmProvider }
 
-    /// 연결 상태 글: 정리 확인이 실패면 그것, 성공이면 채팅 확인이 실패인지 본다
-    private var result: String? {
-        guard let llm = state.llmTestResult else { return nil }
-        if testing { return "확인 중…" }
-        if !llm.hasPrefix("연결됨") { return llm }
-        if let chat = state.chatTestResult, !chat.hasPrefix("연결됨") { return chat }
-        return llm
+    /// Organize and chat always share one connection; writing one also writes the other.
+    private func shared(_ main: WritableKeyPath<AppSettings, String>, _ chat: WritableKeyPath<AppSettings, String>) -> Binding<String> {
+        Binding(get: { state.settings[keyPath: main] },
+                set: { state.settings[keyPath: main] = $0; state.settings[keyPath: chat] = $0 })
+    }
+
+    /// Turning "same as organize" off starts the chat model from the organize model so it does not jump.
+    private var chatSame: Binding<String> {
+        Binding(get: { state.settings.chatSameAsOrganize ? "same" : "own" },
+                set: { value in
+                    let same = value == "same"
+                    if !same, state.settings.chatSameAsOrganize {
+                        state.settings.chatCodexModel = state.settings.codexModel
+                        state.settings.chatModel = state.settings.llmModel
+                    }
+                    state.settings.chatSameAsOrganize = same
+                    state.settings.chatProvider = state.settings.llmProvider
+                })
+    }
+
+    private var judgeChoice: Binding<String> {
+        Binding(get: { state.settings.judgeChoice.rawValue },
+                set: { state.settings.judgeChoice = AppSettings.JudgeChoice(rawValue: $0) ?? .codex })
+    }
+
+    private func chatUses(_ provider: String) -> Bool { state.settings.effectiveChatProvider == provider }
+
+    /// One status per connection: its own check, then the chat check when chat also runs on it.
+    private func check(_ provider: String) -> CheckResult? {
+        guard let main = state.connectionChecks[provider] else { return nil }
+        if main == .checking || (chatUses(provider) && state.chatTesting) { return .checking }
+        if main.isOK, chatUses(provider), let chat = state.chatTestResult, !chat.isOK { return chat }
+        return main
+    }
+
+    private func runCheck(_ provider: String) {
+        Task {
+            await state.testConnection(provider)
+            if chatUses(provider) { await state.testChatLLM() }
+        }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SectionLabel("연결", top: 19, inset: 0, bottom: 0, height: 12)
-            SettingCard {
-                SettingRow("연결 방식", top: 16, bottom: 7) {
-                    BrandMenu(selection: $provider, options: [("codex", "ChatGPT 구독"), ("openai", "API")], width: 190)
-                }
-                switch provider {
-                case "openai": openAIRows
-                default: codexRows
-                }
-            }
-            if provider == "codex" { codexExtras }
-            else if judge == "gpt", state.settings.judgeGPTProvider == "codex" {
-                SettingCard { codexRows }
-                codexExtras
-            }
-            SectionLabel("모델", top: 11, inset: 0, bottom: 0, height: 12)
-            judgeRow
-            if judge == "jev" { jevKeyRow }
+            SettingCard { codexRows }
+            codexExtras
+            SettingCard { apiRows }
+            choiceKeyRow(.jev)
+            choiceKeyRow(.decisions)
+            SectionLabel("용도별 모델", top: 11, inset: 0, bottom: 0, height: 12)
             organizeRow
             chatRow
+            judgeRow
             Text("기록은 Mac에 저장되고, 정리와 채팅을 쓸 때 창 제목, 주소, 화면 텍스트 일부, 질문, 새 파일 정보가 연결한 AI 계정으로 전송돼요. 연결 확인은 개인 자료 없이 시험 호출만 하고, 모델 사용량이 소량 발생해요.")
                 .font(Brand.suit(11)).foregroundStyle(Brand.gray).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 10)
         }
-        .onChange(of: jevKey) { _, _ in jevResult = nil }
-        .onChange(of: judge) { _, _ in jevResult = nil }
-        .task(id: [provider, baseURL, apiKey]) {
-            apiModels = await availableAPIModels(enabled: provider == "openai", address: baseURL, key: apiKey)
+        .onAppear(perform: unifyChat)
+        .onChange(of: state.settings.jevAPIKey) { _, _ in choiceChecks[.jev] = nil }
+        .onChange(of: state.settings.decisionsAPIKey) { _, _ in choiceChecks[.decisions] = nil }
+        .task(id: [provider, state.settings.judgeChoice.rawValue, state.settings.llmBaseURL, state.settings.llmAPIKey]) {
+            let used = provider == "openai" || state.settings.judgeChoice == .api
+            apiModels = await availableAPIModels(enabled: used, address: state.settings.llmBaseURL, key: state.settings.llmAPIKey)
         }
-        .task(id: [judge, state.settings.judgeGPTProvider, state.settings.judgeBaseURL, state.settings.judgeAPIKey]) {
+        .task(id: [state.settings.judgeChoice.rawValue, state.settings.judgeBaseURL, state.settings.judgeAPIKey]) {
             let settings = state.settings
-            judgeAPIModels = await availableAPIModels(enabled: judge == "gpt" && settings.judgeGPTProvider == "openai",
-                                                       address: settings.judgeBaseURL, key: settings.judgeAPIKey)
+            judgeAPIModels = await availableAPIModels(enabled: settings.judgeChoice == .customAPI, address: settings.judgeBaseURL, key: settings.judgeAPIKey)
         }
+    }
+
+    /// Older saves could give chat its own address and key; bring them back in line with organize.
+    private func unifyChat() {
+        let c = state.settings
+        if c.chatProvider != c.llmProvider { state.settings.chatProvider = c.llmProvider }
+        if c.chatBaseURL != c.llmBaseURL { state.settings.chatBaseURL = c.llmBaseURL }
+        if c.chatAPIKey != c.llmAPIKey { state.settings.chatAPIKey = c.llmAPIKey }
     }
 
     // MARK: 줄 틀
@@ -422,17 +412,16 @@ private struct ConnectionSection: View {
         }.buttonStyle(BrandButtonStyle()).help(help).fixedSize()
     }
 
-    /// 연결 상태 줄: 결과 글과 연결 확인 단추 (키 줄 바로 아래)
-    private var statusRow: some View {
-        SettingRow("연결 상태", top: 16, bottom: 7) { SettingCheckStatus(result: result, testing: testing, action: test) }
-    }
+    // MARK: 연결
 
-    // MARK: 연결 방식별 줄
-
-    @ViewBuilder private var openAIRows: some View {
-        SettingRow("서버 주소", top: 16, bottom: 7) { BrandInput(text: $baseURL, placeholder: "http://localhost:5010/v1", width: 460) }
-        SettingRow("API 키", detail: "없으면 비워 둬요.", top: 16, bottom: 7) { BrandInput(text: $apiKey, placeholder: "", width: 460, secure: true) }
-        statusRow
+    @ViewBuilder private var apiRows: some View {
+        SettingRow("API 서버 주소", detail: "OpenAI 호환 서버 주소예요.", top: 16, bottom: 7) {
+            BrandInput(text: shared(\.llmBaseURL, \.chatBaseURL), placeholder: "http://localhost:5010/v1", width: 460)
+        }
+        SettingRow("API 서버 키", detail: "없으면 비워 둬요.", top: 16, bottom: 7) {
+            BrandInput(text: shared(\.llmAPIKey, \.chatAPIKey), placeholder: "", width: 460, secure: true)
+        }
+        SettingRow("API 서버 연결", top: 16, bottom: 7) { SettingCheckStatus(result: check("openai"), action: { runCheck("openai") }) }
     }
 
     /// ChatGPT 구독: 로그인했으면 계정(연결 확인, 더 보기 메뉴)과 사용량. 로그인 전이면 로그인 단추 한 줄
@@ -441,7 +430,7 @@ private struct ConnectionSection: View {
         case .loggedIn(let email, let plan, _):
             SettingRow("ChatGPT 계정", detail: [email, plan.map { "\($0) 요금제로 연결됨" } ?? "연결됨"].compactMap { $0 }.joined(separator: ", "), top: 16, bottom: 7) {
                 HStack(spacing: 14) {
-                    SettingCheckStatus(result: result, testing: testing, action: test)
+                    SettingCheckStatus(result: check("codex"), action: { runCheck("codex") })
                     Menu {
                         if state.codexModelsLoading { Button("모델 검사 중단") { state.cancelCodexModelLoading() } }
                         else { Button("모델 다시 확인") { Task { await state.loadCodexModels(force: true) } } }
@@ -518,26 +507,46 @@ private struct ConnectionSection: View {
         Text(text).font(Brand.suit(11)).foregroundStyle(Brand.text).textSelection(.enabled).padding(.top, 10)
     }
 
-    // MARK: 모델
+    // MARK: 용도별 모델
+
+    private static let connections = [("codex", "ChatGPT 구독"), ("openai", "API 서버")]
+
+    private var organizeRow: some View {
+        tallRow("정리 모델", sub: "판단을 마친 업무의 이름과 요약을 만들어요") {
+            VStack(alignment: .trailing, spacing: 8) {
+                BrandMenu(selection: shared(\.llmProvider, \.chatProvider), options: Self.connections, width: 190)
+                modelList(codex: $state.settings.codexModel, openAI: $state.settings.llmModel, codexModels: state.codexModels)
+            }
+        }
+    }
+
+    private var chatRow: some View {
+        tallRow("채팅 모델", sub: "채팅에서 질문을 읽고 답변을 작성해요") {
+            VStack(alignment: .trailing, spacing: 8) {
+                BrandMenu(selection: chatSame, options: [("same", "정리 모델과 같음"), ("own", "따로 고르기")], width: 190)
+                if !state.settings.chatSameAsOrganize {
+                    modelList(codex: $state.settings.chatCodexModel, openAI: $state.settings.chatModel,
+                              codexModels: state.chatCodexModels.isEmpty ? state.codexModels : state.chatCodexModels)
+                }
+            }
+        }
+    }
 
     private var judgeRow: some View {
         tallRow("판단 모델", sub: "활동 기록을 어느 업무에 넣을지 판단해요") {
             VStack(alignment: .trailing, spacing: 8) {
-                HStack(spacing: 6) {
-                    SettingPill(on: judge == "gpt", action: { judge = "gpt" }) { Text("GPT") }
-                    SettingPill(on: judge != "gpt", action: { if judge == "gpt" { judge = "jev" } }) { jevLabel("Jev") }
-                }
-                if judge == "gpt" {
-                    BrandMenu(selection: $state.settings.judgeGPTProvider,
-                              options: [("codex", "ChatGPT 구독"), ("openai", "별도 API")], width: 190)
-                    switch state.settings.judgeGPTProvider {
-                    case "openai":
-                        TextField("판단 API 주소", text: $state.settings.judgeBaseURL).frame(width: 300)
-                        SecureField("판단 API 키", text: $state.settings.judgeAPIKey).frame(width: 300)
-                        ModelDropdown(selection: $state.settings.judgeAPIModel, models: judgeAPIModels.map { ($0, $0) }, directEntry: true)
-                    default:
-                        codexModelField($state.settings.judgeCodexModel, state.codexModels)
-                    }
+                BrandMenu(selection: judgeChoice, options: [("codex", "ChatGPT 구독"), ("api", "API 서버"), ("customAPI", "다른 API 서버"),
+                                                             ("jev", "Jev"), ("decisions", "OpenAI Decisions")], width: 190)
+                switch state.settings.judgeChoice {
+                case .codex: codexModelField($state.settings.judgeCodexModel, state.codexModels)
+                case .api: ModelDropdown(selection: $state.settings.judgeAPIModel, models: apiModels.map { ($0, $0) }, directEntry: true)
+                case .customAPI:
+                    BrandInput(text: $state.settings.judgeBaseURL, placeholder: "판단 API 주소", width: 300)
+                    BrandInput(text: $state.settings.judgeAPIKey, placeholder: "판단 API 키", width: 300, secure: true)
+                    ModelDropdown(selection: $state.settings.judgeAPIModel, models: judgeAPIModels.map { ($0, $0) }, directEntry: true)
+                case .jev, .decisions:
+                    let ready = state.settings.judgeChoice == .jev ? !state.settings.jevAPIKey.isEmpty : !state.settings.decisionsAPIKey.isEmpty
+                    if !ready { Text("위 연결에서 API 키를 넣어 주세요").font(Brand.suit(11)).foregroundStyle(Brand.gray) }
                 }
             }
         }
@@ -553,72 +562,50 @@ private struct ConnectionSection: View {
         } catch { return [] }
     }
 
-    /// 알약 안: Jev 로고 14pt와 이름
-    private func jevLabel(_ name: String) -> some View {
-        HStack(spacing: 6) { SettingJevLogo(size: 14); Text(name) }
+    private func choiceKey(_ kind: AppSettings.JudgeChoice) -> Binding<String> {
+        kind == .jev ? $state.settings.jevAPIKey : $state.settings.decisionsAPIKey
     }
 
-    /// Jev API 키 줄: 키 받기, 키 칸(안에 Jev 로고 16pt). 키를 넣으면 칸 아래에 연결 확인이 나온다
-    private var jevKeyRow: some View {
-        tallRow("Jev API 키", slot: 36, top: 16, bottom: 7, column: nil) {
+    /// Key row for a choice-only judge: key link, key field, and a check once a key is in.
+    private func choiceKeyRow(_ kind: AppSettings.JudgeChoice) -> some View {
+        let jev = kind == .jev
+        return tallRow(jev ? "Jev API 키" : "OpenAI API 키", sub: jev ? nil : "OpenAI Decisions에 써요", slot: 36, top: 16, bottom: 7, column: nil) {
             VStack(alignment: .trailing, spacing: 8) {
                 HStack(spacing: 12) {
-                    keyLink(AppSettings.jevSite, help: "Jev 사이트에서 키를 만들어요")
+                    keyLink(jev ? AppSettings.jevSite : AppSettings.openAIKeySite, help: jev ? "Jev 사이트에서 키를 만들어요" : "OpenAI 사이트에서 키를 만들어요")
                     HStack(spacing: 8) {
-                        SettingJevLogo(size: 16)
-                        SecureField("", text: $jevKey, prompt: Text("Jev 사이트에서 받은 키를 붙여 넣어요").foregroundStyle(Color(hex: 0x9E9994)))
+                        if jev { SettingJevLogo(size: 16) }
+                        SecureField("", text: choiceKey(kind), prompt: Text(jev ? "Jev 사이트에서 받은 키를 붙여 넣어요" : "OpenAI에서 받은 키를 붙여 넣어요").foregroundStyle(Color(hex: 0x9E9994)))
                             .textFieldStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.text)
-                            .focused($jevFocused)
+                            .focused($focusedKey, equals: kind)
                     }
                     .settingField()
                     .frame(width: 460)
                     .contentShape(Rectangle())
-                    .onTapGesture { jevFocused = true }
+                    .onTapGesture { focusedKey = kind }
                 }
-                if !jevKey.isEmpty {
-                    SettingCheckStatus(result: jevChecking ? "확인 중…" : jevResult, testing: jevChecking, action: checkJev)
+                if !choiceKey(kind).wrappedValue.isEmpty {
+                    SettingCheckStatus(result: choiceChecks[kind], action: { checkChoice(kind) })
                 }
             }
         }
     }
 
-    /// Jev 연결 확인: 개인 자료 없이 작은 문항 하나만 보낸다. 확인하는 사이 키를 바꾸면 그 결과는 버린다
-    private func checkJev() {
-        guard let endpoint = state.settings.judgeEndpoint else { jevResult = "Jev API 키를 먼저 넣어 주세요"; return }
-        let key = jevKey
-        jevChecking = true; jevResult = nil
+    /// Sends one small question with no personal data. A result for a key that has since changed is dropped.
+    private func checkChoice(_ kind: AppSettings.JudgeChoice) {
+        let key = choiceKey(kind).wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        choiceChecks[kind] = .checking
         Task {
-            var message = "연결됨"
-            do { try await JevClient(endpoint: endpoint).verify() } catch { message = error.localizedDescription }
-            if jevKey == key { jevResult = message }
-            jevChecking = false
+            var result = CheckResult.ok("연결됨")
+            do {
+                if kind == .jev { try await JevClient(endpoint: JevEndpoint(url: JevEndpoint.typesafeURL, model: JevEndpoint.defaultModel, key: key)).verify() }
+                else { try await DecisionsClient(key: key).verify() }
+            } catch { result = .failed(error.localizedDescription) }
+            choiceChecks[kind] = choiceKey(kind).wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines) == key ? result : nil
         }
     }
 
-    /// 정리 모델: 고른 연결 방식의 모델 목록
-    private var organizeRow: some View {
-        tallRow("정리 모델", sub: "판단을 마친 업무의 이름과 요약을 만들어요") {
-            modelList(codex: $codexModel, openAI: $openAIModel, codexModels: state.codexModels)
-        }
-    }
-
-    /// 채팅 모델: 정리 모델과 같이(기본) 또는 따로 고르기. 따로 고르면 알약 아래에 같은 연결 방식의 모델 목록이 펼쳐진다
-    private var chatRow: some View {
-        tallRow("채팅 모델", sub: "채팅에서 질문을 읽고 답변을 작성해요") {
-            VStack(alignment: .trailing, spacing: 8) {
-                HStack(spacing: 6) {
-                    SettingPill(on: chatSame, action: { chatSame = true }) { Text("정리 모델과 같이") }
-                    SettingPill(on: !chatSame, action: { chatSame = false }) { Text("따로 고르기") }
-                }
-                if !chatSame {
-                    modelList(codex: $chatCodexModel, openAI: $chatOpenAIModel,
-                              codexModels: state.chatCodexModels.isEmpty ? state.codexModels : state.chatCodexModels)
-                }
-            }
-        }
-    }
-
-    /// 고른 연결 방식에서 사용할 수 있는 모델을 메뉴로 보여 준다.
+    /// Model menu for the organize connection.
     @ViewBuilder private func modelList(codex: Binding<String>, openAI: Binding<String>, codexModels: [CodexModel]) -> some View {
         switch provider {
         case "openai": ModelDropdown(selection: openAI, models: apiModels.map { ($0, $0) }, directEntry: true)

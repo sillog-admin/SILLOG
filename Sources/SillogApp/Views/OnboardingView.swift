@@ -76,7 +76,7 @@ private struct ArtImage: View {
 // MARK: 온보딩 시트
 
 /// 1단계(로그인)의 화면. 앞의 셋은 AI 연결 고르기와 연결 방법별 화면, 뒤의 둘은 연결된 뒤에 거치는 판단 모델 고르기와 그 연결 화면
-private enum LoginMethod { case choose, chatgpt, apiKey, judge, judgeJev }
+private enum LoginMethod { case choose, chatgpt, apiKey, judge, judgeJev, judgeDecisions }
 
 struct OnboardingSheet: View {
     @EnvironmentObject private var state: AppState
@@ -86,6 +86,7 @@ struct OnboardingSheet: View {
     @State private var apiModel = ""
     @State private var apiKey = ""
     @State private var judgeJevKey = ""
+    @State private var judgeDecisionsKey = ""
     @State private var testing = false
     @State private var notice: String?
     @StateObject private var perms = OnboardingPermissions()
@@ -100,6 +101,7 @@ struct OnboardingSheet: View {
         case "apikey": return .apiKey
         case "judge": return .judge
         case "jev": return .judgeJev
+        case "decisions": return .judgeDecisions
         default: return .choose
         }
     }()
@@ -143,6 +145,7 @@ struct OnboardingSheet: View {
             case .apiKey: apiKeyPage
             case .judge: judgePage
             case .judgeJev: judgeJevPage
+            case .judgeDecisions: judgeDecisionsPage
             }
         }
     }
@@ -345,12 +348,12 @@ struct OnboardingSheet: View {
         Task {
             await state.testLLM()
             testing = false
-            if state.llmTestResult?.hasPrefix("연결됨") == true {
+            if state.llmTestResult?.isOK == true {
                 state.finishAPIKeyConnection()
                 goJudge()
             } else {
                 state.settings = before
-                notice = state.llmTestResult ?? "연결하지 못했어요."
+                notice = state.llmTestResult?.message ?? "연결하지 못했어요."
             }
         }
     }
@@ -363,13 +366,16 @@ struct OnboardingSheet: View {
 
     private var judgePage: some View {
         VStack(spacing: 40) {
-            heading("판단 모델을 골라요", "업무를 고를 때만 쓰는 Jev예요. 안 쓰면 정리 모델이 판단해요.")
+            heading("판단 모델을 골라요", "업무를 고를 때만 쓰는 모델이에요. 안 쓰면 정리 모델이 판단해요.")
             HStack(spacing: 20) {
                 MethodTile(title: "Jev API", detail: "Jev 키를 붙여 넣어요") {
                     ArtImage(name: "jev", size: 72)
                 } action: { go(.judgeJev) }
+                MethodTile(title: "OpenAI Decisions", detail: "OpenAI API 키를 붙여 넣어요") {
+                    Image(systemName: "checklist").font(.system(size: 52)).foregroundStyle(Brand.ink)
+                } action: { go(.judgeDecisions) }
             }
-            .frame(maxWidth: 340)
+            .frame(maxWidth: 700)
             Text("판단 모델은 나중에 설정에서 켜고 끌 수 있어요.").font(Brand.suit(13)).foregroundStyle(Brand.gray)
         }
     }
@@ -385,6 +391,17 @@ struct OnboardingSheet: View {
         }
     }
 
+    private var judgeDecisionsPage: some View {
+        VStack(spacing: 26) {
+            heading("OpenAI Decisions로 연결해요", "OpenAI 사이트에서 받은 API 키를 붙여 넣으면 돼요.")
+            VStack(alignment: .leading, spacing: 18) {
+                labeled("OpenAI API 키") { keyField($judgeDecisionsKey, placeholder: "여기에 붙여 넣기", fill: .white, height: 56, radius: 18).shadow(color: OB.shadow, radius: 8, y: 3) }
+            }
+            .frame(maxWidth: 936)
+            resultLine
+        }
+    }
+
     /// 판단 모델을 저장하고 권한 단계로 ("none" 은 쓰지 않음)
     private func finishJudge(_ provider: String) {
         state.settings.judgeProvider = provider
@@ -392,23 +409,23 @@ struct OnboardingSheet: View {
         state.advanceOnboarding()
     }
 
-    /// 판단 모델 연결 확인(시험 호출): 되면 키를 저장하고 권한 단계로, 안 되면 저장하지 않고 이유를 보여 준다. provider 는 "jev"
-    private func connectJudge(_ provider: String, endpoint: JevEndpoint) {
+    /// Test-calls the judge; on success saves the key and moves on, otherwise shows why and saves nothing.
+    private func connectJudge(_ provider: String, verify: @escaping () async throws -> Void, save: @escaping () -> Void) {
         guard !testing else { return }
         testing = true; notice = nil
         let startedOn = method
         Task {
             let failure: String?
             do {
-                try await JevClient(endpoint: endpoint).verify()
+                try await verify()
                 failure = nil
             } catch {
-                failure = error is JevError ? error.localizedDescription : "판단 모델 서버에 연결하지 못했어요. \(error.localizedDescription)"
+                failure = error is ChoiceError ? error.localizedDescription : "판단 모델 서버에 연결하지 못했어요. \(error.localizedDescription)"
             }
             testing = false
-            guard method == startedOn else { return }     // 확인하는 동안 다른 화면으로 돌아갔으면 건드리지 않는다 (건너뛰기를 덮어쓰지 않게)
+            guard method == startedOn else { return }     // went back meanwhile: do not overwrite a skip
             if let failure { notice = failure; return }
-            state.settings.jevAPIKey = endpoint.key
+            save()
             finishJudge(provider)
         }
     }
@@ -551,7 +568,7 @@ struct OnboardingSheet: View {
         if step == .permissions {
             state.onboardingStep = .login        // 권한 앞 화면인 판단 모델 고르기로 돌아온다. 연결 방법은 거기서 이전으로 다시 고른다
             method = .judge
-        } else if method == .judgeJev {
+        } else if method == .judgeJev || method == .judgeDecisions {
             method = .judge
         } else {
             if method == .chatgpt { state.cancelCodexLogin() }
@@ -586,10 +603,19 @@ struct OnboardingSheet: View {
                 Button("건너뛰기") { state.advanceOnboarding() }.buttonStyle(OBButtonStyle(kind: .secondary))   // keeps a judge picked earlier
             case .judgeJev:
                 Button("연결 확인") {
-                    connectJudge("jev", endpoint: JevEndpoint(url: JevEndpoint.typesafeURL, model: JevEndpoint.defaultModel, key: trimmed(judgeJevKey)))
+                    let key = trimmed(judgeJevKey)
+                    connectJudge("jev", verify: { try await JevClient(endpoint: JevEndpoint(url: JevEndpoint.typesafeURL, model: JevEndpoint.defaultModel, key: key)).verify() },
+                                 save: { state.settings.jevAPIKey = key })
                 }
                 .buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
                 .disabled(testing || trimmed(judgeJevKey).isEmpty)
+            case .judgeDecisions:
+                Button("연결 확인") {
+                    let key = trimmed(judgeDecisionsKey)
+                    connectJudge("decisions", verify: { try await DecisionsClient(key: key).verify() }, save: { state.settings.decisionsAPIKey = key })
+                }
+                .buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
+                .disabled(testing || trimmed(judgeDecisionsKey).isEmpty)
             }
         }
     }

@@ -19,9 +19,11 @@ final class AppState: ObservableObject {
     @Published var graphVersion = 0
     @Published var recent: [Observation] = []
     @Published var batches: [BatchRecord] = []
-    @Published var llmTestResult: String?
-    @Published var chatTestResult: String?
-    @Published var chatTesting = false
+    /// Connection check results by provider ("codex" / "openai").
+    @Published var connectionChecks: [String: CheckResult] = [:]
+    @Published var chatTestResult: CheckResult?
+    var chatTesting: Bool { chatTestResult == .checking }
+    var llmTestResult: CheckResult? { connectionChecks[settings.llmProvider] }
     @Published var startupError: String?
     @Published var codexStatus: CodexAuthStatus = .loggedOut
     /// 로그인 진행 중일 때만 값이 있다. 화면에 코드와 안내를 보여준다.
@@ -354,20 +356,24 @@ final class AppState: ObservableObject {
     }
 
     private func makeJudge() -> ActivityJudging {
-        if settings.judgeProvider != "gpt" {
-            guard let endpoint = settings.judgeEndpoint else { return .unavailable("판단 모델 Jev의 API 키를 설정해 주세요.") }
-            return .jev(JevClient(endpoint: endpoint))
+        let s = settings
+        switch s.judgeChoice {
+        case .jev:
+            guard let endpoint = s.judgeEndpoint else { return .unavailable("판단 모델 Jev의 API 키를 설정해 주세요.") }
+            return .choice(JevClient(endpoint: endpoint))
+        case .decisions:
+            guard !s.decisionsAPIKey.isEmpty else { return .unavailable("판단 모델 OpenAI Decisions의 API 키를 설정해 주세요.") }
+            return .choice(DecisionsClient(key: s.decisionsAPIKey))
+        case .codex:
+            return .gpt(CodexResponsesClient(auth: codexAuth, model: s.judgeCodexModel, reasoningEffort: "medium"))
+        case .api, .customAPI:
+            let (address, key) = s.judgeChoice == .api ? (s.llmBaseURL, s.llmAPIKey) : (s.judgeBaseURL, s.judgeAPIKey)
+            guard let url = URL(string: address.trimmingCharacters(in: .whitespacesAndNewlines)),
+                  ["http", "https"].contains(url.scheme ?? ""), url.host != nil, !s.judgeAPIModel.isEmpty else {
+                return .unavailable("판단 모델의 연결 주소, 모델, API 키를 확인해 주세요.")
+            }
+            return .gpt(OpenAICompatClient(baseURL: url, model: s.judgeAPIModel, apiKey: key.isEmpty ? nil : key))
         }
-        if settings.judgeGPTProvider == "codex" {
-            return .gpt(CodexResponsesClient(auth: codexAuth, model: settings.judgeCodexModel, reasoningEffort: "medium"))
-        }
-        let model = settings.judgeAPIModel
-        let key = settings.judgeAPIKey
-        guard let url = URL(string: settings.judgeBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)),
-              ["http", "https"].contains(url.scheme ?? ""), url.host != nil, !model.isEmpty else {
-            return .unavailable("판단 모델 GPT의 연결 주소, 모델, API 키를 확인해 주세요.")
-        }
-        return .gpt(OpenAICompatClient(baseURL: url, model: model, apiKey: key.isEmpty ? nil : key))
     }
 
     /// 파일 정리 제안용: 알림이 바로 떠야 하므로 low
@@ -403,13 +409,12 @@ final class AppState: ObservableObject {
     /// Raises: 없음. 연결·프로토콜 오류는 설정 화면에 표시한다.
     func testChatLLM() async {
         guard !chatTesting else { return }
-        chatTesting = true; chatTestResult = "채팅 연결 확인 중…"
-        defer { chatTesting = false }
+        chatTestResult = .checking
         do {
             try await makeChatClient().checkChatConnection()
-            chatTestResult = "연결됨 · 응답과 도구 호출 확인"
+            chatTestResult = .ok("연결됨 · 응답과 도구 호출 확인")
         } catch {
-            chatTestResult = error.localizedDescription
+            chatTestResult = .failed(error.localizedDescription)
         }
     }
 
@@ -443,7 +448,7 @@ final class AppState: ObservableObject {
 
     /// 선택한 ChatGPT 연결만 확인한다. 취소된 검사 결과는 새 로그인·검사에 적용하지 않는다.
     func loadCodexModels(force: Bool = false) async {
-        let usesCodexJudge = settings.judgeProvider == "gpt" && settings.judgeGPTProvider == "codex"
+        let usesCodexJudge = settings.judgeChoice == .codex
         let checkBatch = (settings.llmProvider == "codex" || usesCodexJudge) && (force || codexModels.isEmpty)
         let checkChat = settings.effectiveChatProvider == "codex" && (force || chatCodexModels.isEmpty)
         guard codexStatus != .loggedOut, !codexModelsLoading, checkBatch || checkChat else { return }
@@ -674,7 +679,7 @@ final class AppState: ObservableObject {
     }
 
     func applySettings() {
-        settings.save()
+        if !isPreview { settings.save() }
         NSApp.setActivationPolicy(settings.showDockIcon ? .regular : .accessory)
         let collectorSettings = settings.collector
         let client = makeClient()
@@ -693,24 +698,27 @@ final class AppState: ObservableObject {
         }
     }
 
-    func testLLM() async {
-        llmTestResult = "확인 중…"
-        if settings.llmUsesAPI {
+    func testLLM() async { await testConnection(settings.llmProvider) }
+
+    /// Sends a small test call over one connection; "openai" is the API server, anything else the ChatGPT login.
+    func testConnection(_ provider: String) async {
+        connectionChecks[provider] = .checking
+        if provider == "openai" {
             let client = makeOpenAIClient()
             let reachable = await client.ping()
             switch await client.selfTest() {
-            case .success(let message): llmTestResult = "연결됨. \(message)"
+            case .success(let message): connectionChecks[provider] = .ok("연결됨. \(message)")
             case .failure(let error):
-                llmTestResult = reachable
+                connectionChecks[provider] = .failed(reachable
                     ? "서버는 응답하지만 호출에 실패했습니다.\n\(error.description.prefix(300))"
-                    : "서버에 연결할 수 없습니다. 서버가 켜져 있는지 확인하세요.\n\(error.description.prefix(200))"
+                    : "서버에 연결할 수 없습니다. 서버가 켜져 있는지 확인하세요.\n\(error.description.prefix(200))")
             }
             return
         }
         let client = CodexResponsesClient(auth: codexAuth, model: settings.codexModel, reasoningEffort: "medium", timeout: 45)
         switch await client.selfTest() {
-        case .success(let message): llmTestResult = "연결됨. \(message)"
-        case .failure(let error): llmTestResult = String(error.description.prefix(300))
+        case .success(let message): connectionChecks[provider] = .ok("연결됨. \(message)")
+        case .failure(let error): connectionChecks[provider] = .failed(String(error.description.prefix(300)))
         }
         codexStatus = await codexAuth.status()
     }
@@ -763,4 +771,19 @@ final class AppState: ObservableObject {
         formatter.dateFormat = "HH:mm"
         return formatter
     }()
+}
+
+/// Result of a connection check.
+enum CheckResult: Equatable {
+    case checking
+    case ok(String)
+    case failed(String)
+
+    var isOK: Bool { if case .ok = self { return true } else { return false } }
+    var message: String {
+        switch self {
+        case .checking: return "확인 중…"
+        case .ok(let message), .failed(let message): return message
+        }
+    }
 }
