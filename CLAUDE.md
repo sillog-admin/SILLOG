@@ -76,7 +76,7 @@ LLM 클라이언트는 `Settings.swift`(`AppSettings`)의 값으로 `AppState.ma
 
 - 변경한 뒤에는 `swift build`와 `swift test`를 실행합니다. 화면 동작은 `Tests/SillogAppTests`가 `AppState(preview:)`로 화면 밖 창에 그려서 확인합니다. 실제 DB와 실행 잠금은 쓰지 않습니다.
 - 외부 API는 자동 테스트에서 대역으로만 확인합니다. 실제 키가 필요한 연결 확인은 `.env`(커밋 금지, 템플릿은 `.env.copy`)의 키로 따로 실행하고 자동 테스트와 섞지 않습니다.
-- GitHub Actions는 PR과 기본 브랜치 push에서 빌드와 테스트를 실행합니다.
+- GitHub Actions는 PR과 기본 브랜치 push에서 빌드와 테스트를 실행합니다. 다만 CI 러너는 화면 글자 인식이 로컬과 달라서, OCR로 확인하는 UI 테스트 일부는 CI에서 건너뜁니다(`XCTSkipIf`로 `CI` 환경변수 확인). CI가 통과해도 PR을 올리기 전에 로컬에서 `swift test`를 꼭 돌립니다.
 
 ## 호환성
 
