@@ -13,13 +13,14 @@ struct GraphWebView: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.add(context.coordinator, name: "wg")
+        WebL10n.install(on: configuration.userContentController)
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.setValue(false, forKey: "drawsBackground")              // 로딩 중 흰 화면 방지
         context.coordinator.webView = webView
         if let directory = Self.graphDirectory() {
             webView.loadFileURL(directory.appendingPathComponent("index.html"), allowingReadAccessTo: directory.deletingLastPathComponent())   // ../Brand/Fonts 의 SUIT 글꼴도 읽게
         } else {
-            webView.loadHTMLString("<body style='background:#1e1e1e;color:#ddd;font:14px -apple-system;padding:40px'>그래프 화면 리소스를 찾지 못했습니다.</body>", baseURL: nil)
+            webView.loadHTMLString(tr("<body style='background:#1e1e1e;color:#ddd;font:14px -apple-system;padding:40px'>그래프 화면 리소스를 찾지 못했습니다.</body>"), baseURL: nil)
         }
         return webView
     }
@@ -73,8 +74,8 @@ struct GraphWebView: NSViewRepresentable {
             guard let webView, let window = webView.window else { return }
             let menu = NSMenu()
             menu.autoenablesItems = false
-            let detail = NSMenuItem(title: "상세 보기", action: #selector(menuDetail(_:)), keyEquivalent: "")
-            let erase = NSMenuItem(title: "지우기…", action: #selector(menuErase(_:)), keyEquivalent: "")
+            let detail = NSMenuItem(title: tr("상세 보기"), action: #selector(menuDetail(_:)), keyEquivalent: "")
+            let erase = NSMenuItem(title: tr("지우기…"), action: #selector(menuErase(_:)), keyEquivalent: "")
             for item in [detail, erase] { item.target = self; item.representedObject = [ref.label, ref.key] }
             erase.isEnabled = NodeEraser.canErase(label: ref.label) && !state.erasing
             menu.items = [detail, .separator(), erase]

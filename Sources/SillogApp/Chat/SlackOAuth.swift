@@ -10,7 +10,7 @@ enum SlackOAuth {
     private static var timeout: Task<Void, Never>?
 
     static func receive(auth: URL, state: String) async throws -> String {
-        guard pending == nil else { throw ChatToolError.unavailable("Slack 연결 승인이 이미 진행 중입니다.") }
+        guard pending == nil else { throw ChatToolError.unavailable(tr("Slack 연결 승인이 이미 진행 중입니다.")) }
         try Task.checkCancellation()
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
@@ -19,10 +19,10 @@ enum SlackOAuth {
                     do { try await Task.sleep(nanoseconds: 600_000_000_000) }
                     catch { return }
                     guard pending?.state == state else { return }
-                    finish(.failure(ChatToolError.unavailable("Slack 승인 시간이 지났습니다. 다시 연결하세요.")))
+                    finish(.failure(ChatToolError.unavailable(tr("Slack 승인 시간이 지났습니다. 다시 연결하세요."))))
                 }
                 if !NSWorkspace.shared.open(auth) {
-                    finish(.failure(ChatToolError.unavailable("Slack 로그인 화면을 열지 못했습니다.")))
+                    finish(.failure(ChatToolError.unavailable(tr("Slack 로그인 화면을 열지 못했습니다."))))
                 }
             }
         } onCancel: {
@@ -52,11 +52,11 @@ enum SlackOAuth {
               query.filter({ $0.name == "state" }).count == 1,
               query.first(where: { $0.name == "state" })?.value == state else { return nil }
         if query.contains(where: { $0.name == "error" }) {
-            throw ChatToolError.unavailable("Slack 연결 승인이 취소되었습니다. 다시 연결할 수 있어요.")
+            throw ChatToolError.unavailable(tr("Slack 연결 승인이 취소되었습니다. 다시 연결할 수 있어요."))
         }
         guard query.filter({ $0.name == "code" }).count == 1,
               let code = query.first(where: { $0.name == "code" })?.value, !code.isEmpty else {
-            throw ChatToolError.unavailable("Slack 승인 응답을 확인하지 못했습니다. 다시 연결하세요.")
+            throw ChatToolError.unavailable(tr("Slack 승인 응답을 확인하지 못했습니다. 다시 연결하세요."))
         }
         return code
     }

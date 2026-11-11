@@ -1,4 +1,5 @@
 import SwiftUI
+import SillogCore
 
 /// 쪽 번호 ‹ 1 2 3 › (파일 > 지난 기록). 쪽이 많으면 처음·끝과 지금 쪽 앞뒤만 보이고 사이는 …
 struct PageNumbers: View {
@@ -9,7 +10,7 @@ struct PageNumbers: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            arrow("chevron.left", label: "이전 쪽", to: current - 1)
+            arrow("chevron.left", label: tr("이전 쪽"), to: current - 1)
             ForEach(Array(Self.numbers(current: current, pages: pages).enumerated()), id: \.offset) { _, page in
                 if let page {
                     Button { select(page) } label: {
@@ -19,12 +20,12 @@ struct PageNumbers: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain).hoverHighlight(cornerRadius: 6, active: page != current)
-                    .accessibilityLabel("\(page + 1)쪽")
+                    .accessibilityLabel(tr("\(page + 1)쪽"))
                 } else {
                     Text("…").font(Brand.jost(12)).foregroundStyle(Brand.gray).frame(width: 20)
                 }
             }
-            arrow("chevron.right", label: "다음 쪽", to: current + 1)
+            arrow("chevron.right", label: tr("다음 쪽"), to: current + 1)
         }
     }
 

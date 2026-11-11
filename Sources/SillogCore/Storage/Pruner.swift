@@ -68,7 +68,7 @@ public struct ReclaimResult: Equatable, Sendable {
 
 public enum PruneError: Error, Equatable, CustomStringConvertible {
     case consentRequired
-    public var description: String { "처음 정리하기 전에 사용자의 동의가 필요합니다." }
+    public var description: String { tr("처음 정리하기 전에 사용자의 동의가 필요합니다.") }
 }
 
 /// 원문 정리. 하루 D 의 원문은 그 주의 다이제스트가 활동한 모든 업무에 대해 검증(또는 수정)되고,
@@ -154,27 +154,27 @@ public struct Pruner {
 
     /// 주의 다이제스트가 원문을 대신할 준비가 됐는지. 검증에 실패한 요약이 하나라도 있으면 그 주는 남기고 건너뛴다
     func state(_ week: PeriodCalendar.Period, _ conn: Database, now: Double, policy: RetentionPolicy) throws -> WeekState {
-        if now < week.end + Self.closeDelay { return .wait("\(week.id) 주가 아직 닫히지 않았어요") }
+        if now < week.end + Self.closeDelay { return .wait(tr("\(week.id) 주가 아직 닫히지 않았어요")) }
         // Unbatched rows have no task yet, so no digest can stand in for them.
         let unbatched = try Int.fetchOne(conn, sql: "SELECT COUNT(*) FROM observations WHERE batch_id IS NULL AND ts < ?", arguments: [week.end]) ?? 0
-        if unbatched > 0 { return .wait("\(week.id) 주에 아직 정리하지 않은 기록이 있어요") }
+        if unbatched > 0 { return .wait(tr("\(week.id) 주에 아직 정리하지 않은 기록이 있어요")) }
         let active = try DigestInput.activeTasks(conn, period: week, ledger: ledger)
         let digests = try DigestStore.byTask(conn, level: .week, period: week.id)
         var verifiedAt: [Double] = [], failed: [String] = [], waiting: String?
         for key in active {
-            guard let digest = digests[key] else { waiting = waiting ?? "\(week.id) 주의 요약을 아직 만들지 않았어요"; continue }
+            guard let digest = digests[key] else { waiting = waiting ?? tr("\(week.id) 주의 요약을 아직 만들지 않았어요"); continue }
             if digest.status != .draft, let at = digest.verifiedAt { verifiedAt.append(at) }
             else if digest.status == .draft, digest.attempts >= DigestBuilder.maxAttempts { failed.append(key) }
-            else { waiting = waiting ?? "\(week.id) 주의 요약이 아직 초안이에요" }
+            else { waiting = waiting ?? tr("\(week.id) 주의 요약이 아직 초안이에요") }
         }
         if let key = failed.first {
             let title = try String.fetchOne(conn, sql: "SELECT title FROM nodes WHERE label = 'Task' AND key = ?", arguments: [key]) ?? key
-            let others = failed.count > 1 ? " 외 \(failed.count - 1)개" : ""
-            return .keep("\(week.id) 주 '\(title.prefix(30))'\(others) 요약이 검증을 통과하지 못해 이 주 원문은 남겨 뒀어요. 업무 탭 요약의 '고치기'에서 확인하고 저장하면 유예 기간 뒤 정리돼요")
+            let others = failed.count > 1 ? tr(" 외 \(failed.count - 1)개") : ""
+            return .keep(tr("\(week.id) 주 '\(title.prefix(30))'\(others) 요약이 검증을 통과하지 못해 이 주 원문은 남겨 뒀어요. 업무 탭 요약의 '고치기'에서 확인하고 저장하면 유예 기간 뒤 정리돼요"))
         }
         if let waiting { return .wait(waiting) }
         let ready = (verifiedAt.max() ?? week.end + Self.closeDelay) + Double(policy.graceDays) * 86_400
-        return now < ready ? .wait("\(week.id) 주는 요약 확인 뒤 유예 기간(\(policy.graceDays)일) 중이에요") : .ready
+        return now < ready ? .wait(tr("\(week.id) 주는 요약 확인 뒤 유예 기간(\(policy.graceDays)일) 중이에요")) : .ready
     }
 
     // MARK: 실행
@@ -297,7 +297,7 @@ public struct Pruner {
                 }
                 result.vacuumed = true
             } else {
-                result.note = "디스크 여유가 DB 크기의 두 배보다 적어 전체 정리를 다음으로 미뤘어요"
+                result.note = tr("디스크 여유가 DB 크기의 두 배보다 적어 전체 정리를 다음으로 미뤘어요")
             }
         } else {
             try db.writer.writeWithoutTransaction { try $0.execute(sql: "PRAGMA incremental_vacuum") }

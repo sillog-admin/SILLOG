@@ -35,8 +35,8 @@ struct FilesView: View {
 
     private var emptyState: some View {
         VStack(spacing: 0) {
-            Text("정리할 파일이 없어요").font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink)
-            Text("다운로드 폴더에 새 파일이 생기면 어디에 둘지 제안해요.").font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 8)
+            Text(tr("정리할 파일이 없어요")).font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink)
+            Text(tr("다운로드 폴더에 새 파일이 생기면 어디에 둘지 제안해요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -46,7 +46,7 @@ struct FilesView: View {
             Image(systemName: "exclamationmark.circle").font(.system(size: 13)).foregroundStyle(Brand.ink)
             Text(error).font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink)
             Spacer()
-            Button("닫기") { state.fileError = nil }.buttonStyle(.plain).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
+            Button(tr("닫기")) { state.fileError = nil }.buttonStyle(.plain).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
         }
         .padding(.horizontal, 34).frame(height: 52).frame(maxWidth: .infinity)
         .background(ChatPalette.soft)
@@ -56,7 +56,7 @@ struct FilesView: View {
     private var notificationRow: some View {
         Button { state.openGeneralSettings() } label: {
             HStack(spacing: 4) {
-                Text("알림이 꺼져 있어요. 설정의 일반에서 켤 수 있어요.")
+                Text(tr("알림이 꺼져 있어요. 설정의 일반에서 켤 수 있어요."))
                 Image(systemName: "arrow.up.right").font(.system(size: 9))
             }
             .font(Brand.suit(11)).foregroundStyle(Brand.gray)
@@ -88,13 +88,13 @@ struct FileHistoryView: View {
         Group {
             if rows.isEmpty {
                 VStack(spacing: 0) {
-                    Text("아직 지난 기록이 없어요").font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink)
-                    Text("정리 제안을 옮기거나 무시하면 여기에 남아요.").font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 8)
+                    Text(tr("아직 지난 기록이 없어요")).font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink)
+                    Text(tr("정리 제안을 옮기거나 무시하면 여기에 남아요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 8)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(alignment: .leading, spacing: 0) {
-                    SectionTitle(title: "지난 기록", count: total).padding(.horizontal, 34)
+                    SectionTitle(title: tr("지난 기록"), count: total).padding(.horizontal, 34)
                     HistoryRow.header.padding(.horizontal, 34)                     // 열 머리는 고정
                     HistoryList(rows: rows, page: state.fileHistoryPage, state: state, fields: state.fileFields(for: rows))
                     if pages > 1 {
@@ -137,7 +137,7 @@ private struct PendingSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionTitle(title: "대기 중인 제안", count: pending.count)
+            SectionTitle(title: tr("대기 중인 제안"), count: pending.count)
             HStack(alignment: .top, spacing: 28) {
                 ScrollView { tree.padding(.bottom, 28) }        // 고정: 카드를 스크롤해도 움직이지 않는다 (나무가 길면 따로 스크롤)
                     .frame(width: Self.treeWidth)
@@ -179,7 +179,7 @@ private struct PendingSection: View {
     /// 옮겨질 곳: 원래 폴더에서 옮길 폴더로 가지가 뻗고, 그 아래에 파일. 같은 폴더로 가는 파일은 한 가지에 묶인다
     private var tree: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("옮겨질 곳").font(Brand.suit(11, .medium)).foregroundStyle(Brand.gray).padding(.bottom, 6)
+            Text(tr("옮겨질 곳")).font(Brand.suit(11, .medium)).foregroundStyle(Brand.gray).padding(.bottom, 6)
             ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
                 HStack(spacing: 6) {
                     Image(systemName: "folder").font(.system(size: 12)).foregroundStyle(Brand.ink).frame(width: 12)
@@ -286,7 +286,7 @@ private struct HistoryRow: View {
     let undo: () -> Void
 
     static var header: some View {
-        cells(Text("파일"), AnyView(Text("분야")), Text("폴더"), Text("처리 결과"), Text("시간"), AnyView(EmptyView()), header: true)
+        cells(Text(tr("파일")), AnyView(Text(tr("분야"))), Text(tr("폴더")), Text(tr("처리 결과")), Text(tr("시간")), AnyView(EmptyView()), header: true)
     }
 
     var body: some View {
@@ -300,14 +300,14 @@ private struct HistoryRow: View {
     private var fieldCell: some View {
         HStack(spacing: 5) {
             if let field { Circle().fill(field.color).frame(width: 6, height: 6) }
-            Text(field?.name ?? "분야 없음").lineLimit(1)
+            Text(field?.name ?? tr("분야 없음")).lineLimit(1)
         }
     }
 
     @ViewBuilder private var undoButton: some View {
         if suggestion.status == "moved" {
             Button(action: undo) {
-                HStack(spacing: 6) { Image(systemName: "arrow.uturn.backward").font(.system(size: 11)); Text("되돌리기") }
+                HStack(spacing: 6) { Image(systemName: "arrow.uturn.backward").font(.system(size: 11)); Text(tr("되돌리기")) }
             }
             .buttonStyle(.plain).font(Brand.suit(11)).foregroundStyle(Brand.tabText)
         }
@@ -330,11 +330,11 @@ private struct HistoryRow: View {
 
     private static func label(_ status: String) -> String {
         switch status {
-        case "moved": return "옮김"
-        case "ignored": return "무시"
-        case "undone": return "되돌림"
-        case "rejected": return "거절"
-        case "gone": return "직접 처리"
+        case "moved": return tr("옮김")
+        case "ignored": return tr("무시")
+        case "undone": return tr("되돌림")
+        case "rejected": return tr("거절")
+        case "gone": return tr("직접 처리")
         default: return status
         }
     }
@@ -353,8 +353,8 @@ private struct FileSuggestSettings: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("새 파일의 정리 위치 제안").font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink)
-                    Text("새 파일에 어울리는 폴더 한 곳을 추천해요. 승인한 파일만 옮겨요.").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                    Text(tr("새 파일의 정리 위치 제안")).font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink)
+                    Text(tr("새 파일에 어울리는 폴더 한 곳을 추천해요. 승인한 파일만 옮겨요.")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                 }
                 Spacer(minLength: 12)
                 Toggle("", isOn: $state.settings.suggestFolders).toggleStyle(BrandSwitchStyle())
@@ -370,7 +370,7 @@ private struct FileSuggestSettings: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
                 Image(systemName: "folder").font(.system(size: 12)).foregroundStyle(Brand.ink).frame(width: 12)
-                Text("정리 대상 폴더").font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
+                Text(tr("정리 대상 폴더")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
                 Text("\(roots.count)").font(Brand.jost(11)).foregroundStyle(Brand.gray)
                 if collapsible {
                     Image(systemName: open ? "chevron.up" : "chevron.down").font(.system(size: 9, weight: .medium)).foregroundStyle(Brand.gray)
@@ -387,7 +387,7 @@ private struct FileSuggestSettings: View {
                     Button { addRoot() } label: {
                         HStack(spacing: 7) {
                             Image(systemName: "plus").font(.system(size: 10, weight: .medium)).frame(width: 12)
-                            Text("폴더 추가").font(Brand.suit(12))
+                            Text(tr("폴더 추가")).font(Brand.suit(12))
                         }
                         .foregroundStyle(Brand.tabText).padding(.horizontal, 8).frame(height: 26).contentShape(Rectangle())
                         .hoverHighlight(cornerRadius: 6)
@@ -456,19 +456,19 @@ private struct PendingCard: View, Equatable {
                             Text(field.name).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                         }
                     } else {
-                        Text("분야 없음").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                        Text(tr("분야 없음")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                     }
                 }
                 .padding(.top, 14)
                 HStack(spacing: 4) {
                     Button(action: accept) {
-                        HStack(spacing: 4) { Text("옮기기"); Image(systemName: "arrow.right").font(.system(size: 10)) }
+                        HStack(spacing: 4) { Text(tr("옮기기")); Image(systemName: "arrow.right").font(.system(size: 10)) }
                     }
                     .buttonStyle(BrandButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
-                    Button("다른 폴더 고르기", action: choose).buttonStyle(BrandButtonStyle())
-                    Button("무시", action: ignore).buttonStyle(BrandButtonStyle())
+                    Button(tr("다른 폴더 고르기"), action: choose).buttonStyle(BrandButtonStyle())
+                    Button(tr("무시"), action: ignore).buttonStyle(BrandButtonStyle())
                     Spacer(minLength: 0)
-                    Button("Finder에서 보기", action: reveal).buttonStyle(BrandButtonStyle())
+                    Button(tr("Finder에서 보기"), action: reveal).buttonStyle(BrandButtonStyle())
                 }
                 .padding(.top, 12)
             }
@@ -517,7 +517,7 @@ private struct FolderBranch: View {
                     Image(systemName: "xmark").font(.system(size: 10)).foregroundStyle(Brand.gray)
                         .frame(width: 22, height: 22).contentShape(Rectangle())
                 }
-                .buttonStyle(.plain).help("\(root) 폴더 삭제")
+                .buttonStyle(.plain).help(tr("\(root) 폴더 삭제"))
                 .opacity(hover ? 1 : 0.35)
             }
             .padding(.leading, 8).padding(.trailing, 4).frame(height: 26)

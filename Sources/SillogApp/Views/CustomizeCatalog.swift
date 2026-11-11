@@ -1,4 +1,5 @@
 import SwiftUI
+import SillogCore
 
 struct CatalogHeader<Actions: View>: View {
     let title: String
@@ -33,12 +34,12 @@ struct CatalogHeader<Actions: View>: View {
         HStack(spacing: 9) {
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Brand.gray)
-                TextField("\(title) 검색", text: $query)
+                TextField(tr("\(title) 검색"), text: $query)
                     .textFieldStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.text)
                 if !query.isEmpty {
                     Button { query = "" } label: {
                         Image(systemName: "xmark.circle.fill").font(.system(size: 11)).foregroundStyle(Brand.gray)
-                    }.buttonStyle(.plain).accessibilityLabel("검색어 지우기")
+                    }.buttonStyle(.plain).accessibilityLabel(tr("검색어 지우기"))
                 }
             }
             .padding(.horizontal, 12).frame(width: 190, height: 32)

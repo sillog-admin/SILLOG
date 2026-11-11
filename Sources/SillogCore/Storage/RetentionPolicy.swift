@@ -8,23 +8,23 @@ public struct RetentionPolicy: Codable, Equatable, Sendable {
 
         public var title: String {
             switch self {
-            case .screenText: "화면 텍스트"
-            case .batchLog: "정리 기록 원문"
-            case .observations: "활동 기록(앱·창 제목·주소)"
-            case .screenCards: "화면 카드"
-            case .aiRequests: "AI 도구 요청"
-            case .fileEvents: "파일 기록과 정리 제안"
+            case .screenText: tr("화면 텍스트")
+            case .batchLog: tr("정리 기록 원문")
+            case .observations: tr("활동 기록(앱·창 제목·주소)")
+            case .screenCards: tr("화면 카드")
+            case .aiRequests: tr("AI 도구 요청")
+            case .fileEvents: tr("파일 기록과 정리 제안")
             }
         }
 
         public var detail: String {
             switch self {
-            case .screenText: "화면에서 읽은 글자와 검색 색인. 지운 뒤에는 주간 요약과 화면 카드가 남아요."
-            case .batchLog: "정리할 때 AI와 주고받은 프롬프트·응답 전문. 토큰·오류 같은 통계는 남아요."
-            case .observations: "언제 어떤 앱·창·주소를 봤는지. 지운 뒤에도 업무별 사용 시간은 남아요."
-            case .screenCards: "대표 화면을 AI가 읽은 요약. 지운 뒤에는 월간 요약이 남아요."
-            case .aiRequests: "Claude Code·Codex에 보낸 요청. 지운 뒤에는 주간 요약의 요청 목록이 남아요."
-            case .fileEvents: "내려받은 파일 기록과 폴더 제안."
+            case .screenText: tr("화면에서 읽은 글자와 검색 색인. 지운 뒤에는 주간 요약과 화면 카드가 남아요.")
+            case .batchLog: tr("정리할 때 AI와 주고받은 프롬프트·응답 전문. 토큰·오류 같은 통계는 남아요.")
+            case .observations: tr("언제 어떤 앱·창·주소를 봤는지. 지운 뒤에도 업무별 사용 시간은 남아요.")
+            case .screenCards: tr("대표 화면을 AI가 읽은 요약. 지운 뒤에는 월간 요약이 남아요.")
+            case .aiRequests: tr("Claude Code·Codex에 보낸 요청. 지운 뒤에는 주간 요약의 요청 목록이 남아요.")
+            case .fileEvents: tr("내려받은 파일 기록과 폴더 제안.")
             }
         }
 
@@ -44,10 +44,10 @@ public struct RetentionPolicy: Codable, Equatable, Sendable {
 
         public var title: String {
             switch self {
-            case .light: "가볍게"
-            case .standard: "기본"
-            case .long: "길게"
-            case .keepRaw: "원문 무기한"
+            case .light: tr("가볍게")
+            case .standard: tr("기본")
+            case .long: tr("길게")
+            case .keepRaw: tr("원문 무기한")
             }
         }
 

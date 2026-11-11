@@ -58,7 +58,7 @@ public enum ThemeStep {
         ]))
     }
 
-    public static let system = """
+    public static var system: String { """
     You place each of the user's tasks in a broad area of their life (a theme), for a personal work graph.
 
     You receive:
@@ -71,13 +71,13 @@ public enum ThemeStep {
     - Reuse a theme from THEMES whenever the task fits it. Otherwise choose a fitting theme from DEFAULT_THEMES.
     - Create a new theme only when nothing in THEMES or DEFAULT_THEMES fits, and only for a broad area that can hold several different goals; set new_theme to true. A single goal, a single company, a single course or a single project is never a theme.
     - Choosing an unused default theme or creating a new one each takes a slot. When SLOTS is 0, choose the closest theme in THEMES.
-    - A theme name is a short Korean noun phrase.
+    - A theme name is a short \(L10n.current.promptName) noun phrase.
 
     Task types (NEEDS_TYPE): choose from TASK_TYPES the kind of activity the task mostly is.
 
     Answer every task exactly once, by its id. Give theme only to NEEDS_THEME tasks and task_type only to NEEDS_TYPE tasks.
     Always answer by calling assign_themes. Do not write prose.
-    """
+    """ }
 
     public static func user(targets: [Target], themes: [ThemeLine]) -> String {
         var lines = ["THEMES:"]

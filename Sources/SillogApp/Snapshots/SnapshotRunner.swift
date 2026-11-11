@@ -1,4 +1,5 @@
 import AppKit
+import SillogCore
 import SwiftUI
 
 /// 개발용 스냅샷: `SILLOG_SNAPSHOT=<폴더> swift run SillogApp` 로 실행하면 창을 띄우지 않고
@@ -12,6 +13,7 @@ enum SnapshotRunner {
         setenv("SILLOG_DB", out.appendingPathComponent("snapshot.sqlite").path, 1)
         setenv("SILLOG_CODEX_AUTH", out.appendingPathComponent("no-auth.json").path, 1)
         NSApplication.shared.setActivationPolicy(.prohibited)
+        if let lang = SillogEnv.value("LANG").flatMap(AppLanguage.init(rawValue:)) { L10n.current = lang }
         print("fonts: \(BrandFonts.register().sorted().joined(separator: ", "))")
         var failures = 0
         for shot in SnapshotCatalog.all {

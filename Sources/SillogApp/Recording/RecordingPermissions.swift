@@ -25,10 +25,10 @@ enum RecordingProblem: Equatable {
 
     var text: String {
         switch self {
-        case .notBundled: "녹음은 설치한 앱에서만 쓸 수 있어요"
-        case .microphone: "마이크 권한이 꺼져 있어요"
-        case .speech: "음성 인식 권한이 꺼져 있어요"
-        case .dictation: "받아쓰기가 꺼져 있어요"
+        case .notBundled: tr("녹음은 설치한 앱에서만 쓸 수 있어요")
+        case .microphone: tr("마이크 권한이 꺼져 있어요")
+        case .speech: tr("음성 인식 권한이 꺼져 있어요")
+        case .dictation: tr("받아쓰기가 꺼져 있어요")
         case .failed(let message): message
         }
     }

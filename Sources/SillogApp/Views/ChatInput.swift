@@ -1,4 +1,5 @@
 import AppKit
+import SillogCore
 import SwiftUI
 
 /// 커서 바로 앞에서 시작한 커넥터 또는 스킬 토큰.
@@ -53,7 +54,7 @@ struct ChatInput: NSViewRepresentable {
         editor.textContainer?.widthTracksTextView = true
         editor.delegate = context.coordinator; editor.onSend = onSend
         editor.shortcutKey = shortcutKey
-        editor.setAccessibilityLabel("메시지 입력")
+        editor.setAccessibilityLabel(tr("메시지 입력"))
         scroll.documentView = editor; scroll.drawsBackground = false
         scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true
         return scroll

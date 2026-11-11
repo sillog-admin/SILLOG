@@ -85,7 +85,7 @@ final class ChatState: ObservableObject {
     func saveSkill(id: String?, title: String, summary: String, instructions: String) throws {
         if let id {
             guard let index = skills.firstIndex(where: { $0.id == id }) else {
-                throw ChatToolError.unavailable("이 스킬이 이미 삭제됐어요.")
+                throw ChatToolError.unavailable(tr("이 스킬이 이미 삭제됐어요."))
             }
             let updated = try store.updateSkill(skills[index], title: title, instructions: instructions, summary: summary)
             skills[index] = updated
@@ -181,7 +181,7 @@ final class ChatState: ObservableObject {
 
     private func checkEditable(_ ids: Set<String>) throws {
         if let activeMessage, ids.contains(activeMessage.conversationID) {
-            throw ChatToolError.unavailable("응답 중인 채팅은 완료 후 이동하거나 삭제할 수 있어요.")
+            throw ChatToolError.unavailable(tr("응답 중인 채팅은 완료 후 이동하거나 삭제할 수 있어요."))
         }
     }
 
@@ -199,7 +199,7 @@ final class ChatState: ObservableObject {
     func connectFiles() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true; panel.canChooseDirectories = true; panel.allowsMultipleSelection = true
-        panel.message = "이 대화에서 읽을 파일 또는 저장소 폴더를 선택하세요. 필요한 내용은 설정된 LLM에 전송됩니다."
+        panel.message = tr("이 대화에서 읽을 파일 또는 저장소 폴더를 선택하세요. 필요한 내용은 설정된 LLM에 전송됩니다.")
         guard panel.runModal() == .OK else { return }
         for url in panel.urls where !current.scope.paths.contains(url.path) { current.scope.paths.append(url.path) }
         saveScope()
@@ -344,10 +344,10 @@ final class ChatState: ObservableObject {
                 let gone = try focus.filter { try !ContextSearch.exists($0, in: db) }
                 if !gone.isEmpty {
                     let names = gone.map { "'\($0.title)'" }.joined(separator: ", ")
-                    if automationID != nil { error = "\(names) 범위를 찾을 수 없어 예약을 실행하지 못했어요."; return false }
+                    if automationID != nil { error = tr("\(names) 범위를 찾을 수 없어 예약을 실행하지 못했어요."); return false }
                     let kept = focus.filter { !gone.contains($0) }
                     if current.id == conversation.id { current.scope.focus = kept }
-                    error = "\(names) 범위를 찾을 수 없어 " + (kept.isEmpty ? "모든 기록으로 바꿨어요" : "빼고 남은 범위로 바꿨어요") + ". 다시 보내 주세요."
+                    error = tr("\(names) 범위를 찾을 수 없어 ") + (kept.isEmpty ? tr("모든 기록으로 바꿨어요") : tr("빼고 남은 범위로 바꿨어요")) + tr(". 다시 보내 주세요.")
                     return false
                 }
                 conversation.scope.focus = focus
@@ -360,7 +360,7 @@ final class ChatState: ObservableObject {
             }
             conversation.projectID = scope.projectID
             let previous = try store.messages(conversation.id)
-            let needsTitle = previous.isEmpty && automationID == nil && conversation.title == "새 대화"
+            let needsTitle = previous.isEmpty && automationID == nil && conversation.title == tr("새 대화")
             conversation.updatedAt = Date().timeIntervalSince1970
             let user = ConversationMessage(conversationID: conversation.id, role: "user", text: text)
             let answer = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "", status: "running")
@@ -408,16 +408,16 @@ final class ChatState: ObservableObject {
                     self.activeMessage?.status = cancelled ? "cancelled" : "failed"
                     if !cancelled {
                         let description = error.localizedDescription
-                        self.activeMessage?.text += "\n\n응답을 완료하지 못했습니다: \(description)"
+                        self.activeMessage?.text += tr("\n\n응답을 완료하지 못했습니다: \(description)")
                     }
                 }
                 if let message = self.activeMessage {
                     self.replaceVisible(message)
-                    do { try self.store.save(message) } catch { self.error = "응답 저장 실패: \(error.localizedDescription)"; succeeded = false }
+                    do { try self.store.save(message) } catch { self.error = tr("응답 저장 실패: \(error.localizedDescription)"); succeeded = false }
                     if succeeded { self.library.collect(message) }
                 }
                 if let automationID, var job = self.automations.first(where: { $0.id == automationID }) {
-                    job.lastStatus = succeeded ? "완료" : "실패 또는 중단 — 다음 예약에 실행"
+                    job.lastStatus = succeeded ? tr("완료") : tr("실패 또는 중단 — 다음 예약에 실행")
                     do { try self.store.save(job) } catch { self.error = error.localizedDescription }
                 }
                 self.activeMessage = nil; self.runTask = nil
@@ -425,8 +425,8 @@ final class ChatState: ObservableObject {
                 if needsTitle, !Task.isCancelled {
                     do {
                         let title = try await backend.conversationTitle(for: text)
-                        self.applyTitle(title, to: conversation.id, replacing: "새 대화")
-                    } catch { self.error = "대화 제목 생성 실패: \(error.localizedDescription)" }
+                        self.applyTitle(title, to: conversation.id, replacing: tr("새 대화"))
+                    } catch { self.error = tr("대화 제목 생성 실패: \(error.localizedDescription)") }
                 }
             }
             return true
@@ -450,7 +450,7 @@ final class ChatState: ObservableObject {
         }
         activeMessage = message; replaceVisible(message)
         if checkpoint {
-            do { try store.save(message) } catch { self.error = "진행 기록 저장 실패: \(error.localizedDescription)" }
+            do { try store.save(message) } catch { self.error = tr("진행 기록 저장 실패: \(error.localizedDescription)") }
         }
     }
 
@@ -506,14 +506,14 @@ final class ChatState: ObservableObject {
         let now = Date().timeIntervalSince1970
         guard var job = automations.filter({ $0.enabled && $0.nextRun <= now }).min(by: { $0.nextRun < $1.nextRun }) else { return }
         var conversation = ChatConversation()
-        conversation.title = "예약 · \(job.title)"; conversation.scope = job.scope; conversation.skillIDs = job.skillIDs
+        conversation.title = tr("예약 · \(job.title)"); conversation.scope = job.scope; conversation.skillIDs = job.skillIDs
         conversation.projectID = job.scope.projectID
         job.nextRun = now + Double(job.intervalHours) * 3600
-        job.lastStatus = "실행 중"; job.lastConversationID = conversation.id
+        job.lastStatus = tr("실행 중"); job.lastConversationID = conversation.id
         do {
             try store.save(job); try reload()
             if !begin(job.prompt, conversation: conversation, automationID: job.id) {
-                job.lastStatus = "시작 실패 — 설정을 확인하세요"; try store.save(job); try reload()
+                job.lastStatus = tr("시작 실패 — 설정을 확인하세요"); try store.save(job); try reload()
             }
         } catch { self.error = error.localizedDescription }
     }

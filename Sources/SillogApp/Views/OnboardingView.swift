@@ -31,8 +31,8 @@ private struct ResignFocus: NSViewRepresentable {
 /// "무엇이 기기 밖으로 나가나요?" 안내. 로그인 오류 카드(OUT-W1)가 쓴다.
 /// W1 의 Figma 문구는 대표 화면 이미지 전송을 빠뜨려(스크린샷 카드가 기본으로 켜져 있다) 시트 문구로 맞춘다
 enum PrivacyNote {
-    static let title = "무엇이 기기 밖으로 나가나요?"
-    static let body = "기록은 Mac에 저장돼요. 업무를 정리할 때 창 제목, 주소, 화면 텍스트와 대표 화면 이미지가 연결한 AI로 전송돼요. 채팅에서 조회한 원문, 코드, 문서도 전송될 수 있어요. 허용한 웹 검색과 커넥터는 외부 서비스와 통신해요."
+    static let title = tr("무엇이 기기 밖으로 나가나요?")
+    static let body = tr("기록은 Mac에 저장돼요. 업무를 정리할 때 창 제목, 주소, 화면 텍스트와 대표 화면 이미지가 연결한 AI로 전송돼요. 채팅에서 조회한 원문, 코드, 문서도 전송될 수 있어요. 허용한 웹 검색과 커넥터는 외부 서비스와 통신해요.")
 }
 
 // MARK: 색과 그림 (온보딩 전용)
@@ -181,22 +181,22 @@ struct OnboardingSheet: View {
 
     private var choosePage: some View {
         VStack(spacing: 40) {
-            heading("AI를 하나 연결해요", "기록을 업무별로 정리해 줄 AI예요.")
+            heading(tr("AI를 하나 연결해요"), tr("기록을 업무별로 정리해 줄 AI예요."))
             HStack(spacing: 20) {
-                MethodTile(title: "ChatGPT 계정", detail: "쓰던 ChatGPT 구독으로 연결해요") {
+                MethodTile(title: tr("ChatGPT 계정"), detail: tr("쓰던 ChatGPT 구독으로 연결해요")) {
                     ArtImage(name: "openai_logo", size: 72)
                 } action: { chooseChatGPT() }
-                MethodTile(title: "API 키", detail: "가진 키를 붙여 넣어요") {
+                MethodTile(title: tr("API 키"), detail: tr("가진 키를 붙여 넣어요")) {
                     Image(systemName: "link").font(.system(size: 62, weight: .regular)).foregroundStyle(OB.brown)
                         .frame(width: 72, height: 72)
                 } action: { go(.apiKey) }
             }
             .frame(maxWidth: 700)
             VStack(spacing: 10) {
-                Text("기록 원본은 이 Mac에만 있어요. 정리할 때만 필요한 내용을 고른 AI로 보내요.")
+                Text(tr("기록 원본은 이 Mac에만 있어요. 정리할 때만 필요한 내용을 고른 AI로 보내요."))
                     .font(Brand.suit(13)).foregroundStyle(Brand.gray)
                 if connected {
-                    Text("이미 연결돼 있어요. 바꾸지 않으면 오른쪽 아래 다음으로 넘어가요.")
+                    Text(tr("이미 연결돼 있어요. 바꾸지 않으면 오른쪽 아래 다음으로 넘어가요."))
                         .font(Brand.suit(13, .medium)).foregroundStyle(OB.ok)
                 }
             }
@@ -214,9 +214,9 @@ struct OnboardingSheet: View {
 
     private var chatgptPage: some View {
         VStack(spacing: 32) {
-            heading("ChatGPT 계정으로 연결해요", "Plus, Pro 등 쓰고 있는 구독 그대로 써요. 아래 코드만 넣으면 돼요.")
+            heading(tr("ChatGPT 계정으로 연결해요"), tr("Plus, Pro 등 쓰고 있는 구독 그대로 써요. 아래 코드만 넣으면 돼요."))
             VStack(spacing: 0) {
-                Text("기기 코드").font(Brand.suit(13)).foregroundStyle(Brand.gray)
+                Text(tr("기기 코드")).font(Brand.suit(13)).foregroundStyle(Brand.gray)
                 if let code = state.deviceCode {
                     // 코드 칸 폭(346pt)에 10~11글자(XXXX-XXXXX)가 한 줄로 들어가는 크기. 더 길면 줄바꿈 대신 조금 줄인다
                     Text(code.userCode).font(Brand.suit(38, .bold)).tracking(3).foregroundStyle(OB.brown)
@@ -228,7 +228,7 @@ struct OnboardingSheet: View {
                 Button { state.copyDeviceCode() } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "square.on.square").font(.system(size: 12))
-                        Text("복사")
+                        Text(tr("복사"))
                     }
                     .font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink)
                     .padding(.horizontal, 14).frame(height: 30)
@@ -244,9 +244,9 @@ struct OnboardingSheet: View {
             .background(RoundedRectangle(cornerRadius: 22).fill(.white))
             .shadow(color: OB.shadow, radius: 14, y: 5)
             HStack(spacing: 14) {
-                stepChip(1, "ChatGPT 열기"); stepArrow
-                stepChip(2, "코드 넣기"); stepArrow
-                stepChip(3, "연결 확인")
+                stepChip(1, tr("ChatGPT 열기")); stepArrow
+                stepChip(2, tr("코드 넣기")); stepArrow
+                stepChip(3, tr("연결 확인"))
             }
             if let line = notice ?? (connected ? nil : state.codexMessage) {
                 Text(line).font(Brand.suit(13)).foregroundStyle(OB.warn).multilineTextAlignment(.center)
@@ -275,7 +275,7 @@ struct OnboardingSheet: View {
     private func confirmChatGPT() {
         if case .loggedIn = state.codexStatus { useChatGPTProvider(); goJudge(); return }
         state.refreshCodexStatus()
-        if state.deviceCode == nil { state.startCodexLogin() } else { notice = "아직 승인 전이에요. ChatGPT에서 코드를 넣어 주세요." }
+        if state.deviceCode == nil { state.startCodexLogin() } else { notice = tr("아직 승인 전이에요. ChatGPT에서 코드를 넣어 주세요.") }
     }
 
     /// API 키 연결을 쓰다 ChatGPT 로 바꾸는 경우 정리와 채팅 연결을 ChatGPT 로 되돌린다
@@ -297,7 +297,7 @@ struct OnboardingSheet: View {
     /// 연결 확인 결과 한 줄 (확인 중이면 진행 표시)
     @ViewBuilder private var resultLine: some View {
         if testing {
-            HStack(spacing: 8) { ProgressView().controlSize(.small); Text("연결을 확인하고 있어요").font(Brand.suit(13)).foregroundStyle(Brand.gray) }
+            HStack(spacing: 8) { ProgressView().controlSize(.small); Text(tr("연결을 확인하고 있어요")).font(Brand.suit(13)).foregroundStyle(Brand.gray) }
         } else if let notice {
             Text(notice).font(Brand.suit(13)).foregroundStyle(OB.warn).multilineTextAlignment(.center)
                 .textSelection(.enabled).frame(maxWidth: 640)
@@ -308,11 +308,11 @@ struct OnboardingSheet: View {
 
     private var apiKeyPage: some View {
         VStack(spacing: 26) {
-            heading("API 키로 연결해요", "OpenAI 방식으로 쓰는 서버면 돼요.")
+            heading(tr("API 키로 연결해요"), tr("OpenAI 방식으로 쓰는 서버면 돼요."))
             VStack(alignment: .leading, spacing: 18) {
-                labeled("서버 주소") { plainField($apiURL, "https://api.openai.com/v1") }
-                labeled("모델") { plainField($apiModel, "예: gpt-6.1-sol") }
-                labeled("API 키") { keyField($apiKey, placeholder: "여기에 붙여 넣기", fill: .white, height: 56, radius: 18).shadow(color: OB.shadow, radius: 8, y: 3) }
+                labeled(tr("서버 주소")) { plainField($apiURL, "https://api.openai.com/v1") }
+                labeled(tr("모델")) { plainField($apiModel, tr("예: gpt-6.1-sol")) }
+                labeled(tr("API 키")) { keyField($apiKey, placeholder: tr("여기에 붙여 넣기"), fill: .white, height: 56, radius: 18).shadow(color: OB.shadow, radius: 8, y: 3) }
             }
             .frame(maxWidth: 936)
             resultLine
@@ -353,7 +353,7 @@ struct OnboardingSheet: View {
                 goJudge()
             } else {
                 state.settings = before
-                notice = state.llmTestResult?.message ?? "연결하지 못했어요."
+                notice = state.llmTestResult?.message ?? tr("연결하지 못했어요.")
             }
         }
     }
@@ -366,25 +366,25 @@ struct OnboardingSheet: View {
 
     private var judgePage: some View {
         VStack(spacing: 40) {
-            heading("판단 모델을 골라요", "업무를 고를 때만 쓰는 모델이에요. 안 쓰면 정리 모델이 판단해요.")
+            heading(tr("판단 모델을 골라요"), tr("업무를 고를 때만 쓰는 모델이에요. 안 쓰면 정리 모델이 판단해요."))
             HStack(spacing: 20) {
-                MethodTile(title: "Jev API", detail: "Jev 키를 붙여 넣어요") {
+                MethodTile(title: "Jev API", detail: tr("Jev 키를 붙여 넣어요")) {
                     ArtImage(name: "jev", size: 72)
                 } action: { go(.judgeJev) }
-                MethodTile(title: "OpenAI Decisions", detail: "OpenAI API 키를 붙여 넣어요") {
+                MethodTile(title: "OpenAI Decisions", detail: tr("OpenAI API 키를 붙여 넣어요")) {
                     Image(systemName: "checklist").font(.system(size: 52)).foregroundStyle(Brand.ink)
                 } action: { go(.judgeDecisions) }
             }
             .frame(maxWidth: 700)
-            Text("판단 모델은 나중에 설정에서 켜고 끌 수 있어요.").font(Brand.suit(13)).foregroundStyle(Brand.gray)
+            Text(tr("판단 모델은 나중에 설정에서 켜고 끌 수 있어요.")).font(Brand.suit(13)).foregroundStyle(Brand.gray)
         }
     }
 
     private var judgeJevPage: some View {
         VStack(spacing: 26) {
-            heading("Jev API로 연결해요", "Jev 사이트에서 받은 키를 붙여 넣으면 돼요.")
+            heading(tr("Jev API로 연결해요"), tr("Jev 사이트에서 받은 키를 붙여 넣으면 돼요."))
             VStack(alignment: .leading, spacing: 18) {
-                labeled("Jev API 키") { keyField($judgeJevKey, placeholder: "여기에 붙여 넣기", fill: .white, height: 56, radius: 18).shadow(color: OB.shadow, radius: 8, y: 3) }
+                labeled(tr("Jev API 키")) { keyField($judgeJevKey, placeholder: tr("여기에 붙여 넣기"), fill: .white, height: 56, radius: 18).shadow(color: OB.shadow, radius: 8, y: 3) }
             }
             .frame(maxWidth: 936)
             resultLine
@@ -393,9 +393,9 @@ struct OnboardingSheet: View {
 
     private var judgeDecisionsPage: some View {
         VStack(spacing: 26) {
-            heading("OpenAI Decisions로 연결해요", "OpenAI 사이트에서 받은 API 키를 붙여 넣으면 돼요.")
+            heading(tr("OpenAI Decisions로 연결해요"), tr("OpenAI 사이트에서 받은 API 키를 붙여 넣으면 돼요."))
             VStack(alignment: .leading, spacing: 18) {
-                labeled("OpenAI API 키") { keyField($judgeDecisionsKey, placeholder: "여기에 붙여 넣기", fill: .white, height: 56, radius: 18).shadow(color: OB.shadow, radius: 8, y: 3) }
+                labeled(tr("OpenAI API 키")) { keyField($judgeDecisionsKey, placeholder: tr("여기에 붙여 넣기"), fill: .white, height: 56, radius: 18).shadow(color: OB.shadow, radius: 8, y: 3) }
             }
             .frame(maxWidth: 936)
             resultLine
@@ -420,7 +420,7 @@ struct OnboardingSheet: View {
                 try await verify()
                 failure = nil
             } catch {
-                failure = error is ChoiceError ? error.localizedDescription : "판단 모델 서버에 연결하지 못했어요. \(error.localizedDescription)"
+                failure = error is ChoiceError ? error.localizedDescription : tr("판단 모델 서버에 연결하지 못했어요. \(error.localizedDescription)")
             }
             testing = false
             guard method == startedOn else { return }     // went back meanwhile: do not overwrite a skip
@@ -437,26 +437,26 @@ struct OnboardingSheet: View {
     private var permissionPage: some View {
         let grants = state.permissionGrants
         return VStack(spacing: 0) {
-            heading("한 번에 허용해요", "필요한 권한을 한 화면에서 모두 켜요.")
+            heading(tr("한 번에 허용해요"), tr("필요한 권한을 한 화면에서 모두 켜요."))
             HStack(spacing: 16) {
-                bigPermission(title: Permissions.accessibilityName, reads: "창 제목, 주소, 문서 경로를 읽어요", warn: "켜지 않으면 창 제목·주소·문서 경로가 남지 않아요",
+                bigPermission(title: Permissions.accessibilityName, reads: tr("창 제목, 주소, 문서 경로를 읽어요"), warn: tr("켜지 않으면 창 제목·주소·문서 경로가 남지 않아요"),
                               icon: "perm_acc", granted: grants.accessibility) { requestAccessibility() }
-                bigPermission(title: "화면 기록", reads: "화면에 있던 글자를 읽어요", warn: "켜지 않으면 화면 내용과 스크린샷을 남기지 못해요",
+                bigPermission(title: tr("화면 기록"), reads: tr("화면에 있던 글자를 읽어요"), warn: tr("켜지 않으면 화면 내용과 스크린샷을 남기지 못해요"),
                               icon: "perm_screen", granted: grants.screenRecording) { requestScreenRecording() }
             }
             .padding(.top, 26)
-            Text("쓰는 기능에 맞춰 켜요").font(Brand.suit(13, .medium)).foregroundStyle(Brand.gray)
+            Text(tr("쓰는 기능에 맞춰 켜요")).font(Brand.suit(13, .medium)).foregroundStyle(Brand.gray)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 18).padding(.bottom, 8)
             HStack(spacing: 12) {
-                smallPermission(.notifications, icon: "perm_bell", title: "알림", detail: "정리가 끝나면\n알려요")
-                smallPermission(.microphone, icon: "perm_mic", title: "마이크", detail: "메뉴 막대에서\n녹음해요")
-                smallPermission(.speech, icon: "perm_speech", title: "음성 인식", detail: "녹음을 Mac 안에서\n글로 받아써요")
-                smallPermission(.downloads, icon: "perm_folder", title: "다운로드 폴더", detail: "새로 받은 파일을\n업무에 이어요")
-                smallPermission(.documents, icon: "perm_folder", title: "문서 폴더", detail: "받아쓴 녹음을\n저장해요")
-                if AppFeatures.calendarOn { smallPermission(.calendar, icon: "", symbol: "calendar", title: "캘린더", detail: "오늘 일정을 보고\n제안을 등록해요") }
-                smallPermission(.loginItem, icon: "perm_login", title: "로그인할 때 열기", detail: "켜 두면\n빠짐없이 기록해요")
+                smallPermission(.notifications, icon: "perm_bell", title: tr("알림"), detail: tr("정리가 끝나면\n알려요"))
+                smallPermission(.microphone, icon: "perm_mic", title: tr("마이크"), detail: tr("메뉴 막대에서\n녹음해요"))
+                smallPermission(.speech, icon: "perm_speech", title: tr("음성 인식"), detail: tr("녹음을 Mac 안에서\n글로 받아써요"))
+                smallPermission(.downloads, icon: "perm_folder", title: tr("다운로드 폴더"), detail: tr("새로 받은 파일을\n업무에 이어요"))
+                smallPermission(.documents, icon: "perm_folder", title: tr("문서 폴더"), detail: tr("받아쓴 녹음을\n저장해요"))
+                if AppFeatures.calendarOn { smallPermission(.calendar, icon: "", symbol: "calendar", title: tr("캘린더"), detail: tr("오늘 일정을 보고\n제안을 등록해요")) }
+                smallPermission(.loginItem, icon: "perm_login", title: tr("로그인할 때 열기"), detail: tr("켜 두면\n빠짐없이 기록해요"))
             }
-            Text("\(Permissions.accessibilityName)과 화면 기록은 시스템 설정에서 켜요. 화면 기록은 켠 뒤 앱을 다시 실행해야 해요.")
+            Text(tr("\(Permissions.accessibilityName)과 화면 기록은 시스템 설정에서 켜요. 화면 기록은 켠 뒤 앱을 다시 실행해야 해요."))
                 .font(Brand.suit(13)).foregroundStyle(Brand.gray).padding(.top, 26)
         }
         .frame(maxWidth: 1068)
@@ -470,7 +470,7 @@ struct OnboardingSheet: View {
                 Text(warn).font(Brand.suit(14, .medium)).foregroundStyle(OB.warn).padding(.top, 4)
                     .fixedSize(horizontal: false, vertical: true)
                 Group {
-                    if granted { grantedLabel(size: 15) } else { Button("허용하기", action: request).buttonStyle(OBPillStyle(height: 32, size: 14)) }
+                    if granted { grantedLabel(size: 15) } else { Button(tr("허용하기"), action: request).buttonStyle(OBPillStyle(height: 32, size: 14)) }
                 }
                 .padding(.top, 16)
             }
@@ -486,7 +486,7 @@ struct OnboardingSheet: View {
     private func grantedLabel(size: CGFloat) -> some View {
         HStack(spacing: 5) {
             Image(systemName: "checkmark").font(.system(size: size - 3, weight: .semibold))
-            Text("허용됨")
+            Text(tr("허용됨"))
         }
         .font(Brand.suit(size, .medium)).foregroundStyle(OB.ok)
         .frame(height: 32, alignment: .leading)
@@ -505,7 +505,7 @@ struct OnboardingSheet: View {
                 if perms.granted.contains(item) {
                     grantedLabel(size: 12).frame(height: 28)
                 } else {
-                    Button("허용하기") { Task { await perms.request(item) } }.buttonStyle(OBPillStyle(height: 28, size: 12))
+                    Button(tr("허용하기")) { Task { await perms.request(item) } }.buttonStyle(OBPillStyle(height: 28, size: 12))
                 }
             }
             Text(title).font(Brand.suit(15, .bold)).foregroundStyle(Brand.ink).lineLimit(1).minimumScaleFactor(0.8).padding(.top, 14)
@@ -559,8 +559,8 @@ struct OnboardingSheet: View {
     }
 
     private var backLabel: String? {
-        if step == .permissions || method == .judge { return "이전" }
-        return method == .choose ? nil : "다른 방법 고르기"
+        if step == .permissions || method == .judge { return tr("이전") }
+        return method == .choose ? nil : tr("다른 방법 고르기")
     }
 
     private func goBack() {
@@ -578,8 +578,8 @@ struct OnboardingSheet: View {
 
     @ViewBuilder private var actions: some View {
         if step == .permissions {
-            Button("모두 허용") { allowAll() }.buttonStyle(OBButtonStyle(kind: .secondary))
-            Button(state.askedScreenRecording ? "다시 실행하고 시작" : "시작") {
+            Button(tr("모두 허용")) { allowAll() }.buttonStyle(OBButtonStyle(kind: .secondary))
+            Button(state.askedScreenRecording ? tr("다시 실행하고 시작") : tr("시작")) {
                 if state.askedScreenRecording { state.completeOnboardingAndRelaunch() } else { state.completeOnboarding() }
             }
             .buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
@@ -587,22 +587,22 @@ struct OnboardingSheet: View {
             switch method {
             case .choose:
                 if connected {
-                    Button("다음") { goJudge() }.buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
+                    Button(tr("다음")) { goJudge() }.buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
                 }
             case .chatgpt:
-                Button { openChatGPT() } label: { linkLabel("ChatGPT 열기") }.buttonStyle(OBButtonStyle(kind: .secondary))
-                Button("연결 확인") { confirmChatGPT() }.buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
+                Button { openChatGPT() } label: { linkLabel(tr("ChatGPT 열기")) }.buttonStyle(OBButtonStyle(kind: .secondary))
+                Button(tr("연결 확인")) { confirmChatGPT() }.buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
             case .apiKey:
-                Button("연결 확인") {
+                Button(tr("연결 확인")) {
                     connect(baseURL: apiURL.trimmingCharacters(in: .whitespaces), model: apiModel.trimmingCharacters(in: .whitespaces),
                             key: apiKey.trimmingCharacters(in: .whitespacesAndNewlines))
                 }
                 .buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
                 .disabled(testing || !apiKeyReady)
             case .judge:
-                Button("건너뛰기") { state.advanceOnboarding() }.buttonStyle(OBButtonStyle(kind: .secondary))   // keeps a judge picked earlier
+                Button(tr("건너뛰기")) { state.advanceOnboarding() }.buttonStyle(OBButtonStyle(kind: .secondary))   // keeps a judge picked earlier
             case .judgeJev:
-                Button("연결 확인") {
+                Button(tr("연결 확인")) {
                     let key = trimmed(judgeJevKey)
                     connectJudge("jev", verify: { try await JevClient(endpoint: JevEndpoint(url: JevEndpoint.typesafeURL, model: JevEndpoint.defaultModel, key: key)).verify() },
                                  save: { state.settings.jevAPIKey = key })
@@ -610,7 +610,7 @@ struct OnboardingSheet: View {
                 .buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
                 .disabled(testing || trimmed(judgeJevKey).isEmpty)
             case .judgeDecisions:
-                Button("연결 확인") {
+                Button(tr("연결 확인")) {
                     let key = trimmed(judgeDecisionsKey)
                     connectJudge("decisions", verify: { try await DecisionsClient(key: key).verify() }, save: { state.settings.decisionsAPIKey = key })
                 }
@@ -835,7 +835,7 @@ struct BrandLoadingView: View {
                 Spacer()
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small).scaleEffect(0.7).frame(width: 14, height: 14)
-                    Text("실록 준비 중...").font(Brand.suit(13)).foregroundStyle(Brand.ink)
+                    Text(tr("실록 준비 중...")).font(Brand.suit(13)).foregroundStyle(Brand.ink)
                 }
                 HStack(spacing: 6) {
                     Capsule().fill(Color(hex: 0xDDD9D4)).frame(height: 3)
@@ -856,7 +856,7 @@ struct BrandStartupErrorView: View {
     var body: some View {
         VStack(spacing: 0) {
             Image(systemName: "exclamationmark.triangle").font(.system(size: 30, weight: .light)).foregroundStyle(Brand.gray)
-            Text("시작하지 못했어요").font(Brand.suit(22, .bold)).foregroundStyle(Brand.ink).padding(.top, 30)
+            Text(tr("시작하지 못했어요")).font(Brand.suit(22, .bold)).foregroundStyle(Brand.ink).padding(.top, 30)
             Text(message).font(Brand.suit(14)).foregroundStyle(Brand.gray).multilineTextAlignment(.center)
                 .textSelection(.enabled).padding(.top, 17)
         }

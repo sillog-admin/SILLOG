@@ -18,7 +18,7 @@ struct AccountPopover: View {
         let s = state.settings
         return s.llmProvider == s.effectiveChatProvider
             ? Self.providerLabel(s.llmProvider)
-            : "정리 \(Self.providerLabel(s.llmProvider)), 채팅 \(Self.providerLabel(s.effectiveChatProvider))"
+            : tr("정리 \(Self.providerLabel(s.llmProvider)), 채팅 \(Self.providerLabel(s.effectiveChatProvider))")
     }
     private var cleanupModel: String { state.settings.llmUsesAPI ? state.settings.llmEndpoint.model : state.settings.codexModel }
 
@@ -43,15 +43,15 @@ struct AccountPopover: View {
                     Image(systemName: "rectangle.portrait.and.arrow.right").font(.system(size: 16))
                         .foregroundStyle(logoutHover ? Brand.ink : Brand.gray).frame(width: 28, height: 28).contentShape(Rectangle())
                 }
-                .buttonStyle(.plain).onHover { logoutHover = $0 }.accessibilityLabel("로그아웃")
+                .buttonStyle(.plain).onHover { logoutHover = $0 }.accessibilityLabel(tr("로그아웃"))
             }
             Rectangle().fill(Brand.hairline).frame(height: 1)
             VStack(spacing: 10) {
-                row("연결 방식", connection)
-                row("채팅 모델", state.settings.chatModelName)
-                row("정리 모델", cleanupModel)
+                row(tr("연결 방식"), connection)
+                row(tr("채팅 모델"), state.settings.chatModelName)
+                row(tr("정리 모델"), cleanupModel)
                 if let usage = state.codexUsage, !windows(usage).isEmpty {
-                    row("사용량", windows(usage).map { "\($0.label) \(Int($0.usedPercent.rounded()))%" }.joined(separator: "  "))
+                    row(tr("사용량"), windows(usage).map { "\($0.label) \(Int($0.usedPercent.rounded()))%" }.joined(separator: "  "))
                 }
             }
         }
@@ -69,9 +69,9 @@ struct AccountPopover: View {
 
     private var signedOut: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("로그인되지 않음").font(Brand.suit(13, .semibold)).foregroundStyle(Brand.ink)
+            Text(tr("로그인되지 않음")).font(Brand.suit(13, .semibold)).foregroundStyle(Brand.ink)
             Button { dismiss(); state.settingsSection = .ai; state.selectedTab = .settings } label: {
-                Text("설정에서 연결").font(Brand.suit(12, .semibold)).foregroundStyle(.white)
+                Text(tr("설정에서 연결")).font(Brand.suit(12, .semibold)).foregroundStyle(.white)
                     .padding(.horizontal, 14).frame(height: 30).background(Capsule().fill(Brand.accent))
             }
             .buttonStyle(.plain)

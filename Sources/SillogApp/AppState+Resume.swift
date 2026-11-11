@@ -68,7 +68,7 @@ extension AppState {
             return try tx.edges(to: taskId, type: EdgeType.partOf).compactMap { edge -> SessionSummary? in
                 guard let node = try tx.node(id: edge.src) else { return nil }
                 let apps = try tx.edges(from: node.id, type: EdgeType.used).sorted { $0.weight > $1.weight }.prefix(4)
-                    .compactMap { try tx.node(id: $0.dst)?.title }.filter { !["Sillog", "SILLOG", "WorkGraph", "제외된 앱"].contains($0) }   // WorkGraph: app name in records made before the rename
+                    .compactMap { try tx.node(id: $0.dst)?.title }.filter { !["Sillog", "SILLOG", "WorkGraph", tr("제외된 앱")].contains($0) }   // WorkGraph: app name in records made before the rename
                 let resources = try tx.edges(from: node.id, type: EdgeType.touched).count
                 let summaries = node.props["summaries"]?.arrayValue?.compactMap(\.stringValue)
                     ?? [node.props["summary"]?.stringValue].compactMap { $0 }.filter { !$0.isEmpty }

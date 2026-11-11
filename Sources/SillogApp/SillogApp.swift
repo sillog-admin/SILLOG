@@ -29,14 +29,14 @@ struct SillogApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView().environmentObject(state)
+            MenuBarView().environmentObject(state).localized(state.settings.language)
         } label: {
             MenuBarLabel(paused: state.status.paused, recording: state.activeRecording != nil).environmentObject(state)
         }
         .menuBarExtraStyle(.window)
 
         Window("SILLOG", id: "main") {
-            MainWindow().environmentObject(state)
+            MainWindow().environmentObject(state).localized(state.settings.language)
         }
         .defaultSize(width: 1180, height: 760)
     }
@@ -183,4 +183,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+}
+
+extension View {
+    /// Rebuilds the tree when the language changes so every `tr()` string is read again.
+    func localized(_ language: AppLanguage) -> some View {
+        id(language).environment(\.locale, Locale(identifier: language.rawValue))
+    }
 }

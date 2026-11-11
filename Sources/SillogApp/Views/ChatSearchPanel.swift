@@ -26,7 +26,7 @@ struct ChatSearchPanel: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").font(.system(size: 14)).foregroundStyle(Brand.gray)
-                TextField("", text: $query, prompt: Text("대화 검색").font(Brand.suit(13)).foregroundColor(Brand.gray))
+                TextField("", text: $query, prompt: Text(tr("대화 검색")).font(Brand.suit(13)).foregroundColor(Brand.gray))
                     .textFieldStyle(.plain).font(Brand.suit(13)).foregroundStyle(Brand.text).focused($focused)
                     .onSubmit(openSelected)
             }.padding(.horizontal, 20).frame(height: 48)
@@ -57,11 +57,11 @@ struct ChatSearchPanel: View {
     @ViewBuilder private var results: some View {
         if rows.isEmpty {
             VStack(spacing: 4) {
-                Text("‘\(trimmed)’\(Self.particle(trimmed)) 맞는 대화가 없어요.").font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
-                Text("대화 제목과 메시지 내용에서 찾아요.").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                Text(tr("‘\(trimmed)’\(Self.particle(trimmed)) 맞는 대화가 없어요.")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
+                Text(tr("대화 제목과 메시지 내용에서 찾아요.")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
             }.frame(maxWidth: .infinity).padding(.vertical, 36).opacity(searched == trimmed ? 1 : 0)
         } else {
-            Text(trimmed.isEmpty ? "최근" : "대화 \(rows.count)개").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+            Text(trimmed.isEmpty ? tr("최근") : tr("대화 \(rows.count)개")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                 .padding(.top, 12).padding(.bottom, 6).padding(.horizontal, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
             ScrollView {
@@ -119,8 +119,8 @@ struct ChatSearchPanel: View {
 
     /// 마지막 글자에 받침이 있으면 '과', 없으면 '와'. 한글이 아니라 판정할 수 없으면 Figma(CH-43)와 같은 '과'.
     static func particle(_ word: String) -> String {
-        guard let v = word.unicodeScalars.last?.value, (0xAC00...0xD7A3).contains(v) else { return "과" }
-        return (v - 0xAC00) % 28 == 0 ? "와" : "과"
+        guard let v = word.unicodeScalars.last?.value, (0xAC00...0xD7A3).contains(v) else { return tr("과") }
+        return (v - 0xAC00) % 28 == 0 ? tr("와") : tr("과")
     }
 
     private func openSelected() { if rows.indices.contains(index) { open(rows[index]) } }

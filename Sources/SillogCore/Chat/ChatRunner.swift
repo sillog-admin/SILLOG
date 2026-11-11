@@ -8,6 +8,9 @@ public struct ChatSkill: Codable, Identifiable, Sendable {
     private let instructionFile: String?
     private var customInstructions: String?
     public var isCustom: Bool { instructionFile == nil }
+    /// Built-in titles come from the bundled catalog, so they follow the app language.
+    public var displayTitle: String { isCustom ? title : L10n.tr(key: title) }
+    public var displaySummary: String { isCustom ? summary : L10n.tr(key: summary) }
 
     public init(title: String, instructions: String, summary: String = "") {
         self.id = UUID().uuidString

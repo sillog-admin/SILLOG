@@ -19,23 +19,23 @@ struct ChatFocusButton: View {
         }
         .buttonStyle(.plain)
         .fixedSize()
-        .help(scope.focus.isEmpty ? "답변에 쓸 내 기록의 범위 바꾸기" : "범위: " + scope.focus.map(\.title).joined(separator: ", "))
+        .help(scope.focus.isEmpty ? tr("답변에 쓸 내 기록의 범위 바꾸기") : tr("범위: ") + scope.focus.map(\.title).joined(separator: ", "))
         .popover(isPresented: $picking, arrowEdge: .bottom) { ChatFocusPicker(chat: chat) }
     }
 
     /// 단추 글자: 모든 기록 / Flask 웹앱 개발 / 학업 · 업무 6 / Flask 웹앱 개발 외 2 / 기록 안 씀
     static func label(_ scope: ChatScope, choices: ChatFocusChoices) -> String {
-        guard scope.useActivity else { return "기록 안 씀" }
-        guard let first = scope.focus.first else { return "모든 기록" }
+        guard scope.useActivity else { return tr("기록 안 씀") }
+        guard let first = scope.focus.first else { return tr("모든 기록") }
         guard scope.focus.count == 1, first.kind == .theme else { return summary(scope.focus) }
-        if let count = choices.themes.first(where: { $0.focus.key == first.key })?.taskCount { return "\(short(first.title)) · 업무 \(count)" }
-        return "\(short(first.title)) 분야"
+        if let count = choices.themes.first(where: { $0.focus.key == first.key })?.taskCount { return tr("\(short(first.title)) · 업무 \(count)") }
+        return tr("\(short(first.title)) 분야")
     }
 
     /// 고른 것을 짧게: 하나면 그 이름, 여럿이면 '첫 이름 외 n' (대화 목록·입력칸 안내도 같은 말)
     static func summary(_ focus: [ChatFocus]) -> String {
         guard let first = focus.first else { return "" }
-        return focus.count == 1 ? short(first.title) : "\(short(first.title)) 외 \(focus.count - 1)"
+        return focus.count == 1 ? short(first.title) : tr("\(short(first.title)) 외 \(focus.count - 1)")
     }
 
     /// 긴 업무 이름은 열여덟 자에서 줄인다 (단추·입력칸 안내가 한 줄에 들어가게)
@@ -63,9 +63,9 @@ struct ChatStartChoices: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if chat.focusChoices.tasks.isEmpty {
-                Text("업무를 찾고, 정리하고, 결과물로 이어 보세요.").font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                Text(tr("업무를 찾고, 정리하고, 결과물로 이어 보세요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
             } else {
-                Text("무엇에 대해 이야기할까요? 여러 개를 골라도 돼요.").font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                Text(tr("무엇에 대해 이야기할까요? 여러 개를 골라도 돼요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
                 ChatFocusTree(chat: chat, movesCursor: true, maxHeight: 300)
                     .padding(.vertical, 6)
                     .background(.white, in: RoundedRectangle(cornerRadius: 8))
@@ -97,14 +97,14 @@ struct ChatFocusTree: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Brand.gray)
-                TextField("업무·분야 검색", text: $query).textFieldStyle(.plain).font(Brand.suit(12))
+                TextField(tr("업무·분야 검색"), text: $query).textFieldStyle(.plain).font(Brand.suit(12))
             }
             .padding(.horizontal, 14).frame(height: 32)
             Rectangle().fill(Brand.line).frame(height: 1).padding(.horizontal, 12)
             ScrollView {
                 VStack(alignment: .leading, spacing: 1) {
                     if needle.isEmpty {
-                        row(title: "모든 기록", detail: "기본", mark: scope.useActivity && scope.focus.isEmpty ? .check : .none) {
+                        row(title: tr("모든 기록"), detail: tr("기본"), mark: scope.useActivity && scope.focus.isEmpty ? .check : .none) {
                             chat.setFocus([], movesCursor: movesCursor)
                         }
                     }
@@ -127,11 +127,11 @@ struct ChatFocusTree: View {
                             .padding(.horizontal, 8).frame(height: 31).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain).hoverHighlight(cornerRadius: 5)
-                        .accessibilityLabel("\(task.focus.title) \(on ? "고름" : "안 고름")")
+                        .accessibilityLabel("\(task.focus.title) \(on ? tr("고름") : tr("안 고름"))")
                     }
                     if needle.isEmpty {
                         Rectangle().fill(Brand.line).frame(height: 1).padding(.vertical, 6).padding(.horizontal, 6)
-                        row(title: "기록 안 씀", detail: "웹·파일·보관함만", mark: scope.useActivity ? .none : .check) {
+                        row(title: tr("기록 안 씀"), detail: tr("웹·파일·보관함만"), mark: scope.useActivity ? .none : .check) {
                             chat.useNoRecords()
                         }
                     }
@@ -159,7 +159,7 @@ struct ChatFocusTree: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(field.name) 분야 \(on ? "골라짐" : "안 골라짐")")
+        .accessibilityLabel(tr("\(field.name) 분야 \(on ? tr("골라짐") : tr("안 골라짐"))"))
     }
 
     private enum Mark { case none, check }
@@ -177,7 +177,7 @@ struct ChatFocusTree: View {
             .padding(.horizontal, 8).frame(height: 31).contentShape(Rectangle())
         }
         .buttonStyle(.plain).hoverHighlight(cornerRadius: 5)
-        .accessibilityLabel("\(title) \(mark == .check ? "고름" : "안 고름")")
+        .accessibilityLabel("\(title) \(mark == .check ? tr("고름") : tr("안 고름"))")
     }
 
     // MARK: 고르기 규칙 (화면 없이 시험한다)

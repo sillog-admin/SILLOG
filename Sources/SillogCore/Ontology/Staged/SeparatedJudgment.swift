@@ -176,7 +176,7 @@ extension StagedPipeline {
         var state = judgment
         let fresh = state.unassigned
         if !fresh.isEmpty {
-            let system = "All rows were already judged to be new work. Group rows that serve the same goal. Give each group a short Korean title and concrete goal. Include every row exactly once."
+            let system = "All rows were already judged to be new work. Group rows that serve the same goal. Give each group a short \(L10n.current.promptName) title and concrete goal. Include every row exactly once."
             let user = ([StagePrompt.rowsHeader] + OntologyPrompt.rowLines(fresh, cards: state.input.cards, timeZone: state.input.timeZone)).joined(separator: "\n")
             let result = try await call("describe", system: system, user: user, tool: nameTool, state: state, llm: llm)
             state.calls.append(record("describe-new", system: system, user: user, result))

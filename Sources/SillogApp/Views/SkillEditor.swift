@@ -32,7 +32,7 @@ struct SkillDraft: Identifiable {
         guard file.isRegularFile == true, (file.fileSize ?? 0) <= 64_000,
               let body = try? String(contentsOf: url, encoding: .utf8), body.count <= 12_000,
               !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw ChatToolError.unavailable("UTF-8 텍스트로 저장된 12,000자 이하의 스킬 파일을 선택하세요.")
+            throw ChatToolError.unavailable(tr("UTF-8 텍스트로 저장된 12,000자 이하의 스킬 파일을 선택하세요."))
         }
         let heading = body.split(separator: "\n").first { $0.hasPrefix("# ") }
         var draft = SkillDraft()
@@ -50,25 +50,25 @@ private struct SkillEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(draft.skillID == nil ? "새 스킬" : "스킬 수정").font(Brand.suit(20, .bold))
+            Text(draft.skillID == nil ? tr("새 스킬") : tr("스킬 수정")).font(Brand.suit(20, .bold))
             VStack(alignment: .leading, spacing: 8) {
-                field("이름", placeholder: "스킬 이름", text: $draft.title)
-                field("설명", placeholder: "어떤 작업에 쓰는지 한 줄로 적어 주세요", text: $draft.summary)
+                field(tr("이름"), placeholder: tr("스킬 이름"), text: $draft.title)
+                field(tr("설명"), placeholder: tr("어떤 작업에 쓰는지 한 줄로 적어 주세요"), text: $draft.summary)
             }
             VStack(alignment: .leading, spacing: 6) {
-                Text("지침").font(Brand.suit(12, .medium))
-                Text("채팅에서 이 스킬을 선택했을 때 따를 지침을 적으세요.")
+                Text(tr("지침")).font(Brand.suit(12, .medium))
+                Text(tr("채팅에서 이 스킬을 선택했을 때 따를 지침을 적으세요."))
                     .font(Brand.suit(11)).foregroundStyle(Brand.gray)
                 TextEditor(text: $draft.instructions)
                     .font(Brand.suit(12)).frame(minHeight: 170)
                     .padding(6).overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Brand.line))
-                    .accessibilityLabel("스킬 지침")
+                    .accessibilityLabel(tr("스킬 지침"))
             }
             if let error { Text(error).font(Brand.suit(11)).foregroundStyle(.red) }
             HStack(spacing: 8) {
                 Spacer()
-                Button("취소") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button(draft.skillID == nil ? "추가" : "저장") {
+                Button(tr("취소")) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(draft.skillID == nil ? tr("추가") : tr("저장")) {
                     do { try onSave(draft); dismiss() }
                     catch { self.error = error.localizedDescription }
                 }.keyboardShortcut(.defaultAction).disabled(!draft.canSave)
@@ -79,7 +79,7 @@ private struct SkillEditor: View {
     private func field(_ label: String, placeholder: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label).font(Brand.suit(12, .medium))
-            TextField(placeholder, text: text).font(Brand.suit(12)).accessibilityLabel("스킬 \(label)")
+            TextField(placeholder, text: text).font(Brand.suit(12)).accessibilityLabel(tr("스킬 \(label)"))
         }
     }
 }
@@ -101,8 +101,8 @@ struct SkillEditorPresentation: ViewModifier {
                 do { draft = try SkillDraft.read(result.get()) }
                 catch { importError = error.localizedDescription }
             }
-            .alert("스킬 파일을 읽지 못했어요", isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
-                Button("확인", role: .cancel) {}
+            .alert(tr("스킬 파일을 읽지 못했어요"), isPresented: Binding(get: { importError != nil }, set: { if !$0 { importError = nil } })) {
+                Button(tr("확인"), role: .cancel) {}
             } message: { Text(importError ?? "") }
     }
 }

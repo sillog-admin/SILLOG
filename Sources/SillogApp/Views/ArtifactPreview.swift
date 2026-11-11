@@ -19,9 +19,9 @@ struct ArtifactPreview: View {
             Text(artifact.format.uppercased()).font(Brand.suit(10)).foregroundStyle(Brand.gray)
             Spacer()
             Button { save(pdf: false) } label: {
-                HStack(spacing: 8) { Image(systemName: "arrow.down.to.line").font(.system(size: 11)); Text("파일로 저장") }
+                HStack(spacing: 8) { Image(systemName: "arrow.down.to.line").font(.system(size: 11)); Text(tr("파일로 저장")) }
             }.buttonStyle(ChatDialogButtonStyle())
-            Button("PDF로 내보내기") { save(pdf: true) }.buttonStyle(ChatDialogButtonStyle(primary: true)).disabled(!preview.loaded)
+            Button(tr("PDF로 내보내기")) { save(pdf: true) }.buttonStyle(ChatDialogButtonStyle(primary: true)).disabled(!preview.loaded)
         }
         .onAppear { preview.webView.loadHTMLString(ChatArtifactHTML.render(artifact), baseURL: nil) }
     }
@@ -34,7 +34,7 @@ struct ArtifactPreview: View {
         let ext = pdf ? "pdf" : artifact.format == "markdown" ? "md" : artifact.format
         panel.allowedContentTypes = [UTType(filenameExtension: ext) ?? .plainText]
         let name = artifact.title.components(separatedBy: CharacterSet(charactersIn: "/:\n")).joined(separator: "-")
-        panel.nameFieldStringValue = "\(name.isEmpty ? "결과물" : name).\(ext)"
+        panel.nameFieldStringValue = "\(name.isEmpty ? tr("결과물") : name).\(ext)"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Task { @MainActor in
             do {
@@ -49,7 +49,7 @@ struct ArtifactPreview: View {
                     try text.write(to: url, atomically: true, encoding: .utf8)
                 }
                 error = nil
-            } catch { self.error = "저장 실패: \(error.localizedDescription)" }
+            } catch { self.error = tr("저장 실패: \(error.localizedDescription)") }
         }
     }
 }

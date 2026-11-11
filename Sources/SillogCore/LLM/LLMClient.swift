@@ -37,10 +37,10 @@ public enum LLMError: Error, Equatable, CustomStringConvertible, LocalizedError 
     public var description: String {
         switch self {
         case .http(let status, let body): return "HTTP \(status): \(body)"
-        case .noJSON(let text): return "응답에서 JSON을 찾지 못함: \(text)"
-        case .transport(let message): return "연결 실패: \(message)"
+        case .noJSON(let text): return tr("응답에서 JSON을 찾지 못함: \(text)")
+        case .transport(let message): return tr("연결 실패: \(message)")
         case .auth(let message): return message
-        case .backend(let message): return "서버가 응답을 만들지 못함: \(message)"
+        case .backend(let message): return tr("서버가 응답을 만들지 못함: \(message)")
         }
     }
 
@@ -61,7 +61,7 @@ extension LLMClient {
         ]))
         do {
             let result = try await callFunction(system: "Call the pong function.", user: "ping", tool: tool)
-            return .success("\(result.model) 응답 정상 (입력 \(result.promptTokens) / 출력 \(result.completionTokens) 토큰)")
+            return .success(tr("\(result.model) 응답 정상 (입력 \(result.promptTokens) / 출력 \(result.completionTokens) 토큰)"))
         } catch let error as LLMError {
             return .failure(error)
         } catch {

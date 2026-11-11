@@ -21,36 +21,36 @@ struct ConnectorEntry: Identifiable {
     }
 
     static let all: [ConnectorEntry] = [
-        .init(id: "gmail", name: "Gmail", summary: "메일 검색과 읽기",
-              description: "연결한 계정의 메일을 찾아 읽어요. 메일을 보내거나 수정하지 않아요.",
-              examples: ["지난주 받은 메일에서 내가 답해야 할 내용을 정리해 줘.", "최근 프로젝트 관련 메일의 결정 사항을 찾아 줘."]),
-        .init(id: "drive", name: "Google Drive", summary: "파일 검색과 문서 읽기",
-              description: "Drive에서 파일을 찾고 문서를 읽어요. 파일을 만들거나 수정하지 않아요.",
-              examples: ["최근 작성한 기획서를 찾아 핵심 결정을 요약해 줘.", "내 Drive 자료를 바탕으로 발표 개요를 만들어 줘."]),
-        .init(id: "github", name: "GitHub", summary: "저장소, 코드와 PR 읽기",
-              description: "접근 권한이 있는 저장소의 코드와 PR을 읽어요. 저장소를 변경하지 않아요.",
-              examples: ["내가 작업한 저장소의 구조와 주요 기능을 설명해 줘.", "최근 PR을 바탕으로 프로젝트 진행 상황을 정리해 줘."]),
-        .init(id: "notion", name: "Notion", summary: "페이지 검색과 읽기",
-              description: "승인한 Notion 자료를 검색하고 페이지 내용을 읽어요. SILLOG에서는 검색과 읽기만 실행해요.",
-              examples: ["최근 회의록에서 결정 사항과 다음 할 일을 찾아 줘.", "Notion에 정리한 자료를 바탕으로 계획을 세워줘."]),
-        .init(id: "figma", name: "Figma", summary: "디자인 파일과 화면 텍스트",
-              description: "지정한 폴더에서 디자인 파일을 찾고, 화면과 레이어 이름 및 텍스트를 읽어요.",
-              examples: ["설정 화면 디자인을 찾아 표시된 문구를 알려 줘."]),
-        .init(id: "slack", name: "Slack", summary: "메시지 검색과 읽기",
-              description: "연결한 사용자가 검색할 수 있는 메시지의 본문과 링크를 읽어요.",
-              examples: ["이번 주 디자인 회의 메시지에서 결정 사항을 찾아 줘."]),
-        .init(id: "discord", name: "Discord", summary: "지정한 채널의 메시지",
-              description: "봇이 읽을 수 있는 지정 채널의 최근 100개 메시지를 검색하고 원문을 읽어요.",
-              examples: ["이 채널의 최근 메시지에서 다음 일정이 나온 부분을 찾아 줘."]),
-        .init(id: "higgsfield", name: "Higgsfield", summary: "생성 기록과 결과 읽기",
-              description: "계정의 생성 기록과 결과를 읽어요. 새 이미지나 영상을 생성하지 않아요. 서비스에서 유료 구독을 요구할 수 있어요.",
-              examples: ["최근 Higgsfield 생성 기록을 찾아 결과를 정리해 줘."]),
-        .init(id: "canva", name: "Canva", summary: "디자인 검색과 기본 정보",
-              description: "접근할 수 있는 디자인을 찾아 제목, 종류, 페이지 수와 수정 시각을 읽어요.",
-              examples: ["발표 디자인을 찾아 제목과 페이지 수를 정리해 줘."]),
-        .init(id: "lovable", name: "Lovable", summary: "프로젝트 검색과 코드 읽기",
-              description: "승인한 워크스페이스에서 프로젝트를 찾고 설명과 코드 파일을 읽어요. 프로젝트를 수정하거나 배포하지 않아요.",
-              examples: ["워크스페이스에서 랜딩 페이지 프로젝트를 찾아 진행 상황을 알려 줘."])
+        .init(id: "gmail", name: "Gmail", summary: tr("메일 검색과 읽기"),
+              description: tr("연결한 계정의 메일을 찾아 읽어요. 메일을 보내거나 수정하지 않아요."),
+              examples: [tr("지난주 받은 메일에서 내가 답해야 할 내용을 정리해 줘."), tr("최근 프로젝트 관련 메일의 결정 사항을 찾아 줘.")]),
+        .init(id: "drive", name: "Google Drive", summary: tr("파일 검색과 문서 읽기"),
+              description: tr("Drive에서 파일을 찾고 문서를 읽어요. 파일을 만들거나 수정하지 않아요."),
+              examples: [tr("최근 작성한 기획서를 찾아 핵심 결정을 요약해 줘."), tr("내 Drive 자료를 바탕으로 발표 개요를 만들어 줘.")]),
+        .init(id: "github", name: "GitHub", summary: tr("저장소, 코드와 PR 읽기"),
+              description: tr("접근 권한이 있는 저장소의 코드와 PR을 읽어요. 저장소를 변경하지 않아요."),
+              examples: [tr("내가 작업한 저장소의 구조와 주요 기능을 설명해 줘."), tr("최근 PR을 바탕으로 프로젝트 진행 상황을 정리해 줘.")]),
+        .init(id: "notion", name: "Notion", summary: tr("페이지 검색과 읽기"),
+              description: tr("승인한 Notion 자료를 검색하고 페이지 내용을 읽어요. SILLOG에서는 검색과 읽기만 실행해요."),
+              examples: [tr("최근 회의록에서 결정 사항과 다음 할 일을 찾아 줘."), tr("Notion에 정리한 자료를 바탕으로 계획을 세워줘.")]),
+        .init(id: "figma", name: "Figma", summary: tr("디자인 파일과 화면 텍스트"),
+              description: tr("지정한 폴더에서 디자인 파일을 찾고, 화면과 레이어 이름 및 텍스트를 읽어요."),
+              examples: [tr("설정 화면 디자인을 찾아 표시된 문구를 알려 줘.")]),
+        .init(id: "slack", name: "Slack", summary: tr("메시지 검색과 읽기"),
+              description: tr("연결한 사용자가 검색할 수 있는 메시지의 본문과 링크를 읽어요."),
+              examples: [tr("이번 주 디자인 회의 메시지에서 결정 사항을 찾아 줘.")]),
+        .init(id: "discord", name: "Discord", summary: tr("지정한 채널의 메시지"),
+              description: tr("봇이 읽을 수 있는 지정 채널의 최근 100개 메시지를 검색하고 원문을 읽어요."),
+              examples: [tr("이 채널의 최근 메시지에서 다음 일정이 나온 부분을 찾아 줘.")]),
+        .init(id: "higgsfield", name: "Higgsfield", summary: tr("생성 기록과 결과 읽기"),
+              description: tr("계정의 생성 기록과 결과를 읽어요. 새 이미지나 영상을 생성하지 않아요. 서비스에서 유료 구독을 요구할 수 있어요."),
+              examples: [tr("최근 Higgsfield 생성 기록을 찾아 결과를 정리해 줘.")]),
+        .init(id: "canva", name: "Canva", summary: tr("디자인 검색과 기본 정보"),
+              description: tr("접근할 수 있는 디자인을 찾아 제목, 종류, 페이지 수와 수정 시각을 읽어요."),
+              examples: [tr("발표 디자인을 찾아 제목과 페이지 수를 정리해 줘.")]),
+        .init(id: "lovable", name: "Lovable", summary: tr("프로젝트 검색과 코드 읽기"),
+              description: tr("승인한 워크스페이스에서 프로젝트를 찾고 설명과 코드 파일을 읽어요. 프로젝트를 수정하거나 배포하지 않아요."),
+              examples: [tr("워크스페이스에서 랜딩 페이지 프로젝트를 찾아 진행 상황을 알려 줘.")])
     ]
 }
 
@@ -92,8 +92,8 @@ struct ConnectorCatalogView: View {
             .background(.white)
             .sheet(isPresented: $showGoogleInstall) { googleInstallSheet }
             .sheet(item: $externalConnector) { externalConnectSheet($0) }
-            .alert("커넥터 연결", isPresented: $showNotice) {
-                Button("확인", role: .cancel) {}
+            .alert(tr("커넥터 연결"), isPresented: $showNotice) {
+                Button(tr("확인"), role: .cancel) {}
             } message: { Text(notice ?? "") }
             .onAppear(perform: refresh)
     }
@@ -103,23 +103,23 @@ struct ConnectorCatalogView: View {
     private var catalog: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                CatalogHeader(title: "커넥터", description: "외부 서비스를 연결해 채팅에서 내 자료를 활용해요.", query: $query) {
+                CatalogHeader(title: tr("커넥터"), description: tr("외부 서비스를 연결해 채팅에서 내 자료를 활용해요."), query: $query) {
                     EmptyView()
                 }
                 HStack(spacing: 6) {
-                    filterPill("전체", onlyConnected: false)
-                    filterPill("연결됨", onlyConnected: true)
+                    filterPill(tr("전체"), onlyConnected: false)
+                    filterPill(tr("연결됨"), onlyConnected: true)
                 }
                 if filtered.isEmpty {
-                    Text(searching ? "맞는 커넥터가 없어요." : "연결한 커넥터가 없어요.")
+                    Text(searching ? tr("맞는 커넥터가 없어요.") : tr("연결한 커넥터가 없어요."))
                         .font(Brand.suit(12)).foregroundStyle(Brand.gray)
                 } else if searching {
-                    section("검색 결과", filtered)
+                    section(tr("검색 결과"), filtered)
                 } else {
                     let installed = filtered.filter { connected.contains($0.id) }
                     let available = filtered.filter { !connected.contains($0.id) }
-                    if !installed.isEmpty { section("연결한 커넥터", installed) }
-                    if !available.isEmpty { section("둘러보기", available) }
+                    if !installed.isEmpty { section(tr("연결한 커넥터"), installed) }
+                    if !available.isEmpty { section(tr("둘러보기"), available) }
                 }
             }
             .padding(.horizontal, 32).padding(.top, 22).padding(.bottom, 26)
@@ -154,7 +154,7 @@ struct ConnectorCatalogView: View {
                                 .frame(width: 30, height: 30).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain).disabled(connecting)
-                        .help("\(connector.name) 연결").accessibilityLabel("\(connector.name) 연결")
+                        .help(tr("\(connector.name) 연결")).accessibilityLabel(tr("\(connector.name) 연결"))
                     }
                 }
             }
@@ -168,7 +168,7 @@ struct ConnectorCatalogView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
-                    Button { selectedID = nil } label: { Text("커넥터").font(Brand.suit(12)).foregroundStyle(Brand.gray) }.buttonStyle(.plain)
+                    Button { selectedID = nil } label: { Text(tr("커넥터")).font(Brand.suit(12)).foregroundStyle(Brand.gray) }.buttonStyle(.plain)
                     Text("›").font(Brand.suit(13)).foregroundStyle(Brand.gray)
                     Text(connector.name).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
                 }
@@ -187,31 +187,31 @@ struct ConnectorCatalogView: View {
                     examplePanel(connector, on: on).padding(.top, 15)
                     Text(connector.description).font(Brand.suit(13)).foregroundStyle(Brand.tabText).padding(.top, 18)
                     if ["gmail", "drive", "slack", "notion", "higgsfield", "lovable"].contains(connector.id) {
-                        Text("연결을 누르면 브라우저에서 로그인하고 권한을 승인해요. 키를 직접 발급할 필요가 없어요.")
+                        Text(tr("연결을 누르면 브라우저에서 로그인하고 권한을 승인해요. 키를 직접 발급할 필요가 없어요."))
                             .font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 10)
                     }
                     if connector.id == "notion" || connector.id == "higgsfield" {
-                        Text("서비스의 승인 화면에는 편집·생성 권한이 함께 포함될 수 있어요. SILLOG은 검색·읽기 도구만 허용해요. 승인할 권한은 브라우저에서 확인해 주세요.")
+                        Text(tr("서비스의 승인 화면에는 편집·생성 권한이 함께 포함될 수 있어요. SILLOG은 검색·읽기 도구만 허용해요. 승인할 권한은 브라우저에서 확인해 주세요."))
                             .font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 10)
                     }
                     if on {
-                        Button("검색·읽기 확인") { checkConnection(connector) }
+                        Button(tr("검색·읽기 확인")) { checkConnection(connector) }
                             .buttonStyle(BrandButtonStyle(kind: .secondary)).disabled(connecting).padding(.top, 16)
                     }
                     if let verificationCode, connector.id == "github" {
-                        Text("GitHub 승인 코드: \(verificationCode)")
+                        Text(tr("GitHub 승인 코드: \(verificationCode)"))
                             .font(.system(size: 14, design: .monospaced)).foregroundStyle(Brand.ink).textSelection(.enabled)
                             .padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
                             .background(Self.soft, in: RoundedRectangle(cornerRadius: 10)).padding(.top, 16)
                     }
-                    Text("정보").font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink).padding(.top, 24).padding(.bottom, 8)
+                    Text(tr("정보")).font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink).padding(.top, 24).padding(.bottom, 8)
                     Rectangle().fill(Brand.line).frame(height: 1)
                     VStack(alignment: .leading, spacing: 10) {
-                        infoRow("SILLOG에서 실행", "검색·읽기만 해요")
-                        infoRow("연결 정보", "이 Mac의 키체인에 보관해요")
-                        infoRow("제공", ["gmail", "drive"].contains(connector.id) ? "Google" : connector.name)
+                        infoRow(tr("SILLOG에서 실행"), tr("검색·읽기만 해요"))
+                        infoRow(tr("연결 정보"), tr("이 Mac의 키체인에 보관해요"))
+                        infoRow(tr("제공"), ["gmail", "drive"].contains(connector.id) ? "Google" : connector.name)
                     }.padding(.top, 11)
-                    Text("질문과 조회한 자료는 연결한 AI로 전송돼요.").font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 22)
+                    Text(tr("질문과 조회한 자료는 연결한 AI로 전송돼요.")).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 22)
                 }
                 .padding(.horizontal, 32).padding(.bottom, 32)
                 .frame(maxWidth: 732, alignment: .leading).frame(maxWidth: .infinity)
@@ -229,7 +229,7 @@ struct ConnectorCatalogView: View {
     /// 연결 상태에 맞춰 연결 화면이나 채팅을 연다.
     private func mainButton(_ connector: ConnectorEntry, on: Bool) -> some View {
         Button { if on { onUseInChat(connector.id, connector.examples[0]) } else { install(connector) } } label: {
-            Text(on ? "채팅에서 사용해 보기" : connecting ? "연결 중…" : "커넥터 연결")
+            Text(on ? tr("채팅에서 사용해 보기") : connecting ? tr("연결 중…") : tr("커넥터 연결"))
                 .font(Brand.suit(12, .medium)).foregroundStyle(.white).fixedSize()
                 .padding(.horizontal, 14).frame(height: 32)
                 .background(Capsule().fill(Brand.accent))
@@ -240,17 +240,17 @@ struct ConnectorCatalogView: View {
     private func moreMenu(_ connector: ConnectorEntry, showsChatAction: Bool = false) -> some View {
         Menu {
             if showsChatAction {
-                Button("채팅에서 사용해 보기") { onUseInChat(connector.id, connector.examples[0]) }
+                Button(tr("채팅에서 사용해 보기")) { onUseInChat(connector.id, connector.examples[0]) }
             }
-            Button("검색·읽기 확인") { checkConnection(connector) }
-            Button("다시 연결") { selectedID = connector.id; install(connector) }
-            Button("연결 해제", role: .destructive) { disconnect(connector.id) }
+            Button(tr("검색·읽기 확인")) { checkConnection(connector) }
+            Button(tr("다시 연결")) { selectedID = connector.id; install(connector) }
+            Button(tr("연결 해제"), role: .destructive) { disconnect(connector.id) }
         } label: {
             Image(systemName: "ellipsis").font(.system(size: 13, weight: .medium)).foregroundStyle(Brand.tabText)
                 .frame(width: 30, height: 30).contentShape(Rectangle())
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().disabled(connecting)
-        .accessibilityLabel("\(connector.name) 작업")
+        .accessibilityLabel(tr("\(connector.name) 작업"))
     }
 
     /// 예시 질문 판: 새 대화 첫 화면과 같은 바탕에 흰 반투명 줄. 설치 전에 누르면 설치를 시작한다
@@ -282,25 +282,25 @@ struct ConnectorCatalogView: View {
         let instructions: String
         switch ExternalReadConnector(rawValue: connector.id) {
         case .figma:
-            (resourceLabel, instructions) = ("폴더 ID", "Figma에서 folders:read와 file_content:read 권한을 넣은 개인 액세스 토큰을 발급하세요.")
+            (resourceLabel, instructions) = (tr("폴더 ID"), tr("Figma에서 folders:read와 file_content:read 권한을 넣은 개인 액세스 토큰을 발급하세요."))
         case .discord:
-            (resourceLabel, instructions) = ("채널 ID", "채널 보기, 메시지 기록 읽기, Message Content 권한이 있는 Discord 봇 토큰을 입력하세요.")
+            (resourceLabel, instructions) = (tr("채널 ID"), tr("채널 보기, 메시지 기록 읽기, Message Content 권한이 있는 Discord 봇 토큰을 입력하세요."))
         case .canva:
-            (resourceLabel, instructions) = ("클라이언트 ID", "Canva 개발자 화면에서 SILLOG의 클라이언트 ID와 비밀키를 확인한 뒤 브라우저에서 디자인 기본 정보 읽기를 승인하세요.")
+            (resourceLabel, instructions) = (tr("클라이언트 ID"), tr("Canva 개발자 화면에서 SILLOG의 클라이언트 ID와 비밀키를 확인한 뒤 브라우저에서 디자인 기본 정보 읽기를 승인하세요."))
         default:
-            (resourceLabel, instructions) = (nil, "이 서비스는 브라우저 로그인으로 연결해 주세요.")
+            (resourceLabel, instructions) = (nil, tr("이 서비스는 브라우저 로그인으로 연결해 주세요."))
         }
         return VStack(alignment: .leading, spacing: 12) {
-            Text("\(connector.name) 연결").font(Brand.suit(20, .bold))
+            Text(tr("\(connector.name) 연결")).font(Brand.suit(20, .bold))
             Text(instructions).font(Brand.suit(12)).foregroundStyle(Brand.tabText)
             if let resourceLabel { TextField(resourceLabel, text: $externalResource) }
-            SecureField(connector.id == "canva" ? "클라이언트 비밀키" : "토큰 또는 API 키", text: $externalCredential)
-            Text("연결을 확인한 뒤 이 Mac의 키체인에 저장해요.").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+            SecureField(connector.id == "canva" ? tr("클라이언트 비밀키") : tr("토큰 또는 API 키"), text: $externalCredential)
+            Text(tr("연결을 확인한 뒤 이 Mac의 키체인에 저장해요.")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
             if let externalError { Text(externalError).font(Brand.suit(12)).foregroundStyle(.red) }
             HStack {
                 Spacer()
-                Button("취소") { externalConnector = nil; externalCredential = "" }.keyboardShortcut(.cancelAction).disabled(connecting)
-                Button(connecting ? "확인 중…" : "연결") { connectExternal(connector) }.keyboardShortcut(.defaultAction)
+                Button(tr("취소")) { externalConnector = nil; externalCredential = "" }.keyboardShortcut(.cancelAction).disabled(connecting)
+                Button(connecting ? tr("확인 중…") : tr("연결")) { connectExternal(connector) }.keyboardShortcut(.defaultAction)
                     .disabled(connecting || externalCredential.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                               || (resourceLabel != nil && externalResource.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
             }
@@ -331,11 +331,11 @@ struct ConnectorCatalogView: View {
 
     private var googleInstallSheet: some View {
         VStack(alignment: .leading, spacing: 0) {
-            BrandPageHeader(title: "설치할 Google 커넥터 선택", detail: "승인할 자료만 골라 주세요. 연결한 뒤에도 각 커넥터를 해제할 수 있어요.") {
+            BrandPageHeader(title: tr("설치할 Google 커넥터 선택"), detail: tr("승인할 자료만 골라 주세요. 연결한 뒤에도 각 커넥터를 해제할 수 있어요.")) {
                 Button { showGoogleInstall = false } label: {
                     Image(systemName: "xmark").font(.system(size: 13)).foregroundStyle(Brand.tabText)
                         .frame(width: 28, height: 28).contentShape(Rectangle())
-                }.buttonStyle(.plain).accessibilityLabel("닫기")
+                }.buttonStyle(.plain).accessibilityLabel(tr("닫기"))
             }
             VStack(spacing: 0) {
                 ForEach(ConnectorEntry.all.filter { ["gmail", "drive"].contains($0.id) }) { connector in
@@ -353,7 +353,7 @@ struct ConnectorCatalogView: View {
             }.padding(.horizontal, 32).padding(.top, 4)
             HStack {
                 Spacer()
-                Button("Google에서 계속") { showGoogleInstall = false; connectGoogle() }
+                Button(tr("Google에서 계속")) { showGoogleInstall = false; connectGoogle() }
                     .buttonStyle(BrandButtonStyle(kind: .primary)).disabled(googleSelection.isEmpty)
             }.padding(.horizontal, 32).frame(height: 63).background(Self.soft)
                 .overlay(alignment: .top) { Rectangle().fill(Brand.line).frame(height: 1) }
@@ -380,7 +380,7 @@ struct ConnectorCatalogView: View {
                 do {
                     try await ConnectorAuth.connectRemote(remote)
                     connected.insert(connector.id)
-                    notify("\(connector.name) 계정을 연결했어요. ‘검색·읽기 확인’으로 실제 자료를 읽을 수 있는지 검사할 수 있어요.")
+                    notify(tr("\(connector.name) 계정을 연결했어요. ‘검색·읽기 확인’으로 실제 자료를 읽을 수 있는지 검사할 수 있어요."))
                 } catch { notify(error.localizedDescription) }
             }
             return
@@ -407,7 +407,7 @@ struct ConnectorCatalogView: View {
         }
         do {
             guard try ConnectorAuth.isAvailable(connector.id) else {
-                notify("이 빌드에는 \(connector.name) 연결 정보가 아직 없습니다. 앱 제공자가 OAuth 앱을 등록해야 사용할 수 있습니다.")
+                notify(tr("이 빌드에는 \(connector.name) 연결 정보가 아직 없습니다. 앱 제공자가 OAuth 앱을 등록해야 사용할 수 있습니다."))
                 return
             }
         } catch { notify(error.localizedDescription); return }
@@ -442,11 +442,11 @@ struct ConnectorCatalogView: View {
                                       connectorResource: { try ConnectorAuth.resource($0) },
                                       remoteConnectors: try ConnectorAuth.remoteIDs())
                 let read = try await tools.checkConnector(connector.id)
-                let verified = connector.id == "github" ? "저장소 검색과 PR 목록 조회" : connector.summary
-                notify(read ? "\(connector.name)에서 \(verified) 응답을 확인했어요."
-                       : "\(connector.name) 검색 응답을 받았어요. 읽을 내용은 확인되지 않았어요.")
+                let verified = connector.id == "github" ? tr("저장소 검색과 PR 목록 조회") : connector.summary
+                notify(read ? tr("\(connector.name)에서 \(verified) 응답을 확인했어요.")
+                       : tr("\(connector.name) 검색 응답을 받았어요. 읽을 내용은 확인되지 않았어요."))
             } catch {
-                notify("\(connector.name) 검사 실패 · \(error.localizedDescription)")
+                notify(tr("\(connector.name) 검사 실패 · \(error.localizedDescription)"))
             }
         }
     }
@@ -458,7 +458,7 @@ struct ConnectorCatalogView: View {
         let ids = googleSelection
         do {
             guard try ConnectorAuth.isAvailable("gmail") else {
-                notify("이 빌드에는 Google 연결 정보가 아직 없습니다. 앱 제공자가 OAuth 앱을 등록해야 사용할 수 있습니다.")
+                notify(tr("이 빌드에는 Google 연결 정보가 아직 없습니다. 앱 제공자가 OAuth 앱을 등록해야 사용할 수 있습니다."))
                 return
             }
         } catch { notify(error.localizedDescription); return }

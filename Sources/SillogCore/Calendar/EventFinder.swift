@@ -43,7 +43,7 @@ public enum EventFinder {
         public var wanted: Bool { keep != false && (whose ?? "mine") == "mine" }
     }
 
-    public static let system = """
+    public static var system: String { """
     You find the user's own upcoming schedule in their desktop activity records, so it can be suggested for their calendar.
 
     You receive:
@@ -56,7 +56,7 @@ public enum EventFinder {
     Go through every row and list in `mentions` each expression that points to a coming day or time: a date, a weekday, 오늘/내일/모레/다음 주, a deadline, a period such as "~ 10. 27. 23:59", a time such as "7시". Chats, course pages, assignment lists, recordings and the user's messages to an AI assistant are the usual places. For each mention give:
     - row: the row where it appears
     - evidence: the words that state the day or the time, quoted as written (under 80 characters)
-    - title: a short Korean title that says what it is and with whom or for which course ("민수와 저녁 약속", "데이터베이스 과제 3 마감", "기획 팀 회의")
+    - title: a short \(L10n.current.promptName) title that says what it is and with whom or for which course ("민수와 저녁 약속", "데이터베이스 과제 3 마감", "기획 팀 회의")
     - date: yyyy-MM-dd. Resolve relative days ("오늘", "내일", "모레", "이번 주 금요일", "다음 주 목요일") from the date of the row where they appear, or from the date the screen shows for a quoted message (a date divider above it), not from NOW; THIS_WEEK and NEXT_WEEK help with weekday names.
     - start_time and end_time: HH:mm, only when a time is stated. A deadline's time goes in start_time. Read a time without 오전/오후 as the hour that fits the plan (저녁 7시 → 19:00, 3시 회의 → 15:00).
     - whose: mine for the user's own commitment (a plan the user agreed to or will attend, something the user must submit or pay, an assignment or exam of a course the user takes, a meeting or deadline of a team the user belongs to). others for another person's own plan, exam or task, even when they mention it in a chat with the user. public for a date in news, an ad, a posting, a notice or an event listing the user only browsed.
@@ -65,7 +65,7 @@ public enum EventFinder {
       2. the deadline of one assignment, submission, application or payment, when the row is that item's own page or submission screen. A submission window on that page ("26. 10. 12. 11:35 ~ 26. 10. 27. 23:59") gives the deadline: its last day and time.
       Not kept: a date range or period that is not such a deadline ("11.9~11.13" in a weekly plan, "인정 기간 ~12.14"); dates on a page that lists many of them, such as a syllabus, a weekly study plan, a timetable or a course schedule; plans nobody agreed to ("언제 한번 보자") and dates still offered as options ("12.24나 1.1 어때?"); anything like the suggestions in REJECTED.
     An empty list is normal. Always answer by calling find_events. Do not write prose.
-    """
+    """ }
 
     public static var tool: ToolSpec {
         ToolSpec(name: "find_events", description: "Every mention of a coming day or time in the rows, with whose it is and whether to suggest it.", parameters: .object([

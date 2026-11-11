@@ -48,7 +48,7 @@ extension AppState {
             AppLog.write("지움: \(ref.label) \(report.title) (원시 행 \(report.observations), 화면 카드 \(report.cards), 노드 \(report.nodes))")
         } catch {
             AppLog.write("지우기 실패: \(error.localizedDescription)")
-            eraseError = "지우는 중 문제가 생겨 아무것도 지우지 않았어요. 다시 해도 안 되면 알려 주세요.\n(\(String(error.localizedDescription.prefix(160))))"
+            eraseError = tr("지우는 중 문제가 생겨 아무것도 지우지 않았어요. 다시 해도 안 되면 알려 주세요.\n(\(String(error.localizedDescription.prefix(160))))")
             return
         }
         if excludeApp, ref.label == NodeLabel.app, !settings.excludedBundles.contains(ref.key) {
@@ -71,24 +71,24 @@ enum EraseCopy {
     /// "원시 기록 103행, 화면 카드 18장, 요약 1개와 이 업무가 들어간 정리 기록의 원문을 지워요. 되돌릴 수 없어요."
     static func message(label: String, _ report: TaskEraser.Report) -> String {
         var parts: [String] = []
-        if report.observations > 0 || label == NodeLabel.task || label == NodeLabel.theme { parts.append("원시 기록 \(report.observations)행") }
-        if report.cards > 0 { parts.append("화면 카드 \(report.cards)장") }
-        if report.chats > 0 { parts.append("AI 대화 \(report.chats)건") }
-        if report.recordings > 0 { parts.append("녹음 \(report.recordings)개") }
-        if report.digests > 0 { parts.append("요약 \(report.digests)개") }
-        let end = " 되돌릴 수 없어요."
+        if report.observations > 0 || label == NodeLabel.task || label == NodeLabel.theme { parts.append(tr("원시 기록 \(report.observations)행")) }
+        if report.cards > 0 { parts.append(tr("화면 카드 \(report.cards)장")) }
+        if report.chats > 0 { parts.append(tr("AI 대화 \(report.chats)건")) }
+        if report.recordings > 0 { parts.append(tr("녹음 \(report.recordings)개")) }
+        if report.digests > 0 { parts.append(tr("요약 \(report.digests)개")) }
+        let end = tr(" 되돌릴 수 없어요.")
         switch label {
         case NodeLabel.task:
-            return "\(listed(parts))\(and(parts.last ?? "")) 이 업무가 들어간 정리 기록의 원문을 지워요.\(end)"
+            return tr("\(listed(parts))\(and(parts.last ?? "")) 이 업무가 들어간 정리 기록의 원문을 지워요.\(end)")
         case NodeLabel.theme:
-            let all = ["이 분야의 업무 \(report.tasks.count)개"] + parts
-            return "\(listed(all))\(and(all.last ?? "")) 그 업무가 들어간 정리 기록의 원문을 지워요.\(end)"
+            let all = [tr("이 분야의 업무 \(report.tasks.count)개")] + parts
+            return tr("\(listed(all))\(and(all.last ?? "")) 그 업무가 들어간 정리 기록의 원문을 지워요.\(end)")
         default:
             let below = max(0, report.nodes - 1)
-            if below > 0 { parts.append("이 노드에서만 이어진 노드 \(below)개") }
-            guard let last = parts.last else { return "이 노드와 그 연결을 지워요. 원시 기록은 따로 없어요.\(end)" }
+            if below > 0 { parts.append(tr("이 노드에서만 이어진 노드 \(below)개")) }
+            guard let last = parts.last else { return tr("이 노드와 그 연결을 지워요. 원시 기록은 따로 없어요.\(end)") }
             let head = parts.dropLast()
-            return (head.isEmpty ? "" : "\(listed(Array(head)))\(and(head.last ?? "")) ") + "\(last)\(object(last)) 지워요.\(end)"
+            return (head.isEmpty ? "" : "\(listed(Array(head)))\(and(head.last ?? "")) ") + tr("\(last)\(object(last)) 지워요.\(end)")
         }
     }
 
@@ -100,6 +100,6 @@ enum EraseCopy {
         return (scalar.value - 0xAC00) % 28 != 0
     }
 
-    static func and(_ word: String) -> String { hasBatchim(word) ? "과" : "와" }
-    static func object(_ word: String) -> String { hasBatchim(word) ? "을" : "를" }
+    static func and(_ word: String) -> String { hasBatchim(word) ? tr("과") : tr("와") }
+    static func object(_ word: String) -> String { hasBatchim(word) ? tr("을") : tr("를") }
 }

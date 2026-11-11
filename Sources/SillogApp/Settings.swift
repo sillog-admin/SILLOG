@@ -42,6 +42,7 @@ struct AppSettings: Codable, Equatable {
     var screenCards = true
     /// 정리 위치 후보를 찾을 폴더들 (~ 표기 허용)
     var folderRoots: [String] = ["~/Desktop", "~/Documents"]
+    var language = AppLanguage.system
 
     private static let key = "sillog.settings.v1"
 
@@ -95,6 +96,8 @@ struct AppSettings: Codable, Equatable {
         suggestFolders = try c.decodeIfPresent(Bool.self, forKey: .suggestFolders) ?? d.suggestFolders
         screenCards = try c.decodeIfPresent(Bool.self, forKey: .screenCards) ?? d.screenCards
         folderRoots = try c.decodeIfPresent([String].self, forKey: .folderRoots) ?? d.folderRoots
+        // Saves from before the setting existed had a Korean UI.
+        language = try c.decodeIfPresent(AppLanguage.self, forKey: .language) ?? .ko
     }
 
     /// API keys go to the Keychain; the UserDefaults JSON keeps them blank.
@@ -185,7 +188,7 @@ struct AppSettings: Codable, Equatable {
             }
         }
     }
-    static func providerName(_ provider: String) -> String { provider == "openai" ? "API" : "ChatGPT 구독" }
+    static func providerName(_ provider: String) -> String { provider == "openai" ? "API" : tr("ChatGPT 구독") }
 }
 
 extension UserDefaults {

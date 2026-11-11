@@ -34,7 +34,7 @@ struct NavRail: View {
                 SVGIcon(d: icon(tab))
                     .stroke(Brand.tabText, style: StrokeStyle(lineWidth: on ? 1.8 : 1.5, lineCap: .round, lineJoin: .round))
                     .frame(width: 18, height: 18)
-                Text(tab.rawValue).font(Brand.suit(10, on ? .semibold : .regular)).lineLimit(1)
+                Text(L10n.tr(key: tab.rawValue)).font(Brand.suit(10, on ? .semibold : .regular)).lineLimit(1)
             }
             .foregroundStyle(on ? Brand.ink : Brand.tabText)
             .frame(width: 60, height: 56)
@@ -74,7 +74,7 @@ private struct AccountDot: View {
                 .frame(width: 32, height: 32).background(Circle().fill(Brand.badgeFill))
                 .frame(width: 36, height: 36).contentShape(Circle())
         }
-        .buttonStyle(.plain).railLabel(email ?? "계정").accessibilityLabel("계정 \(email ?? "")")
+        .buttonStyle(.plain).railLabel(email ?? tr("계정")).accessibilityLabel(tr("계정 \(email ?? "")"))
         .popover(isPresented: $open, arrowEdge: .trailing) { AccountPopover().environmentObject(state) }
     }
 }
@@ -146,7 +146,7 @@ private struct TitleConnection: View {
         }
         .padding(.horizontal, 10).frame(height: 24)
         .background(Capsule().fill(Brand.pillFill))
-        .help(connected ? "연결됨" : "연결되지 않음")
+        .help(connected ? tr("연결됨") : tr("연결되지 않음"))
     }
 
     @ViewBuilder private var logo: some View {
@@ -224,7 +224,7 @@ private struct RecordingTitleControl: View {
                     TitlePill(primary: true) {
                         HStack(spacing: 7) {
                             WaveformIcon()
-                            Text("녹음 끝내기")
+                            Text(tr("녹음 끝내기"))
                             TimelineView(.periodic(from: .now, by: 1)) { context in
                                 Text(RecordingText.clock(context.date.timeIntervalSince1970 - active.startedAt)).monospacedDigit()
                             }
@@ -232,7 +232,7 @@ private struct RecordingTitleControl: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .help("녹음을 끝내고 이 Mac 안에서 받아씁니다")
+                .help(tr("녹음을 끝내고 이 Mac 안에서 받아씁니다"))
             } else if state.phase == .ready {
                 if let work = state.recordingWork {
                     HStack(spacing: 6) {
@@ -245,12 +245,12 @@ private struct RecordingTitleControl: View {
                     TitlePill(primary: true) {
                         HStack(spacing: 9) {
                             WaveformIcon()
-                            Text("녹음 시작")
+                            Text(tr("녹음 시작"))
                         }
                     }
                 }
                 .buttonStyle(.plain)
-                .help("마이크로 녹음하고, 끝내면 이 Mac 안에서 받아씁니다")
+                .help(tr("마이크로 녹음하고, 끝내면 이 Mac 안에서 받아씁니다"))
             }
         }
     }
@@ -282,10 +282,10 @@ private struct TitleRefresh: View {
             TitlePill {
                 HStack(spacing: 6) {
                     icon.frame(width: 13, height: 13)
-                    if state.batchRunning { Text("정리하는 중") }
+                    if state.batchRunning { Text(tr("정리하는 중")) }
                     else {
-                        if state.pendingCount > 0 { Text("\(state.pendingCount)개").font(Brand.suit(12, .bold)).foregroundStyle(Color(hex: 0x4A3E37)) }
-                        Text("지금 정리").foregroundStyle(Color(hex: 0x6E6862))
+                        if state.pendingCount > 0 { Text(tr("\(state.pendingCount)개")).font(Brand.suit(12, .bold)).foregroundStyle(Color(hex: 0x4A3E37)) }
+                        Text(tr("지금 정리")).foregroundStyle(Color(hex: 0x6E6862))
                     }
                 }
                 .animation(.easeOut(duration: 0.2), value: state.batchResult)
@@ -293,7 +293,7 @@ private struct TitleRefresh: View {
         }
         .buttonStyle(.plain)
         .disabled(state.batchRunning)
-        .help("아직 정리되지 않은 활동을 지금 바로 그래프에 반영합니다")
+        .help(tr("아직 정리되지 않은 활동을 지금 바로 그래프에 반영합니다"))
         .onChange(of: state.batchRunning) { _, on in spin = on }
         .onAppear { spin = state.batchRunning }
     }
@@ -343,7 +343,7 @@ struct TasksPanel: View {
                         Image(systemName: "xmark").font(.system(size: 11, weight: .medium)).foregroundStyle(Brand.tabText)
                             .frame(width: 26, height: 26).background(Circle().fill(Color.black.opacity(0.05))).contentShape(Circle())
                     }
-                    .buttonStyle(.plain).keyboardShortcut(.cancelAction).help("업무 상세 닫기 (Esc)")
+                    .buttonStyle(.plain).keyboardShortcut(.cancelAction).help(tr("업무 상세 닫기 (Esc)"))
                     .padding(10)
                 }
             }

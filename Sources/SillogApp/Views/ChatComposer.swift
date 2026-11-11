@@ -44,7 +44,7 @@ struct ChatComposer: View {
                 tidyHint.padding(.top, 8).padding(.leading, 12)
             }
             if showsNotice {
-                Text("질문과 조회한 자료는 연결한 AI로 전송돼요. 웹 검색과 커넥터는 허용한 범위만 사용해요.")
+                Text(tr("질문과 조회한 자료는 연결한 AI로 전송돼요. 웹 검색과 커넥터는 허용한 범위만 사용해요."))
                     .font(Brand.suit(9)).foregroundStyle(Brand.gray).lineLimit(1)
                     .frame(maxWidth: .infinity).padding(.top, 8)
             }
@@ -58,8 +58,8 @@ struct ChatComposer: View {
     private func send() { if chat.send() { shortcut = nil; onSent() } }
 
     static func placeholder(_ scope: ChatScope) -> String {
-        guard scope.useActivity, !scope.focus.isEmpty else { return "기록을 바탕으로 무엇을 할까요?" }
-        return "\(ChatFocusButton.summary(scope.focus))에 대해 물어보세요"
+        guard scope.useActivity, !scope.focus.isEmpty else { return tr("기록을 바탕으로 무엇을 할까요?") }
+        return tr("\(ChatFocusButton.summary(scope.focus))에 대해 물어보세요")
     }
 
     // MARK: 입력 상자
@@ -185,7 +185,7 @@ struct ChatComposer: View {
     private var shortcutMenu: some View {
         let choices = shortcutChoices
         return VStack(alignment: .leading, spacing: 2) {
-            Text(shortcut?.kind == .skill ? "스킬 선택" : "이번 요청의 커넥터")
+            Text(shortcut?.kind == .skill ? tr("스킬 선택") : tr("이번 요청의 커넥터"))
                 .font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.horizontal, 8).padding(.vertical, 4)
             if !choices.isEmpty {
                 ScrollViewReader { proxy in
@@ -202,7 +202,7 @@ struct ChatComposer: View {
                                         }
                                         Text(item.name).font(Brand.suit(11)).lineLimit(1)
                                         Spacer(minLength: 4)
-                                        if !item.connected { Text("연결 필요").font(Brand.suit(9)).foregroundStyle(Brand.gray) }
+                                        if !item.connected { Text(tr("연결 필요")).font(Brand.suit(9)).foregroundStyle(Brand.gray) }
                                     }
                                     .padding(.horizontal, 8).frame(height: 26)
                                     .background(index == shortcutIndex ? Brand.chipSelectedFill : .clear, in: RoundedRectangle(cornerRadius: 5))
@@ -216,7 +216,7 @@ struct ChatComposer: View {
                     }
                 }
             } else {
-                Text("일치하는 항목이 없어요").font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(8)
+                Text(tr("일치하는 항목이 없어요")).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(8)
             }
         }
         .padding(6).frame(width: 210)
@@ -231,7 +231,7 @@ struct ChatComposer: View {
                 .frame(width: 20, height: 28).contentShape(Rectangle())
         }
         .buttonStyle(.plain).disabled(busy || library.busy)
-        .help("자료 추가").accessibilityLabel("자료 추가")
+        .help(tr("자료 추가")).accessibilityLabel(tr("자료 추가"))
         .popover(isPresented: $showPlus, arrowEdge: .bottom) { plusMenu }
         .background { Color.clear.popover(isPresented: $showFocus, arrowEdge: .bottom) { ChatFocusPicker(chat: chat) } }
     }
@@ -247,7 +247,7 @@ struct ChatComposer: View {
                 .background(Brand.accent.opacity(chat.running || !empty ? 1 : 0.3), in: Circle())
         }
         .buttonStyle(.plain).disabled(!chat.running && empty)
-        .help(chat.running ? "응답 중단" : "전송 (Enter)").accessibilityLabel(chat.running ? "응답 중단" : "전송")
+        .help(chat.running ? tr("응답 중단") : tr("전송 (Enter)")).accessibilityLabel(chat.running ? tr("응답 중단") : tr("전송"))
     }
 
     // MARK: 칩 (웹 검색, 첨부)
@@ -259,7 +259,7 @@ struct ChatComposer: View {
             Text(text).font(Brand.suit(10)).lineLimit(1)
             if let remove {
                 Button(action: remove) { Image(systemName: "xmark").font(.system(size: 8, weight: .semibold)) }
-                    .buttonStyle(.plain).disabled(busy).help("빼기").accessibilityLabel("\(text) 빼기")
+                    .buttonStyle(.plain).disabled(busy).help(tr("빼기")).accessibilityLabel(tr("\(text) 빼기"))
             }
         }
         .foregroundStyle(Brand.tabText)
@@ -275,7 +275,7 @@ struct ChatComposer: View {
             Text(text).font(Brand.suit(11)).lineLimit(1)
             if let remove {
                 Button(action: remove) { Image(systemName: "xmark").font(.system(size: 8, weight: .semibold)) }
-                    .buttonStyle(.plain).disabled(busy).help("빼기").accessibilityLabel("\(text) 빼기")
+                    .buttonStyle(.plain).disabled(busy).help(tr("빼기")).accessibilityLabel(tr("\(text) 빼기"))
             }
         }
         .foregroundStyle(Brand.chipSelectedText)
@@ -290,29 +290,29 @@ struct ChatComposer: View {
             HStack(spacing: 6) {
                 // 고정 목록에서 뺀 스킬도 현재 대화에 적용 중이면 해제할 수 있게 남긴다.
                 ForEach(chat.skills.filter { chat.current.skillIDs.contains($0.id) && !chat.pinnedSkillIDs.contains($0.id) }) { skill in
-                    chip(icon: skill.icon, text: skill.title, help: "적용 중인 스킬") {
+                    chip(icon: skill.icon, text: skill.displayTitle, help: tr("적용 중인 스킬")) {
                         chat.current.skillIDs.removeAll { $0 == skill.id }
                     }
                 }
                 if !chat.current.scope.useActivity {
-                    chip(icon: "diamond", text: "기록 안 씀", help: "참고할 기록 메뉴에서 범위를 바꿀 수 있어요")
+                    chip(icon: "diamond", text: tr("기록 안 씀"), help: tr("참고할 기록 메뉴에서 범위를 바꿀 수 있어요"))
                 } else if !chat.current.scope.focus.isEmpty {
-                    chip(icon: "diamond", text: ChatFocusButton.label(chat.current.scope, choices: chat.focusChoices), help: "범위 빼기") {
+                    chip(icon: "diamond", text: ChatFocusButton.label(chat.current.scope, choices: chat.focusChoices), help: tr("범위 빼기")) {
                         chat.current.scope.focus = []
                     }
                 }
                 if chat.current.scope.useWeb {
-                    chip(icon: "globe", text: "웹 검색", help: "웹 검색 끄기") { chat.current.scope.useWeb = false }
+                    chip(icon: "globe", text: tr("웹 검색"), help: tr("웹 검색 끄기")) { chat.current.scope.useWeb = false }
                 }
                 ForEach(chat.draftConnectors, id: \.self) { id in
                     let name = ConnectorEntry.all.first { $0.id == id }?.name ?? id
-                    chip(icon: "puzzlepiece.extension", text: name, help: "이번 요청의 참고 자료") {
+                    chip(icon: "puzzlepiece.extension", text: name, help: tr("이번 요청의 참고 자료")) {
                         chat.draftConnectors.removeAll { $0 == id }
                     }
                 }
                 if library.busy {
                     ProgressView().controlSize(.small)
-                    Text("소스를 추가하고 있어요").font(Brand.suit(10)).foregroundStyle(Brand.gray)
+                    Text(tr("소스를 추가하고 있어요")).font(Brand.suit(10)).foregroundStyle(Brand.gray)
                 }
             }
         }
@@ -323,17 +323,17 @@ struct ChatComposer: View {
 
     private var plusMenu: some View {
         VStack(alignment: .leading, spacing: 0) {
-            MenuRow(icon: "square.and.arrow.up", title: "파일 업로드") { showPlus = false; chat.uploadFiles() }
-            MenuRow(icon: "archivebox", title: "결과물에서 선택") { showPlus = false; DispatchQueue.main.async { showLibraryPicker = true } }
-            MenuRow(icon: "folder.badge.plus", title: "원본 파일과 폴더 연결") { showPlus = false; chat.connectFiles() }
+            MenuRow(icon: "square.and.arrow.up", title: tr("파일 업로드")) { showPlus = false; chat.uploadFiles() }
+            MenuRow(icon: "archivebox", title: tr("결과물에서 선택")) { showPlus = false; DispatchQueue.main.async { showLibraryPicker = true } }
+            MenuRow(icon: "folder.badge.plus", title: tr("원본 파일과 폴더 연결")) { showPlus = false; chat.connectFiles() }
             Rectangle().fill(Brand.line).frame(height: 1).padding(.vertical, 4)
-            MenuRow(icon: "diamond", title: "참고할 기록") { showPlus = false; DispatchQueue.main.async { showFocus = true } } trailing: {
+            MenuRow(icon: "diamond", title: tr("참고할 기록")) { showPlus = false; DispatchQueue.main.async { showFocus = true } } trailing: {
                 Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
             }
-            MenuRow(icon: "globe", title: "웹 검색") { chat.current.scope.useWeb.toggle() } trailing: {
+            MenuRow(icon: "globe", title: tr("웹 검색")) { chat.current.scope.useWeb.toggle() } trailing: {
                 WebSwitch(on: chat.current.scope.useWeb)
             }
-            MenuRow(icon: "puzzlepiece.extension", title: "커넥터") { showConnectors = true } trailing: {
+            MenuRow(icon: "puzzlepiece.extension", title: tr("커넥터")) { showConnectors = true } trailing: {
                 Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
             }
             .popover(isPresented: $showConnectors, arrowEdge: .trailing) { connectorMenu }
@@ -352,7 +352,7 @@ struct ChatComposer: View {
                 }
             }.frame(height: 260)
             Rectangle().fill(Brand.line).frame(height: 1).padding(.vertical, 4)
-            MenuRow(icon: "square.grid.2x2", title: "커넥터 둘러보기") { showConnectors = false; showPlus = false; onOpenConnectors() }
+            MenuRow(icon: "square.grid.2x2", title: tr("커넥터 둘러보기")) { showConnectors = false; showPlus = false; onOpenConnectors() }
         }
         .padding(6).frame(width: 190)
     }
@@ -371,20 +371,20 @@ struct ChatComposer: View {
                     Button {
                         if on { chat.current.skillIDs.removeAll { $0 == skill.id } } else { chat.current.skillIDs.append(skill.id) }
                     } label: {
-                        Text(skill.title).font(Brand.suit(10)).lineLimit(1)
+                        Text(skill.displayTitle).font(Brand.suit(10)).lineLimit(1)
                             .foregroundStyle(on ? Brand.chipSelectedText : Brand.tabText)
                             .padding(.horizontal, 9).frame(height: 22)
                             .background(on ? Brand.chipSelectedFill : ChatPalette.soft, in: Capsule())
                             .overlay(Capsule().strokeBorder(on ? Brand.chipSelectedBorder : Brand.line))
                             .contentShape(Capsule())
                     }
-                    .buttonStyle(.plain).disabled(busy).accessibilityLabel("\(skill.title) \(on ? "끄기" : "켜기")")
+                    .buttonStyle(.plain).disabled(busy).accessibilityLabel("\(skill.displayTitle) \(on ? tr("끄기") : tr("켜기"))")
                 }
                 Button { showSkillPins = true } label: {
                     Image(systemName: "pencil").font(.system(size: 10, weight: .medium))
                         .frame(width: 22, height: 22).background(ChatPalette.soft, in: Circle())
                 }
-                .buttonStyle(.plain).disabled(busy).help("표시할 스킬 편집").accessibilityLabel("표시할 스킬 편집")
+                .buttonStyle(.plain).disabled(busy).help(tr("표시할 스킬 편집")).accessibilityLabel(tr("표시할 스킬 편집"))
                 .popover(isPresented: $showSkillPins, arrowEdge: .top) {
                     PinnedSkillPicker(chat: chat) {
                         showSkillPins = false
@@ -437,7 +437,7 @@ struct ChatComposer: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain).fixedSize().help("연결 방식 바꾸기")
+        .buttonStyle(.plain).fixedSize().help(tr("연결 방식 바꾸기"))
         .popover(isPresented: $showConnect, arrowEdge: .top) { connectMenu }
     }
 
@@ -445,7 +445,7 @@ struct ChatComposer: View {
     private var connectMenu: some View {
         let current = state.settings.effectiveChatProvider
         return VStack(alignment: .leading, spacing: 0) {
-            connectRow("ChatGPT 구독", "codex", on: current == "codex")
+            connectRow(tr("ChatGPT 구독"), "codex", on: current == "codex")
             connectRow("API", "openai", on: current != "codex")
         }
         .padding(6).frame(width: 190)
@@ -496,7 +496,7 @@ struct ChatComposer: View {
         var body: some View {
             Capsule().fill(on ? Brand.accent : ChatPalette.inputLine).frame(width: 26, height: 15)
                 .overlay(alignment: on ? .trailing : .leading) { Circle().fill(.white).frame(width: 11, height: 11).padding(2) }
-                .accessibilityLabel(on ? "웹 검색 켬" : "웹 검색 끔")
+                .accessibilityLabel(on ? tr("웹 검색 켬") : tr("웹 검색 끔"))
         }
     }
 
@@ -506,8 +506,8 @@ struct ChatComposer: View {
     private var tidyHint: some View {
         HStack(spacing: 6) {
             Image(systemName: "info.circle").font(.system(size: 10))
-            Text("정리 전 최근 기록 \(pendingRecords)건은 아직 빠져요")
-            Button(action: tidyNow) { Text("지금 정리").underline().foregroundStyle(Brand.ink) }.buttonStyle(.plain)
+            Text(tr("정리 전 최근 기록 \(pendingRecords)건은 아직 빠져요"))
+            Button(action: tidyNow) { Text(tr("지금 정리")).underline().foregroundStyle(Brand.ink) }.buttonStyle(.plain)
         }
         .font(Brand.suit(10)).foregroundStyle(Brand.gray)
     }

@@ -48,7 +48,7 @@ final class FrameMonitor: NSObject {
         longest = max(longest, gap)
         guard now - windowStart >= 1 else { return }
         if late > 0 {
-            AppLog.write(String(format: "프레임 %@: %d장 중 늦음 %d (많이 늦음 %d), 가장 긴 간격 %.0fms", screen(), frames, late, veryLate, longest * 1000))
+            AppLog.write(String(format: tr("프레임 %@: %d장 중 늦음 %d (많이 늦음 %d), 가장 긴 간격 %.0fms"), screen(), frames, late, veryLate, longest * 1000))
         }
         frames = 0; late = 0; veryLate = 0; longest = 0; windowStart = now
     }

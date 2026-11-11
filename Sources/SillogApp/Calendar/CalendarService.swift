@@ -9,7 +9,7 @@ import SillogCore
 @MainActor
 final class CalendarService: ObservableObject {
     static let shared = CalendarService()
-    static let calendarName = "실록"
+    static let calendarName = tr("실록")
     static let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")
 
     struct TodayEvent: Identifiable, Equatable {
@@ -104,7 +104,7 @@ final class CalendarService: ObservableObject {
         let clock = DateFormatter(); clock.dateFormat = "HH:mm"
         today = store.events(matching: store.predicateForEvents(withStart: start, end: end, calendars: nil))
             .sorted { ($0.isAllDay ? 0 : 1, $0.startDate ?? start) < ($1.isAllDay ? 0 : 1, $1.startDate ?? start) }
-            .map { TodayEvent(id: $0.eventIdentifier ?? UUID().uuidString, title: $0.title ?? "제목 없음", time: $0.isAllDay ? "종일" : clock.string(from: $0.startDate)) }
+            .map { TodayEvent(id: $0.eventIdentifier ?? UUID().uuidString, title: $0.title ?? tr("제목 없음"), time: $0.isAllDay ? tr("종일") : clock.string(from: $0.startDate)) }
     }
 
     /// 캘린더에 있는 일정 (권한이 없으면 빈 목록). excludingCalendar 는 빼고 읽을 캘린더 이름
@@ -132,7 +132,7 @@ final class CalendarService: ObservableObject {
         guard Self.isGranted, end > start else { return [] }
         return store.events(matching: store.predicateForEvents(withStart: start, end: end, calendars: nil)).map { event in
             let begin = event.startDate ?? start
-            return CalendarFeed.Item(id: "\(event.eventIdentifier ?? UUID().uuidString)-\(Int(begin.timeIntervalSince1970))", title: event.title ?? "제목 없음",
+            return CalendarFeed.Item(id: "\(event.eventIdentifier ?? UUID().uuidString)-\(Int(begin.timeIntervalSince1970))", title: event.title ?? tr("제목 없음"),
                                      start: begin, end: event.endDate, allDay: event.isAllDay, calendarId: event.calendar?.calendarIdentifier ?? "",
                                      location: event.location, notes: event.notes)
         }
@@ -187,7 +187,7 @@ final class CalendarService: ObservableObject {
         let sources = store.sources
         guard let source = sources.first(where: { $0.sourceType == .calDAV && $0.title == "iCloud" })
                 ?? sources.first(where: { $0.sourceType == .local }) ?? store.defaultCalendarForNewEvents?.source else {
-            throw NSError(domain: "Sillog", code: 1, userInfo: [NSLocalizedDescriptionKey: "일정을 담을 캘린더 계정이 없어요"])
+            throw NSError(domain: "Sillog", code: 1, userInfo: [NSLocalizedDescriptionKey: tr("일정을 담을 캘린더 계정이 없어요")])
         }
         calendar.source = source
         try store.saveCalendar(calendar, commit: true)
@@ -210,7 +210,7 @@ final class CalendarService: ObservableObject {
             event.startDate = Date(timeIntervalSince1970: suggestion.start)
             event.isAllDay = suggestion.allDay
             event.endDate = suggestion.allDay ? event.startDate : suggestion.end.map { Date(timeIntervalSince1970: $0) } ?? CalendarFeed.defaultEnd(for: event.startDate)
-            if !suggestion.evidence.isEmpty { event.notes = "실록 기록에서 찾은 일정: \(suggestion.evidence)" }
+            if !suggestion.evidence.isEmpty { event.notes = tr("실록 기록에서 찾은 일정: \(suggestion.evidence)") }
             try store.save(event, span: .thisEvent, commit: true)
             try db.map { try EventSuggestionStore($0).setStatus(suggestion.id, EventSuggestionStore.registered) }
             onDecided?(suggestion.id)
@@ -239,7 +239,7 @@ extension CalendarService {
     var googleAvailable: Bool { (try? ConnectorAuth.isAvailable("gcal")) ?? false }
 
     private var google: GoogleCalendarClient { .live(token: { try await ConnectorAuth.accessToken("gcal") }) }
-    private static let googleExpired = "구글 로그인이 만료됐어요. 다시 연결해 주세요."
+    private static let googleExpired = tr("구글 로그인이 만료됐어요. 다시 연결해 주세요.")
 
     /// 브라우저에서 구글 로그인 → 캘린더 목록을 받는다
     func connectGoogle() async {
@@ -252,7 +252,7 @@ extension CalendarService {
             googleError = nil
             await loadGoogle()
         } catch {
-            googleError = "구글 연결 실패: \(error.localizedDescription)"
+            googleError = tr("구글 연결 실패: \(error.localizedDescription)")
         }
     }
 
@@ -276,7 +276,7 @@ extension CalendarService {
         } catch GoogleCalendarClient.Failure.unauthorized {
             googleError = Self.googleExpired
         } catch {
-            googleError = "구글 캘린더를 읽지 못했어요: \(error.localizedDescription)"
+            googleError = tr("구글 캘린더를 읽지 못했어요: \(error.localizedDescription)")
         }
         googleCache = [:]
         mergeSources()
@@ -319,7 +319,7 @@ extension CalendarService {
         let end = suggestion.allDay ? nil : suggestion.end.map { Date(timeIntervalSince1970: $0) } ?? CalendarFeed.defaultEnd(for: start)
         do {
             _ = try await google.insert(calendarId: calendarId, title: suggestion.title, start: start, end: end, allDay: suggestion.allDay,
-                                        notes: suggestion.evidence.isEmpty ? nil : "실록 기록에서 찾은 일정: \(suggestion.evidence)")
+                                        notes: suggestion.evidence.isEmpty ? nil : tr("실록 기록에서 찾은 일정: \(suggestion.evidence)"))
             try db.map { try EventSuggestionStore($0).setStatus(suggestion.id, EventSuggestionStore.registered) }
             onDecided?(suggestion.id)
             googleCache = [:]
@@ -327,7 +327,7 @@ extension CalendarService {
         } catch GoogleCalendarClient.Failure.unauthorized {
             googleError = Self.googleExpired
         } catch {
-            googleError = "구글 캘린더에 넣지 못했어요: \(error.localizedDescription)"
+            googleError = tr("구글 캘린더에 넣지 못했어요: \(error.localizedDescription)")
             AppLog.write("구글 캘린더 등록 실패: \(error.localizedDescription)")
         }
     }

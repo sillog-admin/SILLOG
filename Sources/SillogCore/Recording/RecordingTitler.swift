@@ -60,20 +60,20 @@ public struct RecordingTitler: Sendable {
         }
     }
 
-    static let system = """
+    static var system: String { """
     You name a voice recording the user made on their Mac, from its transcript.
     The transcript comes from on-device speech recognition: some words may be misheard, and speakers are not marked.
-    Give a short Korean title of about 20 characters that says what the recording is about, such as the course and topic of a lecture or the subject of a meeting. Do not put dates, times or the word 녹음 in the title.
-    Give a one-sentence Korean summary of what was said.
+    Give a short \(L10n.current.promptName) title of about 20 characters that says what the recording is about, such as the course and topic of a lecture or the subject of a meeting. Do not put dates, times or the word 녹음 in the title.
+    Give a one-sentence \(L10n.current.promptName) summary of what was said.
     Always answer by calling name_recording.
-    """
+    """ }
 
     static var tool: ToolSpec {
         ToolSpec(name: "name_recording", description: "Give the recording a title and a one-sentence summary.", parameters: .object([
             "type": "object",
             "properties": .object([
-                "title": .object(["type": "string", "description": "short Korean title, about 20 characters"]),
-                "summary": .object(["type": "string", "description": "one Korean sentence"]),
+                "title": .object(["type": "string", "description": .string("short \(L10n.current.promptName) title, about 20 characters")]),
+                "summary": .object(["type": "string", "description": .string("one \(L10n.current.promptName) sentence")]),
             ]),
             "required": .array(["title", "summary"]),
         ]))

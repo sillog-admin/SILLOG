@@ -137,7 +137,7 @@ struct ChatMessageText: View {
                                     blocksView(value)
                                 }
                                 if !cited.isEmpty { ChatCitationButton(sources: cited, onSource: onSource) }
-                                if missing { Text("확인되지 않은 근거").font(Brand.suit(10)).foregroundStyle(Brand.gray) }
+                                if missing { Text(tr("확인되지 않은 근거")).font(Brand.suit(10)).foregroundStyle(Brand.gray) }
                             }
                         }
                     }
@@ -207,7 +207,7 @@ private struct ChatCitationButton: View {
         .buttonStyle(.plain)
         .popover(isPresented: $showingSources) {
             VStack(alignment: .leading, spacing: 12) {
-                Eyebrow("출처")
+                Eyebrow(tr("출처"))
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
                         ForEach(sources) { source in

@@ -34,7 +34,7 @@ final class LibraryState: ObservableObject {
                     for conversation in try chats.conversations() { try store.collectArtifacts(chats.messages(conversation.id)) }
                 }.value
                 changed()
-            } catch { self.error = "기존 결과물 보관 실패: \(error.localizedDescription)" }
+            } catch { self.error = tr("기존 결과물 보관 실패: \(error.localizedDescription)") }
             busy = false
         }
     }
@@ -43,7 +43,7 @@ final class LibraryState: ObservableObject {
         guard !busy else { return }
         let panel = NSOpenPanel()
         panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = true
-        panel.message = "파일을 SILLOG 보관함에 복사합니다. 연결한 대화와 프로젝트에서 필요한 내용이 설정된 LLM에 전달됩니다."
+        panel.message = tr("파일을 SILLOG 보관함에 복사합니다. 연결한 대화와 프로젝트에서 필요한 내용이 설정된 LLM에 전달됩니다.")
         guard panel.runModal() == .OK else { return }
         let urls = panel.urls, store = store
         busy = true; error = nil
@@ -93,7 +93,7 @@ final class LibraryState: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
     func collect(_ message: ConversationMessage) {
-        do { try store.collectArtifacts([message]); changed() } catch { self.error = "결과물 보관 실패: \(error.localizedDescription)" }
+        do { try store.collectArtifacts([message]); changed() } catch { self.error = tr("결과물 보관 실패: \(error.localizedDescription)") }
     }
     func export(_ item: ChatLibraryItem) {
         let panel = NSSavePanel(); panel.nameFieldStringValue = item.filename

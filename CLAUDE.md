@@ -69,7 +69,8 @@ LLM 클라이언트는 `Settings.swift`(`AppSettings`)의 값으로 `AppState.ma
 - **오류는 `LocalizedError`로 던집니다.** `errorDescription`에는 사용자에게 보여 줄 문장을 넣습니다. UI는 `error.localizedDescription`을 그대로 씁니다. 원래 오류 문구는 버리지 말고 배치 기록(`StageCall`)이나 `AppLog`에 남깁니다.
 - **시각은 Unix 초(`Double`)로** 저장하고 주고받습니다. DB와 Core 전체가 이미 이렇게 되어 있습니다.
 - **비밀값은 Keychain에 둡니다.** API 키와 토큰은 `ChatSecrets`(서비스 `com.sillog.app.chat`)에 저장하고, UserDefaults·로그·DB·배치 기록에는 넣지 않습니다.
-- **화면 문구는 지역화 리소스에서 가져옵니다.** 한국어가 기본이고 영어를 지원합니다.
+- **화면 문구는 `tr("한국어 원문")`으로 씁니다.** 한국어 원문이 키이고, 영어는 `Sources/SillogCore/Localization/en.json` 한 곳에서 찾습니다. 보간 값은 키에서 `%@`로 바뀌고, 영어에서 순서를 바꿔야 하면 `%1$@`처럼 씁니다. 번역이 없으면 한국어 원문이 그대로 나옵니다. 저장값으로 쓰는 enum 원시값은 그대로 두고 화면에서만 `L10n.tr(key:)`로 바꿉니다. AppLog, 프롬프트, DB에 저장되는 이름은 감싸지 않습니다. 새 문구를 넣으면 `en.json`에도 추가합니다(`L10nTests`가 자리표시자 수를 확인합니다).
+- **언어 설정**은 `AppSettings.language`(`ko`/`en`)이고 `L10n.current`에 반영됩니다. 바꾸면 창 전체를 다시 그립니다(`View.localized`). 그래프·캘린더 웹 화면은 `WebL10n`이 같은 표로 글자를 바꿔 주므로 JS에는 한국어 원문을 그대로 씁니다. AI가 만드는 업무 이름·요약은 프롬프트의 `L10n.current.promptName`으로 언어를 정합니다.
 
 ## 검증
 

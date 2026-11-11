@@ -131,7 +131,7 @@ extension AppState {
             recordingTextMoved(from: suggestion.path, to: target)
         } catch {
             AppLog.write("파일 옮기기 실패: \(error.localizedDescription)")
-            fileError = "옮기지 못했습니다. \(error.localizedDescription)"
+            fileError = tr("옮기지 못했습니다. \(error.localizedDescription)")
         }
         notifier.remove(id: id)
         refreshFileSuggestions()
@@ -145,7 +145,7 @@ extension AppState {
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = "여기로 옮기기"
+        panel.prompt = tr("여기로 옮기기")
         panel.directoryURL = URL(fileURLWithPath: suggestion.suggestedFolder)
         NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK, let folder = panel.url?.path else { return }
@@ -154,7 +154,7 @@ extension AppState {
             AppLog.write("파일 옮김(직접 선택): \(suggestion.fileName) → \(target)")
             recordingTextMoved(from: suggestion.path, to: target)
         } catch {
-            fileError = "옮기지 못했습니다. \(error.localizedDescription)"
+            fileError = tr("옮기지 못했습니다. \(error.localizedDescription)")
         }
         notifier.remove(id: id)
         refreshFileSuggestions()
@@ -174,7 +174,7 @@ extension AppState {
             AppLog.write("파일 되돌림: \(restored)")
             recordingTextMoved(from: suggestion.movedTo, to: restored)
         } catch {
-            fileError = "되돌리지 못했습니다. \(error.localizedDescription)"
+            fileError = tr("되돌리지 못했습니다. \(error.localizedDescription)")
         }
         refreshFileSuggestions()
     }

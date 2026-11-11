@@ -7,11 +7,13 @@ import SillogCore
 /// 앱의 단일 상태. 수집기(actor)와 배치 실행기(actor)를 소유하고, 화면에는 요약만 내보낸다.
 @MainActor
 final class AppState: ObservableObject {
-    @Published var settings: AppSettings
+    @Published var settings: AppSettings {
+        didSet { if !isPreview, settings.language != L10n.current { L10n.current = settings.language } }
+    }
     @Published var status = CollectorStatus()
     @Published var todayCount = 0
     @Published var pendingCount = 0
-    @Published var lastBatchText = "아직 정리한 적 없음"
+    @Published var lastBatchText = tr("아직 정리한 적 없음")
     @Published var batchRunning = false
     /// 업무를 지우는 중 (그동안 정리를 멈춘다)
     @Published var erasing = false
@@ -132,10 +134,11 @@ final class AppState: ObservableObject {
     private let instanceLock = InstanceLock(databasePath: SillogDatabase.defaultPath())
     private static let onboardingKey = "sillog.onboardingCompleted"
     /// Figma OUT-W3 문구
-    static let alreadyRunningMessage = "SILLOG이 이미 실행 중이에요. 메뉴 막대의 아이콘을 확인해 주세요."
+    static let alreadyRunningMessage = tr("SILLOG이 이미 실행 중이에요. 메뉴 막대의 아이콘을 확인해 주세요.")
 
     init() {
         settings = AppSettings.load()
+        L10n.current = settings.language
         guard instanceLock.acquire() else {
             startupError = Self.alreadyRunningMessage
             AppLog.write("이미 실행 중인 Sillog 이 있어 시작하지 않음 (터미널에서 swift run 으로 띄운 실행도 확인)")
@@ -180,7 +183,7 @@ final class AppState: ObservableObject {
             if AppFeatures.calendarOn { attachCalendar(database, batcher: batcher) }   // 캘린더를 꺼 두면 EventKit 도 읽지 않는다
             notifier.onDenied = { [weak self] denied in Task { @MainActor in self?.notificationsDenied = denied } }
         } catch {
-            startupError = "데이터베이스를 열 수 없습니다: \(error.localizedDescription)"
+            startupError = tr("데이터베이스를 열 수 없습니다: \(error.localizedDescription)")
         }
     }
 
@@ -222,7 +225,7 @@ final class AppState: ObservableObject {
         onboardingStep = OnboardingFlow.step(after: onboardingStep, phase: phase)
         if previous != phase || !bootstrapLogged {
             bootstrapLogged = true
-            AppLog.write("단계: \(phase) (손쉬운 사용 \(Permissions.accessibility(prompt: false) ? "허용" : "없음"), 화면 기록 \(Permissions.screenRecording() ? "허용" : "없음"))")
+            AppLog.write("단계: \(phase) (손쉬운 사용 \(Permissions.accessibility(prompt: false) ? tr("허용") : tr("없음")), 화면 기록 \(Permissions.screenRecording() ? tr("허용") : tr("없음")))")
         }
         phase.runsServices ? startServices() : stopServices()
     }
@@ -359,10 +362,10 @@ final class AppState: ObservableObject {
         let s = settings
         switch s.judgeChoice {
         case .jev:
-            guard let endpoint = s.judgeEndpoint else { return .unavailable("판단 모델 Jev의 API 키를 설정해 주세요.") }
+            guard let endpoint = s.judgeEndpoint else { return .unavailable(tr("판단 모델 Jev의 API 키를 설정해 주세요.")) }
             return .choice(JevClient(endpoint: endpoint))
         case .decisions:
-            guard !s.decisionsAPIKey.isEmpty else { return .unavailable("판단 모델 OpenAI Decisions의 API 키를 설정해 주세요.") }
+            guard !s.decisionsAPIKey.isEmpty else { return .unavailable(tr("판단 모델 OpenAI Decisions의 API 키를 설정해 주세요.")) }
             return .choice(DecisionsClient(key: s.decisionsAPIKey))
         case .codex:
             return .gpt(CodexResponsesClient(auth: codexAuth, model: s.judgeCodexModel, reasoningEffort: "medium"))
@@ -370,7 +373,7 @@ final class AppState: ObservableObject {
             let (address, key) = s.judgeChoice == .api ? (s.llmBaseURL, s.llmAPIKey) : (s.judgeBaseURL, s.judgeAPIKey)
             guard let url = URL(string: address.trimmingCharacters(in: .whitespacesAndNewlines)),
                   ["http", "https"].contains(url.scheme ?? ""), url.host != nil, !s.judgeAPIModel.isEmpty else {
-                return .unavailable("판단 모델의 연결 주소, 모델, API 키를 확인해 주세요.")
+                return .unavailable(tr("판단 모델의 연결 주소, 모델, API 키를 확인해 주세요."))
             }
             return .gpt(OpenAICompatClient(baseURL: url, model: s.judgeAPIModel, apiKey: key.isEmpty ? nil : key))
         }
@@ -412,7 +415,7 @@ final class AppState: ObservableObject {
         chatTestResult = .checking
         do {
             try await makeChatClient().checkChatConnection()
-            chatTestResult = .ok("연결됨 · 응답과 도구 호출 확인")
+            chatTestResult = .ok(tr("연결됨 · 응답과 도구 호출 확인"))
         } catch {
             chatTestResult = .failed(error.localizedDescription)
         }
@@ -426,7 +429,7 @@ final class AppState: ObservableObject {
         guard !settings.llmUsesAPI, status == .loggedOut, phase == .ready else { return }
         cancelCodexModelLoading(clear: true)
         codexStatus = status
-        codexMessage = "ChatGPT 연결이 끊겨 다시 로그인해야 합니다. 계정 설정에서 Codex 연결을 해제했거나 다른 곳에서 로그아웃하면 이렇게 됩니다."
+        codexMessage = tr("ChatGPT 연결이 끊겨 다시 로그인해야 합니다. 계정 설정에서 Codex 연결을 해제했거나 다른 곳에서 로그아웃하면 이렇게 됩니다.")
         AppLog.write("로그인 무효화 감지 → 로그인 화면으로")
         updatePhase()
         WindowOpener.shared.openMain()
@@ -469,7 +472,7 @@ final class AppState: ObservableObject {
                 let candidates = try await CodexResponsesClient.listModels(auth: codexAuth)
                 try Task.checkCancellation()
                 guard codexModelTaskID == id else { return }
-                guard !candidates.isEmpty else { throw LLMError.backend("모델 후보 목록이 비어 있습니다.") }
+                guard !candidates.isEmpty else { throw LLMError.backend(tr("모델 후보 목록이 비어 있습니다.")) }
                 let auth = codexAuth
                 if checkBatch {
                     let result = try await CodexResponsesClient.verifyModels(candidates) { model in
@@ -479,7 +482,7 @@ final class AppState: ObservableObject {
                     try Task.checkCancellation()
                     guard codexModelTaskID == id else { return }
                     codexModels = result.models
-                    codexModelsError = verificationError(result, empty: "현재 연결에서 사용할 수 있는 정리 모델이 없습니다.")
+                    codexModelsError = verificationError(result, empty: tr("현재 연결에서 사용할 수 있는 정리 모델이 없습니다."))
                     if settings.llmProvider == "codex", result.isComplete, let first = result.models.first,
                        !result.models.contains(where: { $0.slug == settings.codexModel }),
                        !result.failures.contains(where: { $0.model.slug == settings.codexModel }) {
@@ -498,7 +501,7 @@ final class AppState: ObservableObject {
                     try Task.checkCancellation()
                     guard codexModelTaskID == id else { return }
                     chatCodexModels = result.models
-                    chatCodexModelsError = verificationError(result, empty: "현재 연결에서 사용할 수 있는 채팅 모델이 없습니다.")
+                    chatCodexModelsError = verificationError(result, empty: tr("현재 연결에서 사용할 수 있는 채팅 모델이 없습니다."))
                     let chatModel = settings.effectiveChatCodexModel
                     if result.isComplete, let first = result.models.first,
                        !result.models.contains(where: { $0.slug == chatModel }),
@@ -513,7 +516,7 @@ final class AppState: ObservableObject {
                 // 로그아웃·연결 변경·중단으로 끝난 검사는 이전 결과를 덮어쓰지 않는다.
             } catch {
                 guard codexModelTaskID == id, !Task.isCancelled else { return }
-                let message = "모델 확인 실패: \(Self.friendlyModelError(error.localizedDescription))"
+                let message = tr("모델 확인 실패: \(Self.friendlyModelError(error.localizedDescription))")
                 if checkBatch { codexModelsError = message }
                 if checkChat { chatCodexModelsError = message }
             }
@@ -526,12 +529,12 @@ final class AppState: ObservableObject {
     static func friendlyModelError(_ raw: String) -> String {
         if raw.contains("usage_limit_reached") || raw.contains("HTTP 429") {
             guard let r = raw.range(of: #""resets_in_seconds":\s*(\d+)"#, options: .regularExpression),
-                  let secs = Int(raw[r].filter(\.isNumber)) else { return "사용량 한도에 도달했어요" }
+                  let secs = Int(raw[r].filter(\.isNumber)) else { return tr("사용량 한도에 도달했어요") }
             let d = secs / 86400, h = secs % 86400 / 3600
-            return "사용량 한도에 도달했어요. \(d > 0 ? "\(d)일 " : "")\(h)시간 뒤 다시 쓸 수 있어요"
+            return tr("사용량 한도에 도달했어요. \(d > 0 ? tr("\(d)일 ") : "")\(h)시간 뒤 다시 쓸 수 있어요")
         }
-        if raw.contains("HTTP 401") || raw.contains("HTTP 403") { return "다시 로그인해야 해요" }
-        if raw.contains("HTTP 5") { return "서버가 잠시 응답하지 않아요" }
+        if raw.contains("HTTP 401") || raw.contains("HTTP 403") { return tr("다시 로그인해야 해요") }
+        if raw.contains("HTTP 5") { return tr("서버가 잠시 응답하지 않아요") }
         let line = raw.split(separator: "\n").first.map(String.init) ?? raw
         return line.count > 80 ? String(line.prefix(80)) + "…" : line
     }
@@ -588,7 +591,7 @@ final class AppState: ObservableObject {
                 self.copyDeviceCode()
                 NSWorkspace.shared.open(code.verificationURL)
                 self.codexStatus = try await self.codexAuth.completeDeviceLogin(code)
-                self.codexMessage = "로그인했습니다"
+                self.codexMessage = tr("로그인했습니다")
                 self.updatePhase()                                      // 로그인 → 권한 안내(처음) 또는 바로 사용
                 await self.loadCodexModels()
                 if self.phase == .ready { await self.runBatch(force: false) }   // 밀려 있던 활동을 바로 정리
@@ -641,7 +644,7 @@ final class AppState: ObservableObject {
                 lastBatchText = MenuBarModel.batchSummary(clock: Self.clock.string(from: Date()), newTasks: stats.tasksCreated, resources: stats.resources)
                 announced += announceEventSuggestions(limit: 3 - announced)
                 if let waiting = stats.deferredJudgmentRows, waiting > 0 {
-                    lastBatchText += " · 판단 대기 \(waiting)행"
+                    lastBatchText += tr(" · 판단 대기 \(waiting)행")
                     break
                 }
                 continue
@@ -649,7 +652,7 @@ final class AppState: ObservableObject {
                 failed = true
                 AppLog.write("정리 실패: \(message.prefix(200))")
                 await handleAuthLossIfNeeded()
-                lastBatchText = "\(Self.clock.string(from: Date())) 정리 실패: \(message.prefix(120))"
+                lastBatchText = tr("\(Self.clock.string(from: Date())) 정리 실패: \(message.prefix(120))")
             case .skipped:
                 break
             }
@@ -707,17 +710,17 @@ final class AppState: ObservableObject {
             let client = makeOpenAIClient()
             let reachable = await client.ping()
             switch await client.selfTest() {
-            case .success(let message): connectionChecks[provider] = .ok("연결됨. \(message)")
+            case .success(let message): connectionChecks[provider] = .ok(tr("연결됨. \(message)"))
             case .failure(let error):
                 connectionChecks[provider] = .failed(reachable
-                    ? "서버는 응답하지만 호출에 실패했습니다.\n\(error.description.prefix(300))"
-                    : "서버에 연결할 수 없습니다. 서버가 켜져 있는지 확인하세요.\n\(error.description.prefix(200))")
+                    ? tr("서버는 응답하지만 호출에 실패했습니다.\n\(error.description.prefix(300))")
+                    : tr("서버에 연결할 수 없습니다. 서버가 켜져 있는지 확인하세요.\n\(error.description.prefix(200))"))
             }
             return
         }
         let client = CodexResponsesClient(auth: codexAuth, model: settings.codexModel, reasoningEffort: "medium", timeout: 45)
         switch await client.selfTest() {
-        case .success(let message): connectionChecks[provider] = .ok("연결됨. \(message)")
+        case .success(let message): connectionChecks[provider] = .ok(tr("연결됨. \(message)"))
         case .failure(let error): connectionChecks[provider] = .failed(String(error.description.prefix(300)))
         }
         codexStatus = await codexAuth.status()
@@ -759,11 +762,11 @@ final class AppState: ObservableObject {
     }
 
     var statusLine: String {
-        if startupError != nil { return "시작 실패" }
-        if phase != .ready { return "시작하려면 ChatGPT 로그인이 필요합니다" }
-        if status.paused { return "일시정지됨" }
-        if status.idle { return "자리 비움" }
-        return status.running ? "수집 중" : "시작하는 중"
+        if startupError != nil { return tr("시작 실패") }
+        if phase != .ready { return tr("시작하려면 ChatGPT 로그인이 필요합니다") }
+        if status.paused { return tr("일시정지됨") }
+        if status.idle { return tr("자리 비움") }
+        return status.running ? tr("수집 중") : tr("시작하는 중")
     }
 
     static let clock: DateFormatter = {
@@ -782,7 +785,7 @@ enum CheckResult: Equatable {
     var isOK: Bool { if case .ok = self { return true } else { return false } }
     var message: String {
         switch self {
-        case .checking: return "확인 중…"
+        case .checking: return tr("확인 중…")
         case .ok(let message), .failed(let message): return message
         }
     }

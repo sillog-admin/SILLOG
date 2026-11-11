@@ -32,10 +32,10 @@ struct CalendarView: View {
 
     private var permissionCard: some View {
         VStack(spacing: 10) {
-            Text("캘린더 권한을 켜면 연결한 캘린더의 일정이 보여요").font(Brand.suit(14, .semibold)).foregroundStyle(Brand.text)
-            Text("기록에서 찾은 일정 제안은 권한 없이도 보여요").font(Brand.suit(12)).foregroundStyle(Brand.gray)
+            Text(tr("캘린더 권한을 켜면 연결한 캘린더의 일정이 보여요")).font(Brand.suit(14, .semibold)).foregroundStyle(Brand.text)
+            Text(tr("기록에서 찾은 일정 제안은 권한 없이도 보여요")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
             Button { Task { await calendar.requestAccess() } } label: {
-                Text("허용하기").font(Brand.suit(12.5, .medium)).foregroundStyle(.white)
+                Text(tr("허용하기")).font(Brand.suit(12.5, .medium)).foregroundStyle(.white)
                     .padding(.horizontal, 18).frame(height: 32).background(Capsule().fill(Brand.text)).contentShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -49,10 +49,10 @@ struct CalendarView: View {
 
     private var suggestionSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("일정 제안", count: calendar.suggestions.count)
+            sectionTitle(tr("일정 제안"), count: calendar.suggestions.count)
             if calendar.granted || calendar.googleConnected { targetPicker }
             if calendar.suggestions.isEmpty {
-                Text("기록에서 찾은 일정이 없어요").font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                Text(tr("기록에서 찾은 일정이 없어요")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
             } else {
                 ForEach(calendar.suggestions) { card($0) }
             }
@@ -70,11 +70,11 @@ struct CalendarView: View {
             HStack(spacing: 6) {
                 Spacer(minLength: 0)
                 Button { calendar.dismiss(suggestion) } label: {
-                    Text("무시").font(Brand.suit(11.5)).foregroundStyle(Brand.gray).padding(.horizontal, 8).frame(height: 26).contentShape(Rectangle())
+                    Text(tr("무시")).font(Brand.suit(11.5)).foregroundStyle(Brand.gray).padding(.horizontal, 8).frame(height: 26).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 Button { Task { await calendar.register(suggestion) } } label: {
-                    Text("등록").font(Brand.suit(11.5, .medium)).foregroundStyle(.white)
+                    Text(tr("등록")).font(Brand.suit(11.5, .medium)).foregroundStyle(.white)
                         .padding(.horizontal, 14).frame(height: 26).background(Capsule().fill(Brand.text)).contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -91,11 +91,11 @@ struct CalendarView: View {
         let writable = calendar.sources.filter(\.writable)
         let groups = writable.map(\.account).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
         return HStack(spacing: 6) {
-            Text("등록할 캘린더").font(Brand.suit(11.5)).foregroundStyle(Brand.gray)
+            Text(tr("등록할 캘린더")).font(Brand.suit(11.5)).foregroundStyle(Brand.gray)
             Menu {
-                Button("\(CalendarService.calendarName) (기본)") { calendar.setTarget(nil) }
+                Button(tr("\(CalendarService.calendarName) (기본)")) { calendar.setTarget(nil) }
                 ForEach(groups, id: \.self) { account in
-                    Section(account.isEmpty ? "이 Mac" : account) {
+                    Section(account.isEmpty ? tr("이 Mac") : account) {
                         ForEach(writable.filter { $0.account == account }) { source in
                             Button(source.title) { calendar.setTarget(source.id) }
                         }
@@ -114,20 +114,20 @@ struct CalendarView: View {
 
     private var calendarSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("연결한 캘린더", count: nil)
+            sectionTitle(tr("연결한 캘린더"), count: nil)
             if !calendar.granted {
-                Text("캘린더 권한이 없어 맥 캘린더를 읽지 못해요").font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                Text(tr("캘린더 권한이 없어 맥 캘린더를 읽지 못해요")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
             }
             if calendar.sources.isEmpty {
-                if calendar.granted { Text("연결한 캘린더가 없어요").font(Brand.suit(12)).foregroundStyle(Brand.gray) }
+                if calendar.granted { Text(tr("연결한 캘린더가 없어요")).font(Brand.suit(12)).foregroundStyle(Brand.gray) }
             } else {
                 ForEach(accounts, id: \.self) { account in
-                    Text(account.isEmpty ? "이 Mac" : account).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 6)
+                    Text(account.isEmpty ? tr("이 Mac") : account).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 6)
                     ForEach(calendar.sources.filter { $0.account == account }) { row($0) }
                 }
             }
             googleControls.padding(.top, 12)
-            Text("구글 캘린더는 시스템 설정 > 인터넷 계정에 추가해도 여기에 보여요").font(Brand.suit(11)).foregroundStyle(Brand.sub)
+            Text(tr("구글 캘린더는 시스템 설정 > 인터넷 계정에 추가해도 여기에 보여요")).font(Brand.suit(11)).foregroundStyle(Brand.sub)
                 .fixedSize(horizontal: false, vertical: true).padding(.top, 6)
         }
     }
@@ -137,18 +137,18 @@ struct CalendarView: View {
     private var googleControls: some View {
         if calendar.googleConnected {
             Button { calendar.disconnectGoogle() } label: {
-                Text("구글 연결 끊기").font(Brand.suit(11.5)).foregroundStyle(Brand.gray).contentShape(Rectangle())
+                Text(tr("구글 연결 끊기")).font(Brand.suit(11.5)).foregroundStyle(Brand.gray).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         } else if calendar.googleAvailable {
             Button { Task { await calendar.connectGoogle() } } label: {
-                Text(calendar.googleBusy ? "브라우저에서 승인하는 중…" : "구글 계정 연결").font(Brand.suit(12, .medium)).foregroundStyle(Brand.text)
+                Text(calendar.googleBusy ? tr("브라우저에서 승인하는 중…") : tr("구글 계정 연결")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.text)
                     .padding(.horizontal, 14).frame(height: 28).overlay(Capsule().strokeBorder(Brand.line)).contentShape(Capsule())
             }
             .buttonStyle(.plain)
             .disabled(calendar.googleBusy)
         } else {
-            Text("구글 계정을 바로 연결하려면 앱에 구글 클라이언트 ID가 필요해요").font(Brand.suit(11)).foregroundStyle(Brand.sub)
+            Text(tr("구글 계정을 바로 연결하려면 앱에 구글 클라이언트 ID가 필요해요")).font(Brand.suit(11)).foregroundStyle(Brand.sub)
                 .fixedSize(horizontal: false, vertical: true)
         }
         if let error = calendar.googleError {

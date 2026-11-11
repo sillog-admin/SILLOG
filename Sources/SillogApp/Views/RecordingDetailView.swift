@@ -7,21 +7,21 @@ import SillogCore
 enum RecordingDetail {
     /// "2026년 10월 10일 15:32 · 52분 10초"
     static func when(_ recording: Recording, timeZone: TimeZone = .current) -> String {
-        "\(RecordingText.date(recording.startedAt, "yyyy년 M월 d일 HH:mm", timeZone: timeZone)) · \(RecordingText.duration(recording.duration))"
+        "\(RecordingText.date(recording.startedAt, tr("yyyy년 M월 d일 HH:mm"), timeZone: timeZone)) · \(RecordingText.duration(recording.duration))"
     }
 
     /// 목록 줄 둘째 줄: 날짜, 길이, 폴더 (또는 상태)
     static func subtitle(_ recording: Recording, home: String, timeZone: TimeZone = .current) -> String {
-        let date = RecordingText.date(recording.startedAt, "M월 d일 HH:mm", timeZone: timeZone)
+        let date = RecordingText.date(recording.startedAt, tr("M월 d일 HH:mm"), timeZone: timeZone)
         let length = RecordingText.duration(recording.duration)
         let parts: [String]
         switch recording.status {
-        case .recording: parts = [date, "녹음 중"]
-        case .transcribing: parts = [date, "받아쓰는 중"]
-        case .failed: parts = [date, length, "받아쓰기 실패"]
+        case .recording: parts = [date, tr("녹음 중")]
+        case .transcribing: parts = [date, tr("받아쓰는 중")]
+        case .failed: parts = [date, length, tr("받아쓰기 실패")]
         case .ready:
             if !recording.hasTranscript {
-                parts = [date, length, "받아쓴 내용 없음"]
+                parts = [date, length, tr("받아쓴 내용 없음")]
             } else {
                 let folder = recording.textPath.map { FileSuggestionCopy.folderLabel(($0 as NSString).deletingLastPathComponent, home: home) } ?? ""
                 parts = [date, length, folder]
@@ -32,24 +32,24 @@ enum RecordingDetail {
 
     /// 상세 위쪽 안내: 받아쓰기 실패 이유, 받아쓴 글 파일이 없어진 것
     static func notice(_ recording: Recording, textExists: Bool) -> String? {
-        if recording.status == .failed { return recording.error ?? "받아쓰지 못했어요." }
-        if recording.textPath != nil, !textExists { return "받아쓴 글 파일을 찾을 수 없어요. 옮기거나 지웠어도 아래 글은 앱에 남아 있어요." }
+        if recording.status == .failed { return recording.error ?? tr("받아쓰지 못했어요.") }
+        if recording.textPath != nil, !textExists { return tr("받아쓴 글 파일을 찾을 수 없어요. 옮기거나 지웠어도 아래 글은 앱에 남아 있어요.") }
         return nil
     }
 
     /// 녹음 파일 안내: "5일 뒤 지워져요", 지운 뒤, 실패해서 남겨 둔 것
     static func audioNote(_ recording: Recording, audioExists: Bool, now: Double) -> String? {
-        if recording.audioDeletedAt != nil { return "녹음 파일은 7일이 지나 지웠어요" }
+        if recording.audioDeletedAt != nil { return tr("녹음 파일은 7일이 지나 지웠어요") }
         guard audioExists else { return nil }
-        if recording.status == .failed { return "받아쓰기에 실패한 녹음은 지우지 않아요" }
+        if recording.status == .failed { return tr("받아쓰기에 실패한 녹음은 지우지 않아요") }
         guard recording.status == .ready, let readyAt = recording.readyAt else { return nil }
         let left = readyAt + RecordingStore.audioKeepDays * 86_400 - now
-        return "\(max(1, Int((left / 86_400).rounded(.up))))일 뒤 지워져요"
+        return tr("\(max(1, Int((left / 86_400).rounded(.up))))일 뒤 지워져요")
     }
 
     /// 상세에 보이는 받아쓴 글: 발화마다 한 문단
     static func transcriptText(_ recording: Recording) -> String {
-        recording.hasTranscript ? recording.utterances.joined(separator: "\n\n") : "받아쓴 내용이 없어요."
+        recording.hasTranscript ? recording.utterances.joined(separator: "\n\n") : tr("받아쓴 내용이 없어요.")
     }
 }
 
@@ -98,11 +98,11 @@ struct RecordingDetailView: View {
                     Text(notice).font(Brand.suit(12)).foregroundStyle(Brand.ink).fixedSize(horizontal: false, vertical: true)
                 }
                 if let summary = recording.summary, !summary.isEmpty {
-                    Eyebrow("요약")
+                    Eyebrow(tr("요약"))
                     Text(summary).font(Brand.suit(12)).foregroundStyle(Brand.tabText).textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Eyebrow("받아쓴 글").padding(.top, 6)
+                Eyebrow(tr("받아쓴 글")).padding(.top, 6)
             }
             .padding(.horizontal, 27).padding(.top, 18)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -120,7 +120,7 @@ struct RecordingDetailView: View {
         HStack(spacing: 8) {
             if audioExists {
                 Button { player.toggle(URL(fileURLWithPath: recording.audioPath)) } label: {
-                    Label(player.playing ? "멈추기" : "듣기", systemImage: player.playing ? "stop.fill" : "play.fill")
+                    Label(player.playing ? tr("멈추기") : tr("듣기"), systemImage: player.playing ? "stop.fill" : "play.fill")
                 }
                 .buttonStyle(BrandButtonStyle())
             }
@@ -129,31 +129,31 @@ struct RecordingDetailView: View {
             }
             Spacer()
             if recording.status == .ready || recording.status == .failed {
-                Button("녹음 삭제", role: .destructive) { showDelete = true }
+                Button(tr("녹음 삭제"), role: .destructive) { showDelete = true }
                     .buttonStyle(BrandButtonStyle())
             }
             if recording.status == .failed, audioExists {
-                Button("다시 받아쓰기") {
+                Button(tr("다시 받아쓰기")) {
                     Task { await state.retranscribe(recording) }
                     dismiss()
                 }
                 .buttonStyle(BrandButtonStyle(kind: .primary))
             }
             if let path = recording.textPath, textExists {
-                Button("Finder에서 보기") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
+                Button(tr("Finder에서 보기")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
                     .buttonStyle(BrandButtonStyle())
             }
-            Button("닫기") { dismiss() }.buttonStyle(BrandButtonStyle())
+            Button(tr("닫기")) { dismiss() }.buttonStyle(BrandButtonStyle())
         }
         .padding(.horizontal, 24).frame(height: 63)
         .brandGlass()
         .overlay(alignment: .top) { Rectangle().fill(Brand.hairline).frame(height: 1) }
-        .alert("녹음을 삭제할까요?", isPresented: $showDelete) {
-            Button("취소", role: .cancel) {}
-            Button("삭제", role: .destructive) {
+        .alert(tr("녹음을 삭제할까요?"), isPresented: $showDelete) {
+            Button(tr("취소"), role: .cancel) {}
+            Button(tr("삭제"), role: .destructive) {
                 state.deleteRecording(recording)
                 dismiss()
             }
-        } message: { Text("앱 안의 기록과 녹음 파일을 지워요. 받아쓴 글 파일(.md)은 남아요.") }
+        } message: { Text(tr("앱 안의 기록과 녹음 파일을 지워요. 받아쓴 글 파일(.md)은 남아요.")) }
     }
 }

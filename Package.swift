@@ -22,7 +22,7 @@ let package = Package(
         .target(
             name: "SillogCore",
             dependencies: [.product(name: "GRDB", package: "GRDB.swift"), .product(name: "LangGraph", package: "LangGraph-Swift")],
-            resources: [.copy("Chat/Skills"), .copy("Chat/Prompts")]
+            resources: [.copy("Chat/Skills"), .copy("Chat/Prompts"), .copy("Localization/en.json")]
         ),
         .target(
             name: "SillogCollectors",

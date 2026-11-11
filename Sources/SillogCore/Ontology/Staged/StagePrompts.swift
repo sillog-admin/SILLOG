@@ -25,7 +25,7 @@ public enum StagePrompt {
       Rows whose app is "녹음" (type Recording, dwell 0) are voice recordings the user made in Sillog, such as a lecture, a meeting or a memo. `text:` holds a summary and the start of what was said. Judge them by what was said, like content the user engaged with.
     """
 
-    public static let classifySystem = """
+    public static var classifySystem: String { """
     You decide, for each raw desktop activity row, whether the user was working toward one of their goals, for a personal work graph.
 
     You receive:
@@ -38,13 +38,13 @@ public enum StagePrompt {
     - work: the content serves a goal, listed in GOALS or not yet listed. A goal is a project or one of its deliverables, a course being studied (its lectures, labs, notices), an errand with an outcome (an application, a payment, an interview), or a recurring routine that serves the user's work or study (a project team's channel, a class). Sub-steps are work for the goal they serve: reading documentation for it, checking the settings or usage of a tool used for it, signing in to or managing the account, subscription or billing of a tool or service used for it, installing a tool for it, looking at examples or references for it.
     Weigh the evidence in this order: what the user typed or read (the quoted `screen:` lines, chat messages, then `text:`) > the window title > the file or page name. A row is never judged by its neighbours; the rows arrive together only because they happened in the same minutes. Judge by content, not by the app or site.
     When a row could be work or off and the evidence does not settle it, choose work; the next step can still decide that it fits no goal.
-    State in `reason`, in a few Korean words, what the row is used for (work), why it serves no goal (off), or '내용 없음' (none).
+    State in `reason`, in a few \(L10n.current.promptName) words, what the row is used for (work), why it serves no goal (off), or '내용 없음' (none).
 
     Cover every row exactly once. Use ranges like "5-12" only when every row in the range has the same kind and reason.
     Always answer by calling classify_rows. Do not write prose.
-    """
+    """ }
 
-    public static let assignSystem = """
+    public static var assignSystem: String { """
     You assign activity rows to the user's goals (tasks), for a personal work graph. Every row you receive was already judged to be work toward some goal.
 
     You receive:
@@ -53,16 +53,16 @@ public enum StagePrompt {
 
     For each row decide which goal it serves:
     - an existing task (match="existing", its id): reuse it whenever the row serves that goal, judged by comparing the row's content with the task's title, goal, `recent work:` and resources. Sub-steps belong to the goal they serve: reading documentation for it, checking the settings or usage of a tool used for it, signing in to or managing the account, subscription or billing of a tool or service used for it, installing a tool for it, looking at examples or references for it, understanding its design.
-    - a new task (match="new"): only for a goal that is not in OPEN_TASKS: a different course, a different project or deliverable, a different errand, a different routine. Two goals stay separate even when they share an app or a tool. A new task gets a short, specific Korean title that names the course/project and the goal, and a `goal` sentence saying what it is for with its context (company, course, project, event or deadline). Never an app name alone, never a catch-all title, never a bare category name. The goal names an outcome the user is working toward.
+    - a new task (match="new"): only for a goal that is not in OPEN_TASKS: a different course, a different project or deliverable, a different errand, a different routine. Two goals stay separate even when they share an app or a tool. A new task gets a short, specific \(L10n.current.promptName) title that names the course/project and the goal, and a `goal` sentence saying what it is for with its context (company, course, project, event or deadline). Never an app name alone, never a catch-all title, never a bare category name. The goal names an outcome the user is working toward.
     - "off": the row turns out to serve no goal (the purpose is unclear, or it is entertainment, a hobby or browsing). Hobbies and entertainment are never goals, even when OPEN_TASKS lists a task for them. Do not list "off" in tasks.
     There is no minimum duration: a 10-second row about a distinct goal is that goal's row. A row is never assigned because neighbouring rows are.
-    State in `reason`, in a few Korean words, what the row contributes to the goal.
+    State in `reason`, in a few \(L10n.current.promptName) words, what the row contributes to the goal.
 
     Assign every row you receive exactly once, by its row number. Use a range like "5-12" only when every number in it is a row you received and they share the task and reason.
     Always answer by calling assign_tasks. Do not write prose.
-    """
+    """ }
 
-    public static let describeSystem = """
+    public static var describeSystem: String { """
     You describe the work the user did on their tasks, for a personal work graph. Every row you receive was already assigned to a task.
 
     You receive:
@@ -73,7 +73,7 @@ public enum StagePrompt {
     Do this:
     1. resources (every row): true only when the row's file or page is a real reference or artifact of its task — something the user read, used or produced for it and would want to find again: a document, code file, notebook, design, note, docs page, paper, Q&A thread, video, AI chat, a page whose content the user actually read. false for everything else: a page merely visible while the user worked elsewhere, search results, blank or new tabs, login, redirect, account and billing pages, listings, profiles and navigation pages passed through, notification or inbox checks, tool settings and usage pages, a chat channel merely glanced at. When in doubt, false.
     2. work (every task): a summary, 1-4 topics, and for a NEW task its task_type, one of TASK_TYPES.
-       The summary is saved on the session. The user reads it to recall what they did, an assistant reads it to answer questions and write reports about the work, and later passes read it as `recent work:` to match new rows to tasks. Write one Korean sentence under 100 characters that names up to three things the user did, in the order they happened, so a reader knows what was done without opening the records.
+       The summary is saved on the session. The user reads it to recall what they did, an assistant reads it to answer questions and write reports about the work, and later passes read it as `recent work:` to match new rows to tasks. Write one \(L10n.current.promptName) sentence under 100 characters that names up to three things the user did, in the order they happened, so a reader knows what was done without opening the records.
        - Name the specific object: the file, document section, page, function, assignment or posting. Use only names and details that appear in the rows. Don't repeat the task's title or goal; spend the sentence on what is particular to these rows.
        - Choose the verb from what the rows show, so a reader can tell what the user produced from what they only looked at. 작성·수정·추가 need the user's own text being added or changed (a document that grows or changes between rows, a message they sent, edited code); 제출·신청 need a visible confirmation. Otherwise say what the rows show: 읽었다, 검토했다, 검색했다, 비교했다. For a message to an AI assistant, say what the user asked for (요청했다), and say it was done only when later rows show the result. When the rows can't tell writing from reading, use the weaker verb. Use 확인했다 only for looking up a specific fact, and name the fact (마감일을 확인했다).
        - Never copy passwords, keys, tokens or other secrets.
@@ -88,7 +88,7 @@ public enum StagePrompt {
 
     Cover every row exactly once in resources. Use ranges like "5-12" only for consecutive rows of one task with the same value.
     Always answer by calling describe_work. Do not write prose.
-    """
+    """ }
 
     public static func classify(rows: [ActivityRow], openTasks: [TaskDigest], cards: [Int: [ScreenCard]], now: Double, timeZone: TimeZone) -> String {
         var lines: [String] = [OntologyPrompt.nowLine(now, timeZone: timeZone), "GOALS:"]

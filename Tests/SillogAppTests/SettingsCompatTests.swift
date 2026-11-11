@@ -44,6 +44,13 @@ final class SettingsCompatTests: XCTestCase {
         XCTAssertEqual(try decode(#"{"judgeProvider":"decisions","decisionsAPIKey":"sk"}"#).decisionsAPIKey, "sk")
     }
 
+    func testLanguageDefaultsToKoreanForOldSavesAndRoundTrips() throws {
+        XCTAssertEqual(try decode("{}").language, .ko, "saves from before the setting had a Korean UI")
+        var s = AppSettings()
+        s.language = .en
+        XCTAssertEqual(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s)).language, .en)
+    }
+
     func testLegacyDefaultsKeysMoveOnce() throws {
         let suite = "sillog-tests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

@@ -63,15 +63,15 @@ struct ActivityLogView: View {
     var body: some View {
         VStack(spacing: 0) {
             if !loaded {
-                stateView(icon: nil, title: nil, message: "기록을 불러오는 중이에요")
+                stateView(icon: nil, title: nil, message: tr("기록을 불러오는 중이에요"))
             } else if pending.isEmpty, batchRows.isEmpty {
-                stateView(icon: "list.bullet", title: "아직 수집한 기록이 없어요",
-                          message: "앱을 오가며 작업하면 수집한 기록과 AI가 정리한 결과가 시간 순서로 여기에 쌓여요.")
+                stateView(icon: "list.bullet", title: tr("아직 수집한 기록이 없어요"),
+                          message: tr("앱을 오가며 작업하면 수집한 기록과 AI가 정리한 결과가 시간 순서로 여기에 쌓여요."))
             } else {
                 if !state.status.accessibility { accessibilityNotice }
                 timeline
             }
-            Text("비공개 창의 URL과 비밀번호 입력칸은 기록하지 않아요.")
+            Text(tr("비공개 창의 URL과 비밀번호 입력칸은 기록하지 않아요."))
                 .font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.vertical, 10)
         }
         .padding(.horizontal, 34)
@@ -122,9 +122,9 @@ struct ActivityLogView: View {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Self.failColor)
                 Text(state.status.screenRecording
-                     ? "\(Permissions.accessibilityName) 권한이 꺼져 있어 창 제목과 주소 없이 기록되고 있어요. 화면 글자는 스크린샷에서 OCR로 읽고, 브라우저는 찍지 않아요."
-                     : "\(Permissions.accessibilityName) 권한이 꺼져 있어 창 제목과 주소 없이 앱 이름만 기록되고 있어요.").foregroundStyle(Brand.text)
-                Text("권한 켜기").foregroundStyle(Brand.ink).underline()
+                     ? tr("\(Permissions.accessibilityName) 권한이 꺼져 있어 창 제목과 주소 없이 기록되고 있어요. 화면 글자는 스크린샷에서 OCR로 읽고, 브라우저는 찍지 않아요.")
+                     : tr("\(Permissions.accessibilityName) 권한이 꺼져 있어 창 제목과 주소 없이 앱 이름만 기록되고 있어요.")).foregroundStyle(Brand.text)
+                Text(tr("권한 켜기")).foregroundStyle(Brand.ink).underline()
             }
             .font(Brand.suit(11)).padding(.top, 14).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
         }
@@ -136,11 +136,11 @@ struct ActivityLogView: View {
 
     private var columnHeader: some View {
         HStack(spacing: 0) {
-            cell(width: Self.timeWidth) { headText("시각") }
-            cell(width: appWidth) { headText("앱") }
-            if showTitle { cell(width: nil) { headText("창 제목") } }
-            if showLink { cell(width: nil) { headText("주소, 문서") } }
-            cell(width: Self.triggerWidth, last: true) { headText("계기") }
+            cell(width: Self.timeWidth) { headText(tr("시각")) }
+            cell(width: appWidth) { headText(tr("앱")) }
+            if showTitle { cell(width: nil) { headText(tr("창 제목")) } }
+            if showLink { cell(width: nil) { headText(tr("주소, 문서")) } }
+            cell(width: Self.triggerWidth, last: true) { headText(tr("계기")) }
         }
         .frame(height: 30)
         .background(logFill)
@@ -182,8 +182,8 @@ struct ActivityLogView: View {
         VStack(alignment: .leading, spacing: 0) {
             groupRow {
                 HStack(spacing: 10) {
-                    pill("대기", color: Brand.gray)
-                    Text("아직 보내지 않은 기록 \(pending.count)개").font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
+                    pill(tr("대기"), color: Brand.gray)
+                    Text(tr("아직 보내지 않은 기록 \(pending.count)개")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
                 }
             }
             if !pending.isEmpty { observationList(pending, key: Self.pendingKey) }
@@ -205,13 +205,13 @@ struct ActivityLogView: View {
             groupRow {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 10) {
-                        pill(ok ? "성공" : "실패", color: ok ? Self.okColor : Self.failColor)
-                        Text(verbatim: "정리 #\(batch.id ?? 0)").font(Brand.suit(12, .semibold)).foregroundStyle(Brand.ink)
+                        pill(ok ? tr("성공") : tr("실패"), color: ok ? Self.okColor : Self.failColor)
+                        Text(verbatim: tr("정리 #\(batch.id ?? 0)")).font(Brand.suit(12, .semibold)).foregroundStyle(Brand.ink)
                         Text(Self.hm(batch.startedAt)).font(Brand.jost(12)).foregroundStyle(Brand.gray)
-                        Text("기록 \(batch.rowCount)개, \(batch.model ?? "-"), 토큰 \(batch.promptTokens.formatted()) + \(batch.completionTokens.formatted())")
+                        Text(tr("기록 \(batch.rowCount)개, \(batch.model ?? "-"), 토큰 \(batch.promptTokens.formatted()) + \(batch.completionTokens.formatted())"))
                             .font(Brand.suit(11)).foregroundStyle(Brand.gray).lineLimit(1)
                         Spacer(minLength: 12)
-                        Text("자세히").font(Brand.suit(11)).foregroundStyle(Brand.tabText)
+                        Text(tr("자세히")).font(Brand.suit(11)).foregroundStyle(Brand.tabText)
                         Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
                     }
                     if let error = batch.error, !ok {
@@ -233,7 +233,7 @@ struct ActivityLogView: View {
                 Button {
                     if open { expanded.remove(key) } else { expanded.insert(key) }
                 } label: {
-                    Text(open ? "접기" : "기록 \(items.count - Self.previewCount)개 더 보기")
+                    Text(open ? tr("접기") : tr("기록 \(items.count - Self.previewCount)개 더 보기"))
                         .font(Brand.suit(11)).foregroundStyle(Brand.gray)
                         .padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
                         .overlay(alignment: .bottom) { hairline }
@@ -271,7 +271,7 @@ struct ActivityLogView: View {
             Rectangle().fill(Brand.line).frame(height: 1)
             HStack {
                 Spacer()
-                Button("닫기") { selectedBatch = nil }.buttonStyle(BrandButtonStyle(kind: .secondary)).keyboardShortcut(.cancelAction)
+                Button(tr("닫기")) { selectedBatch = nil }.buttonStyle(BrandButtonStyle(kind: .secondary)).keyboardShortcut(.cancelAction)
             }
             .padding(.horizontal, 32).frame(height: 62).background(logFill)
         }
@@ -302,10 +302,10 @@ struct ActivityLogView: View {
 
     static func triggerName(_ trigger: String) -> String {
         switch trigger {
-        case "app_activate": return "앱 전환"
-        case "window_change": return "창 변경"
-        case "periodic": return "유지"
-        case "demo": return "데모"
+        case "app_activate": return tr("앱 전환")
+        case "window_change": return tr("창 변경")
+        case "periodic": return tr("유지")
+        case "demo": return tr("데모")
         default: return trigger
         }
     }
@@ -332,8 +332,8 @@ struct ObservationDetail: View {
         VStack(spacing: 0) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("수집 기록 원문").font(Brand.suit(22, .bold)).foregroundStyle(Brand.ink)
-                    Text("관측 행 #\(observation.id ?? 0)").font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 10)
+                    Text(tr("수집 기록 원문")).font(Brand.suit(22, .bold)).foregroundStyle(Brand.ink)
+                    Text(tr("관측 행 #\(observation.id ?? 0)")).font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 10)
                 }
                 Spacer()
                 Button(action: onClose) {
@@ -347,27 +347,27 @@ struct ObservationDetail: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    field("시각", Self.time.string(from: Date(timeIntervalSince1970: observation.ts)))
-                    field("계기", ActivityLogView.triggerName(observation.trigger), medium: true)
-                    field("앱", "\(observation.appName)  (\(observation.appBundle))")
-                    if let title = observation.windowTitle { field("창 제목", title) }
+                    field(tr("시각"), Self.time.string(from: Date(timeIntervalSince1970: observation.ts)))
+                    field(tr("계기"), ActivityLogView.triggerName(observation.trigger), medium: true)
+                    field(tr("앱"), "\(observation.appName)  (\(observation.appBundle))")
+                    if let title = observation.windowTitle { field(tr("창 제목"), title) }
                     if let url = observation.url { field("URL", url) }
-                    if let path = observation.docPath { field("문서", path) }
-                    field("정리", observation.batchId.map { "배치 #\($0)" } ?? "아직 정리 안 됨")
+                    if let path = observation.docPath { field(tr("문서"), path) }
+                    field(tr("정리"), observation.batchId.map { tr("배치 #\($0)") } ?? tr("아직 정리 안 됨"))
 
                     Group {
                         if let text {
-                            TextBlock(title: "화면 텍스트 (\(text.count.formatted())자)", text: text, height: 200)
+                            TextBlock(title: tr("화면 텍스트 (\(text.count.formatted())자)"), text: text, height: 200)
                         } else {
-                            Text("화면 텍스트 없음").font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                            Text(tr("화면 텍스트 없음")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
                         }
                     }
                     .padding(.top, 16)
 
                     if let path = observation.screenshotPath {
                         HStack(spacing: 14) {
-                            Text("스크린샷").font(Brand.suit(12)).foregroundStyle(Brand.gray)
-                            Button("Finder에서 보기") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
+                            Text(tr("스크린샷")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                            Button(tr("Finder에서 보기")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
                                 .buttonStyle(.plain).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
                         }
                         .padding(.top, 16)
@@ -380,7 +380,7 @@ struct ObservationDetail: View {
                                     .frame(maxWidth: .infinity).frame(height: 110)
                                     .background(RoundedRectangle(cornerRadius: 6).fill(logFill))
                             } else {
-                                Text("파일이 없어요 (보관 기간이 지나 지워졌을 수 있어요)").font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                                Text(tr("파일이 없어요 (보관 기간이 지나 지워졌을 수 있어요)")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
                             }
                         }
                         .padding(.top, 12)
@@ -396,13 +396,13 @@ struct ObservationDetail: View {
                 Button { state.toggleDayPin(observation.ts) } label: {
                     HStack(spacing: 6) {
                         Image(systemName: pinned ? "pin.fill" : "pin").font(.system(size: 11))
-                        Text(pinned ? "이 날 원문 보존 중" : "이 날 원문 보존")
+                        Text(pinned ? tr("이 날 원문 보존 중") : tr("이 날 원문 보존"))
                     }
                 }
                 .buttonStyle(BrandButtonStyle())
-                .help("이 날의 화면 텍스트와 활동 기록을 보관 기간이 지나도 지우지 않아요")
+                .help(tr("이 날의 화면 텍스트와 활동 기록을 보관 기간이 지나도 지우지 않아요"))
                 Spacer()
-                Button("닫기", action: onClose).buttonStyle(BrandButtonStyle(kind: .secondary)).keyboardShortcut(.cancelAction)
+                Button(tr("닫기"), action: onClose).buttonStyle(BrandButtonStyle(kind: .secondary)).keyboardShortcut(.cancelAction)
             }
             .padding(.horizontal, 32).frame(height: 62).background(logFill)
         }
@@ -411,7 +411,7 @@ struct ObservationDetail: View {
         .onChange(of: observation.id, initial: true) { _, _ in
             let started = Date()
             text = observation.textId.flatMap { state.observationText($0) }        // DB 읽기 1ms 미만: 바로, 깜빡임 없이
-            Self.logIfSlow("관측 행 #\(observation.id ?? 0) 텍스트 읽기", since: started)
+            Self.logIfSlow(tr("관측 행 #\(observation.id ?? 0) 텍스트 읽기"), since: started)
             image = nil
             guard let path = observation.screenshotPath else { imageLoading = false; return }
             imageLoading = true
@@ -419,7 +419,7 @@ struct ObservationDetail: View {
             Task.detached(priority: .userInitiated) {                              // JPEG 디코드는 메인 스레드 밖에서, 표시 크기로 축소
                 let decodeStarted = Date()
                 let thumbnail = Self.thumbnail(path: path, maxPixels: 1000)
-                Self.logIfSlow("관측 행 #\(id ?? 0) 스크린샷 썸네일", since: decodeStarted)
+                Self.logIfSlow(tr("관측 행 #\(id ?? 0) 스크린샷 썸네일"), since: decodeStarted)
                 await MainActor.run {
                     guard id == observation.id else { return }
                     image = thumbnail
@@ -496,17 +496,17 @@ struct BatchDetail: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 8) {
-                        Text("정리 #\(batch.id ?? 0)").font(Brand.suit(16, .bold)).foregroundStyle(Brand.ink)
+                        Text(tr("정리 #\(batch.id ?? 0)")).font(Brand.suit(16, .bold)).foregroundStyle(Brand.ink)
                         let ok = batch.status == "ok"
-                        Text(ok ? "성공" : "실패").font(Brand.suit(11, .semibold))
+                        Text(ok ? tr("성공") : tr("실패")).font(Brand.suit(11, .semibold))
                             .foregroundStyle(ok ? ActivityLogView.okColor : ActivityLogView.failColor)
                             .padding(.horizontal, 8).padding(.vertical, 2)
                             .background(Capsule().fill((ok ? ActivityLogView.okColor : ActivityLogView.failColor).opacity(0.1)))
                     }
-                    Text("\(Self.time.string(from: Date(timeIntervalSince1970: batch.startedAt))), \(batch.model ?? "-"), 행 \(batch.rowCount)개, 토큰 \(batch.promptTokens.formatted()) + \(batch.completionTokens.formatted())")
+                    Text(tr("\(Self.time.string(from: Date(timeIntervalSince1970: batch.startedAt))), \(batch.model ?? "-"), 행 \(batch.rowCount)개, 토큰 \(batch.promptTokens.formatted()) + \(batch.completionTokens.formatted())"))
                         .font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 10)
-                    if let error = batch.error { summaryLine("오류", AppState.friendlyModelError(error)) }
-                    if let stats = batch.stats { summaryLine("반영 결과", ApplyStats.summary(json: stats) ?? stats) }
+                    if let error = batch.error { summaryLine(tr("오류"), AppState.friendlyModelError(error)) }
+                    if let stats = batch.stats { summaryLine(tr("반영 결과"), ApplyStats.summary(json: stats) ?? stats) }
                 }
                 Spacer(minLength: 16)
                 viewToggle
@@ -528,7 +528,7 @@ struct BatchDetail: View {
             full = batch.id.flatMap { state.batchDetail($0) }
             patchText = full?.llmPatch.map(Self.pretty)
             appliedText = full?.appliedPatch.flatMap { $0 == full?.llmPatch ? nil : Self.pretty($0) }
-            ObservationDetail.logIfSlow("정리 #\(batch.id ?? 0) 상세 읽기", since: started)
+            ObservationDetail.logIfSlow(tr("정리 #\(batch.id ?? 0) 상세 읽기"), since: started)
         }
     }
 
@@ -553,8 +553,8 @@ struct BatchDetail: View {
     /// 보낸 내용, 받은 응답 전환 (Figma 보기 전환)
     private var viewToggle: some View {
         HStack(spacing: 0) {
-            toggleItem("보낸 내용", on: !showReceived) { showReceived = false }
-            toggleItem("받은 응답", on: showReceived) { showReceived = true }
+            toggleItem(tr("보낸 내용"), on: !showReceived) { showReceived = false }
+            toggleItem(tr("받은 응답"), on: showReceived) { showReceived = true }
         }
         .padding(2)
     }
@@ -571,29 +571,29 @@ struct BatchDetail: View {
 
     @ViewBuilder private func sent(_ full: BatchRecord) -> some View {
         if let user = full.userPrompt {
-            TextBlock(title: "LLM이 받은 것 (이 배치의 활동 행)", text: user, height: boxHeight)
-            disclosure("시스템 프롬프트 (고정 지시문)", isOn: $showSystem) {
+            TextBlock(title: tr("LLM이 받은 것 (이 배치의 활동 행)"), text: user, height: boxHeight)
+            disclosure(tr("시스템 프롬프트 (고정 지시문)"), isOn: $showSystem) {
                 ReadOnlyTextView(text: full.systemPrompt ?? OntologyPrompt.system).frame(height: 260)
                     .background(RoundedRectangle(cornerRadius: 6).fill(logFill))
             }
         } else {
-            Text("이 배치는 프롬프트를 저장하기 전에 실행됐어요").font(Brand.suit(12)).foregroundStyle(Brand.gray)
+            Text(tr("이 배치는 프롬프트를 저장하기 전에 실행됐어요")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
         }
     }
 
     @ViewBuilder private func received(_ full: BatchRecord) -> some View {
         if full.llmPatch == nil, full.rawResponse == nil {
-            Text("받은 응답이 없어요").font(Brand.suit(12)).foregroundStyle(Brand.gray)
+            Text(tr("받은 응답이 없어요")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
         }
         // 돌려준 것과 반영한 것을 나란히 (Figma LG-W4). 반영한 것이 돌려준 것과 같으면 하나만
         if patchText != nil || appliedText != nil {
             HStack(alignment: .top, spacing: 16) {
-                if let patchText { TextBlock(title: "LLM이 돌려준 것 (구조화 결과)", text: patchText, height: boxHeight, monospaced: true) }
-                if let appliedText { TextBlock(title: "짧은 구간을 다듬은 뒤 반영한 것", text: appliedText, height: boxHeight, monospaced: true) }
+                if let patchText { TextBlock(title: tr("LLM이 돌려준 것 (구조화 결과)"), text: patchText, height: boxHeight, monospaced: true) }
+                if let appliedText { TextBlock(title: tr("짧은 구간을 다듬은 뒤 반영한 것"), text: appliedText, height: boxHeight, monospaced: true) }
             }
         }
         if let raw = full.rawResponse {
-            disclosure("원본 응답 (\(raw.count.formatted())자)", isOn: $showRaw) {
+            disclosure(tr("원본 응답 (\(raw.count.formatted())자)"), isOn: $showRaw) {
                 ReadOnlyTextView(text: raw, monospaced: true).frame(height: 260)
                     .background(RoundedRectangle(cornerRadius: 6).fill(logFill))
             }

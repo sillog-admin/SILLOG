@@ -51,7 +51,7 @@ final class ProjectState: ObservableObject {
                 reload()
             } catch {
                 guard reviewID == id, !Task.isCancelled, !(error is CancellationError) else { return }
-                self.error = "프로젝트 확인 실패: \(error.localizedDescription)"
+                self.error = tr("프로젝트 확인 실패: \(error.localizedDescription)")
             }
         }
     }
@@ -93,7 +93,7 @@ final class ProjectState: ObservableObject {
 
     @discardableResult func update(_ project: ChatProject, title: String, goal: String, instructions: String, memoryMode: ProjectMemoryMode) -> Bool {
         do {
-            guard var updated = try store.projects().first(where: { $0.id == project.id }) else { throw ChatToolError.unavailable("프로젝트가 삭제되었습니다.") }
+            guard var updated = try store.projects().first(where: { $0.id == project.id }) else { throw ChatToolError.unavailable(tr("프로젝트가 삭제되었습니다.")) }
             let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty else { return false }
             updated.title = String(name.prefix(120)); updated.goal = goal; updated.instructions = instructions
@@ -109,7 +109,7 @@ final class ProjectState: ObservableObject {
     func connectFiles(_ project: ChatProject) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false; panel.canChooseDirectories = true; panel.allowsMultipleSelection = true
-        panel.message = "이 프로젝트에서 원본을 읽을 폴더를 선택하세요. 파일 업로드는 자료 보관함에서 추가할 수 있습니다."
+        panel.message = tr("이 프로젝트에서 원본을 읽을 폴더를 선택하세요. 파일 업로드는 자료 보관함에서 추가할 수 있습니다.")
         guard panel.runModal() == .OK else { return }
         var updated = project
         updated.paths = Array(Set(updated.paths + panel.urls.map(\.path))).sorted()

@@ -68,10 +68,10 @@ struct SettingsView: View {
     /// 일반: 예전 권한, 수집, 개인정보와 저장 공간, 일반 네 구역을 한 쪽에 잇는다
     private var general: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionLabel("권한"); permissions
-            SectionLabel("수집"); collection
+            SectionLabel(tr("권한")); permissions
+            SectionLabel(tr("수집")); collection
             privacy
-            SectionLabel("앱 실행"); appLaunch
+            SectionLabel(tr("앱 실행")); appLaunch
         }
     }
 
@@ -84,39 +84,39 @@ struct SettingsView: View {
                 _ = Permissions.accessibility(prompt: true)
                 Permissions.openSettings(.accessibility)
             }
-            permissionTile("화면 기록", icon: "camera.viewfinder",
+            permissionTile(tr("화면 기록"), icon: "camera.viewfinder",
                            detail: screenRecordingDetail,
                            granted: state.status.screenRecording) {
                 Permissions.requestScreenRecording()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { Permissions.openSettings(.screenRecording) }
             }
-            permissionTile("알림", icon: "bell", detail: "파일 정리 제안을 알려요. 꺼져 있어도 파일 구역에서 볼 수 있어요.", granted: !state.notificationsDenied) {
+            permissionTile(tr("알림"), icon: "bell", detail: tr("파일 정리 제안을 알려요. 꺼져 있어도 파일 구역에서 볼 수 있어요."), granted: !state.notificationsDenied) {
                 SuggestionNotifier.openSystemSettings()
             }
             if AppFeatures.calendarOn {
-                permissionTile("캘린더", icon: "calendar",
-                               detail: calendar.granted ? "오늘 일정을 보여 줘요. 등록할 캘린더: \(calendar.target.map { "\($0.title) · \($0.account)" } ?? CalendarService.calendarName) (캘린더 탭에서 바꿔요)" : "꺼져 있어 오늘 일정을 못 보여 주고 일정을 등록하지 못해요.",
+                permissionTile(tr("캘린더"), icon: "calendar",
+                               detail: calendar.granted ? tr("오늘 일정을 보여 줘요. 등록할 캘린더: \(calendar.target.map { "\($0.title) · \($0.account)" } ?? CalendarService.calendarName) (캘린더 탭에서 바꿔요)") : tr("꺼져 있어 오늘 일정을 못 보여 주고 일정을 등록하지 못해요."),
                                granted: calendar.granted) {
                     Task { await calendar.requestAccess() }
                 }
             }
             }
             .padding(.top, 4)
-            InfoLine("화면 기록은 허용한 뒤 앱을 다시 실행해 주세요.")
+            InfoLine(tr("화면 기록은 허용한 뒤 앱을 다시 실행해 주세요."))
         }
     }
 
     /// 두 권한의 조합마다 실제로 남는 것을 적는다
     private var accessibilityDetail: String {
-        if state.status.accessibility { return "창 제목, 주소, 문서 경로, 화면 텍스트를 읽어요." }
-        return state.status.screenRecording ? "꺼져 있어 창 제목·주소·문서 경로는 남지 않아요. 화면 글자는 스크린샷에서 OCR로 읽어요."
-                                            : "꺼져 있어 지금은 앱 이름만 기록하고 있어요."
+        if state.status.accessibility { return tr("창 제목, 주소, 문서 경로, 화면 텍스트를 읽어요.") }
+        return state.status.screenRecording ? tr("꺼져 있어 창 제목·주소·문서 경로는 남지 않아요. 화면 글자는 스크린샷에서 OCR로 읽어요.")
+                                            : tr("꺼져 있어 지금은 앱 이름만 기록하고 있어요.")
     }
 
     private var screenRecordingDetail: String {
-        guard state.status.screenRecording else { return "꺼져 있어 스크린샷과 화면 카드를 만들지 못해요." }
-        return state.status.accessibility ? "스크린샷을 남기고, 글자를 읽을 수 없는 화면은 OCR로 읽어요."
-                                          : "맨 앞 창을 찍고 글자를 OCR로 읽어요. 비공개 창을 가릴 수 없어 브라우저는 찍지 않아요."
+        guard state.status.screenRecording else { return tr("꺼져 있어 스크린샷과 화면 카드를 만들지 못해요.") }
+        return state.status.accessibility ? tr("스크린샷을 남기고, 글자를 읽을 수 없는 화면은 OCR로 읽어요.")
+                                          : tr("맨 앞 창을 찍고 글자를 OCR로 읽어요. 비공개 창을 가릴 수 없어 브라우저는 찍지 않아요.")
     }
 
     /// 권한 하나를 한눈에: 이름, 허용 상태(아이콘과 글), 하는 일 또는 꺼졌을 때 못 하는 일, 허용 단추
@@ -127,12 +127,12 @@ struct SettingsView: View {
                 Image(systemName: icon).font(.system(size: 14)).foregroundStyle(Brand.ink).frame(width: 18)
                 Text(title).font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink)
                 Spacer(minLength: 4)
-                Label(granted ? "허용됨" : "꺼짐", systemImage: granted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                Label(granted ? tr("허용됨") : tr("꺼짐"), systemImage: granted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                     .font(Brand.suit(11, .semibold)).foregroundStyle(color)
             }
             Text(detail).font(Brand.suit(11)).foregroundStyle(Brand.tabText).fixedSize(horizontal: false, vertical: true).padding(.top, 10)
             Spacer(minLength: 12)
-            if !granted { Button("허용하기", action: request).buttonStyle(BrandButtonStyle()) }
+            if !granted { Button(tr("허용하기"), action: request).buttonStyle(BrandButtonStyle()) }
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 116, alignment: .topLeading)
@@ -143,27 +143,27 @@ struct SettingsView: View {
     private var collection: some View {
         VStack(alignment: .leading, spacing: 0) {
             SettingCard {
-            SettingRow("화면 텍스트 읽기", detail: "텍스트가 부족하면 OCR로 보충해요.") {
+            SettingRow(tr("화면 텍스트 읽기"), detail: tr("텍스트가 부족하면 OCR로 보충해요.")) {
                 Toggle("", isOn: $state.settings.captureText).toggleStyle(BrandSwitchStyle())
             }
-            SettingRow("스크린샷 저장", detail: "활성 창만 저장해요. 끄면 화면 내용 기록도 꺼져요.") {
+            SettingRow(tr("스크린샷 저장"), detail: tr("활성 창만 저장해요. 끄면 화면 내용 기록도 꺼져요.")) {
                 Toggle("", isOn: $state.settings.captureScreenshots).toggleStyle(BrandSwitchStyle())
             }
-            SettingRow("화면 내용 기록", detail: "대표 화면 이미지를 AI로 보내 화면 기억 카드를 만들어요.") {
+            SettingRow(tr("화면 내용 기록"), detail: tr("대표 화면 이미지를 AI로 보내 화면 기억 카드를 만들어요.")) {
                 Toggle("", isOn: $state.settings.screenCards).toggleStyle(BrandSwitchStyle())
                     .disabled(!state.settings.captureScreenshots)
             }
-            SettingRow("다운로드 폴더 새 파일 기록", detail: "다운로드 파일과 출처 URL을 기록해요.") {
+            SettingRow(tr("다운로드 폴더 새 파일 기록"), detail: tr("다운로드 파일과 출처 URL을 기록해요.")) {
                 Toggle("", isOn: $state.settings.watchDownloads).toggleStyle(BrandSwitchStyle())
             }
-            SettingRow("AI 코딩 도구 대화 읽기", detail: "Claude Code와 Codex CLI에 입력한 메시지를 읽어요.") {
+            SettingRow(tr("AI 코딩 도구 대화 읽기"), detail: tr("Claude Code와 Codex CLI에 입력한 메시지를 읽어요.")) {
                 Toggle("", isOn: $state.settings.readChatLogs).toggleStyle(BrandSwitchStyle())
             }
-            SettingRow("5분마다 자동으로 정리", detail: "쌓인 기록을 연결한 AI 계정으로 보내 업무를 정리해요.") {
+            SettingRow(tr("5분마다 자동으로 정리"), detail: tr("쌓인 기록을 연결한 AI 계정으로 보내 업무를 정리해요.")) {
                 Toggle("", isOn: $state.settings.batchEnabled).toggleStyle(BrandSwitchStyle())
             }
             }
-            InfoLine("자동 정리를 꺼도 ‘지금 정리’를 누르면 기록이 전송돼요.")
+            InfoLine(tr("자동 정리를 꺼도 ‘지금 정리’를 누르면 기록이 전송돼요."))
         }
     }
 
@@ -171,10 +171,10 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 0) {
             ExcludedAppsView()
             StorageSettingsView()
-            SectionLabel("저장 위치")
+            SectionLabel(tr("저장 위치"))
             SettingCard {
-                SettingRow("기록 폴더", detail: state.databasePath) {
-                    Button("Finder에서 보기") { state.revealDataFolder() }.buttonStyle(BrandButtonStyle())
+                SettingRow(tr("기록 폴더"), detail: state.databasePath) {
+                    Button(tr("Finder에서 보기")) { state.revealDataFolder() }.buttonStyle(BrandButtonStyle())
                 }
             }
         }
@@ -183,10 +183,15 @@ struct SettingsView: View {
     private var appLaunch: some View {
         VStack(alignment: .leading, spacing: 0) {
             SettingCard {
-            SettingRow("Dock 아이콘 표시", detail: "Dock에 SILLOG를 표시해요.") {
+            SettingRow(tr("언어"), detail: tr("화면과 AI가 만드는 업무 이름·요약에 써요. 이미 만든 기록은 그대로예요.")) {
+                BrandMenu(selection: Binding(get: { state.settings.language.rawValue },
+                                             set: { state.settings.language = AppLanguage(rawValue: $0) ?? .ko }),
+                          options: [("ko", "한국어"), ("en", "English")], width: 150)
+            }
+            SettingRow(tr("Dock 아이콘 표시"), detail: tr("Dock에 SILLOG를 표시해요.")) {
                 Toggle("", isOn: $state.settings.showDockIcon).toggleStyle(BrandSwitchStyle())
             }
-            SettingRow("로그인 시 자동 실행", detail: "Mac에 로그인하면 메뉴 막대에서 시작해요.") {
+            SettingRow(tr("로그인 시 자동 실행"), detail: tr("Mac에 로그인하면 메뉴 막대에서 시작해요.")) {
                 Toggle("", isOn: $launchAtLogin).toggleStyle(BrandSwitchStyle())
                     .disabled(!launchStatusLoaded)
                     .onChange(of: launchAtLogin) { _, enabled in if launchStatusLoaded { setLaunchAtLogin(enabled) } }
@@ -203,7 +208,7 @@ struct SettingsView: View {
             if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
             launchError = nil
         } catch {
-            launchError = "자동 실행을 바꾸지 못했어요. build/SILLOG.app으로 실행했는지 확인해 주세요. (\(error.localizedDescription))"
+            launchError = tr("자동 실행을 바꾸지 못했어요. build/SILLOG.app으로 실행했는지 확인해 주세요. (\(error.localizedDescription))")
         }
     }
 
@@ -268,10 +273,10 @@ private struct SettingCheckStatus: View {
                     Text(result.message).font(Brand.suit(11)).lineLimit(3).multilineTextAlignment(.trailing).textSelection(.enabled)
                 }.foregroundStyle(testing ? Brand.gray : result.isOK ? Color(hex: 0x2D8053) : Color(hex: 0xC9452E))
             } else {
-                Text("확인 전").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                Text(tr("확인 전")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
             }
             if testing { ProgressView().controlSize(.small) }
-            Button(action: action) { Text("연결 확인").font(Brand.suit(12, .medium)) }   // Figma 단추 글자는 12
+            Button(action: action) { Text(tr("연결 확인")).font(Brand.suit(12, .medium)) }   // Figma 단추 글자는 12
                 .buttonStyle(BrandButtonStyle(kind: .primary)).disabled(testing)
         }
     }
@@ -284,14 +289,14 @@ private struct ModelDropdown: View {
 
     private var choices: [(String, String)] {
         guard !selection.isEmpty, !models.contains(where: { $0.0 == selection }) else { return models }
-        return [(selection, "\(selection) (목록에 없음)")] + models
+        return [(selection, tr("\(selection) (목록에 없음)"))] + models
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if !models.isEmpty { BrandMenu(selection: $selection, options: choices, width: 260) }
             if models.isEmpty || directEntry {
-                BrandInput(text: $selection, placeholder: "모델 이름 직접 입력", width: 260, height: 34)
+                BrandInput(text: $selection, placeholder: tr("모델 이름 직접 입력"), width: 260, height: 34)
             }
         }
     }
@@ -351,17 +356,17 @@ private struct ConnectionSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionLabel("연결", top: 19, inset: 0, bottom: 0, height: 12)
+            SectionLabel(tr("연결"), top: 19, inset: 0, bottom: 0, height: 12)
             SettingCard { codexRows }
             codexExtras
             SettingCard { apiRows }
             choiceKeyRow(.jev)
             choiceKeyRow(.decisions)
-            SectionLabel("용도별 모델", top: 11, inset: 0, bottom: 0, height: 12)
+            SectionLabel(tr("용도별 모델"), top: 11, inset: 0, bottom: 0, height: 12)
             organizeRow
             chatRow
             judgeRow
-            Text("기록은 Mac에 저장되고, 정리와 채팅을 쓸 때 창 제목, 주소, 화면 텍스트 일부, 질문, 새 파일 정보가 연결한 AI 계정으로 전송돼요. 연결 확인은 개인 자료 없이 시험 호출만 하고, 모델 사용량이 소량 발생해요.")
+            Text(tr("기록은 Mac에 저장되고, 정리와 채팅을 쓸 때 창 제목, 주소, 화면 텍스트 일부, 질문, 새 파일 정보가 연결한 AI 계정으로 전송돼요. 연결 확인은 개인 자료 없이 시험 호출만 하고, 모델 사용량이 소량 발생해요."))
                 .font(Brand.suit(11)).foregroundStyle(Brand.gray).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 10)
         }
@@ -408,43 +413,43 @@ private struct ConnectionSection: View {
     /// "키 받기 ↗": 키를 만드는 사이트를 연다
     private func keyLink(_ site: URL, help: String) -> some View {
         Button { NSWorkspace.shared.open(site) } label: {
-            HStack(spacing: 3) { Text("키 받기"); Image(systemName: "arrow.up.right").font(.system(size: 8)) }
+            HStack(spacing: 3) { Text(tr("키 받기")); Image(systemName: "arrow.up.right").font(.system(size: 8)) }
         }.buttonStyle(BrandButtonStyle()).help(help).fixedSize()
     }
 
     // MARK: 연결
 
     @ViewBuilder private var apiRows: some View {
-        SettingRow("API 서버 주소", detail: "OpenAI 호환 서버 주소예요.", top: 16, bottom: 7) {
+        SettingRow(tr("API 서버 주소"), detail: tr("OpenAI 호환 서버 주소예요."), top: 16, bottom: 7) {
             BrandInput(text: shared(\.llmBaseURL, \.chatBaseURL), placeholder: "http://localhost:5010/v1", width: 460)
         }
-        SettingRow("API 서버 키", detail: "없으면 비워 둬요.", top: 16, bottom: 7) {
+        SettingRow(tr("API 서버 키"), detail: tr("없으면 비워 둬요."), top: 16, bottom: 7) {
             BrandInput(text: shared(\.llmAPIKey, \.chatAPIKey), placeholder: "", width: 460, secure: true)
         }
-        SettingRow("API 서버 연결", top: 16, bottom: 7) { SettingCheckStatus(result: check("openai"), action: { runCheck("openai") }) }
+        SettingRow(tr("API 서버 연결"), top: 16, bottom: 7) { SettingCheckStatus(result: check("openai"), action: { runCheck("openai") }) }
     }
 
     /// ChatGPT 구독: 로그인했으면 계정(연결 확인, 더 보기 메뉴)과 사용량. 로그인 전이면 로그인 단추 한 줄
     @ViewBuilder private var codexRows: some View {
         switch state.codexStatus {
         case .loggedIn(let email, let plan, _):
-            SettingRow("ChatGPT 계정", detail: [email, plan.map { "\($0) 요금제로 연결됨" } ?? "연결됨"].compactMap { $0 }.joined(separator: ", "), top: 16, bottom: 7) {
+            SettingRow(tr("ChatGPT 계정"), detail: [email, plan.map { tr("\($0) 요금제로 연결됨") } ?? tr("연결됨")].compactMap { $0 }.joined(separator: ", "), top: 16, bottom: 7) {
                 HStack(spacing: 14) {
                     SettingCheckStatus(result: check("codex"), action: { runCheck("codex") })
                     Menu {
-                        if state.codexModelsLoading { Button("모델 검사 중단") { state.cancelCodexModelLoading() } }
-                        else { Button("모델 다시 확인") { Task { await state.loadCodexModels(force: true) } } }
-                        Button("사용량 자세히 보기") { NSWorkspace.shared.open(CodexResponsesClient.usagePage) }
+                        if state.codexModelsLoading { Button(tr("모델 검사 중단")) { state.cancelCodexModelLoading() } }
+                        else { Button(tr("모델 다시 확인")) { Task { await state.loadCodexModels(force: true) } } }
+                        Button(tr("사용량 자세히 보기")) { NSWorkspace.shared.open(CodexResponsesClient.usagePage) }
                         Divider()
-                        Button("로그아웃") { state.logoutCodex() }
+                        Button(tr("로그아웃")) { state.logoutCodex() }
                     } label: {
                         Image(systemName: "ellipsis").font(.system(size: 15)).foregroundStyle(Brand.tabText).frame(width: 28, height: 28).contentShape(Rectangle())
                     }
-                    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help("더 보기")
+                    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help(tr("더 보기"))
                 }
             }
             if let usage = state.codexUsage {
-                SettingRow("남은 사용량", top: 16, bottom: 7) {
+                SettingRow(tr("남은 사용량"), top: 16, bottom: 7) {
                     HStack(spacing: 18) {
                         ForEach([usage.primary, usage.secondary].compactMap { $0 }, id: \.windowSeconds) { window in
                             VStack(alignment: .leading, spacing: 2) {
@@ -467,8 +472,8 @@ private struct ConnectionSection: View {
             }
         case .loggedOut:
             if state.deviceCode == nil {
-                SettingRow("로그인 안 됨", detail: "ChatGPT 계정으로 로그인하면 정리와 채팅을 쓸 수 있어요.", top: 16, bottom: 7) {
-                    Button("ChatGPT 로그인") { state.startCodexLogin() }.buttonStyle(BrandButtonStyle(kind: .primary))
+                SettingRow(tr("로그인 안 됨"), detail: tr("ChatGPT 계정으로 로그인하면 정리와 채팅을 쓸 수 있어요."), top: 16, bottom: 7) {
+                    Button(tr("ChatGPT 로그인")) { state.startCodexLogin() }.buttonStyle(BrandButtonStyle(kind: .primary))
                 }
             }
         }
@@ -483,23 +488,23 @@ private struct ConnectionSection: View {
 
     private func deviceCodeRows(_ code: DeviceCode) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("열린 브라우저에 이 코드를 입력해 주세요").font(Brand.suit(12, .medium)).foregroundStyle(Brand.text)
+            Text(tr("열린 브라우저에 이 코드를 입력해 주세요")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.text)
                 .padding(.vertical, 16)
             VStack(alignment: .leading, spacing: 8) {
-                Text("기기 코드").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                Text(tr("기기 코드")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                 Text(code.userCode).font(Brand.jost(28)).tracking(1.4).foregroundStyle(Brand.ink).textSelection(.enabled)
             }
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .bottom) { Rectangle().fill(Brand.line).frame(height: 1) }
             HStack(spacing: 10) {
-                Button("코드 복사") { state.copyDeviceCode() }.buttonStyle(BrandButtonStyle())
-                Button("브라우저 다시 열기") { NSWorkspace.shared.open(code.verificationURL) }.buttonStyle(BrandButtonStyle())
-                Button("취소") { state.cancelCodexLogin() }.buttonStyle(BrandButtonStyle())
+                Button(tr("코드 복사")) { state.copyDeviceCode() }.buttonStyle(BrandButtonStyle())
+                Button(tr("브라우저 다시 열기")) { NSWorkspace.shared.open(code.verificationURL) }.buttonStyle(BrandButtonStyle())
+                Button(tr("취소")) { state.cancelCodexLogin() }.buttonStyle(BrandButtonStyle())
                 ProgressView().controlSize(.small)
             }
             .padding(.top, 14)
-            Text("코드는 복사돼 있어요. 브라우저에 붙여 넣으세요.").font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.top, 10).padding(.bottom, 14)
+            Text(tr("코드는 복사돼 있어요. 브라우저에 붙여 넣으세요.")).font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.top, 10).padding(.bottom, 14)
         }
     }
 
@@ -509,10 +514,10 @@ private struct ConnectionSection: View {
 
     // MARK: 용도별 모델
 
-    private static let connections = [("codex", "ChatGPT 구독"), ("openai", "API 서버")]
+    private static let connections = [("codex", tr("ChatGPT 구독")), ("openai", tr("API 서버"))]
 
     private var organizeRow: some View {
-        tallRow("정리 모델", sub: "판단을 마친 업무의 이름과 요약을 만들어요") {
+        tallRow(tr("정리 모델"), sub: tr("판단을 마친 업무의 이름과 요약을 만들어요")) {
             VStack(alignment: .trailing, spacing: 8) {
                 BrandMenu(selection: shared(\.llmProvider, \.chatProvider), options: Self.connections, width: 190)
                 modelList(codex: $state.settings.codexModel, openAI: $state.settings.llmModel, codexModels: state.codexModels)
@@ -521,9 +526,9 @@ private struct ConnectionSection: View {
     }
 
     private var chatRow: some View {
-        tallRow("채팅 모델", sub: "채팅에서 질문을 읽고 답변을 작성해요") {
+        tallRow(tr("채팅 모델"), sub: tr("채팅에서 질문을 읽고 답변을 작성해요")) {
             VStack(alignment: .trailing, spacing: 8) {
-                BrandMenu(selection: chatSame, options: [("same", "정리 모델과 같음"), ("own", "따로 고르기")], width: 190)
+                BrandMenu(selection: chatSame, options: [("same", tr("정리 모델과 같음")), ("own", tr("따로 고르기"))], width: 190)
                 if !state.settings.chatSameAsOrganize {
                     modelList(codex: $state.settings.chatCodexModel, openAI: $state.settings.chatModel,
                               codexModels: state.chatCodexModels.isEmpty ? state.codexModels : state.chatCodexModels)
@@ -533,20 +538,20 @@ private struct ConnectionSection: View {
     }
 
     private var judgeRow: some View {
-        tallRow("판단 모델", sub: "활동 기록을 어느 업무에 넣을지 판단해요") {
+        tallRow(tr("판단 모델"), sub: tr("활동 기록을 어느 업무에 넣을지 판단해요")) {
             VStack(alignment: .trailing, spacing: 8) {
-                BrandMenu(selection: judgeChoice, options: [("codex", "ChatGPT 구독"), ("api", "API 서버"), ("customAPI", "다른 API 서버"),
+                BrandMenu(selection: judgeChoice, options: [("codex", tr("ChatGPT 구독")), ("api", tr("API 서버")), ("customAPI", tr("다른 API 서버")),
                                                              ("jev", "Jev"), ("decisions", "OpenAI Decisions")], width: 190)
                 switch state.settings.judgeChoice {
                 case .codex: codexModelField($state.settings.judgeCodexModel, state.codexModels)
                 case .api: ModelDropdown(selection: $state.settings.judgeAPIModel, models: apiModels.map { ($0, $0) }, directEntry: true)
                 case .customAPI:
-                    BrandInput(text: $state.settings.judgeBaseURL, placeholder: "판단 API 주소", width: 300)
-                    BrandInput(text: $state.settings.judgeAPIKey, placeholder: "판단 API 키", width: 300, secure: true)
+                    BrandInput(text: $state.settings.judgeBaseURL, placeholder: tr("판단 API 주소"), width: 300)
+                    BrandInput(text: $state.settings.judgeAPIKey, placeholder: tr("판단 API 키"), width: 300, secure: true)
                     ModelDropdown(selection: $state.settings.judgeAPIModel, models: judgeAPIModels.map { ($0, $0) }, directEntry: true)
                 case .jev, .decisions:
                     let ready = state.settings.judgeChoice == .jev ? !state.settings.jevAPIKey.isEmpty : !state.settings.decisionsAPIKey.isEmpty
-                    if !ready { Text("위 연결에서 API 키를 넣어 주세요").font(Brand.suit(11)).foregroundStyle(Brand.gray) }
+                    if !ready { Text(tr("위 연결에서 API 키를 넣어 주세요")).font(Brand.suit(11)).foregroundStyle(Brand.gray) }
                 }
             }
         }
@@ -569,13 +574,13 @@ private struct ConnectionSection: View {
     /// Key row for a choice-only judge: key link, key field, and a check once a key is in.
     private func choiceKeyRow(_ kind: AppSettings.JudgeChoice) -> some View {
         let jev = kind == .jev
-        return tallRow(jev ? "Jev API 키" : "OpenAI API 키", sub: jev ? nil : "OpenAI Decisions에 써요", slot: 36, top: 16, bottom: 7, column: nil) {
+        return tallRow(jev ? tr("Jev API 키") : tr("OpenAI API 키"), sub: jev ? nil : tr("OpenAI Decisions에 써요"), slot: 36, top: 16, bottom: 7, column: nil) {
             VStack(alignment: .trailing, spacing: 8) {
                 HStack(spacing: 12) {
-                    keyLink(jev ? AppSettings.jevSite : AppSettings.openAIKeySite, help: jev ? "Jev 사이트에서 키를 만들어요" : "OpenAI 사이트에서 키를 만들어요")
+                    keyLink(jev ? AppSettings.jevSite : AppSettings.openAIKeySite, help: jev ? tr("Jev 사이트에서 키를 만들어요") : tr("OpenAI 사이트에서 키를 만들어요"))
                     HStack(spacing: 8) {
                         if jev { SettingJevLogo(size: 16) }
-                        SecureField("", text: choiceKey(kind), prompt: Text(jev ? "Jev 사이트에서 받은 키를 붙여 넣어요" : "OpenAI에서 받은 키를 붙여 넣어요").foregroundStyle(Color(hex: 0x9E9994)))
+                        SecureField("", text: choiceKey(kind), prompt: Text(jev ? tr("Jev 사이트에서 받은 키를 붙여 넣어요") : tr("OpenAI에서 받은 키를 붙여 넣어요")).foregroundStyle(Color(hex: 0x9E9994)))
                             .textFieldStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.text)
                             .focused($focusedKey, equals: kind)
                     }
@@ -596,7 +601,7 @@ private struct ConnectionSection: View {
         let key = choiceKey(kind).wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
         choiceChecks[kind] = .checking
         Task {
-            var result = CheckResult.ok("연결됨")
+            var result = CheckResult.ok(tr("연결됨"))
             do {
                 if kind == .jev { try await JevClient(endpoint: JevEndpoint(url: JevEndpoint.typesafeURL, model: JevEndpoint.defaultModel, key: key)).verify() }
                 else { try await DecisionsClient(key: key).verify() }
@@ -617,7 +622,7 @@ private struct ConnectionSection: View {
     @ViewBuilder private func codexModelField(_ selection: Binding<String>, _ models: [CodexModel]) -> some View {
         if state.codexModelsLoading {
             HStack(spacing: 8) {
-                Text("불러오는 중…").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                Text(tr("불러오는 중…")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                 ProgressView().controlSize(.mini)
             }.frame(height: 28)
         } else {

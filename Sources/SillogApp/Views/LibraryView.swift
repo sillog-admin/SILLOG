@@ -18,7 +18,7 @@ struct LibrarySheetHeader: View {
             Button(action: onClose) {
                 Image(systemName: "xmark").font(.system(size: 13)).foregroundStyle(Brand.tabText)
                     .frame(width: 28, height: 28).contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityLabel("닫기")
+            }.buttonStyle(.plain).accessibilityLabel(tr("닫기"))
         }
         .padding(.horizontal, 27).padding(.top, 25).padding(.bottom, 20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -119,8 +119,8 @@ struct LibraryView: View {
     }
 
     private var emptyTitle: String {
-        if kind == "recording" { return state.recordings.isEmpty ? "녹음이 없습니다" : "검색 결과가 없습니다" }
-        return library.items.isEmpty && state.recordings.isEmpty ? "보관한 자료가 없습니다" : "검색 결과가 없습니다"
+        if kind == "recording" { return state.recordings.isEmpty ? tr("녹음이 없습니다") : tr("검색 결과가 없습니다") }
+        return library.items.isEmpty && state.recordings.isEmpty ? tr("보관한 자료가 없습니다") : tr("검색 결과가 없습니다")
     }
     var body: some View {
         HStack(spacing: 0) {
@@ -139,16 +139,16 @@ struct LibraryView: View {
             for item in library.items where item.kind == "note" { found[item.id] = LibraryTextInfo.read(library.store.url(for: item)) }
             infos = found
         }
-        .alert("제목 바꾸기", isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
-            TextField("제목", text: $editTitle)
-            Button("취소", role: .cancel) { editing = nil }
-            Button("저장") { if let editing { library.rename(editing, title: editTitle) }; editing = nil }
+        .alert(tr("제목 바꾸기"), isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
+            TextField(tr("제목"), text: $editTitle)
+            Button(tr("취소"), role: .cancel) { editing = nil }
+            Button(tr("저장")) { if let editing { library.rename(editing, title: editTitle) }; editing = nil }
                 .disabled(editTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
-        .alert("자료를 삭제할까요?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
-            Button("취소", role: .cancel) { deleting = nil }
-            Button("삭제", role: .destructive) { if let deleting { library.delete(deleting) }; deleting = nil }
-        } message: { Text("결과물의 복사본과 모든 대화 연결이 삭제됩니다. 업로드한 원본 파일과 기존 채팅 답변은 남습니다.") }
+        .alert(tr("자료를 삭제할까요?"), isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            Button(tr("취소"), role: .cancel) { deleting = nil }
+            Button(tr("삭제"), role: .destructive) { if let deleting { library.delete(deleting) }; deleting = nil }
+        } message: { Text(tr("결과물의 복사본과 모든 대화 연결이 삭제됩니다. 업로드한 원본 파일과 기존 채팅 답변은 남습니다.")) }
     }
 
     /// 유리 사이드바: 파일 올리기 버튼, 종류 필터 (보관함 이름은 위쪽 글자 탭이 보인다)
@@ -157,20 +157,20 @@ struct LibraryView: View {
             Button { library.importFiles() } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "plus").font(.system(size: 12))
-                    Text("파일 업로드").font(Brand.suit(12, .medium))
+                    Text(tr("파일 업로드")).font(Brand.suit(12, .medium))
                     if library.busy { ProgressView().controlSize(.mini) }
                 }.foregroundStyle(Brand.tabText).frame(maxWidth: .infinity).frame(height: 38)
                     .background(RoundedRectangle(cornerRadius: 6).fill(.white.opacity(0.5)))
                     .hoverHighlight(cornerRadius: 6)
             }.buttonStyle(.plain).disabled(library.busy).padding(.top, 18)
-            Eyebrow("종류").padding(.top, 26).padding(.leading, 12)
+            Eyebrow(tr("종류")).padding(.top, 26).padding(.leading, 12)
             VStack(spacing: 2) {
-                filterRow("홈", kind == "home") { kind = "home" }
-                filterRow("전체 종류", kind.isEmpty) { kind = "" }
-                filterRow("업로드", kind == "upload") { kind = "upload" }
-                filterRow("생성한 결과물", kind == "generated") { kind = "generated" }
-                filterRow("저장한 답변", kind == "note") { kind = "note" }
-                filterRow("녹음", kind == "recording") { kind = "recording" }
+                filterRow(tr("홈"), kind == "home") { kind = "home" }
+                filterRow(tr("전체 종류"), kind.isEmpty) { kind = "" }
+                filterRow(tr("업로드"), kind == "upload") { kind = "upload" }
+                filterRow(tr("생성한 결과물"), kind == "generated") { kind = "generated" }
+                filterRow(tr("저장한 답변"), kind == "note") { kind = "note" }
+                filterRow(tr("녹음"), kind == "recording") { kind = "recording" }
             }.padding(.top, 8)
             Spacer(minLength: 0)
         }
@@ -193,15 +193,15 @@ struct LibraryView: View {
                 HStack {
                     Text(title).font(Brand.suit(20, .bold)).foregroundStyle(Brand.ink)
                     Spacer()
-                    Button { library.importFiles() } label: { Label("파일 업로드", systemImage: "plus") }
+                    Button { library.importFiles() } label: { Label(tr("파일 업로드"), systemImage: "plus") }
                         .buttonStyle(BrandButtonStyle()).disabled(library.busy)
                 }.padding(.horizontal, 28).padding(.top, 22)
             }
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(Brand.gray)
-                TextField("자료 이름 검색", text: $query).textFieldStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.text)
+                TextField(tr("자료 이름 검색"), text: $query).textFieldStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.text)
             }.brandField().padding(.horizontal, 34).padding(.top, 16)
-                .help("업로드한 파일, 생성한 결과물, 저장한 답변과 녹음을 모아 둬요. 프로젝트나 대화에 연결한 자료만 답변에 써요.")
+                .help(tr("업로드한 파일, 생성한 결과물, 저장한 답변과 녹음을 모아 둬요. 프로젝트나 대화에 연결한 자료만 답변에 써요."))
             if title != nil { sortAndFilter }
             if let error = library.error {
                 Text(error).font(Brand.suit(12)).foregroundStyle(.red).textSelection(.enabled).padding(.horizontal, 34).padding(.top, 10)
@@ -210,7 +210,7 @@ struct LibraryView: View {
                 VStack(spacing: 8) {
                     Image(systemName: kind == "recording" ? "waveform" : "tray").font(.system(size: 26, weight: .light)).foregroundStyle(Brand.sub)
                     Text(emptyTitle).font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink)
-                    Text(kind == "recording" ? "메뉴 막대에서 녹음 시작을 누르면 받아쓴 글이 여기에 모여요." : "파일을 업로드하거나 채팅에서 결과물을 만들어보세요.")
+                    Text(kind == "recording" ? tr("메뉴 막대에서 녹음 시작을 누르면 받아쓴 글이 여기에 모여요.") : tr("파일을 업로드하거나 채팅에서 결과물을 만들어보세요."))
                         .font(Brand.suit(12)).foregroundStyle(Brand.gray)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -221,13 +221,13 @@ struct LibraryView: View {
 
     private var sortAndFilter: some View {
         HStack(spacing: 12) {
-            Picker("종류", selection: $kind) {
-                Text("홈").tag("home")
-                Text("전체 종류").tag("")
+            Picker(tr("종류"), selection: $kind) {
+                Text(tr("홈")).tag("home")
+                Text(tr("전체 종류")).tag("")
                 ForEach(LibraryLook.order, id: \.self) { Text(LibraryLook.name($0)).tag($0) }
             }
-            Picker("정렬", selection: $sort) {
-                ForEach(Sort.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            Picker(tr("정렬"), selection: $sort) {
+                ForEach(Sort.allCases, id: \.self) { Text(L10n.tr(key: $0.rawValue)).tag($0) }
             }.onChange(of: sort) { _, _ in if kind == "home" { kind = "" } }
             Spacer()
         }
@@ -281,8 +281,8 @@ struct LibraryPreview: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Text(item.title).font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink).lineLimit(1); Spacer()
-                Button("파일 내보내기") { library.export(item) }.buttonStyle(BrandButtonStyle())
-                Button("닫기") { dismiss() }.buttonStyle(BrandButtonStyle())
+                Button(tr("파일 내보내기")) { library.export(item) }.buttonStyle(BrandButtonStyle())
+                Button(tr("닫기")) { dismiss() }.buttonStyle(BrandButtonStyle())
             }.padding(.horizontal, 24).frame(height: 56)
             Rectangle().fill(Brand.line).frame(height: 1)
             LibraryQuickLook(url: library.store.url(for: item))
@@ -309,10 +309,10 @@ struct LibraryPicker: View {
     @State private var query = ""
     var body: some View {
         VStack(spacing: 0) {
-            LibrarySheetHeader(title: "보관함에서 선택", detail: "연결한 자료만 답변에 사용해요.") { dismiss() }
+            LibrarySheetHeader(title: tr("보관함에서 선택"), detail: tr("연결한 자료만 답변에 사용해요.")) { dismiss() }
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(Brand.gray)
-                TextField("자료 이름 검색", text: $query).textFieldStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.text)
+                TextField(tr("자료 이름 검색"), text: $query).textFieldStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.text)
             }.padding(.horizontal, 12).frame(height: 36)
                 .background(ChatPalette.field, in: RoundedRectangle(cornerRadius: 8))
                 .padding(.horizontal, 27).padding(.top, 16)
@@ -331,12 +331,12 @@ struct LibraryPicker: View {
                                 .contentShape(Rectangle())
                         }.buttonStyle(.plain)
                     }
-                    if items.isEmpty { Text(library.items.isEmpty ? "보관한 자료가 없습니다" : "검색 결과가 없습니다").font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(28) }
+                    if items.isEmpty { Text(library.items.isEmpty ? tr("보관한 자료가 없습니다") : tr("검색 결과가 없습니다")).font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(28) }
                 }.padding(.horizontal, 27).padding(.top, 4)
             }
             HStack {
                 Spacer()
-                Button("완료") { dismiss() }.buttonStyle(BrandButtonStyle(kind: .primary))
+                Button(tr("완료")) { dismiss() }.buttonStyle(BrandButtonStyle(kind: .primary))
             }.padding(.horizontal, 24).frame(height: 63)
                 .brandGlass()
                 .overlay(alignment: .top) { Rectangle().fill(Brand.hairline).frame(height: 1) }
@@ -363,28 +363,28 @@ struct ProjectSourcesView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Menu {
-                Button("파일 업로드") { library.importFiles(projectID: project.id) }.disabled(library.busy)
-                Button("보관함에서 선택") { picker = true }
+                Button(tr("파일 업로드")) { library.importFiles(projectID: project.id) }.disabled(library.busy)
+                Button(tr("보관함에서 선택")) { picker = true }
                 Divider()
-                Button("이 컴퓨터에서 폴더 연결") { projects.connectFiles(project) }
+                Button(tr("이 컴퓨터에서 폴더 연결")) { projects.connectFiles(project) }
             } label: {
-                Label("소스 추가", systemImage: "plus").font(Brand.suit(12, .medium))
+                Label(tr("소스 추가"), systemImage: "plus").font(Brand.suit(12, .medium))
                     .foregroundStyle(Brand.tabText).padding(.horizontal, 16).padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }.menuStyle(.borderlessButton).menuIndicator(.hidden)
-                .disabled(library.busy).accessibilityLabel("소스 추가")
+                .disabled(library.busy).accessibilityLabel(tr("소스 추가"))
             Rectangle().fill(Brand.line).frame(height: 1)
             if library.busy {
-                HStack(spacing: 10) { ProgressView().controlSize(.small); Text("소스를 추가하고 있어요").font(Brand.suit(12)).foregroundStyle(Brand.gray) }
+                HStack(spacing: 10) { ProgressView().controlSize(.small); Text(tr("소스를 추가하고 있어요")).font(Brand.suit(12)).foregroundStyle(Brand.gray) }
                     .padding(16)
             }
             ForEach(sources) { item in sourceRow(item) }
             ForEach(paths, id: \.self) { path in folderRow(path) }
             if sources.isEmpty && paths.isEmpty && !library.busy {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(kind.isEmpty ? "프로젝트에 소스를 추가해보세요" : "이 종류의 소스가 없습니다")
+                    Text(kind.isEmpty ? tr("프로젝트에 소스를 추가해보세요") : tr("이 종류의 소스가 없습니다"))
                         .font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink)
-                    Text("파일을 올리거나 보관함의 자료, 컴퓨터의 폴더를 연결할 수 있습니다.")
+                    Text(tr("파일을 올리거나 보관함의 자료, 컴퓨터의 폴더를 연결할 수 있습니다."))
                         .font(Brand.suit(12)).foregroundStyle(Brand.gray)
                 }.padding(.horizontal, 16).padding(.vertical, 28)
             }
@@ -403,24 +403,24 @@ struct ProjectSourcesView: View {
                             .foregroundStyle(Brand.ink).frame(width: 36, height: 40)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(item.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText).lineLimit(1)
-                            Text(item.kind == "note" ? "저장한 답변" : item.kind == "generated" ? "생성한 파일" : "업로드")
+                            Text(item.kind == "note" ? tr("저장한 답변") : item.kind == "generated" ? tr("생성한 파일") : tr("업로드"))
                                 .font(Brand.suit(10)).foregroundStyle(Brand.gray)
                         }.frame(maxWidth: .infinity, alignment: .leading)
                     }.padding(.vertical, 12).contentShape(Rectangle())
                 }.buttonStyle(.plain)
                 Text(ChatDateText.day(item.createdAt)).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                 Menu {
-                    Button("파일 내보내기") { library.export(item) }
-                    Button("프로젝트에서 제거") { library.detach(item, projectID: project.id) }
+                    Button(tr("파일 내보내기")) { library.export(item) }
+                    Button(tr("프로젝트에서 제거")) { library.detach(item, projectID: project.id) }
                 } label: { Image(systemName: "ellipsis").foregroundStyle(Brand.gray).frame(width: 24, height: 28) }
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                    .opacity(hoveredSource == item.id ? 1 : 0).accessibilityLabel("\(item.title) 소스 메뉴")
+                    .opacity(hoveredSource == item.id ? 1 : 0).accessibilityLabel(tr("\(item.title) 소스 메뉴"))
             }.padding(.horizontal, 16)
                 .background(hoveredSource == item.id ? Brand.paper : .clear, in: RoundedRectangle(cornerRadius: 8))
                 .onHover { hoveredSource = $0 ? item.id : nil }
                 .contextMenu {
-                    Button("파일 내보내기") { library.export(item) }
-                    Button("프로젝트에서 제거") { library.detach(item, projectID: project.id) }
+                    Button(tr("파일 내보내기")) { library.export(item) }
+                    Button(tr("프로젝트에서 제거")) { library.detach(item, projectID: project.id) }
                 }
             Rectangle().fill(Brand.line).frame(height: 1)
         }
@@ -433,18 +433,18 @@ struct ProjectSourcesView: View {
                     .frame(width: 36, height: 40)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(URL(fileURLWithPath: path).lastPathComponent).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText).lineLimit(1)
-                    Text("원본 연결, 파일을 복사하지 않고 참고합니다").font(Brand.suit(10)).foregroundStyle(Brand.gray)
+                    Text(tr("원본 연결, 파일을 복사하지 않고 참고합니다")).font(Brand.suit(10)).foregroundStyle(Brand.gray)
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 Menu {
-                    Button("Finder에서 보기") { NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "") }
-                    Button("프로젝트에서 제거") { projects.disconnect(path, from: project) }
+                    Button(tr("Finder에서 보기")) { NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "") }
+                    Button(tr("프로젝트에서 제거")) { projects.disconnect(path, from: project) }
                 } label: { Image(systemName: "ellipsis").foregroundStyle(Brand.gray).frame(width: 24, height: 28) }
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                    .opacity(hoveredSource == path ? 1 : 0).accessibilityLabel("폴더 소스 메뉴")
+                    .opacity(hoveredSource == path ? 1 : 0).accessibilityLabel(tr("폴더 소스 메뉴"))
             }.padding(.horizontal, 16).padding(.vertical, 12).help(path)
                 .background(hoveredSource == path ? Brand.paper : .clear, in: RoundedRectangle(cornerRadius: 8))
                 .onHover { hoveredSource = $0 ? path : nil }
-                .contextMenu { Button("프로젝트에서 제거") { projects.disconnect(path, from: project) } }
+                .contextMenu { Button(tr("프로젝트에서 제거")) { projects.disconnect(path, from: project) } }
             Rectangle().fill(Brand.line).frame(height: 1)
         }
     }

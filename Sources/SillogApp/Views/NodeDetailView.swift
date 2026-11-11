@@ -9,7 +9,7 @@ struct NodeDetailView: View {
     @State private var detail: NodeDetail?
 
     private static let when: DateFormatter = {
-        let f = DateFormatter(); f.locale = Locale(identifier: "ko_KR"); f.dateFormat = "M월 d일 HH:mm"; return f
+        let f = DateFormatter(); f.locale = Locale(identifier: "ko_KR"); f.dateFormat = tr("M월 d일 HH:mm"); return f
     }()
 
     var body: some View {
@@ -18,8 +18,8 @@ struct NodeDetailView: View {
                 content(detail)
             } else {
                 VStack(spacing: 8) {
-                    Text("이 노드를 찾지 못했어요").font(Brand.suit(17, .medium)).foregroundStyle(Brand.ink)
-                    Text("지웠거나 그래프를 다시 만들었을 수 있어요.").font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                    Text(tr("이 노드를 찾지 못했어요")).font(Brand.suit(17, .medium)).foregroundStyle(Brand.ink)
+                    Text(tr("지웠거나 그래프를 다시 만들었을 수 있어요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -40,7 +40,7 @@ struct NodeDetailView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     if !d.facts.isEmpty { facts(d.facts) }
                     if !d.notes.isEmpty {
-                        sectionTitle("한 일", count: nil)
+                        sectionTitle(tr("한 일"), count: nil)
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(Array(d.notes.enumerated()), id: \.offset) { _, note in
                                 Text("· " + note).font(Brand.suit(12.5)).foregroundStyle(Brand.text).fixedSize(horizontal: false, vertical: true)
@@ -52,7 +52,7 @@ struct NodeDetailView: View {
                         sectionTitle(section.title, count: section.total)
                         VStack(spacing: 0) { ForEach(section.links) { row($0) } }
                         if section.total > section.links.count {
-                            Text("외 \(section.total - section.links.count)개").font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 6)
+                            Text(tr("외 \(section.total - section.links.count)개")).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 6)
                         }
                         Spacer().frame(height: 22)
                     }
@@ -69,7 +69,7 @@ struct NodeDetailView: View {
                 Button { state.backNode() } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left").font(.system(size: 10, weight: .semibold))
-                        Text("뒤로").font(Brand.suit(12))
+                        Text(tr("뒤로")).font(Brand.suit(12))
                     }
                     .foregroundStyle(Brand.tabText).contentShape(Rectangle())
                 }
@@ -85,14 +85,14 @@ struct NodeDetailView: View {
                 HStack(spacing: 8) {
                     if d.openable {
                         Button { open(d) } label: {
-                            HStack(spacing: 6) { Image(systemName: "arrow.up.right.square").font(.system(size: 12)); Text(d.label == NodeLabel.app ? "앱 열기" : "열기") }
+                            HStack(spacing: 6) { Image(systemName: "arrow.up.right.square").font(.system(size: 12)); Text(d.label == NodeLabel.app ? tr("앱 열기") : tr("열기")) }
                                 .padding(.horizontal, 6)
                         }
                         .buttonStyle(BrandButtonStyle(kind: .primary))
                     }
                     if d.resumable {
                         Button { state.prepareResume(label: d.label, key: d.key) } label: {
-                            HStack(spacing: 7) { Image(systemName: "arrow.counterclockwise").font(.system(size: 12)); Text("다시 열기") }.padding(.horizontal, 6)
+                            HStack(spacing: 7) { Image(systemName: "arrow.counterclockwise").font(.system(size: 12)); Text(tr("다시 열기")) }.padding(.horizontal, 6)
                         }
                         .buttonStyle(BrandButtonStyle(kind: .primary))
                     }
@@ -123,7 +123,7 @@ struct NodeDetailView: View {
         case .text(let text): text
         case .duration(let seconds): TasksView.duration(seconds)
         case .time(let ts): when.string(from: Date(timeIntervalSince1970: ts))
-        case .count(let n): "\(n)개"
+        case .count(let n): tr("\(n)개")
         }
     }
 
@@ -162,14 +162,14 @@ struct NodeDetailView: View {
         Button { state.askErase(ref) } label: {
             HStack(spacing: 6) {
                 Image(systemName: "trash").font(.system(size: 11))
-                Text("이 노드 지우기").font(Brand.suit(12))
+                Text(tr("이 노드 지우기")).font(Brand.suit(12))
             }
             .foregroundStyle(Color(hex: 0xC0573F))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(state.erasing)
-        .help("이 노드와 이 노드에서만 이어진 노드, 이 노드가 찍힌 원시 기록을 지워요. 되돌릴 수 없어요")
+        .help(tr("이 노드와 이 노드에서만 이어진 노드, 이 노드가 찍힌 원시 기록을 지워요. 되돌릴 수 없어요"))
     }
 }
 
@@ -179,24 +179,24 @@ struct EraseDialog: ViewModifier {
 
     func body(content: Content) -> some View {
         let ask = state.eraseAsk
-        let title = ask.map { "'\($0.report.title)'\(EraseCopy.object($0.report.title)) 지울까요?" } ?? ""
+        let title = ask.map { tr("'\($0.report.title)'\(EraseCopy.object($0.report.title)) 지울까요?") } ?? ""
         return content.confirmationDialog(title, isPresented: Binding(get: { state.eraseAsk != nil }, set: { if !$0 { state.eraseAsk = nil } }),
                                           titleVisibility: .visible, presenting: ask) { ask in
-            Button(ask.ref.label == NodeLabel.task ? "이 업무 지우기" : "지우기", role: .destructive) { Task { await state.erase(ask.ref) } }
+            Button(ask.ref.label == NodeLabel.task ? tr("이 업무 지우기") : tr("지우기"), role: .destructive) { Task { await state.erase(ask.ref) } }
             if ask.ref.label == NodeLabel.app {
-                Button("지우고 앞으로도 기록 안 함", role: .destructive) { Task { await state.erase(ask.ref, excludeApp: true) } }
+                Button(tr("지우고 앞으로도 기록 안 함"), role: .destructive) { Task { await state.erase(ask.ref, excludeApp: true) } }
             }
             if let theme = ask.theme {
-                Button("'\(theme.title)' 분야째 지우기 (업무 \(theme.tasks)개)", role: .destructive) {
+                Button(tr("'\(theme.title)' 분야째 지우기 (업무 \(theme.tasks)개)"), role: .destructive) {
                     Task { await state.erase(NodeRef(label: NodeLabel.theme, key: theme.key)) }
                 }
             }
-            Button("취소", role: .cancel) {}
+            Button(tr("취소"), role: .cancel) {}
         } message: { ask in
             Text(EraseCopy.message(label: ask.ref.label, ask.report))
         }
-        .alert("지우지 못했어요", isPresented: Binding(get: { state.eraseError != nil }, set: { if !$0 { state.eraseError = nil } })) {
-            Button("확인", role: .cancel) {}
+        .alert(tr("지우지 못했어요"), isPresented: Binding(get: { state.eraseError != nil }, set: { if !$0 { state.eraseError = nil } })) {
+            Button(tr("확인"), role: .cancel) {}
         } message: {
             Text(state.eraseError ?? "")
         }

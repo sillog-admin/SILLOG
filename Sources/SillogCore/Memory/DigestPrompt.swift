@@ -5,9 +5,9 @@ public enum DigestPrompt {
     /// 프롬프트나 스키마를 바꾸면 올린다. 입력 해시에 들어가서 바뀐 판으로 다시 만든다
     public static let version = 1
 
-    public static let system = """
+    public static var system: String { """
     You write a short digest of ONE task over one period (a week or a month) from the user's own work records, for a personal work graph. \
-    The digest stands in for the raw records after they are deleted, so it must stay true to them. Write all text in Korean.
+    The digest stands in for the raw records after they are deleted, so it must stay true to them. Write all text in \(L10n.current.promptName).
 
     You receive INPUT (JSON): the task (key, title, goal, status), the period, metrics computed by code, the resources the task used, \
     the session summaries written when the activity was organized, problems hit, later_items (to-dos), new files, the user's requests \
@@ -28,7 +28,7 @@ public enum DigestPrompt {
     - progress, problems, open_items, decisions: at most 8 items each, one sentence per item. decisions only for choices the records state. Empty lists are fine.
 
     Always answer by calling write_digest. Do not write prose.
-    """
+    """ }
 
     public static var tool: ToolSpec {
         func items(_ extra: [String: JSONValue], required: [String]) -> JSONValue {

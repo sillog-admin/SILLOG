@@ -24,13 +24,13 @@ extension AppState {
     /// 종류 이름 (시트 묶음 제목, 알림 글)
     static func reviewKindName(_ kind: ReviewProposal.Kind) -> String {
         switch kind {
-        case .mergeTasks: "업무 합치기"
-        case .retireTask: "업무 외로 돌리기"
-        case .mergeTopics: "주제 합치기"
-        case .laterDone: "끝난 할 일"
-        case .laterDrop: "할 일이 아닌 것 지우기"
-        case .mergeProblems: "같은 문제 합치기"
-        case .joinSessions: "짧은 세션 붙이기"
+        case .mergeTasks: tr("업무 합치기")
+        case .retireTask: tr("업무 외로 돌리기")
+        case .mergeTopics: tr("주제 합치기")
+        case .laterDone: tr("끝난 할 일")
+        case .laterDrop: tr("할 일이 아닌 것 지우기")
+        case .mergeProblems: tr("같은 문제 합치기")
+        case .joinSessions: tr("짧은 세션 붙이기")
         }
     }
 
@@ -103,7 +103,7 @@ extension AppState {
             AppLog.write("정리 제안 반영: \(applied)/\(chosen.count)개, 접어 둠: \(rest.count)개")
         } catch {
             AppLog.write("정리 제안 반영 실패: \(error.localizedDescription)")
-            eraseError = "정리 제안을 반영하지 못했어요. 아무것도 바꾸지 않았어요.\n(\(String(error.localizedDescription.prefix(160))))"
+            eraseError = tr("정리 제안을 반영하지 못했어요. 아무것도 바꾸지 않았어요.\n(\(String(error.localizedDescription.prefix(160))))")
             return
         }
         reviewSheetOpen = false

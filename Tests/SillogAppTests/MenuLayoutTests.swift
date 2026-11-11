@@ -202,6 +202,14 @@ final class MenuLayoutTests: XCTestCase {
         XCTAssertEqual(SettingsView.Section.allCases.map(\.rawValue), ["일반", "AI 연결", "활동 로그"])
     }
 
+    func testEnglishSettingsShowEnglishLabels() {
+        L10n.current = .en
+        defer { L10n.current = .ko }
+        let general = longText(of: SettingsView(), height: 3200) { s in s.settingsSection = .general }
+        XCTAssertTrue(general.contains("Language"), general)
+        XCTAssertFalse(general.contains("앱실행"), general)
+    }
+
     func testSettingsHasGeneralAndAIConnectionTabsOnTop() {
         let general = longText(of: SettingsView(), height: 3200) { s in s.settingsSection = .general }   // 한 쪽 전체가 보이게 길게
         XCTAssertTrue(general.hasPrefix("일반"), general)

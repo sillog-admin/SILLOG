@@ -23,28 +23,28 @@ enum LibraryLook {
     }
     static func name(_ kind: String) -> String {
         switch kind {
-        case "recording": "녹음"
-        case "upload": "업로드"
-        case "generated": "생성한 결과물"
-        default: "저장한 답변"
+        case "recording": tr("녹음")
+        case "upload": tr("업로드")
+        case "generated": tr("생성한 결과물")
+        default: tr("저장한 답변")
         }
     }
-    static func when(_ time: Double) -> String { RecordingText.date(time, "M월 d일 HH:mm", timeZone: .current) }
-    static func day(_ time: Double) -> String { RecordingText.date(time, "M월 d일", timeZone: .current) }
+    static func when(_ time: Double) -> String { RecordingText.date(time, tr("M월 d일 HH:mm"), timeZone: .current) }
+    static func day(_ time: Double) -> String { RecordingText.date(time, tr("M월 d일"), timeZone: .current) }
     static func ext(_ item: ChatLibraryItem) -> String { URL(fileURLWithPath: item.filename).pathExtension.lowercased() }
     /// 형식 열에 쓰는 이름
     static func format(_ ext: String) -> String {
         switch ext {
         case "pdf": "PDF"
-        case "doc", "docx": "Word 문서"
-        case "html", "htm": "HTML 문서"
-        case "md", "markdown": "Markdown 문서"
-        case "txt": "텍스트"
+        case "doc", "docx": tr("Word 문서")
+        case "html", "htm": tr("HTML 문서")
+        case "md", "markdown": tr("Markdown 문서")
+        case "txt": tr("텍스트")
         case "ppt", "pptx": "PowerPoint"
         case "xls", "xlsx": "Excel"
-        case "hwp", "hwpx": "한글 문서"
-        case "png", "jpg", "jpeg", "gif", "heic": "이미지"
-        case "": "파일"
+        case "hwp", "hwpx": tr("한글 문서")
+        case "png", "jpg", "jpeg", "gif", "heic": tr("이미지")
+        case "": tr("파일")
         default: ext.uppercased()
         }
     }
@@ -70,10 +70,10 @@ extension Recording {
     /// 목록과 막대에 쓰는 받아쓰기 상태
     var libraryStatus: (text: String, color: Color) {
         switch status {
-        case .recording: ("녹음 중", Brand.gray)
-        case .transcribing: ("받아쓰는 중", Brand.gray)
-        case .failed: ("실패", LibraryLook.failed)
-        case .ready: hasTranscript ? ("완료", Brand.tabText) : ("내용 없음", Brand.gray)
+        case .recording: (tr("녹음 중"), Brand.gray)
+        case .transcribing: (tr("받아쓰는 중"), Brand.gray)
+        case .failed: (tr("실패"), LibraryLook.failed)
+        case .ready: hasTranscript ? (tr("완료"), Brand.tabText) : (tr("내용 없음"), Brand.gray)
         }
     }
 }
@@ -136,9 +136,9 @@ private struct KindRow<Content: View>: View {
             .overlay(alignment: .bottom) { Rectangle().fill(Brand.line).frame(height: 1) }
             .contextMenu {
                 if case .item(let item) = entry {
-                    Button("제목 바꾸기") { actions.rename(item) }
-                    Button("파일 내보내기") { actions.export(item) }
-                    Button("결과물에서 삭제", role: .destructive) { actions.delete(item) }
+                    Button(tr("제목 바꾸기")) { actions.rename(item) }
+                    Button(tr("파일 내보내기")) { actions.export(item) }
+                    Button(tr("결과물에서 삭제"), role: .destructive) { actions.delete(item) }
                 }
             }
     }
@@ -183,9 +183,9 @@ struct LibraryAllList: View {
     var body: some View {
         let counts = LibraryLook.order.map { kind in (kind, entries.filter { $0.kind == kind }.count) }
         VStack(spacing: 0) {
-            KindHeader(title: "전체 \(entries.count)개",
+            KindHeader(title: tr("전체 \(entries.count)개"),
                        summary: counts.filter { $0.1 > 0 }.map { "\(LibraryLook.name($0.0)) \($0.1)" }.joined(separator: "     "))
-            ColumnHeads(heads: [("제목", 248), ("종류", 112), ("수정일", 0)])
+            ColumnHeads(heads: [(tr("제목"), 248), (tr("종류"), 112), (tr("수정일"), 0)])
             ForEach(entries) { entry in
                 KindRow(entry: entry, actions: actions) {
                     HStack(spacing: 0) {
@@ -214,9 +214,9 @@ struct LibraryRecordingList: View {
         let empty = recordings.filter { $0.status == .ready && !$0.hasTranscript }.count
         let failed = recordings.filter { $0.status == .failed }.count
         VStack(spacing: 0) {
-            KindHeader(title: "녹음 \(recordings.count)개",
-                       summary: "총 길이 \(RecordingText.duration(total))     받아쓰기 완료 \(ready)     내용 없음 \(empty)     실패 \(failed)")
-            ColumnHeads(heads: [("제목", 220), ("녹음한 때", 112), ("길이", 116), ("받아쓰기", 0)])
+            KindHeader(title: tr("녹음 \(recordings.count)개"),
+                       summary: tr("총 길이 \(RecordingText.duration(total))     받아쓰기 완료 \(ready)     내용 없음 \(empty)     실패 \(failed)"))
+            ColumnHeads(heads: [(tr("제목"), 220), (tr("녹음한 때"), 112), (tr("길이"), 116), (tr("받아쓰기"), 0)])
             ForEach(recordings) { recording in
                 let status = recording.libraryStatus
                 KindRow(entry: .recording(recording), actions: actions) {
@@ -247,8 +247,8 @@ struct LibraryUploadList: View {
     let actions: LibraryActions
     var body: some View {
         VStack(spacing: 0) {
-            KindHeader(title: "업로드 \(items.count)개", summary: "내가 올린 파일의 복사본이에요")
-            ColumnHeads(heads: [("이름", 228), ("형식", 88), ("수정일", 114), ("연결한 프로젝트", 0)])
+            KindHeader(title: tr("업로드 \(items.count)개"), summary: tr("내가 올린 파일의 복사본이에요"))
+            ColumnHeads(heads: [(tr("이름"), 228), (tr("형식"), 88), (tr("수정일"), 114), (tr("연결한 프로젝트"), 0)])
             ForEach(items) { item in
                 let projects = actions.projectCount(item)
                 KindRow(entry: .item(item), actions: actions, spacing: 16) {
@@ -257,11 +257,11 @@ struct LibraryUploadList: View {
                         title(item.title, 228)
                         cell(LibraryLook.format(LibraryLook.ext(item)), 88)
                         cell(LibraryLook.when(actions.modified(.item(item))), 114, gray: true)
-                        cell(projects > 0 ? "프로젝트 \(projects)개" : "연결 없음", 0)
+                        cell(projects > 0 ? tr("프로젝트 \(projects)개") : tr("연결 없음"), 0)
                     }
                 }
             }
-            Text("올린 파일은 연결한 대화와 프로젝트에서 답변 근거로 써요.").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+            Text(tr("올린 파일은 연결한 대화와 프로젝트에서 답변 근거로 써요.")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 18)
         }
     }
@@ -276,12 +276,12 @@ struct LibraryGeneratedGrid: View {
         var formats: [String: Int] = [:]
         for item in items { formats[LibraryLook.ext(item).uppercased(), default: 0] += 1 }
         return formats.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
-            .map { "\($0.key.isEmpty ? "파일" : $0.key) \($0.value)개" }.joined(separator: ", ")
+            .map { tr("\($0.key.isEmpty ? tr("파일") : $0.key) \($0.value)개") }.joined(separator: ", ")
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            KindHeader(title: "생성한 결과물 \(items.count)개", summary: "채팅에서 만든 결과물이에요     형식은 \(formatText)")
+            KindHeader(title: tr("생성한 결과물 \(items.count)개"), summary: tr("채팅에서 만든 결과물이에요     형식은 \(formatText)"))
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 20), GridItem(.flexible())], alignment: .leading, spacing: 28) {
                 ForEach(items) { item in
                     Button { actions.open(.item(item)) } label: {
@@ -294,9 +294,9 @@ struct LibraryGeneratedGrid: View {
                         }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                     }.buttonStyle(.plain)
                         .contextMenu {
-                            Button("제목 바꾸기") { actions.rename(item) }
-                            Button("파일 내보내기") { actions.export(item) }
-                            Button("결과물에서 삭제", role: .destructive) { actions.delete(item) }
+                            Button(tr("제목 바꾸기")) { actions.rename(item) }
+                            Button(tr("파일 내보내기")) { actions.export(item) }
+                            Button(tr("결과물에서 삭제"), role: .destructive) { actions.delete(item) }
                         }
                 }
             }.padding(.top, 26)
@@ -364,7 +364,7 @@ struct LibraryNoteList: View {
     let infos: [String: LibraryTextInfo]
     var body: some View {
         LazyVStack(spacing: 0) {
-            KindHeader(title: "저장한 답변 \(items.count)개", summary: "채팅 답변을 저장해 둔 글이에요").padding(.bottom, 18)
+            KindHeader(title: tr("저장한 답변 \(items.count)개"), summary: tr("채팅 답변을 저장해 둔 글이에요")).padding(.bottom, 18)
             ForEach(items) { item in
                 let projects = actions.projectCount(item)
                 let info = infos[item.id]
@@ -379,7 +379,7 @@ struct LibraryNoteList: View {
                         HStack {
                             Text(info?.first ?? "").font(Brand.suit(11)).foregroundStyle(Brand.gray).lineLimit(1)
                             Spacer(minLength: 16)
-                            Text("\(info.map { "\($0.count.formatted())자" } ?? "")     \(projects > 0 ? "프로젝트 \(projects)개" : "연결 없음")")
+                            Text("\(info.map { tr("\($0.count.formatted())자") } ?? "")     \(projects > 0 ? tr("프로젝트 \(projects)개") : tr("연결 없음"))")
                                 .font(Brand.suit(10)).foregroundStyle(Brand.gray).lineLimit(1).fixedSize()
                         }
                     }
@@ -462,16 +462,16 @@ struct LibraryHome: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(hex: 0xF7F5F2))
                 AreaChart(rows: rows.map { ($0.date, $0.field) }, fields: fields, period: period.days).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("보관함 전체").font(Brand.suit(10)).foregroundStyle(Brand.gray)
-                    Text("\(all.count.formatted())개").font(Brand.suit(22, .medium)).foregroundStyle(Brand.ink).padding(.top, 2)
+                    Text(tr("보관함 전체")).font(Brand.suit(10)).foregroundStyle(Brand.gray)
+                    Text(tr("\(all.count.formatted())개")).font(Brand.suit(22, .medium)).foregroundStyle(Brand.ink).padding(.top, 2)
                     if let last = all.first {
-                        Text("마지막으로 쌓인 때  \(LibraryLook.when(last.date))").font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 4)
+                        Text(tr("마지막으로 쌓인 때  \(LibraryLook.when(last.date))")).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 4)
                     }
                 }.padding(.leading, 18).padding(.top, 14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 HStack(spacing: 2) {
                     ForEach(Period.allCases, id: \.self) { p in
                         Button { period = p } label: {
-                            Text(p.rawValue).font(Brand.suit(11)).foregroundStyle(period == p ? Color(hex: 0x3D2F27) : Brand.gray)
+                            Text(L10n.tr(key: p.rawValue)).font(Brand.suit(11)).foregroundStyle(period == p ? Color(hex: 0x3D2F27) : Brand.gray)
                                 .padding(.horizontal, 11).frame(height: 21)
                                 .background(Capsule().fill(period == p ? Color(hex: 0xEAE3DC) : .clear))
                                 .overlay(Capsule().stroke(period == p ? Color(hex: 0xCCBEB3) : .clear, lineWidth: 1))
@@ -494,7 +494,7 @@ struct LibraryHome: View {
                     }
                     HStack(alignment: .firstTextBaseline, spacing: 3) {
                         Text(f.count.formatted()).font(Brand.suit(18, .medium)).foregroundStyle(Brand.ink)
-                        Text("개").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                        Text(tr("개")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                         Text("\(total > 0 ? Int((Double(f.count) / Double(total) * 100).rounded()) : 0)%").font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.leading, 4)
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
@@ -510,20 +510,20 @@ struct LibraryHome: View {
         let empty = recordings.filter { $0.status == .ready && !$0.hasTranscript }.count
         let failed = recordings.filter { $0.status == .failed }.count
         return VStack(alignment: .leading, spacing: 0) {
-            Text("종류별 개수").font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText)
+            Text(tr("종류별 개수")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText)
             HStack(alignment: .top, spacing: 0) {
                 ForEach(LibraryLook.order, id: \.self) { kind in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(LibraryLook.name(kind)).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                         HStack(alignment: .firstTextBaseline, spacing: 1) {
                             Text((counts[kind] ?? 0).formatted()).font(Brand.suit(16, .medium)).foregroundStyle(Brand.ink)
-                            Text("개").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                            Text(tr("개")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                         }
                     }.frame(width: 92, alignment: .leading)
                 }
             }.padding(.top, 8)
             if !recordings.isEmpty {
-                Text("녹음 총 길이 \(RecordingText.duration(recordings.reduce(0) { $0 + $1.duration })), 받아쓰기 완료 \(ready), 내용 없음 \(empty), 실패 \(failed)")
+                Text(tr("녹음 총 길이 \(RecordingText.duration(recordings.reduce(0) { $0 + $1.duration })), 받아쓰기 완료 \(ready), 내용 없음 \(empty), 실패 \(failed)"))
                     .font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.top, 12)
             }
         }
@@ -548,18 +548,18 @@ struct LibraryHome: View {
         }
         let months: [(Int, String)] = (1..<weeks).compactMap { w in
             let d = day(w, 0)
-            return cal.component(.day, from: d) <= 7 && cal.component(.day, from: day(w - 1, 0)) > 7 ? (w, "\(cal.component(.month, from: d))월") : nil
+            return cal.component(.day, from: d) <= 7 && cal.component(.day, from: day(w - 1, 0)) > 7 ? (w, tr("\(cal.component(.month, from: d))월")) : nil
         }
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("최근 6개월 추가").font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText)
+                Text(tr("최근 6개월 추가")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText)
                 Spacer()
                 HStack(spacing: 2) {
-                    Text("적음").font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.trailing, 4)
+                    Text(tr("적음")).font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.trailing, 4)
                     ForEach([Color(hex: 0xF2EEEA), LibraryLook.note, LibraryLook.generated, LibraryLook.upload, LibraryLook.recording].indices, id: \.self) { i in
                         RoundedRectangle(cornerRadius: 2).fill([Color(hex: 0xF2EEEA), LibraryLook.note, LibraryLook.generated, LibraryLook.upload, LibraryLook.recording][i]).frame(width: 9, height: 9)
                     }
-                    Text("많음").font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.leading, 4)
+                    Text(tr("많음")).font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.leading, 4)
                 }
             }
             ZStack(alignment: .topLeading) {
@@ -567,7 +567,7 @@ struct LibraryHome: View {
                     Text(m.1).font(Brand.suit(10)).foregroundStyle(Brand.gray).fixedSize().offset(x: 19 + CGFloat(m.0) * 13, y: 0)
                 }
                 ForEach([0, 2, 4], id: \.self) { row in
-                    Text(["월", "", "수", "", "금"][row]).font(Brand.suit(9)).foregroundStyle(Brand.gray).offset(x: 0, y: 14 + CGFloat(row) * 13)
+                    Text([tr("월"), "", tr("수"), "", tr("금")][row]).font(Brand.suit(9)).foregroundStyle(Brand.gray).offset(x: 0, y: 14 + CGFloat(row) * 13)
                 }
                 HStack(alignment: .top, spacing: 2) {
                     ForEach(0..<weeks, id: \.self) { w in
@@ -590,7 +590,7 @@ struct LibraryHome: View {
 
     private func recent(_ all: [LibraryEntry]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("최근 추가").font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText).padding(.bottom, 11)
+            Text(tr("최근 추가")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText).padding(.bottom, 11)
             ForEach(Array(all.prefix(5))) { entry in
                 KindRow(entry: entry, actions: actions, spacing: 7.5) {   // 행 피치 48pt (Figma)
                     VStack(alignment: .leading, spacing: 4.5) {
@@ -680,15 +680,15 @@ private struct AreaAxis: View {
                         return (Double(i) / 4, f.string(from: Date(timeIntervalSince1970: t)), i == 0 ? .leading : i == 4 ? .trailing : .center)
                     }
                 }
-                var list: [(Double, String, UnitPoint)] = [(0, "\(cal.component(.month, from: startDate))월", .leading)]
+                var list: [(Double, String, UnitPoint)] = [(0, tr("\(cal.component(.month, from: startDate))월"), .leading)]
                 var d = cal.date(from: cal.dateComponents([.year, .month], from: startDate))!
                 while true {
                     d = cal.date(byAdding: .month, value: 2, to: d)!
                     let frac = (d.timeIntervalSince1970 - start) / (end - start)
                     if frac >= 0.9 { break }
-                    list.append((frac, "\(cal.component(.month, from: d))월", .center))
+                    list.append((frac, tr("\(cal.component(.month, from: d))월"), .center))
                 }
-                list.append((1, "\(cal.component(.month, from: endDate))월 \(cal.component(.day, from: endDate))일", .trailing))
+                list.append((1, tr("\(cal.component(.month, from: endDate))월 \(cal.component(.day, from: endDate))일"), .trailing))
                 return list
             }()
             ZStack(alignment: .topLeading) {

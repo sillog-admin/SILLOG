@@ -83,7 +83,7 @@ enum ConnectorAuth {
               let register = metadata["registration_endpoint"] as? String,
               (metadata["code_challenge_methods_supported"] as? [String])?.contains("S256") == true,
               (metadata["token_endpoint_auth_methods_supported"] as? [String])?.contains("none") == true else {
-            throw ChatToolError.unavailable("이 서비스에서 데스크톱 로그인을 지원하지 않습니다.")
+            throw ChatToolError.unavailable(tr("이 서비스에서 데스크톱 로그인을 지원하지 않습니다."))
         }
         let authURL = try connector.trustedAuthURL(authorize)
         let tokenURL = try connector.trustedAuthURL(endpoint)
@@ -101,7 +101,7 @@ enum ConnectorAuth {
             ])
             let registered = try await response(registration)
             guard let value = registered["client_id"] as? String, !value.isEmpty else {
-                throw ChatToolError.unavailable("커넥터 로그인 정보를 등록하지 못했습니다.")
+                throw ChatToolError.unavailable(tr("커넥터 로그인 정보를 등록하지 못했습니다."))
             }
             clientID = value
             try ChatSecrets.save(value, account: account)
@@ -123,7 +123,7 @@ enum ConnectorAuth {
 
     static func connectSlack() async throws {
         let clientID = try configuration("slack-client", environment: "SLACK_CLIENT_ID")
-        guard !clientID.isEmpty else { throw ChatToolError.unavailable("앱 제공자가 Slack 연결 정보를 등록해야 합니다.") }
+        guard !clientID.isEmpty else { throw ChatToolError.unavailable(tr("앱 제공자가 Slack 연결 정보를 등록해야 합니다.")) }
         let redirect = SlackOAuth.callback
         let verifier = randomURLSafe(32), state = randomURLSafe(32)
         var auth = URLComponents(string: "https://slack.com/oauth/v2/authorize")!
@@ -144,7 +144,7 @@ enum ConnectorAuth {
         let user = result["authed_user"] as? [String: Any] ?? result
         guard result["ok"] as? Bool == true, let access = user["access_token"] as? String,
               (user["scope"] as? String ?? "").split(separator: ",").contains("search:read") else {
-            throw ChatToolError.unavailable("Slack 검색 권한을 승인하지 못했습니다: \(result["error"] as? String ?? "search:read 필요")")
+            throw ChatToolError.unavailable(tr("Slack 검색 권한을 승인하지 못했습니다: \(result["error"] as? String ?? tr("search:read 필요"))"))
         }
         var value = token(from: user, accessToken: access)
         value.refreshToken = value.refreshToken ?? oldRefresh
@@ -161,10 +161,10 @@ enum ConnectorAuth {
     fileprivate static func loadOrRefreshToken(_ id: String) async throws -> String {
         let saved = try ChatSecrets.load("plugin-\(id)")
         guard let data = saved.data(using: .utf8), var token = try? JSONDecoder().decode(ConnectorToken.self, from: data) else {
-            throw ChatToolError.unavailable("채팅의 커넥터에서 \(id)을 연결하세요.")
+            throw ChatToolError.unavailable(tr("채팅의 커넥터에서 \(id)을 연결하세요."))
         }
         if let expiresAt = token.expiresAt, expiresAt < Date().timeIntervalSince1970 + 60 {
-            guard let refresh = token.refreshToken else { throw ChatToolError.unavailable("\(id) 커넥터를 다시 연결하세요.") }
+            guard let refresh = token.refreshToken else { throw ChatToolError.unavailable(tr("\(id) 커넥터를 다시 연결하세요.")) }
             var fields = ["grant_type": "refresh_token", "refresh_token": refresh]
             var request: URLRequest
             if let client = token.oauthClient {
@@ -175,7 +175,7 @@ enum ConnectorAuth {
                     fields["resource"] = connector.resource
                 } else if id == "slack", client.tokenEndpoint == "https://slack.com/api/oauth.v2.access" {
                     endpoint = URL(string: client.tokenEndpoint)!
-                } else { throw ChatToolError.unavailable("커넥터 인증 설정을 확인할 수 없습니다. 다시 연결하세요.") }
+                } else { throw ChatToolError.unavailable(tr("커넥터 인증 설정을 확인할 수 없습니다. 다시 연결하세요.")) }
                 request = formRequest(endpoint, fields)
             } else if id == "canva", let client = token.canvaClient {
                 request = canvaTokenRequest(client, fields)
@@ -191,7 +191,7 @@ enum ConnectorAuth {
                 request = jsonRequest(URL(string: "https://api.notion.com/v1/oauth/token")!, fields)
                 request.setValue(try notionBasicAuth(), forHTTPHeaderField: "Authorization")
             } else {
-                throw ChatToolError.unavailable("\(id) 커넥터를 다시 연결하세요.")
+                throw ChatToolError.unavailable(tr("\(id) 커넥터를 다시 연결하세요."))
             }
             var updated = try await id == "slack" ? slackExchange(request, oldRefresh: refresh) : exchange(request, oldRefresh: refresh)
             updated.resource = token.resource
@@ -287,7 +287,7 @@ enum ConnectorAuth {
         let device = try await response(deviceRequest)
         guard let code = device["device_code"] as? String, let userCode = device["user_code"] as? String,
               let verification = device["verification_uri"] as? String, let url = URL(string: verification) else {
-            throw ChatToolError.unavailable("GitHub 승인 코드를 받지 못했습니다.")
+            throw ChatToolError.unavailable(tr("GitHub 승인 코드를 받지 못했습니다."))
         }
         await onCode(userCode)
         await MainActor.run { _ = NSWorkspace.shared.open(url) }
@@ -305,10 +305,10 @@ enum ConnectorAuth {
             switch result["error"] as? String {
             case "authorization_pending": continue
             case "slow_down": interval += 5
-            default: throw ChatToolError.unavailable(result["error_description"] as? String ?? "GitHub 승인이 완료되지 않았습니다.")
+            default: throw ChatToolError.unavailable(result["error_description"] as? String ?? tr("GitHub 승인이 완료되지 않았습니다."))
             }
         }
-        throw ChatToolError.unavailable("GitHub 승인 시간이 지났습니다. 다시 연결하세요.")
+        throw ChatToolError.unavailable(tr("GitHub 승인 시간이 지났습니다. 다시 연결하세요."))
     }
 
     /// Args: request는 공급자 토큰 요청, oldRefresh는 갱신 응답에 refresh_token이 없을 때 유지할 기존 토큰이다.
@@ -317,7 +317,7 @@ enum ConnectorAuth {
     private static func exchange(_ request: URLRequest, oldRefresh: String? = nil) async throws -> ConnectorToken {
         let result = try await response(request)
         guard let value = result["access_token"] as? String else {
-            throw ChatToolError.unavailable(result["error_description"] as? String ?? "커넥터 인증에 실패했습니다.")
+            throw ChatToolError.unavailable(result["error_description"] as? String ?? tr("커넥터 인증에 실패했습니다."))
         }
         var token = token(from: result, accessToken: value)
         token.refreshToken = token.refreshToken ?? oldRefresh
@@ -341,7 +341,7 @@ enum ConnectorAuth {
         let account = "plugin-\(id)"
         try tokenChanges.withLock {
             if let previous, try ChatSecrets.load(account) != previous {
-                throw ChatToolError.unavailable("\(id) 연결이 바뀌었습니다. 다시 시도하세요.")
+                throw ChatToolError.unavailable(tr("\(id) 연결이 바뀌었습니다. 다시 시도하세요."))
             }
             try ChatSecrets.save(String(decoding: data, as: UTF8.self), account: account)
         }
@@ -383,7 +383,7 @@ enum ConnectorAuth {
         let (data, response) = try await ConnectorHTTP.session.data(for: request)
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         guard (200..<300).contains((response as? HTTPURLResponse)?.statusCode ?? 0) else {
-            throw ChatToolError.unavailable(json["error_description"] as? String ?? "커넥터 인증 HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)")
+            throw ChatToolError.unavailable(json["error_description"] as? String ?? tr("커넥터 인증 HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)"))
         }
         return json
     }
@@ -436,7 +436,7 @@ private final class LoopbackOAuth {
     static func receive(auth: URL, state: String) async throws -> String {
         try await Task.detached(priority: .userInitiated) {
             let server = socket(AF_INET, SOCK_STREAM, 0)
-            guard server >= 0 else { throw ChatToolError.unavailable("OAuth 콜백을 시작하지 못했습니다.") }
+            guard server >= 0 else { throw ChatToolError.unavailable(tr("OAuth 콜백을 시작하지 못했습니다.")) }
             defer { close(server) }
             var reuse: Int32 = 1
             _ = setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout.size(ofValue: reuse)))
@@ -448,12 +448,12 @@ private final class LoopbackOAuth {
             let bound = withUnsafePointer(to: &address) {
                 $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(server, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) }
             }
-            guard bound == 0, listen(server, 1) == 0 else { throw ChatToolError.unavailable("OAuth 콜백 포트 8765를 열 수 없습니다.") }
+            guard bound == 0, listen(server, 1) == 0 else { throw ChatToolError.unavailable(tr("OAuth 콜백 포트 8765를 열 수 없습니다.")) }
             await MainActor.run { _ = NSWorkspace.shared.open(auth) }
             var ready = pollfd(fd: server, events: Int16(POLLIN), revents: 0)
-            guard poll(&ready, 1, 600_000) > 0 else { throw ChatToolError.unavailable("OAuth 승인 시간이 지났습니다. 다시 연결하세요.") }
+            guard poll(&ready, 1, 600_000) > 0 else { throw ChatToolError.unavailable(tr("OAuth 승인 시간이 지났습니다. 다시 연결하세요.")) }
             let connection = accept(server, nil, nil)
-            guard connection >= 0 else { throw ChatToolError.unavailable("OAuth 콜백을 받지 못했습니다.") }
+            guard connection >= 0 else { throw ChatToolError.unavailable(tr("OAuth 콜백을 받지 못했습니다.")) }
             defer { close(connection) }
             var timeout = timeval(tv_sec: 5, tv_usec: 0)
             _ = setsockopt(connection, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout.size(ofValue: timeout)))
@@ -467,12 +467,12 @@ private final class LoopbackOAuth {
             let accepted = line.hasPrefix("GET ") && path.hasPrefix("/callback?") && receivedState == state && !(code ?? "").isEmpty
                 && values.filter({ $0.name == "state" }).count == 1 && values.filter({ $0.name == "code" }).count == 1
                 && !values.contains(where: { $0.name == "error" })
-            let html = accepted ? "<h2>승인을 받았습니다. 연결 결과는 SILLOG 앱에서 확인하세요.</h2>" : "<h2>승인이 완료되지 않았습니다. SILLOG에서 다시 시도하세요.</h2>"
+            let html = accepted ? tr("<h2>승인을 받았습니다. 연결 결과는 SILLOG 앱에서 확인하세요.</h2>") : tr("<h2>승인이 완료되지 않았습니다. SILLOG에서 다시 시도하세요.</h2>")
             let body = Data(html.utf8)
             let header = "HTTP/1.1 \(accepted ? "200 OK" : "400 Bad Request")\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n"
             let reply = Data(header.utf8) + body
             _ = reply.withUnsafeBytes { send(connection, $0.baseAddress, reply.count, 0) }
-            guard accepted, let code else { throw ChatToolError.unavailable("OAuth 승인 또는 상태 확인에 실패했습니다.") }
+            guard accepted, let code else { throw ChatToolError.unavailable(tr("OAuth 승인 또는 상태 확인에 실패했습니다.")) }
             await MainActor.run { NSApp.activate(ignoringOtherApps: true) }
             return code
         }.value

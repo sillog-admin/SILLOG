@@ -90,20 +90,20 @@ struct ChatView: View {
     var body: some View {
         sheets
         .onAppear { if state.showsChatResultsOnOpen { pane = .results } }
-        .alert("이름 바꾸기", isPresented: $showRename) {
-            TextField("대화 이름", text: $conversationName)
-            Button("취소", role: .cancel) {}
-            Button("저장") {
+        .alert(tr("이름 바꾸기"), isPresented: $showRename) {
+            TextField(tr("대화 이름"), text: $conversationName)
+            Button(tr("취소"), role: .cancel) {}
+            Button(tr("저장")) {
                 if let item = editingConversation { chat.rename(item, title: conversationName) }
             }.disabled(conversationName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
-        .alert("대화를 삭제할까요?", isPresented: $showDelete) {
-            Button("취소", role: .cancel) {}
-            Button("삭제", role: .destructive) {
+        .alert(tr("대화를 삭제할까요?"), isPresented: $showDelete) {
+            Button(tr("취소"), role: .cancel) {}
+            Button(tr("삭제"), role: .destructive) {
                 if let item = deletingConversation { chat.delete(item) }
             }
         } message: {
-            Text("‘\(deletingConversation?.title ?? "")’의 메시지와 결과물이 삭제되며 복구할 수 없습니다. 원본 자료와 등록된 예약 작업은 유지됩니다.")
+            Text(tr("‘\(deletingConversation?.title ?? "")’의 메시지와 결과물이 삭제되며 복구할 수 없습니다. 원본 자료와 등록된 예약 작업은 유지됩니다."))
         }
         .environment(\.openURL, OpenURLAction { url in
             ["https", "http"].contains(url.scheme ?? "") ? .systemAction : .discarded
@@ -132,7 +132,7 @@ struct ChatView: View {
                     Color.white.onAppear { pane = .projects }     // 삭제된 프로젝트
                 }
             case .results:
-                LibraryView(library: library, initialKind: "", title: "결과물")
+                LibraryView(library: library, initialKind: "", title: tr("결과물"))
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity).background(.white)
     }
@@ -144,10 +144,10 @@ struct ChatView: View {
                 // CH-14: 본문 600 열 안, 머리에서 떨어진 47 높이 띠, 아래 줄 하나, '이동'은 글자 링크
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("다른 대화에서 작업 중").font(Brand.suit(11)).foregroundStyle(Brand.tabText)
+                    Text(tr("다른 대화에서 작업 중")).font(Brand.suit(11)).foregroundStyle(Brand.tabText)
                     Button {
                         if let item = chat.conversations.first(where: { $0.id == active.conversationID }) { chat.select(item) }
-                    } label: { Text("이동").font(Brand.suit(11, .medium)).foregroundStyle(Brand.ink) }
+                    } label: { Text(tr("이동")).font(Brand.suit(11, .medium)).foregroundStyle(Brand.ink) }
                         .buttonStyle(.plain)
                     Spacer()
                 }.padding(.horizontal, 28).frame(height: 47)
@@ -198,7 +198,7 @@ struct ChatView: View {
         return VStack(spacing: 0) {
             Spacer(minLength: 0)
             VStack(alignment: .leading, spacing: 0) {
-                Text("쌓아 온 기록으로 다음 일을 시작해요")
+                Text(tr("쌓아 온 기록으로 다음 일을 시작해요"))
                     .font(Brand.suit(24)).tracking(-0.48).foregroundStyle(Brand.ink).lineLimit(1)
                     .frame(maxWidth: .infinity)
                 ChatComposer(chat: chat, library: library, modelName: modelName, openSettings: openSettings,
@@ -210,10 +210,10 @@ struct ChatView: View {
                     .padding(.top, 28)
                 if !results.isEmpty {
                     HStack {
-                        Text("최근 결과물").font(Brand.suit(12)).foregroundStyle(Brand.tabText).padding(.leading, 4)
+                        Text(tr("최근 결과물")).font(Brand.suit(12)).foregroundStyle(Brand.tabText).padding(.leading, 4)
                         Spacer()
                         Button { pane = .results } label: {
-                            Text("모두 보기").font(Brand.suit(12)).foregroundStyle(Brand.tabText).contentShape(Rectangle())
+                            Text(tr("모두 보기")).font(Brand.suit(12)).foregroundStyle(Brand.tabText).contentShape(Rectangle())
                         }.buttonStyle(.plain).padding(.trailing, 4)
                     }.padding(.top, 36)
                     HStack(spacing: 12) {
@@ -224,7 +224,7 @@ struct ChatView: View {
                 }
             }.frame(width: ChatPalette.columnWidth)
             Spacer(minLength: 0)
-            Text("질문과 조회한 자료는 연결한 AI로 전송돼요. 웹 검색과 커넥터는 허용한 범위만 사용해요.")
+            Text(tr("질문과 조회한 자료는 연결한 AI로 전송돼요. 웹 검색과 커넥터는 허용한 범위만 사용해요."))
                 .font(Brand.suit(9)).foregroundStyle(Brand.gray).lineLimit(1).padding(.bottom, 14)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -235,8 +235,8 @@ struct ChatView: View {
             if !sidebarVisible {
                 // CH-30: 아이콘 중심 35, 64, 제목 시작 87 (아이콘 28 폭, 간격 1)
                 HStack(spacing: 1) {
-                    ChatIconButton(systemName: "sidebar.left", help: "대화 목록 표시 전환") { sidebarVisible = true }
-                    ChatIconButton(systemName: "square.and.pencil", help: "새 대화") { chat.newConversation(); pane = .chat }
+                    ChatIconButton(systemName: "sidebar.left", help: tr("대화 목록 표시 전환")) { sidebarVisible = true }
+                    ChatIconButton(systemName: "square.and.pencil", help: tr("새 대화")) { chat.newConversation(); pane = .chat }
                 }
             }
             if !chat.messages.isEmpty {
@@ -279,7 +279,7 @@ struct ChatView: View {
                                         else if hoveredQuestionID == turn.id { hoveredQuestionID = nil }
                                     }
                                 }
-                                .accessibilityLabel("질문 \(index + 1): \(turn.question.text)")
+                                .accessibilityLabel(tr("질문 \(index + 1): \(turn.question.text)"))
                             }
                             if let index = turns.firstIndex(where: { $0.id == hoveredQuestionID }) {
                                 turnPreview(turns[index])
@@ -327,7 +327,7 @@ struct ChatView: View {
                     if chat.running {
                         Button { proxy.scrollTo("bottom", anchor: .bottom) } label: {
                             Image(systemName: "arrow.down").font(.system(size: 11)).foregroundStyle(Brand.tabText).frame(width: 30, height: 30).background(.white, in: Circle()).overlay(Circle().strokeBorder(Brand.line))
-                        }.buttonStyle(.plain).help("최근 응답으로").padding(16)
+                        }.buttonStyle(.plain).help(tr("최근 응답으로")).padding(16)
                     }
                 }
             }
@@ -359,7 +359,7 @@ struct ChatView: View {
             if let answer = turn.answer, !answer.text.isEmpty {
                 Text(answer.text).font(Brand.suit(12)).foregroundStyle(Brand.gray).lineLimit(3)
             } else {
-                Text(turn.answer?.status == "running" ? "답변 작성 중…" : "답변 없음")
+                Text(turn.answer?.status == "running" ? tr("답변 작성 중…") : tr("답변 없음"))
                     .font(Brand.suit(12)).foregroundStyle(Brand.gray)
             }
         }
@@ -399,13 +399,13 @@ struct ChatView: View {
                     } label: {
                         HStack(spacing: 8) {
                             if message.status == "running" { ProgressView().controlSize(.small) }
-                            Text(message.steps.last ?? "답변을 준비하고 있습니다").font(Brand.suit(11))
+                            Text(message.steps.last ?? tr("답변을 준비하고 있습니다")).font(Brand.suit(11))
                         }
                     }.foregroundStyle(Brand.gray)
                 }
                 if message.status == "failed" {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("응답을 완료하지 못했습니다", systemImage: "exclamationmark.circle").font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
+                        Label(tr("응답을 완료하지 못했습니다"), systemImage: "exclamationmark.circle").font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
                         Text(message.text.trimmingCharacters(in: .whitespacesAndNewlines))
                             .font(Brand.suit(12)).foregroundStyle(Brand.tabText).textSelection(.enabled)
                     }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
@@ -420,7 +420,7 @@ struct ChatView: View {
                             Image(systemName: "doc.text").font(.system(size: 22, weight: .light)).foregroundStyle(Brand.ink)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(item.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
-                                Text("\(item.format.uppercased()) 결과물, 미리보기").font(Brand.suit(10)).foregroundStyle(Brand.gray)
+                                Text(tr("\(item.format.uppercased()) 결과물, 미리보기")).font(Brand.suit(10)).foregroundStyle(Brand.gray)
                             }
                             Spacer(minLength: 24); Image(systemName: "arrow.up.right").font(.system(size: 13)).foregroundStyle(Brand.ink)
                         }.padding(.horizontal, 16).frame(width: 360, height: 68, alignment: .leading)
@@ -433,10 +433,10 @@ struct ChatView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(proposal.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
-                            Text("\(proposal.intervalHours)시간마다, 앱 실행 중").font(Brand.suit(10)).foregroundStyle(Brand.gray)
+                            Text(tr("\(proposal.intervalHours)시간마다, 앱 실행 중")).font(Brand.suit(10)).foregroundStyle(Brand.gray)
                         }
                         Spacer()
-                        Button(message.approvedAutomationID == nil ? "예약안 확인" : "등록됨") { pendingAutomation = message }
+                        Button(message.approvedAutomationID == nil ? tr("예약안 확인") : tr("등록됨")) { pendingAutomation = message }
                             .buttonStyle(BrandButtonStyle())
                             .disabled(message.approvedAutomationID != nil || message.status != "complete")
                     }.padding(14).background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 6))
@@ -451,22 +451,22 @@ struct ChatView: View {
                                 }
                             } label: {
                                 HStack(spacing: 4) {
-                                    Text("출처 \(message.sources.count)개")
+                                    Text(tr("출처 \(message.sources.count)개"))
                                     Image(systemName: expandedSources.contains(message.id) ? "chevron.down" : "chevron.right").font(.system(size: 8))
                                 }.foregroundStyle(Brand.gray)
                             }
                         }
                         Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(message.text, forType: .string) } label: {
                             Image(systemName: "doc.on.doc").font(.system(size: 13))
-                        }.help("답변 복사")
+                        }.help(tr("답변 복사"))
                         if ["cancelled", "interrupted"].contains(message.status) {
                             HStack(spacing: 4) {
                                 Image(systemName: "record.circle").font(.system(size: 11))
-                                Text("중단됨").font(Brand.suit(11))
+                                Text(tr("중단됨")).font(Brand.suit(11))
                             }.foregroundStyle(Brand.tabText)
                         }
                         if message.status == "failed" {
-                            Button("요청 다시 입력") {
+                            Button(tr("요청 다시 입력")) {
                                 if let index = chat.messages.firstIndex(where: { $0.id == message.id }),
                                    let request = chat.messages[..<index].last(where: { $0.role == "user" }) { chat.draft = request.text }
                             }.font(Brand.suit(10))
@@ -499,32 +499,32 @@ struct ChatView: View {
     private func automationApproval(_ message: ConversationMessage) -> some View {
         let scope = chat.current.scope
         let connectors = (scope.connectors + (scope.useGitHub ? ["GitHub"] : [])).joined(separator: ", ")
-        return ChatDialogFrame(title: "예약 작업 등록", width: 600, height: 520, onClose: { pendingAutomation = nil }) {
+        return ChatDialogFrame(title: tr("예약 작업 등록"), width: 600, height: 520, onClose: { pendingAutomation = nil }) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if let proposal = message.automation {
                         Text(proposal.title).font(Brand.suit(16)).foregroundStyle(Brand.tabText)
                         Text(proposal.prompt).font(Brand.suit(13)).foregroundStyle(Brand.tabText).lineSpacing(6).textSelection(.enabled)
-                        Text("\(proposal.intervalHours)시간마다 현재 자료 범위로 실행해요. LLM과 외부 API 사용량이 발생할 수 있어요.")
+                        Text(tr("\(proposal.intervalHours)시간마다 현재 자료 범위로 실행해요. LLM과 외부 API 사용량이 발생할 수 있어요."))
                             .font(Brand.suit(12)).foregroundStyle(Brand.gray)
                         VStack(alignment: .leading, spacing: 8) {
-                            ChatInfoRow(label: "기록 범위", value: ChatFocusButton.label(scope, choices: chat.focusChoices))
-                            ChatInfoRow(label: "웹 검색", value: scope.useWeb ? "허용" : "미허용")
-                            ChatInfoRow(label: "커넥터", value: connectors.isEmpty ? "없음" : connectors)
-                            if !scope.paths.isEmpty { ChatInfoRow(label: "연결한 파일", value: scope.paths.joined(separator: "\n")) }
-                            ForEach(library.sources(conversationID: chat.current.id, projectID: chat.current.projectID)) { ChatInfoRow(label: "보관 자료", value: $0.title) }
+                            ChatInfoRow(label: tr("기록 범위"), value: ChatFocusButton.label(scope, choices: chat.focusChoices))
+                            ChatInfoRow(label: tr("웹 검색"), value: scope.useWeb ? tr("허용") : tr("미허용"))
+                            ChatInfoRow(label: tr("커넥터"), value: connectors.isEmpty ? tr("없음") : connectors)
+                            if !scope.paths.isEmpty { ChatInfoRow(label: tr("연결한 파일"), value: scope.paths.joined(separator: "\n")) }
+                            ForEach(library.sources(conversationID: chat.current.id, projectID: chat.current.projectID)) { ChatInfoRow(label: tr("보관 자료"), value: $0.title) }
                         }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                             .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 6))
                             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
-                        Label("원본 파일 변경, 명령 실행, 메시지 발송은 하지 않아요. 앱 종료나 절전 중에는 실행되지 않아요.", systemImage: "info.circle")
+                        Label(tr("원본 파일 변경, 명령 실행, 메시지 발송은 하지 않아요. 앱 종료나 절전 중에는 실행되지 않아요."), systemImage: "info.circle")
                             .font(Brand.suit(12)).foregroundStyle(Brand.gray)
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 27).padding(.vertical, 24)
             }
         } footer: {
             Spacer()
-            Button("취소") { pendingAutomation = nil }.buttonStyle(ChatDialogButtonStyle())
-            Button("등록") { chat.approve(message); pendingAutomation = nil }.buttonStyle(ChatDialogButtonStyle(primary: true))
+            Button(tr("취소")) { pendingAutomation = nil }.buttonStyle(ChatDialogButtonStyle())
+            Button(tr("등록")) { chat.approve(message); pendingAutomation = nil }.buttonStyle(ChatDialogButtonStyle(primary: true))
         }
     }
 }
@@ -608,7 +608,7 @@ struct ChatDialogFrame<Content: View, Footer: View>: View {
                 .overlay(alignment: .topTrailing) {
                     Button(action: onClose) {
                         Image(systemName: "xmark").font(.system(size: 13)).foregroundStyle(Brand.tabText).frame(width: 28, height: 28).contentShape(Rectangle())
-                    }.buttonStyle(.plain).help("닫기").accessibilityLabel("닫기").padding(.top, 19).padding(.trailing, 16)
+                    }.buttonStyle(.plain).help(tr("닫기")).accessibilityLabel(tr("닫기")).padding(.top, 19).padding(.trailing, 16)
                 }
             content().frame(maxWidth: .infinity, maxHeight: .infinity).background(.white)
             HStack(spacing: 10) { footer() }
@@ -664,14 +664,14 @@ private struct ChatSourceSheet: View {
         } footer: {
             Spacer()
             if let url = URL(string: source.location), ["https", "http"].contains(url.scheme ?? "") {
-                Link(destination: url) { HStack(spacing: 6) { Text("원문 열기"); Image(systemName: "arrow.up.right").font(.system(size: 11)) } }
+                Link(destination: url) { HStack(spacing: 6) { Text(tr("원문 열기")); Image(systemName: "arrow.up.right").font(.system(size: 11)) } }
                     .buttonStyle(ChatDialogButtonStyle())
             } else if source.location.hasPrefix("/") {
                 Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: source.location)]) } label: {
-                    HStack(spacing: 6) { Text("Finder에서 보기"); Image(systemName: "arrow.up.right").font(.system(size: 11)) }
+                    HStack(spacing: 6) { Text(tr("Finder에서 보기")); Image(systemName: "arrow.up.right").font(.system(size: 11)) }
                 }.buttonStyle(ChatDialogButtonStyle())
             }
-            Button("닫기") { dismiss() }.buttonStyle(ChatDialogButtonStyle())
+            Button(tr("닫기")) { dismiss() }.buttonStyle(ChatDialogButtonStyle())
         }
     }
 }
@@ -686,18 +686,18 @@ private struct ChatSchedulesView: View {
     private var selected: ChatAutomation? { chat.automations.first { $0.id == selectedID } ?? chat.automations.first }
 
     var body: some View {
-        ChatDialogFrame(title: "예약 작업",
-                        detail: "앱이 켜져 있을 때만 실행돼요. 지난 실행은 한 번만 처리해요.",
+        ChatDialogFrame(title: tr("예약 작업"),
+                        detail: tr("앱이 켜져 있을 때만 실행돼요. 지난 실행은 한 번만 처리해요."),
                         width: chat.automations.isEmpty ? 600 : 760, height: 505, onClose: { dismiss() }) {
             if chat.automations.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
                     VStack(spacing: 0) {
                         Image(systemName: "calendar.badge.clock").font(.system(size: 26, weight: .light)).foregroundStyle(Brand.tabText)
-                        Text("등록된 예약이 없어요").font(Brand.suit(17, .medium)).foregroundStyle(Brand.ink).padding(.top, 16)
-                        Text("채팅에서 반복할 일을 요청하고 예약안을 승인해 주세요.").font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 10)
+                        Text(tr("등록된 예약이 없어요")).font(Brand.suit(17, .medium)).foregroundStyle(Brand.ink).padding(.top, 16)
+                        Text(tr("채팅에서 반복할 일을 요청하고 예약안을 승인해 주세요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 10)
                     }.frame(maxWidth: .infinity, maxHeight: .infinity)
                     Button { dismiss() } label: {
-                        HStack(spacing: 8) { Text("채팅에서 예약안 만들기"); Image(systemName: "arrow.up.right").font(.system(size: 11)) }
+                        HStack(spacing: 8) { Text(tr("채팅에서 예약안 만들기")); Image(systemName: "arrow.up.right").font(.system(size: 11)) }
                     }.buttonStyle(ChatDialogButtonStyle()).padding(.bottom, 24)
                 }.padding(.horizontal, 27)
             } else {
@@ -709,12 +709,12 @@ private struct ChatSchedulesView: View {
                                     Button { selectedID = job.id } label: {
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(job.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
-                                            Text("\(job.intervalHours)시간마다, \(job.lastStatus)")
+                                            Text(tr("\(job.intervalHours)시간마다, \(job.lastStatus)"))
                                                 .font(Brand.suit(10)).foregroundStyle(Brand.gray).lineLimit(1)
                                         }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                                     }.buttonStyle(.plain)
-                                    ChatIconButton(systemName: job.enabled ? "pause.fill" : "play.fill", help: job.enabled ? "일시 중지" : "다시 시작") { chat.toggle(job) }
-                                    ChatIconButton(systemName: "trash", help: "예약 삭제") { deletingJob = job; confirmDelete = true }
+                                    ChatIconButton(systemName: job.enabled ? "pause.fill" : "play.fill", help: job.enabled ? tr("일시 중지") : tr("다시 시작")) { chat.toggle(job) }
+                                    ChatIconButton(systemName: "trash", help: tr("예약 삭제")) { deletingJob = job; confirmDelete = true }
                                 }.padding(.leading, 12).padding(.trailing, 4).frame(height: 52)
                                     .background(selected?.id == job.id ? ChatPalette.soft : .clear, in: RoundedRectangle(cornerRadius: 5))
                                     .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(selected?.id == job.id ? Brand.line : .clear))
@@ -727,22 +727,22 @@ private struct ChatSchedulesView: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack(spacing: 8) {
                                     Text(job.title).font(Brand.suit(16)).foregroundStyle(Brand.ink)
-                                    ChatTag(text: job.enabled ? "실행 대기" : "일시 중지됨")
+                                    ChatTag(text: job.enabled ? tr("실행 대기") : tr("일시 중지됨"))
                                 }
-                                Text("요청 내용").font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 4)
+                                Text(tr("요청 내용")).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 4)
                                 Text(job.prompt).font(Brand.suit(13)).foregroundStyle(Brand.tabText).lineSpacing(5)
                                     .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                                 Rectangle().fill(Brand.line).frame(height: 1).padding(.vertical, 4)
-                                ChatInfoRow(label: "실행 간격", value: "\(job.intervalHours)시간마다")
-                                ChatInfoRow(label: "기록 범위", value: ChatFocusButton.label(job.scope, choices: chat.focusChoices))
-                                ChatInfoRow(label: "웹 검색", value: job.scope.useWeb ? "사용" : "사용 안 함")
-                                ChatInfoRow(label: "커넥터", value: (job.scope.connectors + (job.scope.useGitHub ? ["GitHub"] : [])).joined(separator: ", "))
-                                if !job.scope.paths.isEmpty { ChatInfoRow(label: "연결한 파일", value: job.scope.paths.joined(separator: "\n")) }
-                                ForEach(chat.library.items.filter { job.scope.libraryIDs.contains($0.id) }) { ChatInfoRow(label: "보관 자료", value: $0.title) }
-                                ChatInfoRow(label: "최근 상태", value: job.lastStatus)
-                                if job.enabled { ChatInfoRow(label: "다음 실행", value: Date(timeIntervalSince1970: job.nextRun).formatted()) }
+                                ChatInfoRow(label: tr("실행 간격"), value: tr("\(job.intervalHours)시간마다"))
+                                ChatInfoRow(label: tr("기록 범위"), value: ChatFocusButton.label(job.scope, choices: chat.focusChoices))
+                                ChatInfoRow(label: tr("웹 검색"), value: job.scope.useWeb ? tr("사용") : tr("사용 안 함"))
+                                ChatInfoRow(label: tr("커넥터"), value: (job.scope.connectors + (job.scope.useGitHub ? ["GitHub"] : [])).joined(separator: ", "))
+                                if !job.scope.paths.isEmpty { ChatInfoRow(label: tr("연결한 파일"), value: job.scope.paths.joined(separator: "\n")) }
+                                ForEach(chat.library.items.filter { job.scope.libraryIDs.contains($0.id) }) { ChatInfoRow(label: tr("보관 자료"), value: $0.title) }
+                                ChatInfoRow(label: tr("최근 상태"), value: job.lastStatus)
+                                if job.enabled { ChatInfoRow(label: tr("다음 실행"), value: Date(timeIntervalSince1970: job.nextRun).formatted()) }
                                 if let id = job.lastConversationID, let conversation = chat.conversations.first(where: { $0.id == id }) {
-                                    Button("최근 실행 보기") { chat.select(conversation); dismiss() }.buttonStyle(ChatDialogButtonStyle()).padding(.top, 6)
+                                    Button(tr("최근 실행 보기")) { chat.select(conversation); dismiss() }.buttonStyle(ChatDialogButtonStyle()).padding(.top, 6)
                                 }
                             }.frame(maxWidth: .infinity, alignment: .leading).padding(24)
                         }
@@ -751,18 +751,18 @@ private struct ChatSchedulesView: View {
             }
         } footer: {
             Spacer()
-            Button("닫기") { dismiss() }.buttonStyle(.plain).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText)   // CH-10: 테두리 없는 글자 단추
+            Button(tr("닫기")) { dismiss() }.buttonStyle(.plain).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText)   // CH-10: 테두리 없는 글자 단추
         }
-        .alert("예약 작업 삭제", isPresented: $confirmDelete) {
-            Button("취소", role: .cancel) { deletingJob = nil }
-            Button("삭제", role: .destructive) {
+        .alert(tr("예약 작업 삭제"), isPresented: $confirmDelete) {
+            Button(tr("취소"), role: .cancel) { deletingJob = nil }
+            Button(tr("삭제"), role: .destructive) {
                 if let deletingJob {
                     chat.deleteAutomation(deletingJob)
                     if selectedID == deletingJob.id { selectedID = nil }
                 }
                 deletingJob = nil
             }
-        } message: { Text("예약을 삭제합니다. 이미 생성된 대화는 그대로 남습니다.") }
+        } message: { Text(tr("예약을 삭제합니다. 이미 생성된 대화는 그대로 남습니다.")) }
     }
 }
 

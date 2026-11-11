@@ -25,7 +25,7 @@ enum CalendarFeed {
     }
 
     /// 앱에서 직접 연결한 구글 계정의 캘린더 묶음 이름, 그 캘린더 id 앞에 붙는 것
-    static let googleAccount = "Google (SILLOG 연결)"
+    static let googleAccount = tr("Google (SILLOG 연결)")
     static let googlePrefix = "google:"
 
     /// 맥 캘린더(EventKit)의 캘린더에 앱에서 연결한 구글 캘린더를 붙인다. 맥의 Google 계정에 같은 이름의 캘린더가 있으면 맥 쪽만 남긴다

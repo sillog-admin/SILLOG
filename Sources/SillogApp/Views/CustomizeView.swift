@@ -1,4 +1,5 @@
 import SwiftUI
+import SillogCore
 
 /// 맞춤 설정 탭의 구역 (왼쪽 목록의 커넥터, 스킬)
 enum CustomizeSection: String, CaseIterable, Identifiable {
@@ -23,14 +24,14 @@ struct CustomizeView: View {
 
     private var list: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("맞춤 설정").font(Brand.suit(20, .bold)).foregroundStyle(Brand.ink).padding(.leading, 22).padding(.top, 18).padding(.bottom, 16)
+            Text(tr("맞춤 설정")).font(Brand.suit(20, .bold)).foregroundStyle(Brand.ink).padding(.leading, 22).padding(.top, 18).padding(.bottom, 16)
             ForEach(CustomizeSection.allCases) { section in
                 let on = state.customizeSection == section
                 Button { state.customizeSection = section; selectedID = nil } label: {
                     HStack(spacing: 10) {
                         SVGIcon(d: section == .connectors ? RailIcon.connectors : RailIcon.skill)
                             .stroke(Brand.ink, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round)).frame(width: 14, height: 14)
-                        Text(section.rawValue).font(Brand.suit(13)).foregroundStyle(Brand.ink)
+                        Text(L10n.tr(key: section.rawValue)).font(Brand.suit(13)).foregroundStyle(Brand.ink)
                         Spacer()
                     }
                     .padding(.horizontal, 10).frame(height: 32)
@@ -39,10 +40,10 @@ struct CustomizeView: View {
                     .contentShape(Rectangle())
                 }.buttonStyle(.plain).padding(.horizontal, 12).padding(.bottom, 2)
             }
-            Text("설치됨").font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.leading, 22).padding(.top, 18).padding(.bottom, 6)
+            Text(tr("설치됨")).font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.leading, 22).padding(.top, 18).padding(.bottom, 6)
             let installed = ConnectorEntry.all.filter { connected.contains($0.id) }
             if installed.isEmpty {
-                Text("설치한 커넥터가 없어요").font(Brand.suit(13)).foregroundStyle(Brand.ink).padding(.leading, 22).padding(.top, 4)
+                Text(tr("설치한 커넥터가 없어요")).font(Brand.suit(13)).foregroundStyle(Brand.ink).padding(.leading, 22).padding(.top, 4)
             } else {
                 ForEach(installed) { connector in
                     Button { state.customizeSection = .connectors; selectedID = connector.id } label: {

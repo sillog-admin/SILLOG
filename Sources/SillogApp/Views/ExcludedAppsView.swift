@@ -1,4 +1,5 @@
 import AppKit
+import SillogCore
 import SwiftUI
 import SillogCollectors
 
@@ -33,33 +34,33 @@ struct ExcludedAppsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionLabel("기록하지 않을 앱")
+            SectionLabel(tr("기록하지 않을 앱"))
             SettingCard {
                 ForEach(entries) { entry in
                     SettingRow(entry.name, icon: entry.icon == nil ? "app.dashed" : nil, iconImage: entry.icon) {   // 앱 아이콘을 이름 앞에
-                        Button("제거") { remove(entry.id) }
+                        Button(tr("제거")) { remove(entry.id) }
                             .buttonStyle(.plain).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                     }
                 }
-                if entries.isEmpty { SettingRow("없음") { EmptyView() } }
+                if entries.isEmpty { SettingRow(tr("없음")) { EmptyView() } }
                 HStack(spacing: 12) {
                     Menu {
-                        if runningCandidates.isEmpty { Text("추가할 앱 없음") }
+                        if runningCandidates.isEmpty { Text(tr("추가할 앱 없음")) }
                         ForEach(runningCandidates, id: \.bundle) { candidate in
                             Button(candidate.name) { add(candidate.bundle) }
                         }
                     } label: {
-                        Label("실행 중인 앱에서 추가", systemImage: "plus").font(Brand.suit(12)).foregroundStyle(Brand.tabText)
+                        Label(tr("실행 중인 앱에서 추가"), systemImage: "plus").font(Brand.suit(12)).foregroundStyle(Brand.tabText)
                     }
                     .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-                    Button("앱 파일 선택…") { pickApp() }.buttonStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.tabText)
+                    Button(tr("앱 파일 선택…")) { pickApp() }.buttonStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.tabText)
                     Spacer()
-                    Button("기본값으로") { state.settings.excludedBundles = PrivacyFilter.defaultExcludedBundles.sorted() }
+                    Button(tr("기본값으로")) { state.settings.excludedBundles = PrivacyFilter.defaultExcludedBundles.sorted() }
                         .buttonStyle(.plain).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                 }
                 .frame(height: 44)
             }
-            InfoLine("제외한 앱은 이름과 시간만 남고 창 제목, 주소, 화면 텍스트, 스크린샷은 기록되지 않아요.")
+            InfoLine(tr("제외한 앱은 이름과 시간만 남고 창 제목, 주소, 화면 텍스트, 스크린샷은 기록되지 않아요."))
         }
     }
 
@@ -77,7 +78,7 @@ struct ExcludedAppsView: View {
         panel.allowedContentTypes = [.applicationBundle]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.allowsMultipleSelection = true
-        panel.message = "기록하지 않을 앱을 고르세요"
+        panel.message = tr("기록하지 않을 앱을 고르세요")
         guard panel.runModal() == .OK else { return }
         for url in panel.urls {
             if let bundle = Bundle(url: url)?.bundleIdentifier { add(bundle) }

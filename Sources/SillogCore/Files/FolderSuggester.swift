@@ -183,7 +183,7 @@ public struct FolderSuggester: Sendable {
             "properties": .object([
                 "folder": .object(["type": "string", "description": "exact path copied from CANDIDATES, or empty if none fits"]),
                 "confidence": .object(["type": "number", "description": "0 to 1"]),
-                "reason": .object(["type": "string", "description": "one short Korean sentence the user will see"]),
+                "reason": .object(["type": "string", "description": .string("one short \(L10n.current.promptName) sentence the user will see")]),
             ]),
             "required": .array(["folder", "confidence", "reason"]),
         ]))

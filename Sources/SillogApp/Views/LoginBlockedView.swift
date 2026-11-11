@@ -40,7 +40,7 @@ struct LoginBlockedView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("GET STARTED / 01").font(Brand.jost(11)).tracking(1.6).foregroundStyle(Brand.gray)
-            Text("ChatGPT 계정으로 시작하기").font(Brand.suit(26, .bold)).foregroundStyle(Brand.ink).padding(.top, 7)
+            Text(tr("ChatGPT 계정으로 시작하기")).font(Brand.suit(26, .bold)).foregroundStyle(Brand.ink).padding(.top, 7)
         }
         .padding(.leading, 40).padding(.top, 30)
         .frame(maxWidth: .infinity, minHeight: 104, maxHeight: 104, alignment: .topLeading)
@@ -58,11 +58,11 @@ struct LoginBlockedView: View {
 
     private var login: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Mac에서 한 일을 기록하고 업무 단위로 정리해요.\n시작하려면 로그인해 주세요.")
+            Text(tr("Mac에서 한 일을 기록하고 업무 단위로 정리해요.\n시작하려면 로그인해 주세요."))
                 .font(Brand.suit(14)).foregroundStyle(Brand.gray).lineSpacing(6)
             Button { state.startCodexLogin() } label: {
                 HStack(spacing: 8) {
-                    Text("ChatGPT로 로그인")
+                    Text(tr("ChatGPT로 로그인"))
                     Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .medium))
                 }
                 .font(Brand.suit(14, .medium)).foregroundStyle(.white)
@@ -106,8 +106,8 @@ struct LoginBlockedView: View {
     /// 단계 표시(타임라인 레퍼런스): 아래 막대 폭 전체에 걸친 점선 위에 단계를 고르게 나눠 둔다. 지금 단계는 점이 크고 둘레에 옅은 고리, 점 아래에 단계 번호와 이름
     private var footer: some View {
         HStack(alignment: .top, spacing: 0) {
-            step(1, "로그인", on: true).frame(maxWidth: .infinity)
-            step(2, "권한", on: false).frame(maxWidth: .infinity)
+            step(1, tr("로그인"), on: true).frame(maxWidth: .infinity)
+            step(2, tr("권한"), on: false).frame(maxWidth: .infinity)
         }
         .background(alignment: .top) {
             DashLine().stroke(Brand.sub.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [3, 4])).frame(height: 1).padding(.top, 14)
@@ -125,7 +125,7 @@ struct LoginBlockedView: View {
                 Circle().fill(tint).frame(width: on ? 12 : 8, height: on ? 12 : 8)
             }
             .frame(height: 28)
-            Text("\(number)단계").font(Brand.suit(11)).foregroundStyle(on ? tint : Brand.sub)
+            Text(tr("\(number)단계")).font(Brand.suit(11)).foregroundStyle(on ? tint : Brand.sub)
             Text(name).font(Brand.suit(on ? 14 : 13, on ? .bold : .regular)).foregroundStyle(on ? tint : Brand.gray)
         }
     }

@@ -63,14 +63,14 @@ public enum CodexAuthError: Error, Equatable, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .notLoggedIn: return "ChatGPT 로그인이 필요합니다"
-        case .deviceLoginNotEnabled: return "이 계정은 기기 코드 로그인이 꺼져 있어요. ChatGPT 설정의 보안 항목에서 켜 주세요."
-        case .timedOut: return "15분 안에 승인되지 않아 로그인을 취소했습니다"
-        case .cancelled: return "로그인을 취소했습니다"
-        case .reloginRequired(let reason): return "로그인이 만료되어 다시 로그인해야 합니다 (\(reason))"
-        case .http(let status, let body): return "인증 서버 오류 HTTP \(status): \(body)"
-        case .invalidResponse(let text): return "인증 서버 응답을 해석하지 못했습니다: \(text)"
-        case .transport(let message): return "인증 서버에 연결하지 못했습니다: \(message)"
+        case .notLoggedIn: return tr("ChatGPT 로그인이 필요합니다")
+        case .deviceLoginNotEnabled: return tr("이 계정은 기기 코드 로그인이 꺼져 있어요. ChatGPT 설정의 보안 항목에서 켜 주세요.")
+        case .timedOut: return tr("15분 안에 승인되지 않아 로그인을 취소했습니다")
+        case .cancelled: return tr("로그인을 취소했습니다")
+        case .reloginRequired(let reason): return tr("로그인이 만료되어 다시 로그인해야 합니다 (\(reason))")
+        case .http(let status, let body): return tr("인증 서버 오류 HTTP \(status): \(body)")
+        case .invalidResponse(let text): return tr("인증 서버 응답을 해석하지 못했습니다: \(text)")
+        case .transport(let message): return tr("인증 서버에 연결하지 못했습니다: \(message)")
         }
     }
 }

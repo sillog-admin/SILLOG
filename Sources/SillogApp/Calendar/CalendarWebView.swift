@@ -15,13 +15,14 @@ struct CalendarWebView: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.addScriptMessageHandler(context.coordinator, contentWorld: .page, name: "sillog")
+        WebL10n.install(on: configuration.userContentController)
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.setValue(false, forKey: "drawsBackground")              // 로딩 중 흰 화면 방지
         context.coordinator.seen = calendar.changes
         if let directory = Self.directory() {
             webView.loadFileURL(directory.appendingPathComponent("index.html"), allowingReadAccessTo: directory.deletingLastPathComponent())   // ../Brand/Fonts 의 SUIT 글꼴도 읽게
         } else {
-            webView.loadHTMLString("<body style='font:14px -apple-system;padding:40px;color:#736D68'>캘린더 화면 리소스를 찾지 못했습니다.</body>", baseURL: nil)
+            webView.loadHTMLString(tr("<body style='font:14px -apple-system;padding:40px;color:#736D68'>캘린더 화면 리소스를 찾지 못했습니다.</body>"), baseURL: nil)
         }
         return webView
     }

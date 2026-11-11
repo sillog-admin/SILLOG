@@ -32,14 +32,14 @@ public struct TaskMerger: Sendable {
         enum CodingKeys: String, CodingKey { case groups, notGoals = "not_goals" }
     }
 
-    static let system = """
+    static var system: String { """
     You review the user's open tasks for a personal work graph: find tasks that are the SAME GOAL recorded twice under different titles, tasks whose title or goal is too vague, and tasks that are not goals at all.
     A task is a goal the user is pursuing: a project or deliverable, a course being studied, an errand with an outcome (an application, a payment, an interview), or a recurring routine that serves the user's work or study (a project team's channel, a class). Two tasks are the same goal when their titles, topics, recent work and resources describe the same project/deliverable, the same course, the same errand or the same routine. Sub-steps of one goal (reading docs for it, checking a tool's usage for it, managing a tool's account, subscription or billing for it, installing a tool for it, looking at examples for it) are that goal, not separate goals.
     Do NOT merge different goals that merely share an app, a website or a topic word; do not merge a course with a project.
-    - groups: tasks to merge. keep = the id whose title best names the goal (prefer the specific, established one); merge = the ids to fold into it; title and goal = a better Korean title and goal sentence when the kept one is vague. A single task whose title or goal is vague but whose recent work shows one real goal gets a group with an empty merge list and the better title and goal.
+    - groups: tasks to merge. keep = the id whose title best names the goal (prefer the specific, established one); merge = the ids to fold into it; title and goal = a better \(L10n.current.promptName) title and goal sentence when the kept one is vague. A single task whose title or goal is vague but whose recent work shows one real goal gets a group with an empty merge list and the better title and goal.
     - not_goals: ids of tasks that are not goals: no goal can be named from their title, goal and recent work (the purpose is unknown, or it is a bare category or catch-all), or they are entertainment, a hobby (including regular participation in a game, a league, a sport or a fan community, alone or with a team) or idle browsing. Their rows will count as time outside tasks. When unsure, leave the task alone.
     Leave everything else alone. Always answer by calling merge_tasks.
-    """
+    """ }
 
     static var tool: ToolSpec {
         ToolSpec(name: "merge_tasks", description: "Groups of task ids that are the same goal, and tasks that are not goals.", parameters: .object([

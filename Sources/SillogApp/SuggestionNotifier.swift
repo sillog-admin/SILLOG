@@ -32,9 +32,9 @@ final class SuggestionNotifier: NSObject, UNUserNotificationCenterDelegate, @unc
         guard available else { return }
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        let move = UNNotificationAction(identifier: "move", title: "옮기기", options: [])
-        let ignore = UNNotificationAction(identifier: "ignore", title: "무시", options: [.destructive])
-        let register = UNNotificationAction(identifier: "register", title: "등록", options: [])
+        let move = UNNotificationAction(identifier: "move", title: tr("옮기기"), options: [])
+        let ignore = UNNotificationAction(identifier: "ignore", title: tr("무시"), options: [.destructive])
+        let register = UNNotificationAction(identifier: "register", title: tr("등록"), options: [])
         center.setNotificationCategories([UNNotificationCategory(identifier: Self.category, actions: [move, ignore], intentIdentifiers: [], options: []),
                                           UNNotificationCategory(identifier: Self.eventCategory, actions: [register, ignore], intentIdentifiers: [], options: [])])
     }
@@ -67,7 +67,7 @@ final class SuggestionNotifier: NSObject, UNUserNotificationCenterDelegate, @unc
     /// 새 정리 제안이 생겼을 때 (누르면 창과 제안 시트를 연다)
     func notifyReview(fresh: Int, summary: String) {
         guard available else { return }
-        deliver(title: "새 정리 제안 \(fresh)개", body: summary, category: nil, userInfo: ["review": true], identifier: "review")
+        deliver(title: tr("새 정리 제안 \(fresh)개"), body: summary, category: nil, userInfo: ["review": true], identifier: "review")
     }
 
     func notifyTranscribed(fileName: String, folder: String, home: String) {
@@ -81,7 +81,7 @@ final class SuggestionNotifier: NSObject, UNUserNotificationCenterDelegate, @unc
         center.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
             self?.authorized = granted
             center.getNotificationSettings { [weak self] settings in
-                AppLog.write("알림 권한: \(granted ? "허용" : "거부") 상태=\(settings.authorizationStatus.rawValue) 배너=\(settings.alertSetting.rawValue)\(error.map { " 오류=\($0.localizedDescription)" } ?? "")")
+                AppLog.write("알림 권한: \(granted ? tr("허용") : tr("거부")) 상태=\(settings.authorizationStatus.rawValue) 배너=\(settings.alertSetting.rawValue)\(error.map { tr(" 오류=\($0.localizedDescription)") } ?? "")")
                 self?.onDenied?(settings.authorizationStatus == .denied)
             }
             guard granted else { return }

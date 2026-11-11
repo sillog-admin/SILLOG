@@ -6,7 +6,7 @@
   const detail = document.getElementById('detail')
 
   const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-    locale: 'ko',
+    locale: window.SILLOG_LANG || 'ko',
     initialView: setup.view,
     firstDay: setup.firstDay,
     height: '100%',

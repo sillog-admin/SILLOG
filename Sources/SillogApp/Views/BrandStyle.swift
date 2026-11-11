@@ -132,7 +132,7 @@ struct TextTabs<Item: Hashable & Identifiable & CaseIterable & RawRepresentable>
                 let on = selection == item
                 Button { selection = item } label: {
                     HStack(spacing: 6) {
-                        Text(item.rawValue).font(Brand.suit(14, on ? .semibold : .regular)).foregroundStyle(on ? Brand.ink : Brand.tabText)
+                        Text(L10n.tr(key: item.rawValue)).font(Brand.suit(14, on ? .semibold : .regular)).foregroundStyle(on ? Brand.ink : Brand.tabText)
                         if badge(item) > 0 { Text("\(badge(item))").font(Brand.jost(12)).foregroundStyle(Brand.blue) }
                     }
                     .padding(.horizontal, 13).frame(height: 32)
