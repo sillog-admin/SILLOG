@@ -3,7 +3,10 @@ import Foundation
 import SwiftUI
 import SillogCore
 
-struct FileField: Equatable { let name: String; let color: Color }
+struct FileField: Equatable {
+    let name: String; let color: Color
+    var title: String { L10n.tr(key: name) }
+}
 
 /// 내려받은 파일의 정리 위치 제안: 감지 → 문맥 모으기 → 제안 → 알림, 그리고 사용자의 결정.
 extension AppState {

@@ -300,7 +300,7 @@ private struct HistoryRow: View {
     private var fieldCell: some View {
         HStack(spacing: 5) {
             if let field { Circle().fill(field.color).frame(width: 6, height: 6) }
-            Text(field?.name ?? tr("분야 없음")).lineLimit(1)
+            Text(field?.title ?? tr("분야 없음")).lineLimit(1)
         }
     }
 
@@ -453,7 +453,7 @@ private struct PendingCard: View, Equatable {
                     if let field {
                         HStack(spacing: 5) {
                             Circle().fill(field.color).frame(width: 6, height: 6)
-                            Text(field.name).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                            Text(field.title).font(Brand.suit(11)).foregroundStyle(Brand.gray)
                         }
                     } else {
                         Text(tr("분야 없음")).font(Brand.suit(11)).foregroundStyle(Brand.gray)

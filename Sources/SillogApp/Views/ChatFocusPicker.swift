@@ -130,7 +130,7 @@ struct ChatFocusTree: View {
         } label: {
             HStack(spacing: 5) {
                 Circle().fill(field.color).frame(width: 7, height: 7)
-                Text(field.name).font(Brand.suit(11, on ? .medium : .regular)).lineLimit(1)
+                Text(field.title).font(Brand.suit(11, on ? .medium : .regular)).lineLimit(1)
             }
             .foregroundStyle(on ? Brand.chipSelectedText : Brand.tabText)
             .padding(.horizontal, 9).frame(height: 24)

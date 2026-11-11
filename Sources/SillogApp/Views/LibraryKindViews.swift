@@ -490,7 +490,7 @@ struct LibraryHome: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Circle().fill(f.color).frame(width: 8, height: 8)
-                        Text(f.name).font(Brand.suit(11)).foregroundStyle(Brand.tabText).lineLimit(1)
+                        Text(f.title).font(Brand.suit(11)).foregroundStyle(Brand.tabText).lineLimit(1)
                     }
                     HStack(alignment: .firstTextBaseline, spacing: 3) {
                         Text(f.count.formatted()).font(Brand.suit(18, .medium)).foregroundStyle(Brand.ink)

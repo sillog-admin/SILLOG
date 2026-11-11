@@ -90,7 +90,8 @@ struct TasksView: View {
         var seconds: Double { tasks.reduce(0) { $0 + $1.activeSeconds } }
     }
 
-    static let noField = tr("분야 없음")
+    // Field and type names are stored Korean values; translate only when drawing.
+    static let noField = "분야 없음"
 
     /// 분야별 폴더: 최근에 일한 분야가 위, '분야 없음' 은 늘 맨 아래. 폴더 안은 받은 순서(최근 활동 순) 그대로
     static func folders(_ tasks: [TaskSummary]) -> [TaskFolder] {
@@ -115,13 +116,14 @@ struct TasksView: View {
         let count: Int
         let color: Color
         var id: String { name }
+        var title: String { L10n.tr(key: name) }
     }
 
     private static let fieldColors: [String: UInt32] = [
-        tr("산출물작성"): 0x4A86C5, tr("정보수집"): 0xE9B23F, tr("학습"): 0xE0533D, tr("행정처리"): 0x8A4E7D, tr("커뮤니케이션"): 0x3D9B6B, tr("반복작업"): 0x6E9F8F,
+        "산출물작성": 0x4A86C5, "정보수집": 0xE9B23F, "학습": 0xE0533D, "행정처리": 0x8A4E7D, "커뮤니케이션": 0x3D9B6B, "반복작업": 0x6E9F8F,
     ]
     private static let spareColors: [UInt32] = [0x9C4A35, 0x2E4D8F]
-    private static let etc = tr("기타")
+    private static let etc = "기타"
 
     /// 분야별 업무 수와 색. 그래프와 같은 순서: 이름 있는 분야 먼저, 많은 순, 예비색은 그 순서대로. '기타', '분야 없음' 은 맨 끝
     static func fieldStats(_ tasks: [TaskSummary]) -> [FieldStat] {
@@ -226,8 +228,8 @@ struct TasksView: View {
                                 .contentShape(Rectangle().inset(by: -4))
                         }
                         .buttonStyle(.plain)
-                        .help(tr("\(field.name) \(field.count)개"))
-                        .accessibilityLabel(tr("\(field.name) 분야, 업무 \(field.count)개, \(on ? tr("골라짐") : tr("안 골라짐"))"))
+                        .help(tr("\(field.title) \(field.count)개"))
+                        .accessibilityLabel(tr("\(field.title) 분야, 업무 \(field.count)개, \(on ? tr("골라짐") : tr("안 골라짐"))"))
                     }
                 }
                 if sel.isEmpty {
@@ -294,7 +296,7 @@ struct TasksView: View {
             }
             ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
                 HStack(spacing: 5) {
-                    Text(row.0).font(Brand.suit(11.5, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
+                    Text(L10n.tr(key: row.0)).font(Brand.suit(11.5, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
                     Text("\(row.1)").font(Brand.suit(11)).foregroundStyle(Brand.gray).lineLimit(1)
                 }
                 .padding(.vertical, 3).padding(.horizontal, 9)
@@ -332,7 +334,7 @@ struct TasksView: View {
             HStack(spacing: 7) {
                 Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(Brand.gray)
                     .rotationEffect(.degrees(open ? 90 : 0)).frame(width: 10)
-                Text(folder.name).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
+                Text(L10n.tr(key: folder.name)).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
                 Spacer(minLength: 6)
                 Text("\(folder.tasks.count)").font(.custom("Jost-Light", size: 13)).foregroundStyle(Brand.gray)
             }
@@ -355,8 +357,8 @@ struct TasksView: View {
         let field = task.field ?? Self.noField
         let type = task.taskType.flatMap { $0.isEmpty || $0 == field ? nil : $0 }              // 종류가 없으면 분야만
         let meta = type.map { t in
-            Text("\(Text(field).font(Brand.suit(11, .medium)).foregroundStyle(Color(hex: 0x6E6862)))\(Text(" › ").font(Brand.suit(11)).foregroundStyle(Color(hex: 0xB8AFA8)))\(Text(t).font(Brand.suit(11)).foregroundStyle(Color(hex: 0x8C837C)))")
-        } ?? Text(field).font(Brand.suit(11, .medium)).foregroundStyle(Color(hex: 0x6E6862))
+            Text("\(Text(L10n.tr(key: field)).font(Brand.suit(11, .medium)).foregroundStyle(Color(hex: 0x6E6862)))\(Text(" › ").font(Brand.suit(11)).foregroundStyle(Color(hex: 0xB8AFA8)))\(Text(L10n.tr(key: t)).font(Brand.suit(11)).foregroundStyle(Color(hex: 0x8C837C)))")
+        } ?? Text(L10n.tr(key: field)).font(Brand.suit(11, .medium)).foregroundStyle(Color(hex: 0x6E6862))
         return Button {
             if on {   // 고른 업무를 다시 누르면: 상자 지우고, 그래프 확대 풀고, 업무 상세도 닫는다
                 selectedTask = nil; state.selectedTaskId = nil; state.taskDetailOpen = false

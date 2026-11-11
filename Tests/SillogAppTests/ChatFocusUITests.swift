@@ -132,6 +132,16 @@ final class ChatFocusUITests: XCTestCase {
         XCTAssertEqual(ChatFocusTree.fields(.init(tasks: [a, b, c])).map(\.name), ["산출물작성", "학습", "분야 없음"])
     }
 
+    // 분야 값은 DB의 한국어 그대로라, 영어 화면에서도 같은 색을 찾고 이름만 영어로 그린다
+    func testFieldColorsSurviveTheEnglishSetting() {
+        L10n.current = .en
+        defer { L10n.current = .ko }
+        let stats = TasksView.fieldStats(counts: ["학습": 2, "기타": 1, TasksView.noField: 1])
+        XCTAssertEqual(stats.map(\.name), ["학습", "기타", "분야 없음"])
+        XCTAssertEqual(stats.map(\.title), ["Learning", "Other", "No field"])
+        XCTAssertEqual(stats.first?.color, Color(hex: 0xE0533D))
+    }
+
     func testPickingAStartChoiceFocusesTheChatAndTheInput() throws {
         let chat = chatState(try SillogDatabase.inMemory())
         let state = AppState(preview: { s in s.phase = .ready; s.selectedTab = .chat; s.chat = chat })
