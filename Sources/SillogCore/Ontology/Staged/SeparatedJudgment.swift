@@ -1,9 +1,9 @@
 import Foundation
 
-/// 앱에서 독립적으로 선택한 판단 모델.
+/// The judge model picked in settings.
 public enum ActivityJudging: Sendable {
     case gpt(any LLMClient)
-    case jev(any JevChoosing)
+    case choice(any ChoiceModel)
     case unavailable(String)
 }
 
@@ -54,7 +54,8 @@ extension StagedPipeline {
         ]))
     }
 
-    /// 실패하거나 판단이 비어 있는 행은 결과에서 뺀다. 호출자가 그 원본을 미처리 상태로 둔다.
+    /// Picks a verdict per row. Rows after the first undecided one are left for the next batch.
+    /// Raises: `PipelineError.incomplete` when not even the first row was decided, `LLMError` from the GPT judge.
     static func decideSeparately(_ input: JudgeInput, using judge: ActivityJudging) async throws -> JudgeState {
         var state = JudgeState(input: input)
         var selected: [Int: Decision] = [:]
@@ -65,7 +66,7 @@ extension StagedPipeline {
         case .unavailable(let message):
             throw LLMError.backend(message)
         case .gpt(let client):
-            let options = input.openTasks.map { "\($0.id): \(JevAssign.describe($0))" }
+            let options = input.openTasks.map { "\($0.id): \(describe($0))" }
             let user = ([OntologyPrompt.nowLine(input.now, timeZone: input.timeZone), "EXISTING GOALS"] + options
                 + [StagePrompt.rowsHeader] + OntologyPrompt.rowLines(input.rows, cards: input.cards, timeZone: input.timeZone)).joined(separator: "\n")
             let result = try await call("assign", system: choiceRules, user: user, tool: chooseTool, state: state, llm: client)
@@ -75,37 +76,41 @@ extension StagedPipeline {
                 let answer = answers[0]
                 if ids.contains(answer.choice) || special.contains(answer.choice) { selected[id] = answer }
             }
-        case .jev(let client):
-            let limit = JevAssign.maxOptions - special.count
-            let chunks = stride(from: 0, to: max(input.openTasks.count, 1), by: limit).map { start in
-                Array(input.openTasks.dropFirst(start).prefix(limit))
+        case .choice(let client):
+            let chunks = stride(from: 0, to: max(input.openTasks.count, 1), by: choiceTaskLimit).map { start in
+                Array(input.openTasks.dropFirst(start).prefix(choiceTaskLimit))
             }
-            var failures = 0
-            rowLoop: for row in input.rows {
-                let text = JevAssign.stateText(row, cards: input.cards, now: input.now, timeZone: input.timeZone)
-                for (index, tasks) in chunks.enumerated() {
-                    var options = ["new": "Work for a different goal than the listed goals.", "off": "Distraction unrelated to work.",
-                                   "none": "Too little content to establish a goal."]
-                    for task in tasks { options[task.id] = JevAssign.describe(task) }
-                    do {
-                        let response = try await client.choose(state: text, questions: ["activity": .init(instructions: choiceRules, options: options)])
-                        guard let answer = response["activity"], answer.confidence >= JevAssign.confidenceFloor,
-                              options[answer.choice] != nil else { break }
-                        if answer.choice == "new" && index + 1 < chunks.count { continue }
-                        selected[row.row] = .init(row: row.row, choice: answer.choice, reason: "Jev 판단")
-                        break
-                    } catch {
-                        failures += 1
-                        // 연결이 끊긴 동안 같은 호출을 반복하지 않는다.
-                        break rowLoop
+            var failure: String?
+            await withTaskGroup(of: (Int, Result<String, any Error>).self) { group in
+                var queue = input.rows[...]
+                func enqueue() {
+                    guard failure == nil, let row = queue.popFirst() else { return }
+                    group.addTask { (row.row, await chooseRow(row, input: input, chunks: chunks, client: client)) }
+                }
+                for _ in 0..<choiceConcurrency { enqueue() }
+                for await (row, result) in group {
+                    switch result {
+                    case .success(let choice): selected[row] = .init(row: row, choice: choice, reason: "판단 모델")
+                    // Stop sending new rows while the server is failing; keep the message for the batch log.
+                    case .failure(let error): failure = failure ?? error.localizedDescription
                     }
+                    enqueue()
                 }
             }
+            if let failure { AppLog.write("판단 모델 호출 실패: \(failure.prefix(200))") }
             let result = selected.values.sorted { $0.row < $1.row }.map { "\($0.row): \($0.choice)" }.joined(separator: "\n")
-            state.calls.append(.init(stage: "assign-jev", system: choiceRules, user: "", raw: "",
-                                     arguments: result + (failures > 0 ? "\n판단 모델 호출 실패" : ""),
+            state.calls.append(.init(stage: "assign-choice", system: choiceRules, user: "", raw: failure ?? "",
+                                     arguments: result + (failure.map { "\n판단 모델 호출 실패: \($0)" } ?? ""),
                                      model: client.modelName, promptTokens: 0, completionTokens: 0))
         }
+
+        // Only the leading run of decided rows is applied, so a skipped row never stretches a later row's dwell time.
+        let accepted = input.rows.prefix { selected[$0.row] != nil }
+        if accepted.isEmpty {
+            throw PipelineError.incomplete(stage: "판단 모델", missing: input.rows.map(\.row), calls: state.calls)
+        }
+        let acceptedIDs = Set(accepted.map(\.row))
+        selected = selected.filter { acceptedIDs.contains($0.key) }
 
         for row in input.rows {
             guard let answer = selected[row.row] else { continue }
@@ -118,12 +123,52 @@ extension StagedPipeline {
             }
         }
 
-        let missing = input.rows.filter { selected[$0.row] == nil }
-        if missing.count == input.rows.count {
-            throw PipelineError.incomplete(stage: "판단 모델", missing: missing.map(\.row), calls: state.calls)
-        }
-        state.input.rows = input.rows.filter { selected[$0.row] != nil }
+        state.input.rows = Array(accepted)
         return state
+    }
+
+    static let choiceConcurrency = 4
+    /// Below this confidence the row is treated as `none` instead of waiting for a better answer forever.
+    static let choiceConfidenceFloor = 0.6
+    /// Options per question, specials included. Accuracy drops past 20.
+    static let choiceMaxOptions = 20
+    private static let choiceSpecials = ["new": "Work for a different goal than the listed goals.", "off": "Distraction unrelated to work.",
+                                         "none": "Too little content to establish a goal."]
+    private static var choiceTaskLimit: Int { choiceMaxOptions - choiceSpecials.count }
+    /// Jev rejects states over 64,000 characters.
+    static let choiceStateLimit = 20_000
+
+    /// Asks one row against each chunk of tasks in turn; `new` on an earlier chunk moves on to the next chunk.
+    /// Returns: the chosen task ID, `new`, `off` or `none`. Low confidence and refusals become `none`.
+    /// Raises: never; transport errors come back as `.failure`.
+    private static func chooseRow(_ row: ActivityRow, input: JudgeInput, chunks: [[TaskDigest]], client: any ChoiceModel) async -> Result<String, any Error> {
+        let text = choiceState(row, cards: input.cards, now: input.now, timeZone: input.timeZone)
+        for (index, tasks) in chunks.enumerated() {
+            var options = choiceSpecials
+            for task in tasks { options[task.id] = describe(task) }
+            do {
+                let response = try await client.choose(state: text, questions: ["activity": .init(instructions: choiceRules, options: options)])
+                guard let answer = response["activity"], answer.confidence >= choiceConfidenceFloor, options[answer.choice] != nil else { return .success("none") }
+                if answer.choice == "new" && index + 1 < chunks.count { continue }
+                return .success(answer.choice)
+            } catch {
+                return .failure(error)
+            }
+        }
+        return .success("new")
+    }
+
+    /// Option text: the task title and what it is for, or its latest summary.
+    static func describe(_ task: TaskDigest) -> String {
+        let title = OntologyPrompt.clip(task.title, 90)
+        guard let detail = [task.goal ?? "", task.recentSummaries.first ?? ""].first(where: { !$0.isEmpty }) else { return title }
+        return "\(title): \(OntologyPrompt.clip(detail, 140))"
+    }
+
+    /// The same row line the organize model sees, with screen cards.
+    static func choiceState(_ row: ActivityRow, cards: [Int: [ScreenCard]], now: Double, timeZone: TimeZone) -> String {
+        let lines = [OntologyPrompt.nowLine(now, timeZone: timeZone), StagePrompt.rowsHeader] + OntologyPrompt.rowLines([row], cards: cards, timeZone: timeZone)
+        return String(lines.joined(separator: "\n").prefix(choiceStateLimit))
     }
 
     /// 판단을 마친 행만 정리 모델에 보낸다. 새 업무에 제목·목표를 붙인 뒤 기존 요약 단계를 사용한다.

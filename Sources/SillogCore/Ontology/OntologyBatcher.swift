@@ -132,11 +132,6 @@ public actor OntologyBatcher {
                 var accepted = try await StagedPipeline.decideSeparately(
                     JudgeInput(rows: rows, openTasks: openTasks, now: now), using: selectedJudge)
                 acceptedRows = accepted.input.rows
-                let acceptedNumbers = Set(acceptedRows.map(\.row))
-                let pending = rows.filter { !acceptedNumbers.contains($0.row) }
-                if !pending.isEmpty && !pending.contains(where: { !$0.observationIds.isEmpty }) {
-                    throw PipelineError.incomplete(stage: "판단 모델", missing: pending.map(\.row), calls: accepted.calls)
-                }
                 // 정리 모델에는 판단이 완료된 행의 화면만 보낸다.
                 if config.screenCards, let vision = organizer as? any VisionLLMClient {
                     cards = await makeCards(rows: acceptedRows, window: window, llm: vision, now: now)

@@ -102,7 +102,7 @@ final class StageDecodeTests: XCTestCase {
         // ②가 기존 업무에 붙인 행이면 그 업무의 주제를 묶음에 싣는다
         var state = JudgeState(input: JudgeInput(rows: rows, openTasks: [TaskDigest(id: "t_sillog", title: "Sillog 개발", taskType: nil, topics: ["그래프 시각화"], recentResources: [],
                                                                                     lastActive: 0, resourceKeys: [], apps: [], recentSummaries: [], goal: nil)],
-                                                  cards: [:], now: 1_000_000, judge: nil))
+                                                  cards: [:], now: 1_000_000))
         state.verdicts[rows[0].row] = RowVerdict(kind: .work, reason: "")
         state.assignment.tasks = [AssignmentPatch.TaskDef(ref: "A", match: "existing", id: "t_sillog")]
         state.assignment.rows[rows[0].row] = TaskChoice(task: "A", reason: "")

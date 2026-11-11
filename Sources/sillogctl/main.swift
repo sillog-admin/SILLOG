@@ -21,6 +21,7 @@ sillogctl [--db PATH] <command>
                                         (--demo-llm: 모델 없이 데모 시드를 규칙으로 분류하는 가짜 LLM)
   llm-test [--provider codex|openai] [--model M] [--base-url URL]
                                         LLM 연결과 로그인이 유효한지 실제 호출로 확인
+  check-judge jev|decisions             판단 모델 실제 호출 확인. 키는 TYPESAFE_API_KEY / OPENAI_API_KEY 환경변수나 ./.env 에서 읽는다
   collect [--seconds N] [--no-screenshots]
                                         수집기를 N초(기본 20) 돌리며 생기는 행을 출력한다
                                         (권한은 이 명령을 실행한 터미널 앱 기준으로 적용된다)
@@ -103,6 +104,15 @@ func flag(_ name: String) -> Bool {
     return true
 }
 
+/// Reads a variable from the environment, then from ./.env.
+func envValue(_ name: String) -> String? {
+    if let value = ProcessInfo.processInfo.environment[name], !value.isEmpty { return value }
+    let text = (try? String(contentsOfFile: ".env", encoding: .utf8)) ?? ""
+    for line in text.split(separator: "\n") where line.hasPrefix("\(name)=") {
+        return String(line.dropFirst(name.count + 1)).trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))
+    }
+    return nil
+}
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data((message + "\n").utf8))
     exit(1)
@@ -453,6 +463,26 @@ do {
             break
         } while all && round < 50
         try printStats()
+
+    case "check-judge":
+        let kind = args.first ?? ""
+        guard ["jev", "decisions"].contains(kind) else { fail("사용법: sillogctl check-judge jev|decisions") }
+        let name = kind == "jev" ? "TYPESAFE_API_KEY" : "OPENAI_API_KEY"
+        guard let key = envValue(name), !key.isEmpty else { fail("\(name) 가 없습니다 (.env.copy 를 .env 로 복사해 키를 넣으세요)") }
+        let judge: any ChoiceModel = kind == "jev"
+            ? JevClient(endpoint: JevEndpoint(url: JevEndpoint.typesafeURL, model: JevEndpoint.defaultModel, key: key))
+            : DecisionsClient(key: key)
+        let question = ChoiceQuestion(instructions: "Which goal does this activity serve?",
+                                      options: ["t_ui": "Build the dashboard card UI", "t_tax": "File the yearly tax return", "off": "Distraction unrelated to work"])
+        let started = Date()
+        do {
+            let answers = try await judge.choose(state: "Editing TaskCard.tsx in Cursor, then reading the shadcn/ui Card docs.", questions: ["activity": question])
+            guard let answer = answers["activity"] else { fail("응답에 답이 없습니다") }
+            print(String(format: "%@ (%@): %@, 확신 %.2f, %.1f초", kind, judge.modelName, answer.choice, answer.confidence, Date().timeIntervalSince(started)))
+            if answer.choice != "t_ui" { fail("예상한 답(t_ui)과 다릅니다") }
+        } catch {
+            fail("호출 실패 — \(error.localizedDescription)")
+        }
 
     case "llm-test":
         let (client, pingable) = makeClient()

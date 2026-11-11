@@ -10,7 +10,7 @@ final class JevClientTests: XCTestCase {
 
     func testSendsSystemOneRequestAndReadsChoice() async throws {
         StubURLProtocol.reset([.init(status: 200, body: #"{"model":"jev-1.13.0","answers":{"activity":{"type":"choice","choice":"t_a","confidence":0.82,"probabilities":{"t_a":0.9,"new":0.1}}}}"#)])
-        let question = JevQuestion(instructions: "Which goal?", options: ["t_a": "Card UI", "new": "Other goal"])
+        let question = ChoiceQuestion(instructions: "Which goal?", options: ["t_a": "Card UI", "new": "Other goal"])
 
         let answers = try await client().choose(state: "row text", questions: ["activity": question])
 
@@ -22,15 +22,15 @@ final class JevClientTests: XCTestCase {
         let sent = try XCTUnwrap((request.body["questions"] as? [String: Any])?["activity"] as? [String: Any])
         XCTAssertEqual(sent["type"] as? String, "choice")
         XCTAssertEqual(sent["criteria"] as? [String: String], ["t_a": "Card UI", "new": "Other goal"])
-        XCTAssertEqual(answers["activity"], JevChoice(choice: "t_a", confidence: 0.82, probabilities: ["t_a": 0.9, "new": 0.1]))
+        XCTAssertEqual(answers["activity"], ChoiceAnswer(choice: "t_a", confidence: 0.82, probabilities: ["t_a": 0.9, "new": 0.1]))
     }
 
     func testHTTPErrorKeepsStatusAndBody() async {
         StubURLProtocol.reset([.init(status: 401, body: #"{"error":"invalid api key"}"#)])
         do {
-            _ = try await client().choose(state: "x", questions: ["q": JevQuestion(instructions: "?", options: ["a": "a", "b": "b"])])
+            _ = try await client().choose(state: "x", questions: ["q": ChoiceQuestion(instructions: "?", options: ["a": "a", "b": "b"])])
             XCTFail("expected an error")
-        } catch let JevError.http(code, body) {
+        } catch let ChoiceError.http(code, body) {
             XCTAssertEqual(code, 401)
             XCTAssertTrue(body.contains("invalid api key"))
         } catch {
