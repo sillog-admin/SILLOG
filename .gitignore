@@ -1,3 +1,4 @@
+# Build
 .build/
 build/
 .swiftpm/
@@ -5,4 +6,21 @@ build/
 xcuserdata/
 DerivedData/
 .DS_Store
+
+# Secrets
+.env
+.env.*
+!.env.copy
+
+# Personal data
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Local AI tool config
+.claude/
+.codex/
+.gemini/
+.cursor/
 .gstack/
+.work/
