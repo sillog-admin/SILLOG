@@ -54,10 +54,12 @@ public enum JevError: Error, LocalizedError {
 public struct JevClient: Sendable {
     public let endpoint: JevEndpoint
     private let timeout: TimeInterval
+    private let session: URLSession
 
-    public init(endpoint: JevEndpoint, timeout: TimeInterval = 30) {
+    public init(endpoint: JevEndpoint, timeout: TimeInterval = 30, session: URLSession = .shared) {
         self.endpoint = endpoint
         self.timeout = timeout
+        self.session = session
     }
 
     /// 문항 여러 개를 한 요청으로 묻는다.
@@ -72,7 +74,7 @@ public struct JevClient: Sendable {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let qs = questions.mapValues { ["type": "choice", "instructions": $0.instructions, "criteria": $0.options] as [String: Any] }
         req.httpBody = try JSONSerialization.data(withJSONObject: ["model": endpoint.model, "state": state, "questions": qs])
-        let (data, resp) = try await URLSession.shared.data(for: req)
+        let (data, resp) = try await session.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else { throw JevError.http(code, String(data: data, encoding: .utf8) ?? "") }
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
