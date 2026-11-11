@@ -92,7 +92,9 @@ struct AppSettings: Codable, Equatable {
         readChatLogs = try c.decodeIfPresent(Bool.self, forKey: .readChatLogs) ?? d.readChatLogs
         retentionDays = try c.decodeIfPresent(Int.self, forKey: .retentionDays) ?? d.retentionDays
         showDockIcon = try c.decodeIfPresent(Bool.self, forKey: .showDockIcon) ?? d.showDockIcon
-        excludedBundles = try c.decodeIfPresent([String].self, forKey: .excludedBundles) ?? d.excludedBundles
+        // Older saves list system windows that are now always excluded.
+        excludedBundles = (try c.decodeIfPresent([String].self, forKey: .excludedBundles) ?? d.excludedBundles)
+            .filter { !PrivacyFilter.alwaysExcludedBundles.contains($0) }
         suggestFolders = try c.decodeIfPresent(Bool.self, forKey: .suggestFolders) ?? d.suggestFolders
         screenCards = try c.decodeIfPresent(Bool.self, forKey: .screenCards) ?? d.screenCards
         folderRoots = try c.decodeIfPresent([String].self, forKey: .folderRoots) ?? d.folderRoots

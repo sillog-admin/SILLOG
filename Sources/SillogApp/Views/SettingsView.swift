@@ -203,7 +203,7 @@ struct SettingsView: View {
                     .disabled(!state.settings.captureScreenshots)
             }
             .help(tr("스크린샷이 켜져 있어야 해요."))
-            SettingTile(tr("기록하지 않을 앱"), detail: tr("\(state.settings.excludedBundles.count)개 앱은 사용 시간만 남겨요"), icon: "eye.slash") {
+            SettingTile(tr("기록하지 않을 앱"), detail: tr("비밀번호 관리 앱과 시크릿 창은 사용 시간만 남겨요"), icon: "eye.slash") {
                 Button(tr("편집")) { editingExcluded = true }.buttonStyle(BrandButtonStyle(kind: .primary))
             }
         }

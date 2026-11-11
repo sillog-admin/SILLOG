@@ -86,4 +86,9 @@ final class SettingsCompatTests: XCTestCase {
         own.splitChatFromOrganize()
         XCTAssertEqual(own.chatModelName, "b", "a chat model picked earlier is not overwritten")
     }
+
+    func testOldExcludedListDropsSystemWindows() throws {
+        let s = try decode(#"{"excludedBundles":["com.apple.loginwindow","com.apple.Passwords","com.example.app"]}"#)
+        XCTAssertEqual(s.excludedBundles, ["com.apple.Passwords", "com.example.app"])
+    }
 }

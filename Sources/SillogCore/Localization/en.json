@@ -84,7 +84,6 @@
   "%@개 더 보기": "Show %@ more",
   "%@개 바꿈": "%@ changed",
   "%@개 선택": "%@ selected",
-  "%@개 앱은 사용 시간만 남겨요": "%@ apps keep usage time only",
   "%@건": "%@",
   "%@과 화면 기록은 시스템 설정에서 켜요. 화면 기록은 켠 뒤 앱을 다시 실행해야 해요.": "Turn on %@ and Screen Recording in System Settings. After turning on Screen Recording, restart the app.",
   "%@단계": "%@ steps",
@@ -1093,7 +1092,6 @@
   "제안 무시": "Dismiss suggestion",
   "제안 보기": "View suggestion",
   "제외된 앱": "Excluded apps",
-  "제외한 앱은 이름과 시간만 남고 창 제목, 주소, 화면 텍스트, 스크린샷은 기록되지 않아요.": "Excluded apps keep only their name and time. Window titles, addresses, screen text, and screenshots aren't recorded.",
   "조건에 맞는 업무가 없습니다": "No tasks match the filters",
   "종료": "Quit",
   "종류": "Type",
@@ -1377,5 +1375,9 @@
   "활동이 쌓여 정리되면 업무가 여기에 모여요.": "As activity builds up and gets organized, tasks gather here.",
   "활동이 쌓여 정리되면 업무가 여기에 모여요. 지금 바로 정리할 수도 있어요.": "As activity builds up and gets organized, tasks gather here. You can also organize now.",
   "활성 창만 저장해요. 끄면 화면 내용 기록도 꺼져요.": "Saves only the active window. Turning this off also turns off screen content recording.",
-  "회의": "Meetings"
+  "회의": "Meetings",
+  "항상 기록하지 않아요": "Never recorded",
+  "브라우저의 시크릿·비공개 창": "Private and incognito browser windows",
+  "잠금 화면과 시스템 암호 확인 창": "Lock screen and system password prompts",
+  "비밀번호 관리 앱과 시크릿 창은 사용 시간만 남겨요": "Password managers and private windows keep usage time only"
 }
