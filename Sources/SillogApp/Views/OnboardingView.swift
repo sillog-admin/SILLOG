@@ -583,7 +583,7 @@ struct OnboardingSheet: View {
                 .buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
                 .disabled(testing || !apiKeyReady)
             case .judge:
-                Button("건너뛰기") { state.advanceOnboarding() }   // 앞에서 골라 둔 판단 모델이 있으면 그대로 둔다 (기본값은 안 씀).buttonStyle(OBButtonStyle(kind: .secondary))
+                Button("건너뛰기") { state.advanceOnboarding() }.buttonStyle(OBButtonStyle(kind: .secondary))   // keeps a judge picked earlier
             case .judgeJev:
                 Button("연결 확인") {
                     connectJudge("jev", endpoint: JevEndpoint(url: JevEndpoint.typesafeURL, model: JevEndpoint.defaultModel, key: trimmed(judgeJevKey)))
