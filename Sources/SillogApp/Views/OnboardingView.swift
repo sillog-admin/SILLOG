@@ -20,11 +20,14 @@ struct OnboardingOverlay: View {
 
 /// 시트가 뜨는 순간 창의 키보드 포커스를 비운다. 시트 뒤 채팅 입력칸(NSTextView)이나 그래프(WKWebView)가 타이핑을 받지 않게
 private struct ResignFocus: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async { view.window?.makeFirstResponder(nil) }
-        return view
+    /// Clears focus once the view is in a window. At makeNSView time it may not be attached yet, and then nothing was cleared.
+    private final class Probe: NSView {
+        override func viewDidMoveToWindow() {
+            DispatchQueue.main.async { [weak self] in self?.window?.makeFirstResponder(nil) }
+        }
     }
+
+    func makeNSView(context: Context) -> NSView { Probe() }
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
