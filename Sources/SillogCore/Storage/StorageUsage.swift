@@ -8,17 +8,17 @@ public struct StorageUsage: Equatable, Sendable {
 
         public var title: String {
             switch self {
-            case .screenshots: "스크린샷"
-            case .screenText: "화면 텍스트(검색 색인 포함)"
-            case .batchLog: "정리 기록"
-            case .observations: "활동 기록"
-            case .screenCards: "화면 카드"
-            case .aiRequests: "AI 도구 요청"
-            case .digests: "요약·사용 시간 기록"
-            case .graph: "업무 그래프"
-            case .chatLibrary: "채팅·보관함"
-            case .recordings: "녹음"
-            case .other: "기타"
+            case .screenshots: tr("스크린샷")
+            case .screenText: tr("화면 텍스트(검색 색인 포함)")
+            case .batchLog: tr("정리 기록")
+            case .observations: tr("활동 기록")
+            case .screenCards: tr("화면 카드")
+            case .aiRequests: tr("AI 도구 요청")
+            case .digests: tr("요약·사용 시간 기록")
+            case .graph: tr("업무 그래프")
+            case .chatLibrary: tr("채팅·보관함")
+            case .recordings: tr("녹음")
+            case .other: tr("기타")
             }
         }
     }
