@@ -159,7 +159,7 @@ public actor OntologyBatcher {
             return .failed(error.description)
         } catch {
             // 서버가 죽었거나 토큰이 만료된 경우: 데이터는 그대로 두고 기다린다. 건너뛰지 않는다.
-            let message = (error as? LLMError)?.description ?? "\(error)"
+            let message = "\(error)"
             let sent = config.pipeline == .single ? OntologyPrompt.build(rows: rows, openTasks: openTasks, now: now, cards: cards) : nil
             try recordFailure(message: message, model: model, first: first, last: last, rowCount: rows.count, raw: nil, now: now, prompt: sent)
             scheduleBackoff(now: now)
@@ -276,7 +276,7 @@ public actor OntologyBatcher {
             let ids = try await EventFinder.run(db: db, llm: llm, rows: rows, cards: cards, calendar: calendar, now: now)
             if !ids.isEmpty { AppLog.write("일정 제안 \(ids.count)개를 찾음") }
         } catch {
-            AppLog.write("일정 찾기 실패: \((error as? LLMError)?.description ?? "\(error)")")
+            AppLog.write("일정 찾기 실패: \("\(error)")")
         }
     }
 
@@ -292,7 +292,7 @@ public actor OntologyBatcher {
             AppLog.write(message)
             return outcome
         } catch {
-            AppLog.write("분야 붙이기 실패: \((error as? LLMError)?.description ?? "\(error)")")
+            AppLog.write("분야 붙이기 실패: \("\(error)")")
             return nil
         }
     }

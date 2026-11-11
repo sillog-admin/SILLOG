@@ -51,7 +51,7 @@ final class ProjectState: ObservableObject {
                 reload()
             } catch {
                 guard reviewID == id, !Task.isCancelled, !(error is CancellationError) else { return }
-                self.error = "프로젝트 확인 실패: \((error as? LLMError)?.description ?? error.localizedDescription)"
+                self.error = "프로젝트 확인 실패: \(error.localizedDescription)"
             }
         }
     }

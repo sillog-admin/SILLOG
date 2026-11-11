@@ -65,7 +65,7 @@ public struct DigestBuilder {
                     } catch {
                         // 연결·로그인 문제: 이번 실행에서는 서술을 더 시도하지 않고, 실패 횟수도 세지 않는다
                         llmFailed = true
-                        AppLog.write("다이제스트 서술 실패 (LLM 연결): \((error as? LLMError)?.description.prefix(160) ?? "\(error)".prefix(160))")
+                        AppLog.write("다이제스트 서술 실패 (LLM 연결): \("\(error)".prefix(160))")
                         break
                     }
                 }

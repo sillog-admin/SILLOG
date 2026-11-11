@@ -298,7 +298,7 @@ final class AppState: ObservableObject {
     private func start(_ coordinator: CollectorCoordinator) {
         tasks.append(Task {
             await coordinator.setOnChange { [weak self] status in
-                Task { @MainActor in self?.status = status }
+                Task { @MainActor in if self?.status != status { self?.status = status } }
             }
             await coordinator.setOnFileAppeared { [weak self] path, origin in
                 Task { @MainActor in await self?.fileDownloaded(path: path, origin: origin) }
@@ -409,7 +409,7 @@ final class AppState: ObservableObject {
             try await makeChatClient().checkChatConnection()
             chatTestResult = "연결됨 · 응답과 도구 호출 확인"
         } catch {
-            chatTestResult = (error as? LLMError)?.description ?? error.localizedDescription
+            chatTestResult = error.localizedDescription
         }
     }
 
@@ -508,7 +508,7 @@ final class AppState: ObservableObject {
                 // 로그아웃·연결 변경·중단으로 끝난 검사는 이전 결과를 덮어쓰지 않는다.
             } catch {
                 guard codexModelTaskID == id, !Task.isCancelled else { return }
-                let message = "모델 확인 실패: \(Self.friendlyModelError((error as? LLMError)?.description ?? error.localizedDescription))"
+                let message = "모델 확인 실패: \(Self.friendlyModelError(error.localizedDescription))"
                 if checkBatch { codexModelsError = message }
                 if checkChat { chatCodexModelsError = message }
             }

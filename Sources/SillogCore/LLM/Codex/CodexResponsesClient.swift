@@ -134,7 +134,7 @@ public final class CodexResponsesClient: LLMClient, @unchecked Sendable {
             } catch {
                 try Task.checkCancellation()
                 if error is CancellationError { throw error }
-                let description = (error as? LLMError)?.description ?? (error as? CodexAuthError)?.description ?? error.localizedDescription
+                let description = (error as? CodexAuthError)?.description ?? error.localizedDescription
                 let message = description.lowercased()
                 if message.contains("model"), message.contains("not supported") || message.contains("model_not_found")
                     || message.contains("requires a newer version of codex") { continue }

@@ -64,7 +64,7 @@ public enum PipelineError: Error, CustomStringConvertible {
         case .incomplete(let stage, let missing, _):
             return "\(stage) 단계가 행 \(missing.count)개를 판정하지 못함 (\(missing.prefix(10).map(String.init).joined(separator: ", ")))"
         case .stageFailed(let stage, let underlying, _):
-            return "\(stage) 단계 호출 실패: \((underlying as? LLMError)?.description ?? "\(underlying)")"
+            return "\(stage) 단계 호출 실패: \("\(underlying)")"
         case .lostState:
             return "단계 사이에서 상태를 잃음"
         }

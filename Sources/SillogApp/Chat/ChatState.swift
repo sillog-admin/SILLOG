@@ -407,7 +407,7 @@ final class ChatState: ObservableObject {
                     let cancelled = Task.isCancelled || error is CancellationError
                     self.activeMessage?.status = cancelled ? "cancelled" : "failed"
                     if !cancelled {
-                        let description = (error as? LLMError)?.description ?? error.localizedDescription
+                        let description = error.localizedDescription
                         self.activeMessage?.text += "\n\n응답을 완료하지 못했습니다: \(description)"
                     }
                 }

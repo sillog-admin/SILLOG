@@ -25,7 +25,7 @@ public struct LLMResult: Sendable {
     }
 }
 
-public enum LLMError: Error, Equatable, CustomStringConvertible {
+public enum LLMError: Error, Equatable, CustomStringConvertible, LocalizedError {
     case http(Int, String)
     case noJSON(String)
     case transport(String)
@@ -43,6 +43,8 @@ public enum LLMError: Error, Equatable, CustomStringConvertible {
         case .backend(let message): return "서버가 응답을 만들지 못함: \(message)"
         }
     }
+
+    public var errorDescription: String? { description }
 }
 
 public protocol LLMClient: Sendable {

@@ -264,7 +264,7 @@ public enum WeeklyReview {
                     for g in tidy.problemGroups ?? [] { if let p = group(g, "P") { proposals.append(.make(.mergeProblems, p)) } }
                 }
             } catch {
-                AppLog.write("정리 제안: 주제·할 일·문제 정리 실패, 업무 합치기만 제안 (\((error as? LLMError)?.description ?? "\(error)"))")
+                AppLog.write("정리 제안: 주제·할 일·문제 정리 실패, 업무 합치기만 제안 (\("\(error)"))")
             }
         }
         // 종류 순서대로 모은다 (시트에서 묶음으로 보이게. 같은 종류 안은 받은 순서)

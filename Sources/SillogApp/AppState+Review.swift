@@ -71,7 +71,7 @@ extension AppState {
             let day = Self.reviewDay(now)
             try await db.writer.write { try ConsolidationStore.set(Self.reviewDayKey, day, $0) }
         } catch {
-            AppLog.write("정리 제안 만들기 실패: \((error as? LLMError)?.description ?? "\(error)")")
+            AppLog.write("정리 제안 만들기 실패: \("\(error)")")
             try? await db.writer.write { try ConsolidationStore.set(Self.reviewFailedKey, String(now), $0) }
             return
         }
