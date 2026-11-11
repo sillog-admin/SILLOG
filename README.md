@@ -120,11 +120,11 @@ ChatGPT 모델 선택창은 서버에서 받은 후보를 선택한 정리용·�
 - **일정 찾기**: 정리할 때마다 그 기록을 정리용 모델에 한 번 더 보내 앞으로의 일정을 찾습니다. 캘린더 권한이 있으면 앞으로 60일 일정의 제목과 날짜도 같이 보내 이미 있는 일정을 다시 제안하지 않게 합니다. 일정은 [등록]을 눌러야 캘린더에 들어가고, 그때 찾은 문구(채팅 한 줄 같은 것)가 일정 메모에 같이 들어갑니다. 그 캘린더가 iCloud·구글 계정이면 메모도 함께 동기화됩니다.
 - **요약 전송**: 주간·월간 요약을 만들 때 업무의 세션 요약·자료 제목·AI 도구 요청 일부를 정리용 모델에 다시 보냅니다. 저장 공간 설정에서 끄면 수치와 세션 요약만으로 만듭니다. 시간·건수는 모델이 아니라 코드가 계산합니다.
 
-저장 경로, Swift 모듈 이름과 `WORKGRAPH_*` 환경변수는 개발 때 쓰던 이름(WorkGraph)을 그대로 씁니다.
+저장 경로, Swift 모듈 이름과 `SILLOG_*` 환경변수는 개발 때 쓰던 이름(WorkGraph)을 그대로 씁니다.
 
 ```text
-~/Library/Application Support/WorkGraph/
-├── workgraph.sqlite   # 활동·그래프·대화·결과물·예약
+~/Library/Application Support/Sillog/
+├── sillog.sqlite   # 활동·그래프·대화·결과물·예약
 ├── captures/          # 스크린샷
 ├── library/           # 보관 파일의 복사본·생성 결과물·저장한 답변
 ├── codex-auth.json    # 앱 전용 ChatGPT 인증
@@ -137,32 +137,32 @@ SwiftUI·AppKit을 사용한 네이티브 앱입니다. 수집은 접근성 API�
 
 ```text
 Sources/
-├── WorkGraphApp/          # 앱 상태, 화면, 커넥터 인증, 예약 실행
-├── WorkGraphCollectors/   # macOS 활동·화면·파일·AI 대화 수집
-├── WorkGraphCore/
+├── SillogApp/          # 앱 상태, 화면, 커넥터 인증, 예약 실행
+├── SillogCollectors/   # macOS 활동·화면·파일·AI 대화 수집
+├── SillogCore/
 │   ├── Chat/              # 검색, 모델 실행, 도구, 스킬, 결과물
 │   ├── Ontology/          # 업무 배정, 그래프 반영, 세션·업무 병합
 │   ├── Memory/            # 화면 기억 카드, 사용 시간 기록, 주간·월간 요약, 기록 정리
 │   ├── Storage/           # SQLite 저장·마이그레이션, 보관 정책·원문 정리·저장 공간
 │   └── LLM/               # ChatGPT 인증·OpenAI 호환 클라이언트
-└── wgctl/                 # 개발·점검 CLI
-Tests/WorkGraphCoreTests/   # 저장·분류·채팅·예약 회귀 테스트
+└── sillogctl/                 # 개발·점검 CLI
+Tests/SillogCoreTests/   # 저장·분류·채팅·예약 회귀 테스트
 ```
 
 ```bash
 swift build
 swift test
-swift run wgctl                       # CLI 도움말
-swift run wgctl stats                 # 기록 통계
-swift run wgctl rows --last 20 --text  # 최근 관측 행
-swift run wgctl storage               # 범주별 저장 공간
-swift run wgctl consolidate --dry-run # 보관 기간이 지나 지울 원문 미리보기
+swift run sillogctl                       # CLI 도움말
+swift run sillogctl stats                 # 기록 통계
+swift run sillogctl rows --last 20 --text  # 최근 관측 행
+swift run sillogctl storage               # 범주별 저장 공간
+swift run sillogctl consolidate --dry-run # 보관 기간이 지나 지울 원문 미리보기
 ```
 
 - [개발 가이드](docs/development.md): 빌드·권한, 환경변수, 데이터 조회, 모델 없이 흐름 확인
 - [커넥터 설정](docs/connectors.md): 공급자별 OAuth 설정과 배포 제한
-- [채팅 시스템 프롬프트](Sources/WorkGraphCore/Chat/Prompts/chat-system-prompt.md): 채팅 답변 규칙. 끝의 `{{…}}` 칸은 요청마다 채운다
-- [스킬 지침](Sources/WorkGraphCore/Chat/Skills): 여섯 스킬의 작업 절차
+- [채팅 시스템 프롬프트](Sources/SillogCore/Chat/Prompts/chat-system-prompt.md): 채팅 답변 규칙. 끝의 `{{…}}` 칸은 요청마다 채운다
+- [스킬 지침](Sources/SillogCore/Chat/Skills): 여섯 스킬의 작업 절차
 
 변경은 작업 단위로 커밋하고, 기존 Swift 스타일을 따릅니다. 새 함수는 `Args`, `Returns`, `Raises`를 포함해 문서화하며 불필요한 검증·재시도·리팩터링을 추가하지 않습니다.
 

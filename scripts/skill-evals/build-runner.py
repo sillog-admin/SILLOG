@@ -13,7 +13,7 @@ for directory in ['Sources', 'Tests']:
 shutil.copy2(root / 'Package.resolved', stage / 'Package.resolved')
 manifest = (root / 'Package.swift').read_text()
 manifest = manifest.replace('products: [', 'products: [.executable(name: "SkillEval", targets: ["SkillEval"]),', 1)
-manifest = manifest.replace('targets: [\n', 'targets: [\n        .executableTarget(name: "SkillEval", dependencies: ["WorkGraphCore"], path: "SkillEval"),\n', 1)
+manifest = manifest.replace('targets: [\n', 'targets: [\n        .executableTarget(name: "SkillEval", dependencies: ["SillogCore"], path: "SkillEval"),\n', 1)
 (stage / 'Package.swift').write_text(manifest)
 (stage / 'SkillEval').mkdir(exist_ok=True)
 shutil.copy2(Path(__file__).with_name('runner.swift'), stage / 'SkillEval/runner.swift')

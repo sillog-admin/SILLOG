@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "WorkGraph",
+    name: "Sillog",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "WorkGraphCore", targets: ["WorkGraphCore"]),
-        .executable(name: "WorkGraphApp", targets: ["WorkGraphApp"]),
-        .executable(name: "wgctl", targets: ["wgctl"]),
+        .library(name: "SillogCore", targets: ["SillogCore"]),
+        .executable(name: "SillogApp", targets: ["SillogApp"]),
+        .executable(name: "sillogctl", targets: ["sillogctl"]),
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
@@ -20,33 +20,33 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "WorkGraphCore",
+            name: "SillogCore",
             dependencies: [.product(name: "GRDB", package: "GRDB.swift"), .product(name: "LangGraph", package: "LangGraph-Swift")],
             resources: [.copy("Chat/Skills"), .copy("Chat/Prompts")]
         ),
         .target(
-            name: "WorkGraphCollectors",
-            dependencies: ["WorkGraphCore"]
+            name: "SillogCollectors",
+            dependencies: ["SillogCore"]
         ),
         .executableTarget(
-            name: "WorkGraphApp",
-            dependencies: ["WorkGraphCore", "WorkGraphCollectors", .product(name: "SwiftMath", package: "SwiftMath"),
+            name: "SillogApp",
+            dependencies: ["SillogCore", "SillogCollectors", .product(name: "SwiftMath", package: "SwiftMath"),
                            .product(name: "WhisperKit", package: "WhisperKit")],
             exclude: ["Resources/AppIcon.icns"],            // .app 번들에는 scripts/make-app.sh 가 직접 넣는다
             resources: [.copy("Resources/graph"), .copy("Resources/calendar"), .copy("Resources/ConnectorIcons"), .copy("Resources/Brand")]
         ),
         .executableTarget(
-            name: "wgctl",
-            dependencies: ["WorkGraphCore", "WorkGraphCollectors", .product(name: "GRDB", package: "GRDB.swift")]
+            name: "sillogctl",
+            dependencies: ["SillogCore", "SillogCollectors", .product(name: "GRDB", package: "GRDB.swift")]
         ),
         .testTarget(
-            name: "WorkGraphCoreTests",
-            dependencies: ["WorkGraphCore"]
+            name: "SillogCoreTests",
+            dependencies: ["SillogCore"]
         ),
         // 앱 화면 동작 테스트: 미리보기 상태(AppState(preview:))로 화면 밖 창에 그려 본다. 실제 DB·실행 잠금은 쓰지 않는다
         .testTarget(
-            name: "WorkGraphAppTests",
-            dependencies: ["WorkGraphApp", "WorkGraphCore"]
+            name: "SillogAppTests",
+            dependencies: ["SillogApp", "SillogCore"]
         ),
     ]
 )

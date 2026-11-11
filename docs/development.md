@@ -23,46 +23,46 @@ SIGN_IDENTITY="Apple Development: 인증서 이름" ./scripts/make-app.sh
 
 - **화면 기록 목록에 앱이 없음**: 시스템 설정의 화면 기록 목록에 `~/Applications/Sillog.app`을 직접 추가하고 허용한 뒤 앱을 종료하고 다시 실행합니다.
 - **시스템 설정은 허용인데 앱은 권한 없음**: ad-hoc 서명으로 다시 빌드하면 기존 권한에 저장된 서명과 달라질 수 있습니다. 앱을 종료하고 화면 기록 목록의 Sillog 항목을 제거한 뒤, 설치된 앱을 다시 추가·허용하고 실행합니다. 재빌드 후에도 권한을 유지하려면 같은 개발자 인증서로 서명합니다.
-- **이미 실행 중 안내**: 같은 DB를 사용하는 기존 앱 또는 `swift run WorkGraphApp` 프로세스를 종료합니다. 수집 중인 DB에 두 인스턴스가 동시에 쓰지 않도록 잠금이 걸립니다.
+- **이미 실행 중 안내**: 같은 DB를 사용하는 기존 앱 또는 `swift run SillogApp` 프로세스를 종료합니다. 수집 중인 DB에 두 인스턴스가 동시에 쓰지 않도록 잠금이 걸립니다.
 - **`no such module 'XCTest'`**: 전체 Xcode와 개발자 경로를 확인합니다. Command Line Tools만 설치한 환경에는 XCTest가 없을 수 있습니다. 앱 빌드 성공과 단위 테스트 통과는 별도로 확인해야 합니다.
-- **실행·권한·정리 오류 확인**: `~/Library/Application Support/WorkGraph/app.log`를 확인합니다. 로그에 화면 내용이나 토큰은 기록하지 않습니다.
+- **실행·권한·정리 오류 확인**: `~/Library/Application Support/Sillog/app.log`를 확인합니다. 로그에 화면 내용이나 토큰은 기록하지 않습니다.
 
 ## 환경변수
 
-기존 실행 설정과 호환되도록 `WORKGRAPH_*` 이름을 유지합니다. OAuth 변수는 [커넥터 설정](connectors.md)을 참고하세요.
+기존 실행 설정과 호환되도록 `SILLOG_*` 이름을 유지합니다. OAuth 변수는 [커넥터 설정](connectors.md)을 참고하세요.
 
 | 변수 | 용도 |
 | --- | --- |
-| `WORKGRAPH_BUILD_DIR` | 빌드 캐시·소스 복사본·앱 번들을 준비할 경로 |
+| `SILLOG_BUILD_DIR` | 빌드 캐시·소스 복사본·앱 번들을 준비할 경로 |
 | `SIGN_IDENTITY` | 앱 서명 인증서. `-`는 ad-hoc |
-| `WORKGRAPH_DB` | 기본값 대신 사용할 SQLite 파일 |
-| `WORKGRAPH_CODEX_AUTH` | 앱 전용 ChatGPT 인증 파일 경로 |
-| `WORKGRAPH_SHOW_WINDOW=1` | 시작 시 메인 창 표시 |
-| `WORKGRAPH_REQUEST_PERMISSIONS=1` | 시작 시 손쉬운 사용·화면 기록 권한 요청 |
+| `SILLOG_DB` | 기본값 대신 사용할 SQLite 파일 |
+| `SILLOG_CODEX_AUTH` | 앱 전용 ChatGPT 인증 파일 경로 |
+| `SILLOG_SHOW_WINDOW=1` | 시작 시 메인 창 표시 |
+| `SILLOG_REQUEST_PERMISSIONS=1` | 시작 시 손쉬운 사용·화면 기록 권한 요청 |
 | (녹음 받아쓰기 모델) | Whisper large-v3-turbo 압축판(`openai_whisper-large-v3-v20240930_626MB`, 약 610MB)을 처음 받아쓸 때 데이터 폴더의 `models/` 아래로 내려받는다(WhisperKit, 기기 안). 녹음하는 동안 30초쯤마다 조용한 순간에 잘라 미리 받아써 두고(`LiveTranscription`), 끝나면 남은 조각만 받아쓴다(11분 녹음도 끝나고 약 2초). 앱을 다시 켰거나 미리 받아쓰기가 실패하면 파일 전체를 같은 30초 조각으로 받아쓴다. 내려받기·불러오기에 실패하면 애플 기기 안 음성 인식으로 받아쓴다. 모델은 90초 동안 안 쓰면 내려놓는다 |
-| `WORKGRAPH_TRANSCRIBE_TRACE` | 개발용 받아쓰기 진단: `<녹음 파일>|<적을 파일>`. 앱과 같은 방식으로 받아쓰며 인식기 결과(마지막 결과·발화 끝 표시·끝 시각·글)를 하나하나 적고 끝난다. 음성 인식 권한이 앱 번들에만 있어 `open -n Sillog.app --env 'WORKGRAPH_TRANSCRIBE_TRACE=…'` 로 띄운다. `WORKGRAPH_TRANSCRIBE_ENGINE=apple` 이면 애플 음성 인식으로(기본은 Whisper 로 파일 전체), `WORKGRAPH_TRANSCRIBE_GAIN=2` 로 애플 인식의 키울 배수를 직접 정할 수 있다. `WORKGRAPH_TRANSCRIBE_ENGINE=live` 면 파일을 녹음기처럼 흘려보내며 녹음 중 미리 받아쓰기를 하고 끝난 뒤 글이 나오기까지 걸린 시간을 적는다(`WORKGRAPH_TRANSCRIBE_SPEED=8` 로 8배 빨리) |
+| `SILLOG_TRANSCRIBE_TRACE` | 개발용 받아쓰기 진단: `<녹음 파일>|<적을 파일>`. 앱과 같은 방식으로 받아쓰며 인식기 결과(마지막 결과·발화 끝 표시·끝 시각·글)를 하나하나 적고 끝난다. 음성 인식 권한이 앱 번들에만 있어 `open -n Sillog.app --env 'SILLOG_TRANSCRIBE_TRACE=…'` 로 띄운다. `SILLOG_TRANSCRIBE_ENGINE=apple` 이면 애플 음성 인식으로(기본은 Whisper 로 파일 전체), `SILLOG_TRANSCRIBE_GAIN=2` 로 애플 인식의 키울 배수를 직접 정할 수 있다. `SILLOG_TRANSCRIBE_ENGINE=live` 면 파일을 녹음기처럼 흘려보내며 녹음 중 미리 받아쓰기를 하고 끝난 뒤 글이 나오기까지 걸린 시간을 적는다(`SILLOG_TRANSCRIBE_SPEED=8` 로 8배 빨리) |
 | (숨은 설정 `frameLog`) | `defaults write com.sillog.app frameLog -bool true` 면 화면 갱신마다 메인 스레드가 늦은 프레임을 재서, 늦은 프레임이 있던 1초마다 화면 이름과 함께 app.log 에 `프레임 기록 자료 > 파일: 120장 중 늦음 3 (많이 늦음 1), 가장 긴 간격 40ms` 처럼 남긴다. 앱을 다시 켜야 적용, `defaults delete … frameLog` 로 끈다 |
-| `WORKGRAPH_TAB` | 시작 탭: `graph`, `chat`, `records`(기록 자료), `calendar`, `settings`. `files`, `history`(지난 기록), `library` 는 기록 자료의 그 구역으로, `activity` 는 설정의 활동 로그로 연다 (업무 목록은 그래프 탭에만 있다) |
+| `SILLOG_TAB` | 시작 탭: `graph`, `chat`, `records`(기록 자료), `calendar`, `settings`. `files`, `history`(지난 기록), `library` 는 기록 자료의 그 구역으로, `activity` 는 설정의 활동 로그로 연다 (업무 목록은 그래프 탭에만 있다) |
 
 ## 테스트와 CLI
 
 ```bash
 swift build
 swift test
-swift run wgctl
+swift run sillogctl
 ```
 
-`wgctl`은 앱과 같은 코어 로직을 사용하는 개발 도구입니다. 기본 DB는 실제 사용자 기록이므로, 실험에는 `--db`로 별도 DB를 지정하세요. 그래프 재생성·업무 병합처럼 데이터를 변경하는 명령은 앱을 종료하고 백업 후 실행해야 합니다.
+`sillogctl`은 앱과 같은 코어 로직을 사용하는 개발 도구입니다. 기본 DB는 실제 사용자 기록이므로, 실험에는 `--db`로 별도 DB를 지정하세요. 그래프 재생성·업무 병합처럼 데이터를 변경하는 명령은 앱을 종료하고 백업 후 실행해야 합니다.
 
 ### 모델 없이 흐름 확인
 
 ```bash
 SILLOG_TEST_DIR=$(mktemp -d)
-SILLOG_TEST_DB="$SILLOG_TEST_DIR/workgraph.sqlite"
-swift run wgctl --db "$SILLOG_TEST_DB" seed-demo
-swift run wgctl --db "$SILLOG_TEST_DB" batch --all --demo-llm
-swift run wgctl --db "$SILLOG_TEST_DB" stats
-WORKGRAPH_DB="$SILLOG_TEST_DB" WORKGRAPH_SHOW_WINDOW=1 build/Sillog.app/Contents/MacOS/Sillog
+SILLOG_TEST_DB="$SILLOG_TEST_DIR/sillog.sqlite"
+swift run sillogctl --db "$SILLOG_TEST_DB" seed-demo
+swift run sillogctl --db "$SILLOG_TEST_DB" batch --all --demo-llm
+swift run sillogctl --db "$SILLOG_TEST_DB" stats
+SILLOG_DB="$SILLOG_TEST_DB" SILLOG_SHOW_WINDOW=1 build/Sillog.app/Contents/MacOS/Sillog
 ```
 
 `--demo-llm`은 시드 데이터를 규칙으로 분류하는 가짜 모델입니다. 수집→분류→그래프 흐름을 확인하는 용도이며 실제 LLM 품질 평가에 사용할 수 없습니다. 앱의 로그인·온보딩을 우회하지는 않습니다.
@@ -70,24 +70,24 @@ WORKGRAPH_DB="$SILLOG_TEST_DB" WORKGRAPH_SHOW_WINDOW=1 build/Sillog.app/Contents
 ### 자주 쓰는 읽기 명령
 
 ```bash
-swift run wgctl rows --last 50 --text
-swift run wgctl batches
-swift run wgctl cards --last 20
-swift run wgctl tasks
-swift run wgctl schema
-swift run wgctl dump report.md --since-hours 24 --text
-swift run wgctl export-graph graph.json --tbox
-swift run wgctl export-rdf graph.ttl
-swift run wgctl export-cypher graph.cypher
+swift run sillogctl rows --last 50 --text
+swift run sillogctl batches
+swift run sillogctl cards --last 20
+swift run sillogctl tasks
+swift run sillogctl schema
+swift run sillogctl dump report.md --since-hours 24 --text
+swift run sillogctl export-graph graph.json --tbox
+swift run sillogctl export-rdf graph.ttl
+swift run sillogctl export-cypher graph.cypher
 ```
 
 덤프와 내보내기에는 개인 기록이 포함될 수 있으므로 저장소에 커밋하지 마세요.
 
-`wgctl find-events 배치ID…`는 저장된 배치의 행을 일정 찾기에 다시 보내 찾은 일정을 보여 줍니다(제안은 만들지 않음, 배치당 LLM 호출 1번). 앱이 아직 모르는 마이그레이션이 있으면 CLI가 DB를 열면서 적용하므로, 실제 기록으로 볼 때는 사본을 떠서 씁니다.
+`sillogctl find-events 배치ID…`는 저장된 배치의 행을 일정 찾기에 다시 보내 찾은 일정을 보여 줍니다(제안은 만들지 않음, 배치당 LLM 호출 1번). 앱이 아직 모르는 마이그레이션이 있으면 CLI가 DB를 열면서 적용하므로, 실제 기록으로 볼 때는 사본을 떠서 씁니다.
 
 ```bash
-sqlite3 "file:$HOME/Library/Application Support/WorkGraph/workgraph.sqlite?mode=ro" ".backup '/tmp/wg-copy.sqlite'"
-WORKGRAPH_DB=/tmp/wg-copy.sqlite swift run wgctl find-events 1851 1779
+sqlite3 "file:$HOME/Library/Application Support/Sillog/sillog.sqlite?mode=ro" ".backup '/tmp/wg-copy.sqlite'"
+SILLOG_DB=/tmp/wg-copy.sqlite swift run sillogctl find-events 1851 1779
 ```
 
 ## 데이터 구조
@@ -142,7 +142,7 @@ v14의 `app_messages_fts`는 완료된 메시지와 결과물 본문 전체를 �
 
 - `usage_ledger`: 날짜·업무·대상(업무·자료·앱·프로젝트)별 사용 시간. 그래프 재구성과 같은 계산(`ActivityTally`)을 써서 세션 시간의 합과 항상 같습니다. 원문을 지우는 날은 마지막으로 계산한 뒤 `frozen = 1`로 동결합니다. 업무 밖 행은 시간과 앱만 남기고 주소는 남기지 않습니다.
 - `digests`·`digests_fts`: 업무별 주간(ISO 주)·월간 요약. 수치는 사용 시간 기록에서 코드가 계산하고, 문장은 정리용 모델이 씁니다. `DigestValidator`가 입력에 없는 숫자, 주지 않은 앵커, 근거 없는 완료(`evidenced`), 길이 초과를 거부합니다. 서술이 실패하면 결정적 요약을 `draft`로 두고 그 주의 원문은 지우지 않습니다. 같은 입력으로 세 번 검증에 실패하면 더 부르지 않고 초안으로 둡니다. 입력이나 프롬프트 버전이 바뀌면 다시 시도하고, 사용자가 요약을 확인해 저장하면(`edited`) 유예 기간 뒤 정리합니다. 사용자가 고친 요약(`edited`)은 다시 만들지 않습니다.
-- `consolidation_state`: 진행 상태(`sealed_until`, 항목별 `*_pruned_until`, 첫 정리 동의, 보관 정책 JSON). 보관 정책은 앱과 wgctl이 같이 쓰도록 DB에 둡니다.
+- `consolidation_state`: 진행 상태(`sealed_until`, 항목별 `*_pruned_until`, 첫 정리 동의, 보관 정책 JSON). 보관 정책은 앱과 sillogctl이 같이 쓰도록 DB에 둡니다.
 - `retention_pins`: 원문을 지우지 않을 업무(`task`)·기간(`period`).
 - `prompt_blobs`: 배치 시스템 프롬프트 원문을 한 번만 저장하고 `batches.system_prompt_hash`로 가리킵니다. 배치를 읽는 함수가 원문을 채웁니다.
 
@@ -151,35 +151,35 @@ v14의 `app_messages_fts`는 완료된 메시지와 결과물 본문 전체를 �
 채팅은 `digest:` 출처를 검색하고 읽으며, 기간의 시간과 건수는 `summarize_period`로 계산합니다(출처 ID `usage:`). 시스템 프롬프트의 `raw_records_since`에는 원문이 남아 있는 첫 날이 들어갑니다(정리한 적이 없으면 `all`).
 
 ```bash
-swift run wgctl storage                       # 범주별 크기, 30일 하루 평균 증가량
-swift run wgctl retention                     # 보관 정책 보기 (--preset, --set 항목=일수|none, --grace, --narrate)
-swift run wgctl consolidate --dry-run         # 지울 날·건수·예상 회수량, 멈춘 이유, 원문을 남긴 주
-swift run wgctl consolidate --ledger-only     # 사용 시간 기록만 갱신하고 업무 시간과 비교
-swift run wgctl consolidate --no-prune        # 요약까지만 (원문은 지우지 않음)
-swift run wgctl digest show --week 2026-W40   # 요약 확인
+swift run sillogctl storage                       # 범주별 크기, 30일 하루 평균 증가량
+swift run sillogctl retention                     # 보관 정책 보기 (--preset, --set 항목=일수|none, --grace, --narrate)
+swift run sillogctl consolidate --dry-run         # 지울 날·건수·예상 회수량, 멈춘 이유, 원문을 남긴 주
+swift run sillogctl consolidate --ledger-only     # 사용 시간 기록만 갱신하고 업무 시간과 비교
+swift run sillogctl consolidate --no-prune        # 요약까지만 (원문은 지우지 않음)
+swift run sillogctl digest show --week 2026-W40   # 요약 확인
 ```
 
-실제 DB로 확인할 때는 사본(`sqlite3 원본 ".backup 사본"`)에 `--db`를 쓰고, 로그가 사본 옆에 남도록 `WORKGRAPH_DB`도 같은 경로로 지정하세요. 원문을 지우는 `consolidate`(`--consent`)는 앱을 끄고 실행합니다.
+실제 DB로 확인할 때는 사본(`sqlite3 원본 ".backup 사본"`)에 `--db`를 쓰고, 로그가 사본 옆에 남도록 `SILLOG_DB`도 같은 경로로 지정하세요. 원문을 지우는 `consolidate`(`--consent`)는 앱을 끄고 실행합니다.
 
 ## 구현 위치
 
-- **스키마·관계**: `Sources/WorkGraphCore/Ontology/TBox.swift`, `RelationSchema.swift`
+- **스키마·관계**: `Sources/SillogCore/Ontology/TBox.swift`, `RelationSchema.swift`
 - **업무 배정**: `OntologyPrompt.swift`, `AssignmentApplier.swift`, `SessionBuilder.swift`
 - **자료 분류**: `RuleClassifier.swift`, `URINormalizer.swift`
-- **채팅 실행**: `Sources/WorkGraphCore/Chat/ChatRunner.swift`, `ChatTools.swift`
-- **채팅 시스템 프롬프트**: `Sources/WorkGraphCore/Chat/Prompts/chat-system-prompt.md`(원문), `ChatSystemPrompt.swift`(끝의 `{{…}}` 칸 채우기)
-- **스킬**: `Sources/WorkGraphCore/Chat/Skills/catalog.json`과 각 Markdown 지침
-- **대화·예약 상태**: `Sources/WorkGraphApp/Chat/ChatState.swift`
-- **채팅 범위(분야·업무 여러 개로 좁히기)**: `ChatScope.focus`(대화 기록의 `scope.focuses`), `Sources/WorkGraphCore/Chat/ChatFocus.swift`(고를 거리, 프롬프트의 `<focus>`), `ContextSearch.swift`의 `access`(합친 범위로 거르기), `Sources/WorkGraphApp/Views/ChatFocusPicker.swift`(범위 단추, 분야→업무 나무 `ChatFocusTree`와 고르기 규칙)
-- **프로젝트 제안·소속**(화면에서 뺌, 자동 제안도 부르지 않음. 데이터와 코드는 남김): `Sources/WorkGraphCore/Chat/ProjectOrganizer.swift`, `ProjectStore.swift`, `Sources/WorkGraphApp/Chat/ProjectState.swift`
-- **자료 보관·추출**: `Sources/WorkGraphCore/Chat/LibraryStore.swift`, `FileTextExtractor.swift`, `Sources/WorkGraphApp/Chat/LibraryState.swift`, `Views/LibraryView.swift`
-- **그래프 화면**: `Sources/WorkGraphApp/Resources/graph`
-- **기능 켜고 끄기**: `Sources/WorkGraphApp/AppFeatures.swift`. 캘린더(캘린더 탭, 메뉴 막대 캘린더 줄, 일정 찾기·알림, 설정·온보딩의 캘린더 권한)는 기본 꺼짐, `defaults write com.sillog.app calendar -bool true` 로 켠다
-- **일정 제안**: `Sources/WorkGraphCore/Calendar/EventFinder.swift`(정리를 반영한 뒤 그 행 전부(업무 외 포함)를 다시 보내 일정을 찾는다. 남기는 것은 대화에서 정한 약속·회의·마감과 보고 있는 과제 하나의 마감뿐이고, 기간·계획표·캘린더 앱 화면은 뺀다. 무시한 제안은 거절한 예로 같이 보내고, 한 웹페이지에서 3개 넘게 남기면 계획표로 보고 버린다. 이미 아는 일정과 겹치는 것도 거른다), `Storage/EventSuggestionStore.swift`, `Sources/WorkGraphApp/Calendar/CalendarService.swift`(EventKit: 오늘 일정, 등록, 직접 넣은 일정은 제안에서 닫기), `AppState+Calendar.swift`(새 제안 알림, 알림의 [등록]/[무시]). 캘린더 화면은 `Views/CalendarView.swift`(오른쪽 제안 카드·연결한 캘린더), `Calendar/CalendarWebView.swift`(웹 달력과 주고받기: 보이는 기간의 일정을 약속으로 답함), `Calendar/CalendarFeed.swift`(일정·제안 → FullCalendar 이벤트), `Resources/calendar`(FullCalendar 6.1.22 표준 묶음과 한국어, MIT, `vendor/fullcalendar/LICENSE.md`). 구글 계정 직접 연결은 `Sources/WorkGraphCore/Calendar/GoogleCalendarClient.swift`(캘린더 목록·기간 일정·일정 넣기)와 `CalendarService` 의 구글 확장(로그인은 `ConnectorAuth` 의 "gcal", 맥과 겹치는 캘린더는 `CalendarFeed.merge` 가 숨김)
-- **정리 제안 (하루 한 번)**: `Sources/WorkGraphCore/Memory/WeeklyReview.swift`(AI 2번: TaskMerger 를 60일로 + 한 제품의 다른 이름·부분 작업 규칙과 업무별 프로젝트 폴더, 주제·나중에 할 일·문제를 한 번에 `tidy_graph`. 짧은 세션 붙이기는 AI 없이. `ReviewStore` 는 review_proposals 표. 거절은 짝 단위(`ReviewProposal.units`)로 기억해 다음 주 묶음이 달라져도 빼고, 반영한 것은 막지 않음. 반영과 표시는 `ReviewStore.apply` 한 트랜잭션, 앞에서 합쳐져 사라진 키는 남은 키로 따라감. 주제·문제 정리 호출이 실패하면 업무 합치기만 제안), `Sources/WorkGraphApp/AppState+Review.swift`(오늘 안 만들었으면 기록 정리 루프에서, 새 제안이 있을 때만 알림, 실패하면 하루 뒤, 시트를 연 동안은 갈아 끼우지 않음, 반영하는 동안 정리 멈춤), `Views/ReviewSheet.swift`(시트와 업무 목록 위 줄). 실제 기록으로 미리 보기: `WORKGRAPH_DB=사본 wgctl weekly-review`
+- **채팅 실행**: `Sources/SillogCore/Chat/ChatRunner.swift`, `ChatTools.swift`
+- **채팅 시스템 프롬프트**: `Sources/SillogCore/Chat/Prompts/chat-system-prompt.md`(원문), `ChatSystemPrompt.swift`(끝의 `{{…}}` 칸 채우기)
+- **스킬**: `Sources/SillogCore/Chat/Skills/catalog.json`과 각 Markdown 지침
+- **대화·예약 상태**: `Sources/SillogApp/Chat/ChatState.swift`
+- **채팅 범위(분야·업무 여러 개로 좁히기)**: `ChatScope.focus`(대화 기록의 `scope.focuses`), `Sources/SillogCore/Chat/ChatFocus.swift`(고를 거리, 프롬프트의 `<focus>`), `ContextSearch.swift`의 `access`(합친 범위로 거르기), `Sources/SillogApp/Views/ChatFocusPicker.swift`(범위 단추, 분야→업무 나무 `ChatFocusTree`와 고르기 규칙)
+- **프로젝트 제안·소속**(화면에서 뺌, 자동 제안도 부르지 않음. 데이터와 코드는 남김): `Sources/SillogCore/Chat/ProjectOrganizer.swift`, `ProjectStore.swift`, `Sources/SillogApp/Chat/ProjectState.swift`
+- **자료 보관·추출**: `Sources/SillogCore/Chat/LibraryStore.swift`, `FileTextExtractor.swift`, `Sources/SillogApp/Chat/LibraryState.swift`, `Views/LibraryView.swift`
+- **그래프 화면**: `Sources/SillogApp/Resources/graph`
+- **기능 켜고 끄기**: `Sources/SillogApp/AppFeatures.swift`. 캘린더(캘린더 탭, 메뉴 막대 캘린더 줄, 일정 찾기·알림, 설정·온보딩의 캘린더 권한)는 기본 꺼짐, `defaults write com.sillog.app calendar -bool true` 로 켠다
+- **일정 제안**: `Sources/SillogCore/Calendar/EventFinder.swift`(정리를 반영한 뒤 그 행 전부(업무 외 포함)를 다시 보내 일정을 찾는다. 남기는 것은 대화에서 정한 약속·회의·마감과 보고 있는 과제 하나의 마감뿐이고, 기간·계획표·캘린더 앱 화면은 뺀다. 무시한 제안은 거절한 예로 같이 보내고, 한 웹페이지에서 3개 넘게 남기면 계획표로 보고 버린다. 이미 아는 일정과 겹치는 것도 거른다), `Storage/EventSuggestionStore.swift`, `Sources/SillogApp/Calendar/CalendarService.swift`(EventKit: 오늘 일정, 등록, 직접 넣은 일정은 제안에서 닫기), `AppState+Calendar.swift`(새 제안 알림, 알림의 [등록]/[무시]). 캘린더 화면은 `Views/CalendarView.swift`(오른쪽 제안 카드·연결한 캘린더), `Calendar/CalendarWebView.swift`(웹 달력과 주고받기: 보이는 기간의 일정을 약속으로 답함), `Calendar/CalendarFeed.swift`(일정·제안 → FullCalendar 이벤트), `Resources/calendar`(FullCalendar 6.1.22 표준 묶음과 한국어, MIT, `vendor/fullcalendar/LICENSE.md`). 구글 계정 직접 연결은 `Sources/SillogCore/Calendar/GoogleCalendarClient.swift`(캘린더 목록·기간 일정·일정 넣기)와 `CalendarService` 의 구글 확장(로그인은 `ConnectorAuth` 의 "gcal", 맥과 겹치는 캘린더는 `CalendarFeed.merge` 가 숨김)
+- **정리 제안 (하루 한 번)**: `Sources/SillogCore/Memory/WeeklyReview.swift`(AI 2번: TaskMerger 를 60일로 + 한 제품의 다른 이름·부분 작업 규칙과 업무별 프로젝트 폴더, 주제·나중에 할 일·문제를 한 번에 `tidy_graph`. 짧은 세션 붙이기는 AI 없이. `ReviewStore` 는 review_proposals 표. 거절은 짝 단위(`ReviewProposal.units`)로 기억해 다음 주 묶음이 달라져도 빼고, 반영한 것은 막지 않음. 반영과 표시는 `ReviewStore.apply` 한 트랜잭션, 앞에서 합쳐져 사라진 키는 남은 키로 따라감. 주제·문제 정리 호출이 실패하면 업무 합치기만 제안), `Sources/SillogApp/AppState+Review.swift`(오늘 안 만들었으면 기록 정리 루프에서, 새 제안이 있을 때만 알림, 실패하면 하루 뒤, 시트를 연 동안은 갈아 끼우지 않음, 반영하는 동안 정리 멈춤), `Views/ReviewSheet.swift`(시트와 업무 목록 위 줄). 실제 기록으로 미리 보기: `SILLOG_DB=사본 sillogctl weekly-review`
 - **덜 쪼개고 덜 저장하기**: `SessionBuilder.glance`(1분 미만 행은 같은 날 같은 업무 세션에 붙임), ③ 업무 설명에 `topics in use`(기존 주제 이름을 다시 쓰게), `Storage/ScreenText.swift`(편집기 글자 3천 자, 업무 외 행 글자는 첫 삭제 동의와 설정한 보관 기간을 확인한 뒤 `Consolidator`에서 지움, 기간 핀은 남김)
-- **노드 상세·지우기**: `Sources/WorkGraphCore/Ontology/NodeDetail.swift`(노드 종류별 사실과 연결 묶음), `NodeEraser.swift`(노드 하나를 하위 노드와 원시 기록까지: 세션은 그 업무의 그 시간대 행, 자료는 그 키로 분류되는 행·화면 카드, 앱은 그 앱의 행 전부. 다른 노드에도 걸린 하위 노드는 남김, 업무 종류 같은 클래스는 안 지움), `RecordEraser.swift`(행·글 조각·화면 카드·정리 기록 원문 지우기, TaskEraser 와 함께 씀), `Sources/WorkGraphApp/AppState+NodeDetail.swift`·`Views/NodeDetailView.swift`(드로어 자리의 노드 상세, 상세 안에서 넘어가면 ‹ 뒤로), `EraseDialog`(지우기 확인 창 하나), 그래프 `index.html` 의 `refOf`/`showNode`/`nodeMenu`(보기 4개가 그린 것을 노드 키로 바꿔 앱에 보냄, 우클릭은 앱이 NSMenu 로)
-- **업무 지우기**: `Sources/WorkGraphCore/Ontology/TaskEraser.swift`(업무·분야를 원시 행, 그 행에만 쓰인 글 조각·화면 카드, AI 대화·녹음, 요약·시간 기록까지 지우고 그 업무가 나온 정리 기록 원문을 비운다. 그래프는 `TaskMerger.retire` 로 정리, `compact` 로 검색 색인 다시 쓰기와 VACUUM), `Sources/WorkGraphApp/AppState+Erase.swift`(지우는 동안 정리 멈춤), 업무 상세의 '이 업무 지우기'(`TasksView`), CLI `wgctl erase-theme 분야이름 [--yes]`
-- **기록 정리**: `Sources/WorkGraphCore/Memory/Consolidator.swift`, `LedgerBuilder.swift`, `ActivityTally.swift`, `Digest*.swift`, `Storage/Pruner.swift`, `RetentionPolicy.swift`, `StorageUsage.swift`, `Sources/WorkGraphApp/Views/StorageSettingsView.swift`
+- **노드 상세·지우기**: `Sources/SillogCore/Ontology/NodeDetail.swift`(노드 종류별 사실과 연결 묶음), `NodeEraser.swift`(노드 하나를 하위 노드와 원시 기록까지: 세션은 그 업무의 그 시간대 행, 자료는 그 키로 분류되는 행·화면 카드, 앱은 그 앱의 행 전부. 다른 노드에도 걸린 하위 노드는 남김, 업무 종류 같은 클래스는 안 지움), `RecordEraser.swift`(행·글 조각·화면 카드·정리 기록 원문 지우기, TaskEraser 와 함께 씀), `Sources/SillogApp/AppState+NodeDetail.swift`·`Views/NodeDetailView.swift`(드로어 자리의 노드 상세, 상세 안에서 넘어가면 ‹ 뒤로), `EraseDialog`(지우기 확인 창 하나), 그래프 `index.html` 의 `refOf`/`showNode`/`nodeMenu`(보기 4개가 그린 것을 노드 키로 바꿔 앱에 보냄, 우클릭은 앱이 NSMenu 로)
+- **업무 지우기**: `Sources/SillogCore/Ontology/TaskEraser.swift`(업무·분야를 원시 행, 그 행에만 쓰인 글 조각·화면 카드, AI 대화·녹음, 요약·시간 기록까지 지우고 그 업무가 나온 정리 기록 원문을 비운다. 그래프는 `TaskMerger.retire` 로 정리, `compact` 로 검색 색인 다시 쓰기와 VACUUM), `Sources/SillogApp/AppState+Erase.swift`(지우는 동안 정리 멈춤), 업무 상세의 '이 업무 지우기'(`TasksView`), CLI `sillogctl erase-theme 분야이름 [--yes]`
+- **기록 정리**: `Sources/SillogCore/Memory/Consolidator.swift`, `LedgerBuilder.swift`, `ActivityTally.swift`, `Digest*.swift`, `Storage/Pruner.swift`, `RetentionPolicy.swift`, `StorageUsage.swift`, `Sources/SillogApp/Views/StorageSettingsView.swift`
 
 채팅 하위 에이전트는 독립적인 대화와 읽기 도구를 사용하고, 재위임하지 않습니다. 시스템 프롬프트는 주 에이전트와 같지만 `agent_role`에 역할 이름이 들어가고 스킬·프로젝트·기억 자료 블록은 빠집니다. 주·하위 작업은 한 요청의 실행 예산을 공유합니다. OpenAI 호환 방식은 모델 호출 최대 24회, Codex 방식은 에이전트 실행 최대 24회와 실행별 앱 도구 호출 최대 32회입니다. 사용자가 중단하면 실행을 취소합니다.
