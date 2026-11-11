@@ -27,10 +27,10 @@ public struct DecisionsClient: Sendable {
         req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let items: [[String: Any]] = questions.sorted { $0.key < $1.key }.map { name, question in
-            ["type": "choice", "name": name, "instructions": question.instructions,
-             "choices": question.options.sorted { $0.key < $1.key }.map { ["value": $0.key, "description": $0.value] }]
+            ["type": "choice", "name": name, "instructions": PIIMasker.mask(question.instructions),
+             "choices": question.options.sorted { $0.key < $1.key }.map { ["value": $0.key, "description": PIIMasker.mask($0.value)] }]
         }
-        req.httpBody = try JSONSerialization.data(withJSONObject: ["model": model, "input": state, "questions": items])
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["model": model, "input": PIIMasker.mask(state), "questions": items])
         let (data, resp) = try await session.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else { throw ChoiceError.http(code, String(data: data, encoding: .utf8) ?? "") }

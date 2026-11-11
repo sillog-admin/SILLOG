@@ -194,13 +194,13 @@ public final class CodexResponsesClient: LLMClient, @unchecked Sendable {
     private func send(system: String, user: String, images: [(data: Data, mime: String)] = [], detail: String = "auto", tool: ToolSpec,
                       credentials: CodexCredentials, forceTool: Bool) async throws -> (Int, String) {
         let parameters = (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(tool.parameters))) ?? [String: Any]()
-        var content: [[String: Any]] = [["type": "input_text", "text": user]]
+        var content: [[String: Any]] = [["type": "input_text", "text": PIIMasker.mask(user)]]
         for image in images {
             content.append(["type": "input_image", "image_url": "data:\(image.mime);base64,\(image.data.base64EncodedString())", "detail": detail])
         }
         var body: [String: Any] = [
             "model": model,
-            "instructions": system,
+            "instructions": PIIMasker.mask(system),
             "input": [["type": "message", "role": "user", "content": content]],
             "tools": [["type": "function", "name": tool.name, "description": tool.description, "parameters": parameters, "strict": false]],
             "tool_choice": forceTool ? ["type": "function", "name": tool.name] as Any : "auto",

@@ -40,8 +40,8 @@ public struct JevClient: Sendable {
         req.httpMethod = "POST"
         req.setValue("Bearer \(endpoint.key)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let qs = questions.mapValues { ["type": "choice", "instructions": $0.instructions, "criteria": $0.options] as [String: Any] }
-        req.httpBody = try JSONSerialization.data(withJSONObject: ["model": endpoint.model, "state": state, "questions": qs])
+        let qs = questions.mapValues { ["type": "choice", "instructions": PIIMasker.mask($0.instructions), "criteria": $0.options.mapValues(PIIMasker.mask)] as [String: Any] }
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["model": endpoint.model, "state": PIIMasker.mask(state), "questions": qs])
         let (data, resp) = try await session.data(for: req)
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else { throw ChoiceError.http(code, String(data: data, encoding: .utf8) ?? "") }

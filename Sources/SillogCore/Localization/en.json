@@ -1379,5 +1379,7 @@
   "항상 기록하지 않아요": "Never recorded",
   "브라우저의 시크릿·비공개 창": "Private and incognito browser windows",
   "잠금 화면과 시스템 암호 확인 창": "Lock screen and system password prompts",
-  "비밀번호 관리 앱과 시크릿 창은 사용 시간만 남겨요": "Password managers and private windows keep usage time only"
+  "비밀번호 관리 앱과 시크릿 창은 사용 시간만 남겨요": "Password managers and private windows keep usage time only",
+  "개인정보 가리기": "Mask personal data",
+  "AI에 보내기 전에 전화번호, 주민번호, API 키를 가려요": "Hides phone numbers, ID numbers, and API keys before sending to AI"
 }

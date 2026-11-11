@@ -215,6 +215,9 @@ struct SettingsView: View {
                 SettingTile(tr("자동 업무 분류"), detail: tr("5분마다 AI가 기록을 업무로 나눠요"), icon: "clock.arrow.circlepath") {
                     Toggle("", isOn: $state.settings.batchEnabled).toggleStyle(BrandSwitchStyle())
                 }
+                SettingTile(tr("개인정보 가리기"), detail: tr("AI에 보내기 전에 전화번호, 주민번호, API 키를 가려요"), icon: "lock.shield") {
+                    Toggle("", isOn: $state.settings.maskPII).toggleStyle(BrandSwitchStyle())
+                }
                 SettingTile(tr("비슷한 업무 합치기"),
                             detail: state.reviewProposals.isEmpty ? tr("하루 한 번 찾아서 물어봐요") : tr("대기 중인 제안 \(state.reviewProposals.count)개"),
                             icon: "arrow.triangle.merge") {

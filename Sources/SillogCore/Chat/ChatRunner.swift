@@ -268,7 +268,8 @@ public struct ChatRunner: Sendable {
                 output = "도구 실행 실패: \(error.localizedDescription). 같은 인자로 자동 재시도하지 말고 원인을 설명하거나 다른 자료를 사용하세요."
                 await onEvent(.step("\(label) · \(Self.toolTitle(call.name)) 실패"))
             }
-            return String(output.prefix(28000))
+            // Tool results carry records and connector data. The user's own messages are sent as typed.
+            return PIIMasker.mask(String(output.prefix(28000)))
         }
         if case .codex(let client) = backend {
             try await ledger.consume()

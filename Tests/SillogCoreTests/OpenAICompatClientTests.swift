@@ -71,6 +71,14 @@ final class OpenAICompatClientTests: XCTestCase {
         XCTAssertEqual((tools.first?["function"] as? [String: Any])?["name"] as? String, "record")
     }
 
+    func testMasksPersonalDataBeforeSending() async throws {
+        StubURLProtocol.reset([.init(status: 200, body: completion(message: #"{"role":"assistant","content":"{}"}"#))])
+        _ = try await makeClient().callFunction(system: "sys", user: "전화 010-1234-5678 로 연락", tool: tool)
+        let body = try XCTUnwrap(StubURLProtocol.rawBodies.first)
+        XCTAssertFalse(body.contains("010-1234-5678"))
+        XCTAssertTrue(body.contains("[PHONE]"))
+    }
+
     func testFallsBackToJSONInContent() async throws {
         StubURLProtocol.reset([.init(status: 200, body: completion(message: #"{"role":"assistant","content":"{\"segments\":[1]}"}"#))])
         let result = try await makeClient().callFunction(system: "s", user: "u", tool: tool)
