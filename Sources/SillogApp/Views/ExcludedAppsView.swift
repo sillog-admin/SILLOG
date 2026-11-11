@@ -34,7 +34,6 @@ struct ExcludedAppsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionLabel(tr("기록하지 않을 앱"))
             SettingCard {
                 ForEach(entries) { entry in
                     SettingRow(entry.name, icon: entry.icon == nil ? "app.dashed" : nil, iconImage: entry.icon) {   // 앱 아이콘을 이름 앞에
