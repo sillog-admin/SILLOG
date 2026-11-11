@@ -16,6 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Match the team toolchain (Swift 6.2); Xcode 16 cannot type-check some views.
+      - name: Select Xcode 26
+        run: |
+          xcode="$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$xcode"
+          swift --version
+
       - uses: actions/cache@v4
         with:
           path: .build
