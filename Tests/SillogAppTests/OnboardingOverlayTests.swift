@@ -68,11 +68,7 @@ final class OnboardingOverlayTests: XCTestCase {
 
     /// 그려진 화면의 글자 (Vision 글자 인식). SwiftUI 접근성 트리는 보조 기술이 없으면 만들어지지 않아 화면을 직접 읽는다
     static func recognizedText(_ view: NSView) -> String {
-        // Always capture at 2x: CI runners have 1x screens, where small Korean text misreads.
-        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(view.bounds.width * 2), pixelsHigh: Int(view.bounds.height * 2),
-                                         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                                         colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return "" }
-        rep.size = view.bounds.size
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return "" }
         view.cacheDisplay(in: view.bounds, to: rep)
         guard let image = rep.cgImage else { return "" }
         let request = VNRecognizeTextRequest()
