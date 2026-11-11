@@ -447,7 +447,8 @@ struct GazingMark: View {
                     let hop: CGFloat = Self.once(at: t, slot: 9.7, length: 0.36, salt: 1).map { -0.05 * size * sin(.pi * $0.p) } ?? 0
                     let glance: CGFloat = Self.once(at: t, slot: 6.3, length: 1.2, salt: 2).map { g -> CGFloat in
                         let s = g.p * 1.2, ease: (Double) -> Double = { let c = min(max($0, 0), 1); return c * c * (3 - 2 * c) }
-                        return 0.03 * size * ((g.h * 100).truncatingRemainder(dividingBy: 1) < 0.5 ? -1 : 1) * ease(s / 0.25) * (1 - ease((s - 0.95) / 0.25))
+                        let side: Double = (g.h * 100).truncatingRemainder(dividingBy: 1) < 0.5 ? -1 : 1
+                        return size * CGFloat(0.03 * side * ease(s / 0.25) * (1 - ease((s - 0.95) / 0.25)))
                     } ?? 0
                     solid(body, idle, smile, blink: smiling ? 1 : Self.openness(at: t, floor: 0.06), glance: glance)
                         .scaleEffect(x: 1, y: 1 + 0.012 * sin(t * 2 * .pi / 5.3), anchor: .bottom)
