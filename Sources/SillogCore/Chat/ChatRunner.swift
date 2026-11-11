@@ -70,6 +70,15 @@ private actor ChatRunLedger {
     var artifacts: [ChatArtifact] = []
     var automation: ChatAutomationProposal?
     var calls = 0
+    var userText = ""
+
+    func setUserText(_ text: String) { userText = text }
+
+    /// Blocks prompt-injected exfiltration: web_read only follows URLs the user wrote or a tool returned.
+    func knows(_ url: String) -> Bool {
+        let trimmed = url.hasSuffix("/") ? String(url.dropLast()) : url
+        return !trimmed.isEmpty && (userText.contains(trimmed) || sources.values.contains { $0.location == url || $0.location == trimmed })
+    }
 
     /// Args: 없음.
     /// Returns: 없음. 주·하위 에이전트가 공유하는 실행 예산을 차감한다.
@@ -174,6 +183,7 @@ public struct ChatRunner: Sendable {
         if tools.scope.useActivity { prompt.rawRecordsSince = (try? tools.search.rawRecordsSince()) ?? nil }
         if tools.scope.useActivity { prompt.focus = try tools.search.focusOutline() }
         let ledger = ChatRunLedger()
+        await ledger.setUserText(history.filter { $0.role == "user" }.map(\.text).joined(separator: "\n"))
         let remembered = try tools.rememberedSources(history: history)
         if !remembered.isEmpty {
             prompt.rememberedSources = String(decoding: try JSONEncoder().encode(remembered), as: UTF8.self)
@@ -240,6 +250,11 @@ public struct ChatRunner: Sendable {
                     await ledger.record(args); await onEvent(.automation(args))
                     output = "예약안이 표시됨. 아직 등록되지 않았으며 사용자의 버튼 승인이 필요하다."
                 default:
+                    if call.name == "web_read" {
+                        struct Arguments: Decodable { var url: String }
+                        let url = (try? JSONDecoder().decode(Arguments.self, from: Data(call.arguments.utf8)).url) ?? ""
+                        guard await ledger.knows(url) else { throw ChatToolError.unavailable("검색 결과나 사용자가 준 주소만 읽을 수 있습니다.") }
+                    }
                     let result = try await tools.execute(call)
                     await ledger.record(result.sources)
                     for source in result.sources { await onEvent(.source(source)) }

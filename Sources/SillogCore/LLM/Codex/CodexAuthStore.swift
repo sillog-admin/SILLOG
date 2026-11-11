@@ -34,6 +34,10 @@ public final class CodexAuthStore: @unchecked Sendable {
         }
         _ = try FileManager.default.replaceItemAt(fileURL, withItemAt: temporary)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
+        // Keep the refresh token out of Time Machine and iCloud backups.
+        var url = fileURL, values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? url.setResourceValues(values)
     }
 
     public func clear() throws {

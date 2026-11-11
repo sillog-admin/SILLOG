@@ -267,8 +267,9 @@ public struct ChatTools: Sendable {
     /// Raises: 없음.
     static func isPrivate(_ name: String) -> Bool {
         let value = name.lowercased()
-        return [".git", ".ssh", ".aws", ".gnupg", ".codex", ".claude", "keychains", "auth.json", "codex-auth.json", "credentials", "credentials.json"].contains(value)
-            || value == ".env" || value.hasPrefix(".env.") || value.hasSuffix(".pem") || value.hasSuffix(".key") || value.hasSuffix(".p12")
+        return [".git", ".ssh", ".aws", ".gnupg", ".codex", ".claude", ".config", ".docker", ".kube", ".netrc", ".npmrc", ".pypirc", ".git-credentials",
+                "keychains", "auth.json", "codex-auth.json", "credentials", "credentials.json"].contains(value)
+            || value == ".env" || value.hasPrefix(".env.") || value.hasPrefix("id_") || value.hasSuffix(".pem") || value.hasSuffix(".key") || value.hasSuffix(".p12")
     }
 
     /// Args: path는 검색 폴더, query는 경로에 포함될 검색어이다.
