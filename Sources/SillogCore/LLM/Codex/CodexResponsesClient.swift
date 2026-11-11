@@ -101,9 +101,7 @@ public final class CodexResponsesClient: LLMClient, @unchecked Sendable {
         components.queryItems = [URLQueryItem(name: "client_version", value: runtimeVersion ?? clientVersion)]
         var request = URLRequest(url: components.url!)
         request.timeoutInterval = 20
-        request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
-        if let accountId = credentials.accountId { request.setValue(accountId, forHTTPHeaderField: "chatgpt-account-id") }
-        request.setValue("codex_cli_rs", forHTTPHeaderField: "originator")
+        request.setCodexHeaders(credentials)
         let data: Data, response: URLResponse
         do { (data, response) = try await session.data(for: request) } catch { throw LLMError.transport(error.localizedDescription) }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -215,12 +213,7 @@ public final class CodexResponsesClient: LLMClient, @unchecked Sendable {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.timeoutInterval = timeout
-        request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
-        if let accountId = credentials.accountId { request.setValue(accountId, forHTTPHeaderField: "chatgpt-account-id") }
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-        request.setValue("responses=experimental", forHTTPHeaderField: "OpenAI-Beta")
-        request.setValue("codex_cli_rs", forHTTPHeaderField: "originator")
+        request.setCodexHeaders(credentials, streaming: true)
         request.setValue(UUID().uuidString, forHTTPHeaderField: "session_id")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -286,5 +279,18 @@ public final class CodexResponsesClient: LLMClient, @unchecked Sendable {
             }
         }
         throw LLMError.noJSON(String((text.isEmpty ? raw : text).prefix(300)))
+    }
+}
+
+extension URLRequest {
+    /// Headers the ChatGPT Codex backend expects; streaming calls add the SSE ones.
+    mutating func setCodexHeaders(_ credentials: CodexCredentials, streaming: Bool = false) {
+        setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
+        if let accountId = credentials.accountId { setValue(accountId, forHTTPHeaderField: "chatgpt-account-id") }
+        setValue("codex_cli_rs", forHTTPHeaderField: "originator")
+        guard streaming else { return }
+        setValue("application/json", forHTTPHeaderField: "Content-Type")
+        setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        setValue("responses=experimental", forHTTPHeaderField: "OpenAI-Beta")
     }
 }

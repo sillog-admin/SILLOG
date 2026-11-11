@@ -217,13 +217,6 @@ public enum ExternalReadConnector: String, CaseIterable, Identifiable, Sendable 
             request.setValue("2026-09-11", forHTTPHeaderField: "Lovable-Version")
         case .slack, .canva: request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        return try await ChatTools.json(request, delegate: NoConnectorRedirects())
-    }
-}
-
-private final class NoConnectorRedirects: NSObject, URLSessionTaskDelegate {
-    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
-                    newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
-        completionHandler(nil)
+        return try await ChatTools.json(request, delegate: ConnectorHTTP())
     }
 }

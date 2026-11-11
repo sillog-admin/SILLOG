@@ -223,12 +223,7 @@ extension CodexResponsesClient: ChatModelClient {
             if let reasoningEffort { body["reasoning"] = .object(["effort": .string(reasoningEffort)]) }
             var request = URLRequest(url: endpoint)
             request.httpMethod = "POST"; request.timeoutInterval = timeout
-            request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
-            if let account = credentials.accountId { request.setValue(account, forHTTPHeaderField: "chatgpt-account-id") }
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-            request.setValue("responses=experimental", forHTTPHeaderField: "OpenAI-Beta")
-            request.setValue("codex_cli_rs", forHTTPHeaderField: "originator")
+            request.setCodexHeaders(credentials, streaming: true)
             request.httpBody = try JSONEncoder().encode(JSONValue.object(body))
             do { return try await ChatStream.read(request, session: session, format: .responses, onText: onText) }
             catch LLMError.http(let status, _) where status == 401 && attempt == 0 {
