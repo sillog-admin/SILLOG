@@ -258,9 +258,7 @@ final class MenuLayoutTests: XCTestCase {
         XCTAssertFalse(text.contains("녹음시작"), text)
     }
 
-    func testTitleBarShowsTranscribingProgress() throws {
-        // shortcut: OCR on the CI runner misreads this screen, passes locally; drop once CI OCR matches
-        try XCTSkipIf(ProcessInfo.processInfo.environment["CI"] != nil, "OCR differs on CI")
+    func testTitleBarShowsTranscribingProgress() {
         let text = text(of: TitleBarControls(), size: CGSize(width: 360, height: 44)) { s in s.recordingWork = .transcribing(0.37) }
         XCTAssertTrue(text.contains("받아쓰는중37%"), text)
         XCTAssertTrue(text.contains("녹음시작"), "받아쓰는 동안에도 새로 녹음할 수 있다")

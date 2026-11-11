@@ -29,9 +29,7 @@ final class RecordingMenuTests: XCTestCase {
         XCTAssertFalse(text.contains("녹음시작"), text)
     }
 
-    func testProcessingStepsAreShownAboveTheRecordButton() throws {
-        // shortcut: OCR on the CI runner misreads this screen, passes locally; drop once CI OCR matches
-        try XCTSkipIf(ProcessInfo.processInfo.environment["CI"] != nil, "OCR differs on CI")
+    func testProcessingStepsAreShownAboveTheRecordButton() {
         let transcribing = menuText { s in s.recordingWork = .transcribing(0.37) }
         XCTAssertTrue(transcribing.contains("받아쓰는중37%"), transcribing)
         XCTAssertTrue(transcribing.contains("녹음시작"), "받아쓰는 동안에도 새로 녹음할 수 있다")

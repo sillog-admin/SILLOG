@@ -35,9 +35,7 @@ final class ActivityLogLayoutTests: XCTestCase {
         XCTAssertTrue(text.contains("정리#120"), "정리 120번이 쌓여도 최신 정리가 대기 바로 아래 보여야 한다: \(text.prefix(300))")
     }
 
-    func testBatchSheetShowsAppliedResultInWords() throws {
-        // shortcut: OCR on the CI runner misreads this screen, passes locally; drop once CI OCR matches
-        try XCTSkipIf(ProcessInfo.processInfo.environment["CI"] != nil, "OCR differs on CI")
+    func testBatchSheetShowsAppliedResultInWords() {
         let state = AppState(preview: { s in s.phase = .ready })
         let window = show(BatchDetail(batch: manyBatches(1)[0]), state)
         let text = OnboardingOverlayTests.recognizedText(window.contentView!).filter { !$0.isWhitespace }
