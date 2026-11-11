@@ -106,6 +106,13 @@ struct AppSettings: Codable, Equatable {
         ("settings.jev", \.jevAPIKey), ("settings.decisions", \.decisionsAPIKey),
     ]
 
+    /// The Dock setting alone, read without the Keychain: launch needs it before AppState loads the full settings,
+    /// and a second full load asked for Keychain access twice.
+    static var savedShowDockIcon: Bool {
+        let saved = UserDefaults.standard.data(forKey: key).flatMap { try? JSONDecoder().decode(AppSettings.self, from: $0) }
+        return (saved ?? AppSettings()).showDockIcon
+    }
+
     static func load() -> AppSettings {
         guard let data = UserDefaults.standard.data(forKey: key),
               var saved = try? JSONDecoder().decode(AppSettings.self, from: data) else { return AppSettings() }
