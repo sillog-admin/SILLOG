@@ -150,6 +150,15 @@ struct AppSettings: Codable, Equatable {
         if chatSameAsOrganize { return llmEndpoint }
         return (chatBaseURL, chatModel, chatAPIKey)
     }
+    /// Chat picks its own connection and model now; a save that followed organize starts from the same values.
+    mutating func splitChatFromOrganize() {
+        if chatSameAsOrganize {
+            chatProvider = llmProvider; chatCodexModel = codexModel; chatModel = llmModel
+            chatSameAsOrganize = false
+        }
+        // Organize and chat share one API server.
+        chatBaseURL = llmBaseURL; chatAPIKey = llmAPIKey
+    }
     var effectiveChatCodexModel: String { chatSameAsOrganize ? codexModel : chatCodexModel }
     var chatModelName: String { chatUsesAPI ? chatEndpoint.model : effectiveChatCodexModel }
     /// Jev 연결. 키가 비어 있으면 판단을 대기한다.

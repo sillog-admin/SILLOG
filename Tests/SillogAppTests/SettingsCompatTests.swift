@@ -73,4 +73,17 @@ final class SettingsCompatTests: XCTestCase {
         XCTAssertFalse(s.chatSameAsOrganize)
         XCTAssertEqual(s.chatModelName, "b")
     }
+
+    func testSplittingChatKeepsWhatItWasUsing() throws {
+        var followed = try decode(#"{"llmProvider":"openai","llmBaseURL":"http://h:1/v1","llmModel":"m1","llmAPIKey":"k1","codexModel":"c1"}"#)
+        let before = (followed.effectiveChatProvider, followed.chatModelName, followed.chatEndpoint.url, followed.chatEndpoint.key)
+        followed.splitChatFromOrganize()
+        XCTAssertFalse(followed.chatSameAsOrganize)
+        XCTAssertTrue(before == (followed.effectiveChatProvider, followed.chatModelName, followed.chatEndpoint.url, followed.chatEndpoint.key))
+        XCTAssertEqual(followed.effectiveChatCodexModel, "c1", "switching chat to ChatGPT later starts from the organize model")
+
+        var own = try decode(#"{"llmProvider":"codex","codexModel":"a","chatProvider":"codex","chatCodexModel":"b"}"#)
+        own.splitChatFromOrganize()
+        XCTAssertEqual(own.chatModelName, "b", "a chat model picked earlier is not overwritten")
+    }
 }

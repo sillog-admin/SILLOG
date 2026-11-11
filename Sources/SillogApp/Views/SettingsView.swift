@@ -410,14 +410,9 @@ private struct ConnectionSection: View {
         }
     }
 
-    /// Chat picks its own connection and model now; a save that followed organize starts from the same values.
     private func splitChat() {
         var s = state.settings
-        if s.chatSameAsOrganize {
-            s.chatProvider = s.llmProvider; s.chatCodexModel = s.codexModel; s.chatModel = s.llmModel
-            s.chatSameAsOrganize = false
-        }
-        s.chatBaseURL = s.llmBaseURL; s.chatAPIKey = s.llmAPIKey
+        s.splitChatFromOrganize()
         if s != state.settings { state.settings = s }
     }
 
