@@ -179,9 +179,9 @@ public struct RetentionPolicy: Codable, Equatable, Sendable {
     }
 
     public static func load(_ conn: Database) throws -> RetentionPolicy {
-        guard let text = try ConsolidationStore.value(ConsolidationStore.Key.policy, conn),
-              let policy = try? JSONDecoder().decode(RetentionPolicy.self, from: Data(text.utf8)) else { return .standard }
-        return policy.normalized()
+        guard let text = try ConsolidationStore.value(ConsolidationStore.Key.policy, conn) else { return .standard }
+        // A corrupt policy must not silently fall back to shorter retention and delete data.
+        return try JSONDecoder().decode(RetentionPolicy.self, from: Data(text.utf8)).normalized()
     }
 
     public func save(_ conn: Database) throws {

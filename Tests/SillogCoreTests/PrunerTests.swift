@@ -88,6 +88,22 @@ final class PrunerTests: XCTestCase {
         XCTAssertTrue(plan.blockedReason?.contains("초안") ?? false, plan.blockedReason ?? "-")
     }
 
+    func testUnbatchedRowsBlockPruningOfTheirWeek() async throws {
+        let (db, clock) = try await seeded()
+        clock.now += 8 * 86_400
+        try consent(db)
+        try await db.writer.write { try $0.execute(sql: "UPDATE observations SET batch_id = NULL WHERE ts < ?", arguments: [F.at("2026-09-29", 0)]) }
+        let plan = try Pruner(db: db, ledger: F.ledger).plan(now: clock.now)
+        XCTAssertTrue(plan.isEmpty)
+        XCTAssertTrue(plan.blockedReason?.contains("정리하지 않은") ?? false, plan.blockedReason ?? "-")
+    }
+
+    func testCorruptPolicyThrowsInsteadOfFallingBack() throws {
+        let db = try SillogDatabase.inMemory()
+        try db.writer.write { try ConsolidationStore.set(ConsolidationStore.Key.policy, "{not json", $0) }
+        XCTAssertThrowsError(try db.writer.read { try RetentionPolicy.load($0) })
+    }
+
     func testFailedDigestKeepsItsWeekWhileLaterWeeksAreCleaned() async throws {
         let (db, clock) = try await seeded()
         clock.now += 28 * 86_400                          // 10/20 화면 텍스트도 보관 기간(30일)이 지났다

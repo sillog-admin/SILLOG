@@ -155,6 +155,9 @@ public struct Pruner {
     /// 주의 다이제스트가 원문을 대신할 준비가 됐는지. 검증에 실패한 요약이 하나라도 있으면 그 주는 남기고 건너뛴다
     func state(_ week: PeriodCalendar.Period, _ conn: Database, now: Double, policy: RetentionPolicy) throws -> WeekState {
         if now < week.end + Self.closeDelay { return .wait("\(week.id) 주가 아직 닫히지 않았어요") }
+        // Unbatched rows have no task yet, so no digest can stand in for them.
+        let unbatched = try Int.fetchOne(conn, sql: "SELECT COUNT(*) FROM observations WHERE batch_id IS NULL AND ts < ?", arguments: [week.end]) ?? 0
+        if unbatched > 0 { return .wait("\(week.id) 주에 아직 정리하지 않은 기록이 있어요") }
         let active = try DigestInput.activeTasks(conn, period: week, ledger: ledger)
         let digests = try DigestStore.byTask(conn, level: .week, period: week.id)
         var verifiedAt: [Double] = [], failed: [String] = [], waiting: String?
