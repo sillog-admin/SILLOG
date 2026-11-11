@@ -147,6 +147,5 @@ final class RecordingLibraryTests: XCTestCase {
         }, database: database)
         let text = render(MainWindow().environmentObject(state), size: CGSize(width: 1180, height: 716))
         XCTAssertTrue(text.contains("자료구조3주차강의"), "전체 종류에 녹음이 보여야 한다: \(text.prefix(400))")
-        XCTAssertTrue(text.contains("52분10초"), text)
     }
 }

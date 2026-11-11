@@ -56,26 +56,6 @@ struct ChatFocusPicker: View {
     }
 }
 
-/// 새 대화 첫 화면: 무엇에 대해 이야기할지 업무 목록으로 바로 고른다. 고를 때마다 커서가 입력칸으로 간다
-struct ChatStartChoices: View {
-    @ObservedObject var chat: ChatState
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if chat.focusChoices.tasks.isEmpty {
-                Text(tr("업무를 찾고, 정리하고, 결과물로 이어 보세요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
-            } else {
-                Text(tr("무엇에 대해 이야기할까요? 여러 개를 골라도 돼요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
-                ChatFocusTree(chat: chat, movesCursor: true, maxHeight: 300)
-                    .padding(.vertical, 6)
-                    .background(.white, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Brand.line))
-            }
-        }
-        .onAppear { chat.refreshFocusChoices() }
-    }
-}
-
 /// 범위 목록 (Figma CH-03, CH-04, CH-40): 검색 칸, 모든 기록, 분야 칩 한 줄, 업무 평평한 목록(체크 칸 + 분야 색 점), 기록 안 씀.
 /// 칩은 보이는 목록만 거르고 고른 범위는 바꾸지 않는다. 범위는 업무 체크로 고른다. 아무것도 안 고르면 모든 기록
 struct ChatFocusTree: View {

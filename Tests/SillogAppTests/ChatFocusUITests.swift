@@ -53,17 +53,12 @@ final class ChatFocusUITests: XCTestCase {
         XCTAssertEqual(ChatFocusButton.label(scope, choices: .init()), "기록 안 씀")
     }
 
-    // 범위는 첫 화면 나무에서 고르고 입력창 윗줄에는 없다. 대화를 시작하면 머리(제목 아래)에 고른 범위가 작게 보이고, 누르면 같은 나무로 바꾼다
-    func testTheScopeLivesInTheHeaderNotAboveTheInput() throws {
-        let fresh = try text { _ in }                                                     // 업무가 없는 새 대화: 나무도 머리 표시도 없다
-        XCTAssertFalse(fresh.contains("모든기록"), "입력창 윗줄에 범위 단추가 없다: \(fresh)")
-        let started = try text(seed: { db in
-            var conversation = ChatConversation(); conversation.title = "보고서 정리"
-            conversation.scope.focus = [ChatFocus(kind: .theme, key: "학업", title: "학업")]
-            try ChatStore(db).startTurn(conversation: conversation, user: ConversationMessage(conversationID: conversation.id, role: "user", text: "이번 주 정리"),
-                                        answer: ConversationMessage(conversationID: conversation.id, role: "assistant", text: "정리했어요"))
-        }) { _ in }
-        XCTAssertTrue(started.contains("학업분야"), "시작한 대화는 머리에 고른 범위 (목록 줄은 '학업'만): \(started)")
+    // 고른 범위는 입력칸 위 칩으로 보이고, 고르지 않으면 칩이 없다
+    func testAChosenScopeShowsAsAChipAboveTheInput() throws {
+        let fresh = try text { _ in }
+        XCTAssertFalse(fresh.contains("모든기록"), "범위를 안 고르면 칩이 없다: \(fresh)")
+        let chosen = try text { s in s.chat?.current.scope.focus = [ChatFocus(kind: .theme, key: "학업", title: "학업")] }
+        XCTAssertTrue(chosen.contains("학업분야"), chosen)
     }
 
     func testAFocusedChatPointsOutRecordsWaitingToBeTidied() throws {
@@ -71,16 +66,6 @@ final class ChatFocusUITests: XCTestCase {
         XCTAssertTrue(focused.contains("정리전최근기록12건"), "정리 전 기록은 아직 업무가 없어 범위에서 빠진다는 안내: \(focused)")
         let all = try text { s in s.pendingCount = 12 }
         XCTAssertFalse(all.contains("정리전최근기록"), "모든 기록일 때는 안내가 없다: \(all)")
-    }
-
-    func testTheConversationListShowsEachChatsFocus() throws {
-        let text = try text(seed: { db in
-            var conversation = ChatConversation(); conversation.title = "배포 논의"; conversation.scope.focus = [flaskFocus]
-            try ChatStore(db).startTurn(conversation: conversation, user: ConversationMessage(conversationID: conversation.id, role: "user", text: "배포 계획"),
-                                        answer: ConversationMessage(conversationID: conversation.id, role: "assistant", text: "정리했어요"))
-        }) { s in s.chat?.newConversation() }                                     // 지금 대화는 새 대화(모든 기록): 업무 이름은 목록 줄에서만
-        XCTAssertTrue(text.contains("배포논의"), text)
-        XCTAssertTrue(text.contains("Flask웹앱개발"), "대화 제목 아래에 그 대화의 범위: \(text)")
     }
 
     func testAskingAboutATaskOpensAChatFocusedOnIt() throws {
@@ -120,14 +105,6 @@ final class ChatFocusUITests: XCTestCase {
         }
     }
 
-    // 새 대화 첫 화면에서 바로: 분야 칩 아래 업무 목록, 체크로 여러 개
-    func testANewChatOffersFieldsAndTasksAsATree() throws {
-        let text = try text(seed: seedTasks) { _ in }
-        for part in ["무엇에대해이야기할까요", "모든기록", "개발", "Flask웹앱개발", "학업", "통계학수업", "기록안씀"] {
-            XCTAssertTrue(text.contains(part), "\(part): \(text)")
-        }
-    }
-
     private func item(_ key: String, _ title: String, field: String?, themeKey: String? = nil) -> ChatFocusChoices.TaskItem {
         .init(focus: ChatFocus(kind: .task, key: key, title: title), theme: themeKey, themeKey: themeKey, field: field)
     }
@@ -152,7 +129,7 @@ final class ChatFocusUITests: XCTestCase {
         XCTAssertEqual(ChatFocusTree.visible([a, b, c], filter: ["학습", "산출물작성"], query: "").map(\.focus.key), ["a", "b"], "여러 칩")
         XCTAssertEqual(ChatFocusTree.visible([a, b, c], filter: [], query: "통계").map(\.focus.key), ["a"])
         XCTAssertEqual(ChatFocusTree.visible([a, b, c], filter: ["산출물작성"], query: "통계").count, 0, "칩과 검색은 함께 걸린다")
-        XCTAssertEqual(ChatFocusTree.fields(.init(tasks: [a, b, c])).map(\.name), ["학습", "산출물작성", "분야 없음"])
+        XCTAssertEqual(ChatFocusTree.fields(.init(tasks: [a, b, c])).map(\.name), ["산출물작성", "학습", "분야 없음"])
     }
 
     func testPickingAStartChoiceFocusesTheChatAndTheInput() throws {

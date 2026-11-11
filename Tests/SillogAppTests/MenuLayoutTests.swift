@@ -170,13 +170,13 @@ final class MenuLayoutTests: XCTestCase {
         XCTAssertGreaterThan(full.fittingSize.width, TasksPanel.listWidth + 100, "펼치면 상세까지")
     }
 
-    // 기록 자료 위쪽 탭: 파일 · 지난 기록 · 보관함 (지난 기록은 파일 구역 아래에 있다가 10/29 탭으로 뺐다)
-    func testRecordsHasFilesHistoryAndLibraryTabsOnTop() {
+    // 기록 자료 위쪽 탭: 파일 · 지난 기록 (보관함은 채팅의 결과물로 옮겼다)
+    func testRecordsHasFilesAndHistoryTabsOnTop() {
         let text = text(of: MainWindow()) { s in s.selectedTab = .records; s.recordsSection = .files }
-        for tab in ["파일", "지난기록", "보관함"] {
+        for tab in ["파일", "지난기록"] {
             XCTAssertTrue(text.contains(tab), "\(tab) 탭이 보여야 한다: \(text)")
         }
-        XCTAssertEqual(RecordsView.Section.allCases.map(\.rawValue), ["파일", "지난 기록", "보관함"])
+        XCTAssertEqual(RecordsView.Section.allCases.map(\.rawValue), ["파일", "지난 기록"])
         XCTAssertFalse(text.contains("활동로그"), "활동 로그는 설정으로 옮겼다: \(text)")
         XCTAssertTrue(text.contains("정리할파일이없어요"), "고른 구역(파일)의 내용: \(text)")
     }
@@ -243,7 +243,7 @@ final class MenuLayoutTests: XCTestCase {
         XCTAssertEqual(state.recordsSection, .files)
     }
 
-    // 창 머리 오른쪽 위: [● 녹음 시작] 옆에 지금 정리 아이콘
+    // 창 머리 오른쪽 위: [● 녹음 시작]. 지금 정리는 메뉴 막대 아래 줄에 있다
 
     func testTitleBarHasTheRecordButton() {
         let text = text(of: TitleBarControls(), size: CGSize(width: 360, height: 44)) { _ in }
@@ -254,20 +254,8 @@ final class MenuLayoutTests: XCTestCase {
         let text = text(of: TitleBarControls(), size: CGSize(width: 360, height: 44)) { s in
             s.activeRecording = ActiveRecording(id: 1, startedAt: Date().timeIntervalSince1970 - 751)
         }
-        XCTAssertTrue(text.contains("녹음중12:3"), text)                       // 12:31 (그리는 사이 1초가 지날 수 있다)
-        XCTAssertTrue(text.contains("끝내"), text)
+        XCTAssertTrue(text.contains("녹음끝내기12:3"), text)                    // 12:31, drawing may take a second
         XCTAssertFalse(text.contains("녹음시작"), text)
-    }
-
-    func testTitleBarSaysTidyNowWithThePendingCount() {
-        let text = text(of: TitleBarControls(), size: CGSize(width: 360, height: 44)) { s in s.pendingCount = 14 }
-        XCTAssertTrue(text.contains("지금정리14"), "아이콘만으로는 알아보기 어려워 글자와 대기 수를 붙인다: \(text)")
-    }
-
-    func testTitleBarSaysTidyingWhileTheBatchRuns() {
-        let text = text(of: TitleBarControls(), size: CGSize(width: 360, height: 44)) { s in s.pendingCount = 14; s.batchRunning = true }
-        XCTAssertTrue(text.contains("정리하는중"), text)
-        XCTAssertFalse(text.contains("지금정리"), text)
     }
 
     func testTitleBarShowsTranscribingProgress() {

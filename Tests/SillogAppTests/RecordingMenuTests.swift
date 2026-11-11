@@ -44,6 +44,13 @@ final class RecordingMenuTests: XCTestCase {
         XCTAssertTrue(dictation.contains("받아쓰기가꺼져있어요"), dictation)
     }
 
+    func testTheMenuBarSaysTidyNowAndTidyingWhileTheBatchRuns() {
+        XCTAssertTrue(menuText { _ in }.contains("지금정리"))
+        let running = menuText { s in s.batchRunning = true }
+        XCTAssertTrue(running.contains("정리하는중"), running)
+        XCTAssertFalse(running.contains("지금정리"), running)
+    }
+
     func testStepTextRoundsThePercent() {
         XCTAssertEqual(RecordingPipeline.Step.transcribing(0.37).menuText, "받아쓰는 중 37%")
         XCTAssertEqual(RecordingPipeline.Step.naming.menuText, "녹음을 정리하는 중")
@@ -53,8 +60,7 @@ final class RecordingMenuTests: XCTestCase {
         XCTAssertTrue(MenuBarLabel.icon(paused: false, recording: false).isTemplate)
         XCTAssertTrue(MenuBarLabel.icon(paused: true, recording: false).isTemplate)
         let dot = MenuBarLabel.icon(paused: false, recording: true)
-        XCTAssertFalse(dot.isTemplate, "빨간색을 그대로 그린다")
-        XCTAssertEqual(dot.accessibilityDescription, "녹음 중")
+        XCTAssertEqual(dot.accessibilityDescription, "녹음 중", "눈 모양만 바뀌니 화면 읽기에는 글로 알린다")
     }
 
     // MARK: 일시정지·권한 경고·준비 전 메뉴에서도 녹음 (수집이 일시정지돼도 녹음은 따로 돈다)
