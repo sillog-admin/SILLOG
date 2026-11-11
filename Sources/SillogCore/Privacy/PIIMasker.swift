@@ -82,6 +82,7 @@ public enum PIIMasker {
     // Set from the app setting. Off sends text as recorded.
     nonisolated(unsafe) public static var enabled = true
 
+    // shortcut: which address formats are found depends on the Mac's region, replace with a local model for even coverage.
     private static let addresses = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.address.rawValue)
 
     /// Args: text is any text bound for an external model.
