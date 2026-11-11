@@ -81,11 +81,15 @@ public struct GraphRebuilder {
     static func summaries(from batch: BatchRecord, tx: GraphTx) -> [Int64: String] {
         guard let raw = batch.llmPatch, let patch = AssignmentPatch.decodeLenient(from: Data(raw.utf8)) else { return [:] }
         var byRef: [String: Int64] = [:]
+        var byTitle: [String: Int64]?                     // loaded once, only if a new task needs it
         for def in patch.tasks {
             if let id = def.id, let node = try? tx.node(label: NodeLabel.task, key: id) { byRef[def.ref] = node.id; continue }
             if let title = def.title {
-                let wanted = AssignmentApplier.normalizeTitle(title).lowercased()
-                if let node = try? tx.nodes(label: NodeLabel.task).first(where: { AssignmentApplier.normalizeTitle($0.title).lowercased() == wanted }) { byRef[def.ref] = node.id }
+                if byTitle == nil {
+                    let tasks = (try? tx.nodes(label: NodeLabel.task)) ?? []
+                    byTitle = Dictionary(tasks.map { (AssignmentApplier.normalizeTitle($0.title).lowercased(), $0.id) }, uniquingKeysWith: { first, _ in first })
+                }
+                if let id = byTitle?[AssignmentApplier.normalizeTitle(title).lowercased()] { byRef[def.ref] = id }
             }
         }
         var result: [Int64: String] = [:]
