@@ -26,6 +26,6 @@ struct ChatResultCard: View {
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(ChatPalette.cardLine, lineWidth: 1))
                 .contentShape(RoundedRectangle(cornerRadius: 12))
         }.buttonStyle(.plain)
-            .task(id: item.id) { first = LibraryTextInfo.read(library.store.url(for: item)).first }
+            .task(id: item.id) { first = LibraryTextInfo.from((try? library.store.text(for: item.id)) ?? "").first }
     }
 }

@@ -60,6 +60,13 @@ public struct LibraryStore: Sendable {
         directory.appendingPathComponent(item.id, isDirectory: true).appendingPathComponent(item.filename)
     }
 
+    /// Args: id is the library item.
+    /// Returns: its indexed text, or "" if it is gone.
+    /// Raises: DB errors.
+    public func text(for id: String) throws -> String {
+        try db.writer.read { try String.fetchOne($0, sql: "SELECT text FROM app_library WHERE id = ?", arguments: [id]) } ?? ""
+    }
+
     public func modifiedAt(for item: ChatLibraryItem) -> Double {
         let fileDate = (try? url(for: item).resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate?.timeIntervalSince1970
         if let updatedAt = item.updatedAt { return max(updatedAt, fileDate ?? updatedAt) }

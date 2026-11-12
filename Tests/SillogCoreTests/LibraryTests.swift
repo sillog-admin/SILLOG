@@ -72,6 +72,7 @@ final class LibraryTests: XCTestCase {
         XCTAssertTrue(item.filename.hasSuffix(".docx"), item.filename)
         XCTAssertEqual(try Data(contentsOf: library.url(for: item)).prefix(4), Data([0x50, 0x4B, 0x03, 0x04]))
         XCTAssertFalse(try library.search("매출", ids: [item.id]).isEmpty)
+        XCTAssertEqual(try library.text(for: item.id), "# 분기 보고\n매출 요약", "cards preview the source, not the unzipped XML")
     }
 
     func testUploadSurvivesOriginalDeletionAndExplicitSharing() throws {

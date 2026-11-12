@@ -10,6 +10,9 @@ enum ChatSecrets {
     nonisolated(unsafe) private static var legacyMisses: Set<String> = []
     // An empty value from a failed read must not be saved back as a removal.
     nonisolated(unsafe) private static var failedLoads: Set<String> = []
+    // A denied or locked read is remembered, or every connector check would prompt again.
+    // shortcut: failure kept until next save or relaunch, add a manual retry if users get stuck
+    nonisolated(unsafe) private static var readFailure: Error?
     // Snapshot builds are unsigned, so reading the signed app's item would block on a Keychain prompt.
     nonisolated(unsafe) static var memoryOnly = false
 
@@ -34,6 +37,7 @@ enum ChatSecrets {
     /// Raises: NSOSStatusErrorDomain error when the keychain read, write or delete fails.
     static func save(_ value: String, account: String) throws {
         try lock.withLock {
+            readFailure = nil
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty && failedLoads.contains(account) { return }
             var secrets = try combined()
@@ -65,7 +69,10 @@ enum ChatSecrets {
 
     private static func combined() throws -> [String: String] {
         if let cache { return cache }
-        guard let data = try read(combinedAccount) else { cache = [:]; return [:] }
+        if let readFailure { throw readFailure }
+        let data: Data?
+        do { data = try read(combinedAccount) } catch { readFailure = error; throw error }
+        guard let data else { cache = [:]; return [:] }
         // Refuse to treat unreadable data as empty, or the next save would overwrite every secret.
         guard let secrets = try? JSONDecoder().decode([String: String].self, from: data) else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(errSecDecode)) }
         cache = secrets

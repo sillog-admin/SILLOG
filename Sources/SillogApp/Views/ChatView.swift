@@ -50,6 +50,7 @@ struct ChatView: View {
         let message: ConversationMessage
         let text: String?
         let dropped: Int
+        let model: String?
         var id: String { message.id }
     }
 
@@ -106,6 +107,7 @@ struct ChatView: View {
         .sheet(item: $previewItem) { LibraryPreview(library: library, item: $0) }
         .alert(tr("뒤의 대화를 지우고 다시 보낼까요?"), isPresented: Binding(get: { pendingResend != nil }, set: { if !$0 { pendingResend = nil } }), presenting: pendingResend) { pending in
             Button(tr("지우고 보내기"), role: .destructive) {
+                if let model = pending.model { state.selectChatModel(model) }
                 if chat.resend(from: pending.message, text: pending.text) { editingMessageID = nil }
             }
             Button(tr("취소"), role: .cancel) {}
@@ -139,6 +141,7 @@ struct ChatView: View {
         .onChange(of: chat.openArtifactID, initial: true) { old, new in if new != nil, pane == .chat, old == nil || old == new { sidebarVisible = false } }
         .onChange(of: chat.current.scope) { old, new in if old != new { chat.saveScope() } }
         .onChange(of: chat.current.skillIDs) { old, new in if old != new { chat.saveScope() } }
+        .onChange(of: chat.current.id) { _, _ in editingMessageID = nil }
         .background {
             Group {
                 Button("") { chat.newConversation(); pane = .chat }.keyboardShortcut("n").disabled(editingMessageID != nil)
@@ -697,7 +700,7 @@ struct ChatView: View {
         if models.count > 1 {
             Menu {
                 ForEach(models, id: \.slug) { option in
-                    Button(option.title) { state.selectChatModel(option.slug); requestResend(message) }
+                    Button(option.title) { requestResend(message, model: option.slug) }
                 }
             } label: {
                 Image(systemName: "chevron.down").font(.system(size: 8)).frame(width: 12, height: 18).contentShape(Rectangle())
@@ -709,11 +712,13 @@ struct ChatView: View {
     }
 
     /// Resends at once when only this turn is replaced; asks first when later turns would be deleted too.
-    private func requestResend(_ message: ConversationMessage, text: String? = nil) {
+    private func requestResend(_ message: ConversationMessage, text: String? = nil, model: String? = nil) {
         let replaced = chat.replacedMessages(from: message)
         let thisTurn = replaced.count > 1 && replaced[1].role == "assistant" ? 2 : 1
         let dropped = replaced.count - thisTurn
-        if dropped > 0 { pendingResend = PendingResend(message: message, text: text, dropped: dropped); return }
+        if dropped > 0 { pendingResend = PendingResend(message: message, text: text, dropped: dropped, model: model); return }
+        // The model switches only when the resend goes ahead, so a cancelled alert changes nothing.
+        if let model { state.selectChatModel(model) }
         if chat.resend(from: message, text: text) { editingMessageID = nil }
     }
 

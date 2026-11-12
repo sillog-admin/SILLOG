@@ -156,14 +156,15 @@ final class ChatState: ObservableObject {
         draftConnectors = []
         openArtifactID = nil
         // Coming back to the chat tab also lands here, so an unsent home draft is kept.
-        let kept = messages.isEmpty ? draft : ""
+        let kept = messages.isEmpty ? draft : (drafts.removeValue(forKey: "") ?? "")
         if !messages.isEmpty { stashDraft() }
         current = ChatConversation(); current.projectID = projectID; current.scope.focus = focus; messages = []; draft = kept; error = nil
         if !focus.isEmpty { refreshFocusChoices() }
         inputFocusRequest += 1
     }
 
-    private func stashDraft() { drafts[current.id] = draft.isEmpty ? nil : draft }
+    // The unsaved home chat gets a new id each time, so its draft sits under one fixed key.
+    private func stashDraft() { drafts[messages.isEmpty ? "" : current.id] = draft.isEmpty ? nil : draft }
 
     /// Args: conversation은 선택한 대화이다.
     /// Returns: 없음. 저장된 메시지와 진행 중인 응답을 표시한다.

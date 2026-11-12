@@ -103,6 +103,8 @@ final class ChatStateTests: XCTestCase {
         chat.newConversation(); chat.draft = "home"
         chat.newConversation()
         XCTAssertEqual(chat.draft, "home", "a tab round trip keeps the home input")
+        chat.select(a); chat.newConversation()
+        XCTAssertEqual(chat.draft, "home", "opening a chat and starting a new one keeps the home input")
     }
 
     func testTheInputIsFocusedAfterSendingAndSwitching() async throws {
