@@ -471,7 +471,7 @@ struct ConnectorCatalogView: View {
                 let tools = ChatTools(db: try SillogDatabase.inMemory(), scope: ChatScope(),
                                       connectorToken: { try await ConnectorAuth.accessToken($0) },
                                       connectorResource: { try ConnectorAuth.resource($0) },
-                                      remoteConnectors: try ConnectorAuth.remoteIDs())
+                                      remoteConnectors: ConnectorAuth.remoteIDs().union(RemoteReadConnector(rawValue: connector.id).map { [$0.rawValue] } ?? []))
                 let read = try await tools.checkConnector(connector.id)
                 let verified = connector.id == "github" ? tr("저장소 검색과 PR 목록 조회") : connector.summary
                 notify(read ? tr("\(connector.name)에서 \(verified) 응답을 확인했어요.")

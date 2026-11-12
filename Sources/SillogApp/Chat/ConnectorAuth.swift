@@ -73,14 +73,26 @@ enum ConnectorAuth {
     // Every Keychain read can raise a macOS access prompt, so which connectors are remote is kept outside it.
     private static let remoteKey = "sillog.connectors.remote"
 
-    static func remoteIDs() throws -> Set<String> {
+    private static let remoteFill = NSLock()
+    nonisolated(unsafe) private static var remoteFilling = false
+
+    static func remoteIDs() -> Set<String> {
         if let stored = UserDefaults.standard.stringArray(forKey: remoteKey) { return Set(stored) }
-        let ids = Set(try RemoteReadConnector.allCases.filter {
-            let saved = try ChatSecrets.load("plugin-\($0.rawValue)")
-            return (try? JSONDecoder().decode(ConnectorToken.self, from: Data(saved.utf8)))?.remoteMCP == true
-        }.map(\.rawValue))
-        UserDefaults.standard.set(ids.sorted(), forKey: remoteKey)
-        return ids
+        // shortcut: until the off-main Keychain read finishes, sends see no remote connectors; fine because it runs once per install.
+        let start = remoteFill.withLock { () -> Bool in
+            defer { remoteFilling = true }
+            return !remoteFilling
+        }
+        if start {
+            Task.detached {
+                guard let ids = try? RemoteReadConnector.allCases.filter({
+                    let saved = try ChatSecrets.load("plugin-\($0.rawValue)")
+                    return (try? JSONDecoder().decode(ConnectorToken.self, from: Data(saved.utf8)))?.remoteMCP == true
+                }).map(\.rawValue) else { remoteFill.withLock { remoteFilling = false }; return }
+                UserDefaults.standard.set(ids.sorted(), forKey: remoteKey)
+            }
+        }
+        return []
     }
 
     private static func markRemote(_ id: String, _ remote: Bool) {

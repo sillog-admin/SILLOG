@@ -470,7 +470,7 @@ final class ChatState: ObservableObject {
             conversation.projectID = scope.projectID
             let replacedIDs = Set(replacing.map(\.id))
             let previous = try store.messages(conversation.id).filter { !replacedIDs.contains($0.id) }
-            let remoteConnectors = try ConnectorAuth.remoteIDs()
+            let remoteConnectors = ConnectorAuth.remoteIDs()
             // Retried on later turns too, so a stopped or failed first answer still gets a title.
             let needsTitle = automationID == nil && conversation.title == ChatConversation.defaultTitle
             conversation.updatedAt = Date().timeIntervalSince1970
