@@ -79,7 +79,11 @@ final class StageDecodeTests: XCTestCase {
     func testStagePromptsCarryTheRulesAndOnlyTheirRows() {
         XCTAssertTrue(StagePrompt.classifySystem.contains("Hobbies and entertainment are not goals"))
         XCTAssertTrue(StagePrompt.classifySystem.contains("rows whose app is Sillog"))
-        XCTAssertTrue(StagePrompt.classifySystem.contains("choose work"))
+        // No evidence means off; "choose work" once turned a bare title into a task named after a neighbouring row.
+        XCTAssertFalse(StagePrompt.classifySystem.contains("choose work"))
+        XCTAssertTrue(StagePrompt.classifySystem.contains("there is no basis to call it work"))
+        XCTAssertTrue(StagePrompt.assignSystem.contains("only from the evidence of the rows assigned to it"))
+        XCTAssertTrue(OntologyPrompt.system.contains("only from the evidence of the rows assigned to it"))
         XCTAssertTrue(StagePrompt.assignSystem.contains("managing the account, subscription or billing"))
         XCTAssertTrue(StagePrompt.describeSystem.contains("task_type"))
         XCTAssertTrue(StagePrompt.describeSystem.contains("use the weaker verb"))
