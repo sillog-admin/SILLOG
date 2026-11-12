@@ -1,11 +1,11 @@
 import Foundation
 
 extension ConversationMessage {
-    /// The text followed by its sources, numbered as the [n] marks in the answer.
+    /// The text followed by its sources, each with the ID the answer cites.
     public var markdown: String {
         guard !sources.isEmpty else { return text }
-        let list = sources.enumerated().map { index, source in
-            "\(index + 1). \(source.title)" + (source.location.isEmpty ? "" : " — \(source.location)")
+        let list = sources.map { source in
+            "- [\(source.id)] \(source.title)" + (source.location.isEmpty ? "" : " — \(source.location)")
         }
         return text + "\n\n**\(tr("출처"))**\n\n" + list.joined(separator: "\n")
     }

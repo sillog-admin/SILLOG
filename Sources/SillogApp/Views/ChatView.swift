@@ -136,7 +136,7 @@ struct ChatView: View {
             ["https", "http"].contains(url.scheme ?? "") ? .systemAction : .discarded
         })
         // The 1064pt minimum window leaves too little room for the conversation beside both the list and the panel.
-        .onChange(of: chat.openArtifactID, initial: true) { old, new in if new != nil, old == nil || old == new { sidebarVisible = false } }
+        .onChange(of: chat.openArtifactID, initial: true) { old, new in if new != nil, pane == .chat, old == nil || old == new { sidebarVisible = false } }
         .onChange(of: chat.current.scope) { old, new in if old != new { chat.saveScope() } }
         .onChange(of: chat.current.skillIDs) { old, new in if old != new { chat.saveScope() } }
         .background {

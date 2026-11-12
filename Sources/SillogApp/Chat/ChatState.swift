@@ -66,6 +66,14 @@ final class ChatState: ObservableObject {
             try reload()                                  // 처음엔 최근 대화가 아니라 새 대화(홈)로 시작
         } catch { self.error = error.localizedDescription }
         refreshFocusChoices()
+        // shortcut: crash still loses unflushed text, checkpoint in flushText if crashes matter.
+        _ = NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.flushText()
+                if let message = self.activeMessage { try? self.store.save(message) }
+            }
+        }
     }
 
     /// Args: 없음.
@@ -143,6 +151,8 @@ final class ChatState: ObservableObject {
     }
 
     func newConversation(projectID: String? = nil, focus: [ChatFocus] = []) {
+        // Commits pending IME text into the old draft before the draft changes.
+        _ = NSApp?.keyWindow?.makeFirstResponder(nil)
         draftConnectors = []
         openArtifactID = nil
         // Coming back to the chat tab also lands here, so an unsent home draft is kept.
@@ -160,6 +170,7 @@ final class ChatState: ObservableObject {
     /// Raises: 없음. 조회 오류는 화면에 표시한다.
     func select(_ conversation: ChatConversation) {
         guard conversation.id != current.id else { return }
+        _ = NSApp?.keyWindow?.makeFirstResponder(nil)
         draftConnectors = []
         do {
             let loaded = try store.messages(conversation.id)
@@ -530,7 +541,7 @@ final class ChatState: ObservableObject {
                 do { try self.reload() } catch { self.error = error.localizedDescription }
                 if needsTitle, !Task.isCancelled {
                     do {
-                        let title = try await backend.conversationTitle(for: text)
+                        let title = try await backend.conversationTitle(for: previous.first { $0.role == "user" }?.text ?? text)
                         self.applyTitle(title, to: conversation.id, replacing: ChatConversation.defaultTitle)
                     } catch { AppLog.write("chat title failed: \(error.localizedDescription)") }
                 }

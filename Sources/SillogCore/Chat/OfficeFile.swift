@@ -34,8 +34,10 @@ public enum OfficeFile {
     /// Raises: none.
     public static func slides(_ markdown: String) -> [String] {
         var chunks: [[String]] = []
+        var fence = false
         for line in lines(markdown) {
-            if chunks.isEmpty || line.hasPrefix("# ") || line.hasPrefix("## ") { chunks.append([line]) } else { chunks[chunks.count - 1].append(line) }
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") { fence.toggle() }
+            if chunks.isEmpty || (!fence && (line.hasPrefix("# ") || line.hasPrefix("## "))) { chunks.append([line]) } else { chunks[chunks.count - 1].append(line) }
         }
         return chunks.map { $0.joined(separator: "\n") }.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }

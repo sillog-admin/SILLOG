@@ -10,6 +10,8 @@ enum ChatSecrets {
     nonisolated(unsafe) private static var legacyMisses: Set<String> = []
     // An empty value from a failed read must not be saved back as a removal.
     nonisolated(unsafe) private static var failedLoads: Set<String> = []
+    // Snapshot builds are unsigned, so reading the signed app's item would block on a Keychain prompt.
+    nonisolated(unsafe) static var memoryOnly = false
 
     /// Args: account is the secret's name.
     /// Returns: the stored secret, or an empty string when there is none.
@@ -71,6 +73,7 @@ enum ChatSecrets {
     }
 
     private static func read(_ account: String) throws -> Data? {
+        if memoryOnly { return nil }
         var item: CFTypeRef?
         var search = query(account)
         search[kSecReturnData as String] = true
@@ -82,6 +85,7 @@ enum ChatSecrets {
     }
 
     private static func write(_ secrets: [String: String]) throws {
+        if memoryOnly { return }
         let item = query(combinedAccount), data = try JSONEncoder().encode(secrets)
         var status = SecItemUpdate(item as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if status == errSecItemNotFound {

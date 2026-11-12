@@ -82,6 +82,7 @@ final class OfficeFileTests: XCTestCase {
     func testSlides() throws {
         XCTAssertEqual(OfficeFile.slides("# A\n- x\n## B\ny"), ["# A\n- x", "## B\ny"])
         XCTAssertEqual(OfficeFile.slides("intro\n# A"), ["intro", "# A"])
+        XCTAssertEqual(OfficeFile.slides("# A\n```\n# c\n```\n## B"), ["# A\n```\n# c\n```", "## B"])
         let url = try write(.pptx, "# A\n- x\n## B\ny")
         XCTAssertEqual(try part(url, "ppt/presentation.xml").components(separatedBy: "<p:sldId ").count - 1, 2)
         XCTAssertEqual(try part(url, "[Content_Types].xml").components(separatedBy: "presentationml.slide+xml").count - 1, 2)
