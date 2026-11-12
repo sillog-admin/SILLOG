@@ -269,7 +269,7 @@ struct LibraryPreview: View {
     @Environment(\.dismiss) private var dismiss
     private var artifact: ChatArtifact? {
         let ext = URL(fileURLWithPath: item.filename).pathExtension.lowercased()
-        guard item.kind != "upload" || ["html", "htm"].contains(ext),
+        guard item.kind != "upload" || ["html", "htm"].contains(ext), OfficeFormat(rawValue: ext) == nil,
               let text = try? String(contentsOf: library.store.url(for: item), encoding: .utf8) else { return nil }
         return .init(title: item.title, format: ext == "md" ? "markdown" : ext == "htm" ? "html" : ext, content: text)
     }

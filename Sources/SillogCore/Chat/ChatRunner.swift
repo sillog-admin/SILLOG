@@ -71,11 +71,13 @@ public struct ChatRunResult: Sendable {
 private actor ChatRunLedger {
     var sources: [String: ChatSource] = [:]
     var artifacts: [ChatArtifact] = []
+    var earlier: [ChatArtifact] = []
     var automation: ChatAutomationProposal?
     var calls = 0
     var userText = ""
 
     func setUserText(_ text: String) { userText = text }
+    func setEarlier(_ values: [ChatArtifact]) { earlier = values }
 
     /// Blocks prompt-injected exfiltration: web_read only follows URLs the user wrote or a tool returned.
     func knows(_ url: String) -> Bool {
@@ -96,10 +98,15 @@ private actor ChatRunLedger {
     /// Raises: 없음.
     func record(_ values: [ChatSource]) { for value in values { sources[value.id] = value } }
 
-    /// Args: artifact는 생성한 결과물이다.
-    /// Returns: 없음.
-    /// Raises: 없음.
-    func record(_ artifact: ChatArtifact) { artifacts.append(artifact) }
+    /// Args: artifact is the new result, revises the id of an earlier one it replaces.
+    /// Returns: the artifact joined to that one's series; an unknown id starts a new series.
+    /// Raises: none.
+    func record(_ artifact: ChatArtifact, revises: String?) -> ChatArtifact {
+        var artifact = artifact
+        artifact.baseID = (earlier + artifacts).last { $0.id == revises }?.seriesID
+        artifacts.append(artifact)
+        return artifact
+    }
 
     /// Args: proposal은 아직 승인되지 않은 예약안이다.
     /// Returns: 없음.
@@ -160,6 +167,7 @@ public enum ChatBackend: Sendable {
 
 /// 공통 실행 루프. 하위 에이전트도 독립적인 대화와 읽기 도구로 같은 루프를 수행한다.
 public struct ChatRunner: Sendable {
+    static let artifactFormats = ["markdown", "html", "csv", "json", "txt"] + OfficeFormat.allCases.map(\.rawValue)
     let backend: ChatBackend
     let tools: ChatTools
 
@@ -187,6 +195,7 @@ public struct ChatRunner: Sendable {
         if tools.scope.useActivity { prompt.focus = try tools.search.focusOutline() }
         let ledger = ChatRunLedger()
         await ledger.setUserText(history.filter { $0.role == "user" }.map(\.text).joined(separator: "\n"))
+        await ledger.setEarlier(history.flatMap(\.artifacts))
         let remembered = try tools.rememberedSources(history: history)
         if !remembered.isEmpty {
             prompt.rememberedSources = String(decoding: try JSONEncoder().encode(remembered), as: UTF8.self)
@@ -195,7 +204,7 @@ public struct ChatRunner: Sendable {
         }
         var messages = history.filter { $0.role == "user" || ($0.role == "assistant" && $0.status == "complete") }.suffix(16).map { message in
             var text = String(message.text.prefix(12000))
-            for artifact in message.artifacts.suffix(2) { text += "\n<previous_artifact title=\"\(artifact.title)\">\n\(String(artifact.content.prefix(18000)))\n</previous_artifact>" }
+            for artifact in message.artifacts.suffix(2) { text += "\n<previous_artifact id=\"\(artifact.id)\" format=\"\(artifact.format)\" title=\"\(artifact.title)\">\n\(String(artifact.content.prefix(18000)))\n</previous_artifact>" }
             if !message.sources.isEmpty { text += "\n이전 조회 출처:\n" + message.sources.prefix(12).map { "[\($0.id)] \($0.title) \($0.location)\n\(String($0.excerpt.prefix(500)))" }.joined(separator: "\n") }
             return ChatModelMessage(role: message.role, text: text)
         }
@@ -245,12 +254,12 @@ public struct ChatRunner: Sendable {
                         return answers.sorted { $0.0 < $1.0 }.map(\.1).joined(separator: "\n\n")
                     }
                 case "create_artifact":
-                    struct Arguments: Decodable { var title: String; var format: String; var content: String }
+                    struct Arguments: Decodable { var title: String; var format: String; var content: String; var revises: String? }
                     let args = try JSONDecoder().decode(Arguments.self, from: Data(call.arguments.utf8))
-                    guard ["markdown", "html", "csv", "json", "txt"].contains(args.format), !args.content.isEmpty, args.content.utf8.count <= 200000 else { throw ChatToolError.unavailable("결과물은 내용이 있는 200KB 이하 Markdown, HTML, CSV, JSON 또는 TXT여야 합니다.") }
-                    let artifact = ChatArtifact(title: String(args.title.prefix(160)), format: args.format, content: args.content)
-                    await ledger.record(artifact); await onEvent(.artifact(artifact))
-                    output = "결과물 생성됨: \(artifact.title). 사용자가 미리보기·파일 저장·PDF 내보내기를 할 수 있다."
+                    guard Self.artifactFormats.contains(args.format), !args.content.isEmpty, args.content.utf8.count <= 200000 else { throw ChatToolError.unavailable("결과물은 내용이 있는 200KB 이하 Markdown, HTML, CSV, JSON, TXT, DOCX, PPTX 또는 XLSX여야 합니다.") }
+                    let artifact = await ledger.record(ChatArtifact(title: String(args.title.prefix(160)), format: args.format, content: args.content), revises: args.revises)
+                    await onEvent(.artifact(artifact))
+                    output = "결과물 생성됨: \(artifact.title) (id: \(artifact.id)). 사용자가 미리보기·파일 저장·PDF 내보내기를 할 수 있다."
                 case "propose_automation":
                     let args = try JSONDecoder().decode(ChatAutomationProposal.self, from: Data(call.arguments.utf8))
                     guard (1...8760).contains(args.intervalHours), !args.prompt.isEmpty, !args.title.isEmpty else { throw ChatToolError.unavailable("예약 이름·실행 요청과 1~8760시간 간격이 필요합니다.") }
@@ -334,8 +343,9 @@ public struct ChatRunner: Sendable {
                 "required": .array(["role", "task"]), "additionalProperties": false,
             ])])]), "required": .array(["tasks"]), "additionalProperties": false,
         ])))
-        specs.append(.init(name: "create_artifact", description: "저장 가능한 결과물을 만든다. 요청에 맞는 형식을 선택한다. HTML은 스크립트나 외부 리소스 없이 자체 포함시킨다.", parameters: .object([
-            "type": "object", "properties": .object(["title": .object(["type": "string"]), "format": .object(["type": "string", "enum": .array(["markdown", "html", "csv", "json", "txt"])]), "content": .object(["type": "string"])]),
+        specs.append(.init(name: "create_artifact", description: "저장 가능한 결과물을 만든다. 요청에 맞는 형식을 선택한다. HTML은 스크립트나 외부 리소스 없이 자체 포함시킨다. docx는 Markdown, pptx는 슬라이드마다 # 제목과 - 항목을 쓴 Markdown, xlsx는 머리글 행이 있는 CSV로 content를 쓴다. 이전 결과물을 고친 것이면 그 previous_artifact의 id를 revises에 넣는다.", parameters: .object([
+            "type": "object", "properties": .object(["title": .object(["type": "string"]), "format": .object(["type": "string", "enum": .array(Self.artifactFormats.map { .string($0) })]), "content": .object(["type": "string"]),
+                                                     "revises": .object(["type": "string", "description": "id of the previous_artifact this revises; omit for a new artifact"])]),
             "required": .array(["title", "format", "content"]), "additionalProperties": false,
         ])))
         if allowAutomation {

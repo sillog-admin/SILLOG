@@ -20,7 +20,7 @@ Create content for an audience (blog posts, presentations, landing and intro pag
 6. **Check what can go public.** For anything public, leave out internal details, other people's names without their consent, private links, and figures not cleared for release, or put them in general terms.
 
 ## Output
-Presentations and landing pages are html artifacts. Make them self-contained, with each slide in its own <section>, one message per slide, readable text sizes, and no filler statistics. Blog posts and articles are markdown; scripts and copy are txt. PPTX isn't available, so offer an html deck the user can export to PDF and say so plainly. When the user limits what to return ("제목만", "이 문장만"), return only that. Otherwise add, briefly, the assumptions, the facts still to confirm, and two or three alternatives for the title or headline.
+Presentations and landing pages are html artifacts, except that a deck goes into pptx when the user asks for PowerPoint or a file to edit. Make them self-contained, with each slide in its own <section>, one message per slide, readable text sizes, and no filler statistics. Blog posts and articles are markdown; scripts and copy are txt. When the user limits what to return ("제목만", "이 문장만"), return only that. Otherwise add, briefly, the assumptions, the facts still to confirm, and two or three alternatives for the title or headline.
 
 ## Definition of done
 - The audience and the one takeaway are clear from the opening.

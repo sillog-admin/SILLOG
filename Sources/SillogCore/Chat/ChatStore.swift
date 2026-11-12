@@ -54,8 +54,18 @@ public struct ChatArtifact: Codable, Identifiable, Equatable, Sendable {
     public var title: String
     public var format: String
     public var content: String
+    /// First version's id; a root instead of a parent so dropping a middle version keeps the series together.
+    public var baseID: String?
+    public var seriesID: String { baseID ?? id }
     public init(title: String, format: String, content: String) {
         self.title = title; self.format = format; self.content = content
+    }
+
+    /// Args: artifact is any version, messages the conversation in order.
+    /// Returns: every version of the artifact's series, oldest first.
+    /// Raises: none.
+    public static func versions(of artifact: ChatArtifact, in messages: [ConversationMessage]) -> [ChatArtifact] {
+        messages.flatMap(\.artifacts).filter { $0.seriesID == artifact.seriesID }
     }
 }
 

@@ -346,7 +346,68 @@ final class ChatTests: XCTestCase {
         XCTAssertTrue(sub.contains("agent_role: review"))
         XCTAssertFalse(sub.contains("테스트 절차") || sub.contains("졸업 프로젝트") || sub.contains("library:42"))
     }
+
+    func testRevisedArtifactsJoinTheFirstVersionsSeries() async throws {
+        var old = ConversationMessage(conversationID: "t", role: "assistant", text: "초안")
+        old.artifacts = [ChatArtifact(title: "발표", format: "markdown", content: "# 초안")]
+        let legacy = try JSONDecoder().decode(ChatArtifact.self, from: Data(#"{"id":"a","title":"t","format":"txt","content":"x"}"#.utf8))
+        XCTAssertNil(legacy.baseID); XCTAssertEqual(legacy.seriesID, "a")
+        XCTAssertFalse(String(decoding: try JSONEncoder().encode(legacy), as: UTF8.self).contains("baseID"))
+
+        let id = old.artifacts[0].id
+        let model = ArtifactCallModel(calls: [
+            ##"{"title":"발표","format":"pptx","content":"# 1\n- a\n# 2","revises":"\##(id)"}"##,
+            #"{"title":"다른 것","format":"xlsx","content":"a,b","revises":"없는-id"}"#,
+            #"{"title":"x","format":"pdf","content":"x"}"#,
+        ])
+        let runner = ChatRunner(client: model, tools: ChatTools(db: try .inMemory(), scope: .init()))
+        let history = [ConversationMessage(conversationID: "t", role: "user", text: "발표 만들어줘"), old, ConversationMessage(conversationID: "t", role: "user", text: "고쳐줘")]
+        let emitted = EventBox()
+        let result = try await runner.run(history: history, skillIDs: []) { if case .artifact(let a) = $0 { await emitted.add(a) } }
+        XCTAssertEqual(result.artifacts.map(\.baseID), [id, nil])
+        let events = await emitted.items
+        XCTAssertEqual(events, result.artifacts)
+        let replies = await model.replies
+        XCTAssertTrue(replies[2].contains("도구 실행 실패"), replies[2])
+        let sent = await model.firstRequest
+        XCTAssertTrue(sent.contains("<previous_artifact id=\"\(id)\" format=\"markdown\""), sent)
+
+        var answer = ConversationMessage(conversationID: "t", role: "assistant", text: "")
+        answer.artifacts = result.artifacts
+        let versions = ChatArtifact.versions(of: result.artifacts[0], in: [old, answer])
+        XCTAssertEqual(versions.map(\.id), [id, result.artifacts[0].id])
+        XCTAssertEqual(ChatArtifact.versions(of: result.artifacts[1], in: [old, answer]).count, 1)
+    }
+
+    func testOfficeArtifactsPreviewAsHTML() {
+        let deck = ChatArtifactHTML.render(.init(title: "d", format: "pptx", content: "# 하나\n- a\n## 둘\n- b"))
+        XCTAssertEqual(deck.components(separatedBy: "<section>").count - 1, 2)
+        XCTAssertTrue(ChatArtifactHTML.render(.init(title: "s", format: "xlsx", content: "A,<B>\n1,2")).contains("<td>&lt;B&gt;</td>"))
+        XCTAssertTrue(ChatArtifactHTML.render(.init(title: "w", format: "docx", content: "# 제목")).contains("<h1>제목</h1>"))
+    }
 }
+
+private actor EventBox {
+    var items: [ChatArtifact] = []
+    func add(_ item: ChatArtifact) { items.append(item) }
+}
+
+/// Calls create_artifact once per scripted argument string, then finishes.
+private actor ArtifactCallModel: ChatModelClient {
+    nonisolated var modelName: String { "artifact-calls" }
+    let calls: [String]
+    var replies: [String] = []
+    var firstRequest = ""
+    init(calls: [String]) { self.calls = calls }
+    func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec], onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply {
+        if firstRequest.isEmpty { firstRequest = messages.map(\.text).joined(separator: "\n") }
+        if messages.last?.role == "tool" { replies.append(messages.last?.text ?? "") }
+        let done = messages.filter { $0.role == "tool" }.count
+        guard done < calls.count else { return .init(text: "완료") }
+        return .init(text: "", calls: [.init(id: "c\(done)", name: "create_artifact", arguments: calls[done])])
+    }
+}
+
 
 private actor ScriptedChatModel: ChatModelClient {
     nonisolated var modelName: String { "scripted" }

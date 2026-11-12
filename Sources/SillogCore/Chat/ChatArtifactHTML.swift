@@ -1,7 +1,7 @@
 import Foundation
 
 public enum ChatArtifactHTML {
-    /// Args: artifact는 Markdown, HTML, CSV, JSON 또는 TXT 결과물이다.
+    /// Args: artifact는 Markdown, HTML, CSV, JSON, TXT 또는 Office 원문(docx·pptx Markdown, xlsx CSV) 결과물이다.
     /// Returns: 외부 리소스·스크립트를 차단한 미리보기/내보내기용 HTML.
     /// Raises: 없음. Markdown은 제목·목록·표·코드 블록·기본 강조를 지원한다.
     public static func render(_ artifact: ChatArtifact) -> String {
@@ -10,13 +10,16 @@ public enum ChatArtifactHTML {
             body = artifact.content
                 .replacingOccurrences(of: "(?is)<script\\b[^>]*>.*?</script\\s*>", with: "", options: .regularExpression)
                 .replacingOccurrences(of: "(?is)<(?:meta|base|link)\\b[^>]*>", with: "", options: .regularExpression)
-        } else if artifact.format == "markdown" { body = markdown(artifact.content) }
-        else { body = "<pre>\(escape(artifact.content))</pre>" }
+        } else if artifact.format == "markdown" || artifact.format == "docx" { body = markdown(artifact.content) }
+        else if artifact.format == "pptx" { body = OfficeFile.slides(artifact.content).map { "<section>\(markdown($0))</section>" }.joined() }
+        else if artifact.format == "xlsx" {
+            body = "<table>" + OfficeFile.csvRows(artifact.content).map { "<tr>" + $0.map { "<td>\(escape($0))</td>" }.joined() + "</tr>" }.joined() + "</table>"
+        } else { body = "<pre>\(escape(artifact.content))</pre>" }
         return """
         <!doctype html><html lang="ko"><head><meta charset="utf-8">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
         <meta name="viewport" content="width=device-width, initial-scale=1"><title>\(escape(artifact.title))</title>
-        <style>body{font:15px/1.75 -apple-system,BlinkMacSystemFont,sans-serif;color:#25262a;background:#fff;margin:36px;overflow-wrap:anywhere}h1,h2,h3{line-height:1.3}h1{font-size:30px}h2{margin-top:32px}p{white-space:pre-wrap}pre{white-space:pre-wrap;background:#f4f5f7;padding:16px;border-radius:8px}code{font-family:ui-monospace,monospace}table{border-collapse:collapse;width:100%;margin:20px 0}td,th{border:1px solid #ddd;padding:8px;text-align:left}blockquote{border-left:3px solid #aaa;margin-left:0;padding-left:16px;color:#555}a{color:#265ed4}@media print{body{margin:0}pre,table{break-inside:avoid}section{break-after:page}}</style>
+        <style>body{font:15px/1.75 -apple-system,BlinkMacSystemFont,sans-serif;color:#25262a;background:#fff;margin:36px;overflow-wrap:anywhere}h1,h2,h3{line-height:1.3}h1{font-size:30px}h2{margin-top:32px}p{white-space:pre-wrap}pre{white-space:pre-wrap;background:#f4f5f7;padding:16px;border-radius:8px}code{font-family:ui-monospace,monospace}table{border-collapse:collapse;width:100%;margin:20px 0}td,th{border:1px solid #ddd;padding:8px;text-align:left}blockquote{border-left:3px solid #aaa;margin-left:0;padding-left:16px;color:#555}a{color:#265ed4}section{border-bottom:1px solid #ddd;padding-bottom:24px}@media print{body{margin:0}pre,table{break-inside:avoid}section{break-after:page}}</style>
         </head><body>\(body)</body></html>
         """
     }

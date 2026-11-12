@@ -319,7 +319,28 @@ enum SnapshotCatalog {
         return [Snapshot(name: "CH-01", size: window, view: AnyView(MainWindow().environmentObject(state))),
                 Snapshot(name: "CH-SKILL-PINS", size: nil, view: AnyView(PinnedSkillPicker(chat: state.chat!, onManage: {}).background(.white))),
                 Snapshot(name: "CH-13", size: window, view: AnyView(MainWindow().environmentObject(tab(.connectors)))),
-                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus
+                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus + artifactPanel
+    }
+
+    /// An answer whose revised Word file is open in the side panel at version 2 of 2
+    private static var artifactPanel: [Snapshot] {
+        guard let database = try? SillogDatabase.inMemory() else { return [] }
+        let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
+        let chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        let draft = "# 주간 업무 보고\n\n## 이번 주\n- 채팅 결과물 패널 추가\n- Office 파일 내보내기\n\n| 업무 | 상태 |\n|---|---|\n| 결과물 패널 | 완료 |\n| 버전 전환 | 진행 중 |"
+        let v1 = ChatArtifact(title: "주간 업무 보고", format: "docx", content: draft)
+        var v2 = ChatArtifact(title: "주간 업무 보고", format: "docx", content: draft.replacingOccurrences(of: "진행 중", with: "완료"))
+        v2.baseID = v1.id
+        let id = chat.current.id
+        var a1 = ConversationMessage(conversationID: id, role: "assistant", text: "이번 주 기록으로 보고서를 만들었어요.")
+        a1.artifacts = [v1]
+        var a2 = ConversationMessage(conversationID: id, role: "assistant", text: "버전 전환을 완료로 바꿨어요.")
+        a2.artifacts = [v2]
+        chat.messages = [.init(conversationID: id, role: "user", text: "이번 주 업무 보고서를 Word로 만들어줘"), a1,
+                         .init(conversationID: id, role: "user", text: "버전 전환도 끝났어"), a2]
+        chat.openArtifactID = v2.id
+        let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })
+        return [Snapshot(name: "CH-artifact", size: window, view: AnyView(MainWindow().environmentObject(state)))]
     }
 
     /// 채팅 범위: 업무 하나로 좁힌 대화(정리 전 기록 안내 포함)와 범위 고르기 창

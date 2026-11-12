@@ -66,6 +66,14 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual((StubURLProtocol.requests.last?.body["messages"] as? [[String: Any]])?.last?["content"] as? String, "이 그림 봐줘")
     }
 
+    func testOfficeArtifactsAreSavedAsRealFilesAndSearchedByTheirText() throws {
+        let db = try SillogDatabase.inMemory(), library = LibraryStore(db)
+        let item = try library.saveArtifact(.init(title: "분기 보고", format: "docx", content: "# 분기 보고\n매출 요약"))
+        XCTAssertTrue(item.filename.hasSuffix(".docx"), item.filename)
+        XCTAssertEqual(try Data(contentsOf: library.url(for: item)).prefix(4), Data([0x50, 0x4B, 0x03, 0x04]))
+        XCTAssertFalse(try library.search("매출", ids: [item.id]).isEmpty)
+    }
+
     func testUploadSurvivesOriginalDeletionAndExplicitSharing() throws {
         let db = try SillogDatabase.inMemory(), projects = ProjectStore(db), library = LibraryStore(db)
         defer { try? FileManager.default.removeItem(at: library.directory) }

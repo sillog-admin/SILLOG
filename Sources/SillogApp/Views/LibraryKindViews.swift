@@ -94,7 +94,9 @@ struct LibraryTextInfo {
     var count = 0
 
     static func read(_ url: URL) -> LibraryTextInfo {
-        guard let raw = try? String(contentsOf: url, encoding: .utf8) else { return .init() }
+        // Office files are zip packages; read their text the way the library indexes them.
+        let office = OfficeFormat(rawValue: url.pathExtension.lowercased()) != nil
+        guard let raw = office ? try? FileTextExtractor.read(url).0 : try? String(contentsOf: url, encoding: .utf8) else { return .init() }
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("<") ? plainText(raw) : raw
         let line = text.split(separator: "\n").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "#>*- \t")) }.first { !$0.isEmpty } ?? ""
         return .init(first: line, count: text.count)

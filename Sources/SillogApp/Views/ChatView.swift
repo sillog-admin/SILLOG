@@ -11,7 +11,6 @@ struct ChatView: View {
     var pendingRecords = 0
     var tidyNow: () -> Void = {}
     @State private var pane: ChatPane = .chat
-    @State private var artifact: ChatArtifact?
     @State private var source: ChatSource?
     @State private var pendingAutomation: ConversationMessage?
     @State private var showSchedules = false
@@ -91,7 +90,6 @@ struct ChatView: View {
 
     private var sheets: some View {
         layout
-        .sheet(item: $artifact) { ArtifactPreview(artifact: $0) }
         .sheet(item: $source) { ChatSourceSheet(source: $0) }
         .sheet(item: $pendingAutomation) { message in automationApproval(message) }
         .sheet(isPresented: $showSchedules) { ChatSchedulesView(chat: chat) }
@@ -127,6 +125,8 @@ struct ChatView: View {
         .environment(\.openURL, OpenURLAction { url in
             ["https", "http"].contains(url.scheme ?? "") ? .systemAction : .discarded
         })
+        // The 1064pt minimum window leaves too little room for the conversation beside both the list and the panel.
+        .onChange(of: chat.openArtifactID, initial: true) { old, new in if new != nil, old == nil || old == new { sidebarVisible = false } }
         .onChange(of: chat.current.scope) { old, new in if old != new { chat.saveScope() } }
         .onChange(of: chat.current.skillIDs) { old, new in if old != new { chat.saveScope() } }
     }
@@ -135,7 +135,15 @@ struct ChatView: View {
         Group {
             switch pane {
             case .chat:
-                chatContent
+                HStack(spacing: 0) {
+                    chatContent
+                    if let open = chat.messages.flatMap(\.artifacts).first(where: { $0.id == chat.openArtifactID }) {
+                        Rectangle().fill(Brand.line).frame(width: 1)
+                        ArtifactPreview(artifact: open, versions: ChatArtifact.versions(of: open, in: chat.messages),
+                                        onSelect: { chat.openArtifactID = $0.id }, onClose: { chat.openArtifactID = nil })
+                            .id(open.id).frame(width: 480)
+                    }
+                }
             case .projects:
                 ProjectListView(projects: chat.projects, chat: chat,
                                 onOpen: { project in chat.newConversation(projectID: project.id); pane = .project(project.id) })
@@ -463,7 +471,7 @@ struct ChatView: View {
                     ChatMessageText(text: message.text, sources: message.sources) { source = $0 }
                 }
                 ForEach(message.artifacts) { item in
-                    Button { artifact = item } label: {
+                    Button { chat.openArtifactID = item.id } label: {
                         HStack(spacing: 14) {
                             Image(systemName: "doc.text").font(.system(size: 22, weight: .light)).foregroundStyle(Brand.ink)
                             VStack(alignment: .leading, spacing: 3) {
@@ -471,7 +479,7 @@ struct ChatView: View {
                                 Text(tr("\(item.format.uppercased()) 결과물, 미리보기")).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
                             }
                             Spacer(minLength: 24); Image(systemName: "arrow.up.right").font(.system(size: 13)).foregroundStyle(Brand.ink)
-                        }.padding(.horizontal, 16).frame(width: 360, height: 68, alignment: .leading)
+                        }.padding(.horizontal, 16).frame(maxWidth: 360, minHeight: 68, maxHeight: 68, alignment: .leading)
                             .background(.white, in: RoundedRectangle(cornerRadius: 6))
                             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
                             .contentShape(Rectangle())
@@ -651,7 +659,7 @@ struct ChatDialogButtonStyle: ButtonStyle {
 struct ChatDialogFrame<Content: View, Footer: View>: View {
     let title: String
     var detail: String? = nil
-    var width: CGFloat = 600
+    var width: CGFloat? = 600
     var height: CGFloat? = nil
     let onClose: () -> Void
     @ViewBuilder var content: () -> Content

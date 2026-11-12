@@ -4,8 +4,11 @@ import PDFKit
 import Vision
 
 /// 원본은 형식에 관계없이 보관하고, 읽을 수 있는 내용만 검색용 텍스트로 추출한다.
-enum FileTextExtractor {
-    static func read(_ url: URL) throws -> (String, String) {
+public enum FileTextExtractor {
+    /// Args: url is a stored file.
+    /// Returns: the searchable text and a note about what could not be read.
+    /// Raises: file read or unzip errors.
+    public static func read(_ url: URL) throws -> (String, String) {
         let ext = url.pathExtension.lowercased()
         var text = ""
         if ext == "pdf", let pdf = PDFDocument(url: url) {

@@ -5,18 +5,27 @@ import SillogCore
 
 struct ArtifactPreview: View {
     let artifact: ChatArtifact
+    var versions: [ChatArtifact] = []
+    var onSelect: (ChatArtifact) -> Void = { _ in }
+    /// Set when shown as the chat side panel instead of a sheet.
+    var onClose: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @StateObject private var preview = ArtifactWebState()
     @State private var error: String?
 
     var body: some View {
-        ChatDialogFrame(title: artifact.title, width: 760, height: 679, onClose: { dismiss() }) {
+        ChatDialogFrame(title: artifact.title, width: onClose == nil ? 760 : nil, height: onClose == nil ? 679 : nil, onClose: onClose ?? { dismiss() }) {
             VStack(spacing: 0) {
                 ArtifactWebView(state: preview)
                 if let error { Text(error).font(Brand.font(.body)).foregroundStyle(Brand.ink).padding(12) }
             }
         } footer: {
             Text(artifact.format.uppercased()).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
+            if versions.count > 1, let index = versions.firstIndex(where: { $0.id == artifact.id }) {
+                versionButton("chevron.left", tr("이전 버전"), to: index - 1)
+                Text(tr("버전 \(index + 1)/\(versions.count)")).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).monospacedDigit()
+                versionButton("chevron.right", tr("다음 버전"), to: index + 1)
+            }
             Spacer()
             Button { save(pdf: false) } label: {
                 HStack(spacing: 8) { Image(systemName: "arrow.down.to.line").font(.system(size: 11)); Text(tr("파일로 저장")) }
@@ -26,12 +35,19 @@ struct ArtifactPreview: View {
         .onAppear { preview.webView.loadHTMLString(ChatArtifactHTML.render(artifact), baseURL: nil) }
     }
 
+    private func versionButton(_ symbol: String, _ label: String, to index: Int) -> some View {
+        Button { onSelect(versions[index]) } label: {
+            Image(systemName: symbol).font(.system(size: 11)).frame(width: 22, height: 22).contentShape(Rectangle())
+        }.buttonStyle(.plain).foregroundStyle(Brand.tabText).disabled(!versions.indices.contains(index))
+            .help(label).accessibilityLabel(label)
+    }
+
     /// Args: pdf가 true면 미리보기 전체를 PDF로 저장한다.
     /// Returns: 없음. 사용자가 선택한 경로에만 결과물을 쓴다.
     /// Raises: 없음. 렌더링·파일 저장 오류는 화면에 표시한다.
     private func save(pdf: Bool) {
         let panel = NSSavePanel()
-        let ext = pdf ? "pdf" : artifact.format == "markdown" ? "md" : artifact.format
+        let ext = pdf ? "pdf" : artifact.fileExtension
         panel.allowedContentTypes = [UTType(filenameExtension: ext) ?? .plainText]
         let name = artifact.title.components(separatedBy: CharacterSet(charactersIn: "/:\n")).joined(separator: "-")
         panel.nameFieldStringValue = "\(name.isEmpty ? tr("결과물") : name).\(ext)"
@@ -45,8 +61,8 @@ struct ArtifactPreview: View {
                     let data = try await preview.webView.pdf(configuration: configuration)
                     try data.write(to: url, options: .atomic)
                 } else {
-                    let text = artifact.format == "html" ? ChatArtifactHTML.render(artifact) : artifact.content
-                    try text.write(to: url, atomically: true, encoding: .utf8)
+                    let data = artifact.format == "html" ? Data(ChatArtifactHTML.render(artifact).utf8) : try artifact.fileData()
+                    try data.write(to: url, options: .atomic)
                 }
                 error = nil
             } catch { self.error = tr("저장 실패: \(error.localizedDescription)") }

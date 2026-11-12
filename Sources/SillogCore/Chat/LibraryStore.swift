@@ -97,16 +97,16 @@ public struct LibraryStore: Sendable {
         }
     }
 
-    /// Args: artifact는 채팅에서 생성한 결과물이다.
-    /// Returns: 같은 결과물을 중복 저장하지 않는 보관 자료.
-    /// Raises: 파일·DB 오류.
+    /// Args: artifact is a result created in chat.
+    /// Returns: the library item, reused if this artifact was saved before.
+    /// Raises: file, DB, or Office packaging errors.
     @discardableResult public func saveArtifact(_ artifact: ChatArtifact) throws -> ChatLibraryItem {
         if let existing = try find(originID: artifact.id) { return existing }
-        let ext = ["markdown": "md", "text": "txt", "txt": "txt", "json": "json", "html": "html", "csv": "csv", "svg": "svg"][artifact.format] ?? "txt"
+        let ext = artifact.fileExtension
         let name = artifact.title.components(separatedBy: CharacterSet(charactersIn: "/:\n\\")).joined(separator: "-")
         var item = ChatLibraryItem(title: artifact.title, filename: "\(name.isEmpty ? "result" : String(name.prefix(120))).\(ext)", kind: "generated")
         item.originID = artifact.id
-        return try write(item, data: Data(artifact.content.utf8)) { _ in (artifact.content, "") }
+        return try write(item, data: try artifact.fileData()) { _ in (artifact.content, "") }
     }
 
     /// Args: message는 완료된 답변, title은 사용자가 지정한 자료 이름이다.

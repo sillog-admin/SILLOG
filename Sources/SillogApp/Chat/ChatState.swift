@@ -16,6 +16,7 @@ final class ChatState: ObservableObject {
     @Published var draft = ""
     @Published var draftConnectors: [String] = []
     @Published var error: String?
+    @Published var openArtifactID: String?
     @Published var activeMessage: ConversationMessage?
     /// 범위 단추의 고를 거리: 이 대화에서 볼 수 있는 분야·업무
     @Published var focusChoices = ChatFocusChoices()
@@ -121,6 +122,7 @@ final class ChatState: ObservableObject {
 
     func newConversation(projectID: String? = nil, focus: [ChatFocus] = []) {
         draftConnectors = []
+        openArtifactID = nil
         current = ChatConversation(); current.projectID = projectID; current.scope.focus = focus; messages = []; draft = ""; error = nil
         if !focus.isEmpty { refreshFocusChoices(); inputFocusRequest += 1 }   // 업무에서 '이 업무로 묻기'로 왔으면 바로 쓰게
     }
@@ -132,7 +134,7 @@ final class ChatState: ObservableObject {
         draftConnectors = []
         do {
             let loaded = try store.messages(conversation.id)
-            current = conversation; messages = loaded; draft = ""; error = nil
+            current = conversation; messages = loaded; draft = ""; error = nil; openArtifactID = nil
             let available = Set(skills.map(\.id))
             current.skillIDs.removeAll { !available.contains($0) }
             if let activeMessage, activeMessage.conversationID == conversation.id { replaceVisible(activeMessage) }
@@ -484,7 +486,9 @@ final class ChatState: ObservableObject {
         case .step(let text): message.steps.append(text)
         case .source(let source):
             message.sources.removeAll { $0.id == source.id }; message.sources.append(source)
-        case .artifact(let artifact): message.artifacts.append(artifact)
+        case .artifact(let artifact):
+            message.artifacts.append(artifact)
+            if message.conversationID == current.id { openArtifactID = artifact.id }
         case .automation(let proposal): message.automation = proposal
         }
         activeMessage = message; replaceVisible(message)
