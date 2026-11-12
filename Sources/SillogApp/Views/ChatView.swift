@@ -137,8 +137,10 @@ struct ChatView: View {
         .environment(\.openURL, OpenURLAction { url in
             ["https", "http"].contains(url.scheme ?? "") ? .systemAction : .discarded
         })
-        // The 1064pt minimum window leaves too little room for the conversation beside both the list and the panel.
-        .onChange(of: chat.openArtifactID, initial: true) { old, new in if new != nil, pane == .chat, old == nil || old == new { sidebarVisible = false } }
+        // The 1064pt minimum window leaves too little room for the conversation beside both the list and the panel, so they take turns.
+        .onChange(of: chat.openArtifactID, initial: true) { old, new in
+            if new != nil, pane == .chat, old == nil || old == new { sidebarVisible = false } else if new == nil, old != nil { sidebarVisible = true }
+        }
         .onChange(of: chat.current.scope) { old, new in if old != new { chat.saveScope() } }
         .onChange(of: chat.current.skillIDs) { old, new in if old != new { chat.saveScope() } }
         .onChange(of: chat.current.id) { _, _ in editingMessageID = nil }
@@ -296,7 +298,7 @@ struct ChatView: View {
             if !sidebarVisible {
                 // CH-30: 아이콘 중심 35, 64, 제목 시작 87 (아이콘 28 폭, 간격 1)
                 HStack(spacing: 1) {
-                    ChatIconButton(systemName: "sidebar.left", help: tr("대화 목록 표시 전환")) { sidebarVisible = true }
+                    ChatIconButton(systemName: "sidebar.left", help: tr("대화 목록 표시 전환")) { sidebarVisible = true; chat.openArtifactID = nil }
                     ChatIconButton(systemName: "square.and.pencil", help: tr("새 대화 (⌘N)")) { chat.newConversation(); pane = .chat }
                 }
             }
@@ -309,11 +311,12 @@ struct ChatView: View {
                         Label(tr("이름 바꾸기"), systemImage: "pencil")
                     }
                     Button(role: .destructive) { deletingConversation = item; showDelete = true } label: { Label(tr("삭제"), systemImage: "trash") }
+                        .disabled(chat.activeMessage?.conversationID == item.id)
                 } label: {
                     Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(Brand.tabText)
                 }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .disabled(chat.running).help(tr("대화 메뉴")).accessibilityLabel(tr("대화 메뉴"))
+                .help(tr("대화 메뉴")).accessibilityLabel(tr("대화 메뉴"))
             }
             Spacer(minLength: 0)
         }.padding(.top, sidebarVisible ? 20.5 : 20)   // 목록 "채팅" 제목과 글자 바닥선을 맞춘다
