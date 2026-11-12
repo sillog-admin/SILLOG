@@ -14,7 +14,8 @@ struct ArtifactPreview: View {
     @State private var error: String?
 
     var body: some View {
-        ChatDialogFrame(title: artifact.title, width: onClose == nil ? 760 : nil, height: onClose == nil ? 679 : nil, onClose: onClose ?? { dismiss() }) {
+        ChatDialogFrame(title: artifact.title, width: onClose == nil ? 760 : nil, height: onClose == nil ? 679 : nil,
+                        compact: onClose != nil, onClose: onClose ?? { dismiss() }) {
             VStack(spacing: 0) {
                 ArtifactWebView(state: preview)
                 if let error { Text(error).font(Brand.font(.body)).foregroundStyle(Brand.ink).padding(12) }

@@ -150,7 +150,7 @@ struct ChatSidebar: View {
                         isBusy: chat.activeMessage?.conversationID == item.id,
                         open: { chat.select(item); pane = .chat },
                         context: { menu(item) }, pop: { close in popMenu(item, close) })
-            .padding(.vertical, 1)     // 줄 30 + 사이 2 = 피치 32 (Figma CH-02)
+            .padding(.vertical, 1)
         }
     }
 
@@ -306,24 +306,25 @@ private struct ConversationRow<Context: View, Pop: View>: View {
         HStack(spacing: 0) {
             Button(action: open) {
                 HoverScrollingText(text: ChatConversation.display(item.title), rowHovered: hovering)
-                    .font(Brand.font(.rowTitle)).foregroundStyle(isCurrent ? Brand.ink : Brand.tabText)
+                    .font(Brand.font(.rowTitle, isCurrent ? .medium : .regular)).foregroundStyle(isCurrent ? Brand.ink : Brand.tabText)
                     .padding(.leading, 10)
-                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading).contentShape(Rectangle())
+                    .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain)
             if isBusy {
                 // CH-14: 응답이 도는 대화는 메뉴 자리에 스피너 (메뉴는 오른쪽 클릭으로)
-                ProgressView().controlSize(.small).frame(width: 28, height: 30)
+                ProgressView().controlSize(.small).frame(width: 28, height: 32)
             } else {
                 Button { menuOpen.toggle() } label: {
                     Image(systemName: "ellipsis").font(.system(size: 12)).foregroundStyle(Brand.tabText)
-                        .frame(width: 28, height: 30).contentShape(Rectangle())
+                        .frame(width: 28, height: 32).contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityLabel(tr("대화 메뉴"))
                     .opacity(hovering || menuOpen ? 1 : 0)
                     .popover(isPresented: $menuOpen, arrowEdge: .bottom) { pop { menuOpen = false } }
             }
         }
-        .frame(height: 30)
-        .background(RoundedRectangle(cornerRadius: 5).fill(hovering || menuOpen ? Color.white.opacity(0.6) : (isCurrent ? Color.white.opacity(0.4) : .clear)))
+        .frame(height: 32)
+        // Same fill as the selected menu row above, so the open chat reads as selected.
+        .background(RoundedRectangle(cornerRadius: 7).fill(isCurrent ? ChatPalette.navSelected : hovering || menuOpen ? ChatPalette.rowHover : .clear))
         .onHover { hovering = $0 }
         .contextMenu { context() }
     }

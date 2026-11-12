@@ -416,8 +416,13 @@ enum SnapshotCatalog {
             s.settings.chatProvider = "codex"; s.settings.chatCodexModel = "gpt-6-luna"
             s.chat = talking
         })
+        // The open chat in the sidebar shares the selected menu row's fill
+        let picked = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        if let first = picked.conversations.first { picked.select(first) }
+        let pickedState = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = picked })
         return [
             Snapshot(name: "CH-FOCUS", size: window, view: AnyView(MainWindow().environmentObject(state))),
+            Snapshot(name: "CH-selected", size: window, view: AnyView(MainWindow().environmentObject(pickedState))),
             Snapshot(name: "CH-FOCUS-HEADER", size: window, view: AnyView(MainWindow().environmentObject(talkingState))),
             Snapshot(name: "CH-FOCUS-PICKER", size: nil, view: AnyView(ChatFocusPicker(chat: chat).background(.white).environmentObject(state))),
         ]

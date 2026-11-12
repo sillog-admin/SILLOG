@@ -59,11 +59,16 @@ struct ChatWorkLog: View {
                 }
                 if !step.result.isEmpty {
                     let open = openResults.contains(step.id)
-                    Button(open ? tr("결과 접기") : tr("결과 보기")) {
+                    Button {
                         if open { openResults.remove(step.id) } else { openResults.insert(step.id) }
-                    }.buttonStyle(.plain).font(Brand.font(.tag)).foregroundStyle(Brand.gray).underline()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(tr("결과")).font(Brand.font(.tag))
+                            Image(systemName: "chevron.right").font(.system(size: 8)).rotationEffect(.degrees(open ? 90 : 0))
+                        }.foregroundStyle(Brand.gray).contentShape(Rectangle())
+                    }.buttonStyle(.plain).accessibilityValue(open ? tr("펼침") : tr("접힘"))
                     if open {
-                        Text(step.result).font(.system(size: 11, design: .monospaced)).foregroundStyle(Brand.tabText).lineLimit(10)
+                        Text(step.result).font(Brand.font(.caption)).lineSpacing(3).foregroundStyle(Brand.tabText).lineLimit(10)
                             .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(10)
                             .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 6))
                             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))

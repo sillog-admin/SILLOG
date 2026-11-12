@@ -1411,8 +1411,7 @@
   "작업 %@단계 · %@": "%@ steps · %@",
   "작업 %@단계": "%@ steps",
   "%@분 %@초": "%@m %@s",
-  "결과 보기": "Show result",
-  "결과 접기": "Hide result",
+  "결과": "Result",
   "버전 %@/%@": "Version %@/%@",
   "버전 %@": "Version %@",
   "이전 버전": "Previous version",
@@ -1462,5 +1461,8 @@
   "전체 복사": "Copy all",
   "Markdown으로 내보내기": "Export as Markdown",
   "질문": "Question",
-  "답변": "Answer"
+  "답변": "Answer",
+  "오늘 한 일 정리해 줘": "Sum up what I did today",
+  "이번 주 업무 보고서 만들어 줘": "Write this week's work report",
+  "%@ 진행 상황 정리해 줘": "Sum up progress on %@"
 }

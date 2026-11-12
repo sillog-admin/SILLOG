@@ -118,4 +118,18 @@ final class ChatStateTests: XCTestCase {
         XCTAssertGreaterThan(chat.inputFocusRequest, last)
         try await waitUntil { !chat.running }
     }
+
+    func testATaskStarterFillsTheInputAndNarrowsTheScope() throws {
+        let chat = try chatState()
+        let task = ChatFocus(kind: .task, key: "t1", title: "온보딩 개편")
+        chat.focusChoices = ChatFocusChoices(tasks: [.init(focus: task, theme: nil, themeKey: nil)])
+        XCTAssertEqual(chat.starterPrompts.count, 3)
+        let starter = chat.starterPrompts[2]
+        let last = chat.inputFocusRequest
+        chat.useStarter(starter.prompt, focus: starter.focus)
+        XCTAssertEqual(chat.draft, "온보딩 개편 진행 상황 정리해 줘")
+        XCTAssertEqual(chat.current.scope.focus, [task])
+        XCTAssertGreaterThan(chat.inputFocusRequest, last)
+        XCTAssertNil(chat.activeMessage, "a starter never sends")
+    }
 }

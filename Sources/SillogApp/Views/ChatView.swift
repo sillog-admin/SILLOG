@@ -39,6 +39,9 @@ struct ChatView: View {
     @State private var copiedID: String?
     @State private var hoveredArtifactID: String?
     @State private var atBottom = true
+    /// A search hit to land on once its conversation is on screen.
+    @State private var pendingScrollID: String?
+    @State private var highlightedMessageID: String?
     @FocusState private var focusedActions: String?
 
     private struct PendingResend: Identifiable {
@@ -78,7 +81,7 @@ struct ChatView: View {
             ZStack(alignment: .topLeading) {
                 Color.black.opacity(0.08).contentShape(Rectangle()).onTapGesture { showSearch = false }
                 ChatSearchPanel(chat: chat,
-                                onOpen: { item in chat.select(item); pane = .chat; showSearch = false },
+                                onOpen: { item, messageID in pendingScrollID = messageID; chat.select(item); pane = .chat; showSearch = false },
                                 onClose: { showSearch = false })
                     .gesture(DragGesture(minimumDistance: 4, coordinateSpace: .global)
                         .updating($searchDrag) { value, drag, _ in drag = value.translation }
@@ -253,6 +256,13 @@ struct ChatView: View {
                         GazingMark(size: 104, smiling: !chat.draft.isEmpty).offset(x: -20, y: -68).allowsHitTesting(false)
                     }
                     .padding(.top, 28)
+                HStack(spacing: 8) {
+                    ForEach(chat.starterPrompts, id: \.prompt) { starter in
+                        StarterChip(text: starter.prompt) { chat.useStarter(starter.prompt, focus: starter.focus) }
+                    }
+                    Spacer(minLength: 0)
+                }.padding(.top, 12)
+                .onAppear { if chat.focusChoices.tasks.isEmpty { chat.refreshFocusChoices() } }
                 if !results.isEmpty {
                     HStack {
                         Text(tr("최근 결과물")).font(Brand.font(.body)).foregroundStyle(Brand.tabText).padding(.leading, 4)
@@ -286,6 +296,18 @@ struct ChatView: View {
             }
             if !chat.messages.isEmpty {
                 HoverScrollingText(text: ChatConversation.display(chat.current.title)).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
+                // The sidebar is hidden while an artifact is open, so its row menu is out of reach.
+                Menu {
+                    let item = chat.conversations.first { $0.id == chat.current.id } ?? chat.current
+                    Button { editingConversation = item; conversationName = ChatConversation.display(item.title); showRename = true } label: {
+                        Label(tr("이름 바꾸기"), systemImage: "pencil")
+                    }
+                    Button(role: .destructive) { deletingConversation = item; showDelete = true } label: { Label(tr("삭제"), systemImage: "trash") }
+                } label: {
+                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(Brand.tabText)
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .disabled(chat.running).help(tr("대화 메뉴")).accessibilityLabel(tr("대화 메뉴"))
             }
             Spacer(minLength: 0)
         }.padding(.top, sidebarVisible ? 20.5 : 20)   // 목록 "채팅" 제목과 글자 바닥선을 맞춘다
@@ -345,6 +367,10 @@ struct ChatView: View {
                             messageView(message)
                                 .id(message.id)
                                 .background {
+                                    RoundedRectangle(cornerRadius: 8).fill(ChatPalette.rowHover).padding(-8)
+                                        .opacity(highlightedMessageID == message.id ? 1 : 0)
+                                }
+                                .background {
                                     if message.role == "user" {
                                         GeometryReader { geometry in
                                             Color.clear.preference(key: QuestionPositionKey.self,
@@ -365,11 +391,22 @@ struct ChatView: View {
                     let ordered = positions.sorted { $0.value < $1.value }
                     selectedQuestionID = ordered.last(where: { $0.value <= 100 })?.key ?? ordered.first?.key
                 }
-                .onChange(of: chat.messages.count) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
+                .onChange(of: chat.messages.count) { _, _ in if pendingScrollID == nil { proxy.scrollTo("bottom", anchor: .bottom) } }
                 .onChange(of: chat.current.id) { _, _ in
                     selectedQuestionID = nil
                     hoveredQuestionID = nil
-                    proxy.scrollTo("bottom", anchor: .bottom)
+                    if pendingScrollID == nil { proxy.scrollTo("bottom", anchor: .bottom) }
+                }
+                .onChange(of: pendingScrollID, initial: true) { _, id in
+                    guard let id else { return }
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(50))     // let the lazy rows of a newly opened chat lay out first
+                        proxy.scrollTo(id, anchor: .top)
+                        pendingScrollID = nil
+                        highlightedMessageID = id
+                        try? await Task.sleep(for: .seconds(1.5))
+                        if highlightedMessageID == id { withAnimation(.easeOut(duration: 0.4)) { highlightedMessageID = nil } }
+                    }
                 }
                 .overlay(alignment: .top) {
                     LinearGradient(colors: [.white, .white.opacity(0)], startPoint: .top, endPoint: .bottom).frame(height: 20).allowsHitTesting(false)
@@ -735,6 +772,8 @@ struct ChatDialogFrame<Content: View, Footer: View>: View {
     var detail: String? = nil
     var width: CGFloat? = 600
     var height: CGFloat? = nil
+    /// Smaller head and foot for the 480pt side panel.
+    var compact = false
     let onClose: () -> Void
     @ViewBuilder var content: () -> Content
     @ViewBuilder var footer: () -> Footer
@@ -742,23 +781,39 @@ struct ChatDialogFrame<Content: View, Footer: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
-                Text(title).font(Brand.font(.screenTitle)).tracking(-0.77).foregroundStyle(Brand.ink).lineLimit(1).padding(.trailing, 30)
+                Text(title).font(compact ? Brand.font(.sectionTitle, .semibold) : Brand.font(.screenTitle)).tracking(compact ? 0 : -0.77)
+                    .foregroundStyle(Brand.ink).lineLimit(1).padding(.trailing, 30)
                 if let detail { Text(detail).font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 9) }
-            }.padding(.horizontal, 27).padding(.top, 25).padding(.bottom, 22)
+            }.padding(.horizontal, 27).padding(.top, compact ? 14 : 25).padding(.bottom, compact ? 12 : 22)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(ChatPalette.soft)
                 .overlay(alignment: .bottom) { Rectangle().fill(Brand.hairline).frame(height: 1) }
                 .overlay(alignment: .topTrailing) {
                     Button(action: onClose) {
                         Image(systemName: "xmark").font(.system(size: 13)).foregroundStyle(Brand.tabText).frame(width: 28, height: 28).contentShape(Rectangle())
-                    }.buttonStyle(.plain).help(tr("닫기")).accessibilityLabel(tr("닫기")).padding(.top, 19).padding(.trailing, 16)
+                    }.buttonStyle(.plain).help(tr("닫기")).accessibilityLabel(tr("닫기")).padding(.top, compact ? 8 : 19).padding(.trailing, 16)
                 }
             content().frame(maxWidth: .infinity, maxHeight: .infinity).background(.white)
             HStack(spacing: 10) { footer() }
-                .padding(.horizontal, 24).frame(height: 73)
+                .padding(.horizontal, 24).frame(height: compact ? 56 : 73)
                 .background(ChatPalette.soft)
                 .overlay(alignment: .top) { Rectangle().fill(Brand.hairline).frame(height: 1) }
         }.frame(width: width, height: height)
+    }
+}
+
+/// A suggested first question on the empty chat; it fills the input and does not send.
+private struct StarterChip: View {
+    let text: String
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        Button(action: action) {
+            Text(text).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
+                .padding(.horizontal, 12).frame(height: 28)
+                .background(hovering ? ChatPalette.rowHover : .white, in: Capsule()).overlay(Capsule().strokeBorder(Brand.line))
+                .contentShape(Capsule())
+        }.buttonStyle(.plain).onHover { hovering = $0 }.help(text)
     }
 }
 

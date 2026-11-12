@@ -4,7 +4,7 @@ import SillogCore
 /// 대화 검색 창 본체 (Figma CH-41~43). 어둡게 하는 덮개와 위치는 바깥에서 정한다.
 struct ChatSearchPanel: View {
     @ObservedObject var chat: ChatState
-    var onOpen: (ChatConversation) -> Void
+    var onOpen: (ChatConversation, _ messageID: String?) -> Void
     var onClose: () -> Void
 
     @State private var query = ""
@@ -64,11 +64,16 @@ struct ChatSearchPanel: View {
             Text(trimmed.isEmpty ? tr("최근") : tr("대화 \(rows.count)개")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 .padding(.top, 12).padding(.bottom, 6).padding(.horizontal, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach(Array(rows.enumerated()), id: \.element.id) { i, hit in row(hit, selected: i == index) }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(Array(rows.enumerated()), id: \.element.id) { i, hit in row(hit, selected: i == index).id(hit.id) }
+                    }
+                }.frame(maxHeight: 360)
+                .onChange(of: index) { _, index in
+                    if rows.indices.contains(index) { proxy.scrollTo(rows[index].id) }
                 }
-            }.frame(maxHeight: 360)
+            }
         }
     }
 
@@ -125,7 +130,7 @@ struct ChatSearchPanel: View {
 
     private func openSelected() { if rows.indices.contains(index) { open(rows[index]) } }
     private func open(_ hit: ChatSearchHit) {
-        if let c = chat.conversations.first(where: { $0.id == hit.conversationID }) { onOpen(c) }
+        if let c = chat.conversations.first(where: { $0.id == hit.conversationID }) { onOpen(c, hit.messageID) }
         else { hits.removeAll { $0.conversationID == hit.conversationID } }     // 그새 지워진 대화
     }
 }

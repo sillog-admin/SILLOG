@@ -151,10 +151,12 @@ public struct ChatSearchHit: Identifiable, Equatable, Sendable {
     public var title: String
     public var snippet: String
     public var updatedAt: Double
+    /// The message the snippet came from; nil when only the title matched.
+    public var messageID: String?
     public var id: String { conversationID }
 
-    public init(conversationID: String, title: String, snippet: String, updatedAt: Double) {
-        self.conversationID = conversationID; self.title = title; self.snippet = snippet; self.updatedAt = updatedAt
+    public init(conversationID: String, title: String, snippet: String, updatedAt: Double, messageID: String? = nil) {
+        self.conversationID = conversationID; self.title = title; self.snippet = snippet; self.updatedAt = updatedAt; self.messageID = messageID
     }
 }
 
@@ -435,11 +437,12 @@ public struct ChatStore: Sendable {
                 """, arguments: [like, limit])
             return try rows.map { row in
                 let id: String = row["id"]
-                let hit = try String.fetchOne(conn, sql: """
-                    SELECT json_extract(payload, '$.text') FROM app_messages WHERE conversation_id = ?1
+                let match = try Row.fetchOne(conn, sql: """
+                    SELECT id, json_extract(payload, '$.text') AS text FROM app_messages WHERE conversation_id = ?1
                       AND json_extract(payload, '$.status') = 'complete' AND json_extract(payload, '$.text') LIKE ?2 ESCAPE '\\'
                     ORDER BY created_at DESC, rowid DESC LIMIT 1
                     """, arguments: [id, like])
+                let hit: String? = match?["text"]
                 var snippet: String
                 if let hit {
                     let start = hit.range(of: q, options: .caseInsensitive)?.lowerBound ?? hit.startIndex
@@ -454,7 +457,8 @@ public struct ChatStore: Sendable {
                     snippet = String((last ?? "").prefix(120))
                 }
                 snippet = snippet.replacingOccurrences(of: "\r\n", with: " ").replacingOccurrences(of: "\n", with: " ")
-                return ChatSearchHit(conversationID: id, title: row["title"] ?? "", snippet: snippet, updatedAt: row["updated_at"])
+                return ChatSearchHit(conversationID: id, title: row["title"] ?? "", snippet: snippet, updatedAt: row["updated_at"],
+                                     messageID: match?["id"])
             }
         }
     }
