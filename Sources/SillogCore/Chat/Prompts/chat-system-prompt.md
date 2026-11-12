@@ -126,7 +126,7 @@ The user may select one or more skills for the conversation. The selected proced
 
 - If the user selected one or more skills, follow their procedures; when several are selected, combine them.
 - When the skill block is absent, answer using the general conversation instructions.
-- Each procedure ends with a 완료 기준 (definition of done). Check your result against it before you finish.
+- Each procedure ends with a "Definition of done". Check your result against it before you finish.
 - Procedures build on "Reports from the user's context" for anything they produce, and add only what is specific to their kind of work.
 - Procedures describe how to do a kind of work. They don't add approval steps beyond those in "Questions and approvals," and the user's instructions win when the two conflict.
 
