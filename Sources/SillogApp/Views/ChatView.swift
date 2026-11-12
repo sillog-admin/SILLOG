@@ -42,6 +42,8 @@ struct ChatView: View {
     /// A search hit to land on once its conversation is on screen.
     @State private var pendingScrollID: String?
     @State private var highlightedMessageID: String?
+    /// Which earlier answer a regenerated answer shows, by message id; missing means the latest.
+    @State private var shownVersions: [String: Int] = [:]
     @FocusState private var focusedActions: String?
 
     private struct PendingResend: Identifiable {
@@ -151,7 +153,7 @@ struct ChatView: View {
             case .chat:
                 HStack(spacing: 0) {
                     chatContent
-                    if let open = chat.messages.flatMap(\.artifacts).first(where: { $0.id == chat.openArtifactID }) {
+                    if let open = chat.messages.flatMap({ $0.versions.flatMap(\.artifacts) }).first(where: { $0.id == chat.openArtifactID }) {
                         Rectangle().fill(Brand.line).frame(width: 1)
                         ArtifactPreview(artifact: open, versions: ChatArtifact.versions(of: open, in: chat.messages),
                                         onSelect: { chat.openArtifactID = $0.id }, onClose: { chat.openArtifactID = nil })
@@ -514,11 +516,14 @@ struct ChatView: View {
             }
         } else {
             // 답변: 아바타 없이 본문 그대로
+            let versions = message.versions
+            let shownIndex = min(shownVersions[message.id] ?? versions.count - 1, versions.count - 1)
+            let shown = versions[shownIndex]
             VStack(alignment: .leading, spacing: 12) {
                 let picked = chat.skills.filter { chat.current.skillIDs.contains($0.id) }
                 if !picked.isEmpty { HStack(spacing: 4) { ForEach(picked, id: \.id) { BrandBadge($0.title) } } }
-                if message.status == "running" || !message.steps.isEmpty || !(message.trace ?? []).isEmpty {
-                    ChatWorkLog(message: message, isExpanded: Binding(
+                if shown.status == "running" || !shown.steps.isEmpty || !(shown.trace ?? []).isEmpty {
+                    ChatWorkLog(message: shown, isExpanded: Binding(
                         get: { message.status == "running" ? !collapsedSteps.contains(message.id) : expandedSteps.contains(message.id) },
                         set: { open in
                             if message.status == "running" {
@@ -526,20 +531,20 @@ struct ChatView: View {
                             } else if open { expandedSteps.insert(message.id) } else { expandedSteps.remove(message.id) }
                         }))
                 }
-                if message.status == "failed" {
-                    let parts = Self.failureParts(message.text)
+                if shown.status == "failed" {
+                    let parts = Self.failureParts(shown.text)
                     if !parts.received.isEmpty {
-                        ChatMessageText(text: parts.received, sources: message.sources) { source = $0 }
+                        ChatMessageText(text: parts.received, sources: shown.sources) { source = $0 }.equatable()
                     }
                     Label(parts.error, systemImage: "exclamationmark.circle")
                         .font(Brand.font(.body)).foregroundStyle(Brand.tabText).textSelection(.enabled)
                         .padding(14).frame(maxWidth: .infinity, alignment: .leading)
                         .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 6))
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
-                } else if !message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    ChatMessageText(text: message.text, sources: message.sources) { source = $0 }
+                } else if !shown.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    ChatMessageText(text: shown.text, sources: shown.sources) { source = $0 }.equatable()
                 }
-                ForEach(message.artifacts) { item in
+                ForEach(shown.artifacts) { item in
                     let version = (ChatArtifact.versions(of: item, in: chat.messages).firstIndex { $0.id == item.id } ?? 0) + 1
                     Button { chat.openArtifactID = item.id } label: {
                         HStack(spacing: 14) {
@@ -573,26 +578,40 @@ struct ChatView: View {
                 }
                 if message.status != "running" {
                     HStack(spacing: 16) {
-                        if !message.sources.isEmpty {
+                        if versions.count > 1 {
+                            HStack(spacing: 2) {
+                                versionButton("chevron.left", tr("이전 답변"), message: message, to: shownIndex - 1, count: versions.count)
+                                Text("\(shownIndex + 1)/\(versions.count)").font(Brand.font(.caption)).foregroundStyle(Brand.tabText).monospacedDigit()
+                                versionButton("chevron.right", tr("다음 답변"), message: message, to: shownIndex + 1, count: versions.count)
+                            }
+                        }
+                        if !shown.sources.isEmpty {
                             Button {
                                 withAnimation(.easeOut(duration: 0.15)) {
                                     if expandedSources.contains(message.id) { expandedSources.remove(message.id) } else { expandedSources.insert(message.id) }
                                 }
                             } label: {
                                 HStack(spacing: 4) {
-                                    Text(tr("출처 \(message.sources.count)개"))
+                                    Text(tr("출처 \(shown.sources.count)개"))
                                     Image(systemName: expandedSources.contains(message.id) ? "chevron.down" : "chevron.right").font(.system(size: 8))
                                 }.foregroundStyle(Brand.gray)
                             }
                         }
                         let showsActions = hoveredMessageID == message.id || focusedActions == message.id || chat.messages.last?.id == message.id
-                        Button { copy(message.markdown, id: message.id) } label: {
+                        Button { copy(shown.markdown, id: message.id) } label: {
                             Image(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc").font(.system(size: 13))
                         }.help(tr("답변 복사")).accessibilityLabel(tr("답변 복사")).opacity(showsActions ? 1 : 0)
                         if message.status != "failed" {
-                            Button { requestResend(message) } label: {
-                                Image(systemName: "arrow.clockwise").font(.system(size: 13))
-                            }.help(tr("다시 생성")).accessibilityLabel(tr("다시 생성")).disabled(chat.running).opacity(showsActions ? 1 : 0)
+                            HStack(spacing: 2) {
+                                Button { requestResend(message) } label: {
+                                    Image(systemName: "arrow.clockwise").font(.system(size: 13))
+                                }.help(tr("다시 생성")).accessibilityLabel(tr("다시 생성")).disabled(chat.running)
+                                regenerateModelMenu(message)
+                            }.opacity(showsActions ? 1 : 0)
+                        }
+                        if let model = shown.model {
+                            Text(TitleConnection.modelTitle(model)).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
+                                .opacity(showsActions ? 1 : 0)
                         }
                         if ["cancelled", "interrupted"].contains(message.status) {
                             HStack(spacing: 4) {
@@ -612,7 +631,7 @@ struct ChatView: View {
                 if expandedSources.contains(message.id) {
                     // 본문의 [1] 번호와 맞도록 순서, 번호를 그대로 둔다
                     VStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(message.sources.enumerated()), id: \.element.id) { index, item in
+                        ForEach(Array(shown.sources.enumerated()), id: \.element.id) { index, item in
                             Button { source = item } label: {
                                 HStack(spacing: 10) {
                                     Text("\(index + 1)").font(Brand.jost(10)).foregroundStyle(Brand.gray).frame(width: 14, alignment: .trailing)
@@ -664,6 +683,31 @@ struct ChatView: View {
         Task { try? await Task.sleep(for: .seconds(1.5)); if copiedID == id { copiedID = nil } }
     }
 
+    private func versionButton(_ symbol: String, _ label: String, message: ConversationMessage, to index: Int, count: Int) -> some View {
+        Button { shownVersions[message.id] = index } label: {
+            Image(systemName: symbol).font(.system(size: 10)).frame(width: 18, height: 18).contentShape(Rectangle())
+        }.buttonStyle(.plain).foregroundStyle(Brand.tabText).disabled(!(0..<count).contains(index))
+            .help(label).accessibilityLabel(label)
+    }
+
+    /// Regenerates with another chat model; only a ChatGPT connection has a list to pick from.
+    @ViewBuilder private func regenerateModelMenu(_ message: ConversationMessage) -> some View {
+        let models = state.settings.effectiveChatProvider == "codex"
+            ? ChatModelMenu.options(models: state.chatCodexModels, current: state.settings.effectiveChatCodexModel) : []
+        if models.count > 1 {
+            Menu {
+                ForEach(models, id: \.slug) { option in
+                    Button(option.title) { state.selectChatModel(option.slug); requestResend(message) }
+                }
+            } label: {
+                Image(systemName: "chevron.down").font(.system(size: 8)).frame(width: 12, height: 18).contentShape(Rectangle())
+            }
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+            .disabled(chat.running)
+            .help(tr("다른 모델로 다시 생성")).accessibilityLabel(tr("다른 모델로 다시 생성"))
+        }
+    }
+
     /// Resends at once when only this turn is replaced; asks first when later turns would be deleted too.
     private func requestResend(_ message: ConversationMessage, text: String? = nil) {
         let replaced = chat.replacedMessages(from: message)
@@ -692,7 +736,7 @@ struct ChatView: View {
                             ChatInfoRow(label: tr("웹 검색"), value: scope.useWeb ? tr("허용") : tr("미허용"))
                             ChatInfoRow(label: tr("커넥터"), value: connectors.isEmpty ? tr("없음") : connectors)
                             if !scope.paths.isEmpty { ChatInfoRow(label: tr("연결한 파일"), value: scope.paths.joined(separator: "\n")) }
-                            ForEach(library.sources(conversationID: chat.current.id, projectID: chat.current.projectID)) { ChatInfoRow(label: tr("보관 자료"), value: $0.title) }
+                            ForEach(library.attached) { ChatInfoRow(label: tr("보관 자료"), value: $0.title) }
                         }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                             .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 6))
                             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))

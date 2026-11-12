@@ -7,7 +7,13 @@ import SillogCore
 final class ChatState: ObservableObject {
     @Published var conversations: [ChatConversation] = []
     @Published var conversationPreviews: [String: String] = [:]
-    @Published var current = ChatConversation()
+    @Published var current = ChatConversation() {
+        didSet {
+            if current.id != oldValue.id || current.projectID != oldValue.projectID {
+                library.showAttachments(conversationID: current.id, projectID: current.projectID)
+            }
+        }
+    }
     @Published var messages: [ConversationMessage] = []
     @Published var skills: [ChatSkill] = []
     @Published private(set) var pinnedSkillIDs: [String] = []
@@ -32,6 +38,8 @@ final class ChatState: ObservableObject {
     private var titleTask: Task<Void, Never>?
     // shortcut: in memory only, lost on quit; persist if users ask for it.
     private var drafts: [String: String] = [:]
+    private var pendingText = ""
+    private var textFlush: Task<Void, Never>?
     var running: Bool { activeMessage != nil }
 
     /// Args: db는 앱 DB, makeClient는 현재 설정으로 모델 연결을 생성한다.
@@ -42,6 +50,7 @@ final class ChatState: ObservableObject {
         projects = ProjectState(db: db, makeClient: makeProjectClient)
         library = LibraryState(db: db)
         library.onChange = { [weak self] in self?.projects.reload() }
+        library.showAttachments(conversationID: current.id, projectID: current.projectID)
         projects.onChange = { [weak self] in
             guard let self else { return }
             do {
@@ -297,7 +306,9 @@ final class ChatState: ObservableObject {
         guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
         let request = (text ?? question.text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !request.isEmpty else { return false }
-        return begin(request, conversation: current, automationID: nil, replacing: replaced)
+        // Only a regenerate keeps the old answer; an edited question makes it answer something else.
+        let earlier = text == nil && replaced.count > 1 && replaced[1].role == "assistant" ? replaced[1].versions : nil
+        return begin(request, conversation: current, automationID: nil, replacing: replaced, earlierAnswers: earlier)
     }
 
     /// Asks for the rest of a stopped answer; ChatRunner keeps the partial text in the history.
@@ -415,7 +426,7 @@ final class ChatState: ObservableObject {
     /// Args: text는 요청, conversation은 실행 범위, automationID가 있으면 승인된 예약 실행이다.
     /// Returns: 요청을 저장하고 시작했으면 true.
     /// Raises: 없음. 시작 실패는 화면에 표시한다.
-    @discardableResult private func begin(_ text: String, conversation: ChatConversation, automationID: String?, draftConnectors: [String] = [], replacing: [ConversationMessage] = []) -> Bool {
+    @discardableResult private func begin(_ text: String, conversation: ChatConversation, automationID: String?, draftConnectors: [String] = [], replacing: [ConversationMessage] = [], earlierAnswers: [ConversationMessage]? = nil) -> Bool {
         guard !running else { return false }
         do {
             var conversation = conversation
@@ -452,8 +463,9 @@ final class ChatState: ObservableObject {
             let needsTitle = automationID == nil && conversation.title == ChatConversation.defaultTitle
             conversation.updatedAt = Date().timeIntervalSince1970
             let user = ConversationMessage(conversationID: conversation.id, role: "user", text: text)
-            let answer = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "", status: "running")
             let backend = makeClient()
+            var answer = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "", status: "running")
+            answer.model = backend.modelName; answer.previous = earlierAnswers
             let searchKey: String, searchModel: String
             if case .model(let client as OpenAICompatClient) = backend,
                client.baseURL.host == "api.openai.com", scope.useWeb {
@@ -478,6 +490,7 @@ final class ChatState: ObservableObject {
             // The turn is saved; a list refresh failure must not leave it running without a task.
             do { try reload() } catch { self.error = error.localizedDescription }
             if current.id == conversation.id { current = conversation; messages = previous + [user, answer] }
+            if !replacing.isEmpty { library.reload() }    // startTurn unlinked the replaced answers' artifacts
             runTask = Task { [weak self] in
                 guard let self else { return }
                 var succeeded = false
@@ -486,6 +499,7 @@ final class ChatState: ObservableObject {
                     let result = try await runner.run(history: previous + [user], skillIDs: conversation.skillIDs, skillCatalog: selectedCatalog, scheduled: automationID != nil, project: project, memory: conversation.memory) { [weak self] event in
                         await self?.receive(event)
                     }
+                    self.flushText()
                     try Task.checkCancellation()
                     self.activeMessage?.text = result.text
                     self.activeMessage?.sources = result.sources
@@ -495,6 +509,7 @@ final class ChatState: ObservableObject {
                     succeeded = true
                     if result.memory != conversation.memory { self.remember(result.memory, in: conversation.id) }
                 } catch {
+                    self.flushText()
                     let cancelled = Task.isCancelled || error is CancellationError
                     self.activeMessage?.status = cancelled ? "cancelled" : "failed"
                     if !cancelled {
@@ -536,6 +551,18 @@ final class ChatState: ObservableObject {
     /// Returns: 없음. 현재 응답을 갱신하고 단계 변경 시 저장한다.
     /// Raises: 없음. 저장 오류는 화면에 표시한다.
     private func receive(_ event: ChatRunEvent) {
+        if case .text(let text) = event {
+            pendingText += text
+            // shortcut: fixed 40ms batches so each token doesn't redraw the whole chat; tune if streaming looks choppy.
+            if textFlush == nil {
+                textFlush = Task { [weak self] in
+                    do { try await Task.sleep(nanoseconds: 40_000_000) } catch { return }
+                    self?.flushText()
+                }
+            }
+            return
+        }
+        flushText()
         guard var message = activeMessage else { return }
         var checkpoint = true
         switch event {
@@ -560,6 +587,16 @@ final class ChatState: ObservableObject {
         if checkpoint {
             do { try store.save(message) } catch { self.error = tr("진행 기록 저장 실패: \(error.localizedDescription)") }
         }
+    }
+
+    /// Publishes streamed text held back by receive, before any other change so the order stays the same.
+    private func flushText() {
+        textFlush?.cancel(); textFlush = nil
+        guard !pendingText.isEmpty else { return }
+        defer { pendingText = "" }
+        guard var message = activeMessage else { return }
+        message.text += pendingText
+        activeMessage = message; replaceVisible(message)
     }
 
     /// Args: message는 갱신된 응답이다.

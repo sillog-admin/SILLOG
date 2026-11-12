@@ -13,6 +13,9 @@ final class LibraryState: ObservableObject {
     @Published var error: String?
     /// Import failure of files dropped or pasted into a chat; shown in the chat until the next send or import.
     @Published var chatImportError: String?
+    /// Items attached to the chat on screen, cached so the composer doesn't query the DB on every keystroke.
+    @Published private(set) var attached: [ChatLibraryItem] = []
+    private var attachedTo: (conversationID: String, projectID: String?) = ("", nil)
     var onChange: (() -> Void)?
     /// Pasted screenshots are written here first and removed once imported.
     static let pasteFolder = FileManager.default.temporaryDirectory.appendingPathComponent("SillogPaste", isDirectory: true)
@@ -23,6 +26,16 @@ final class LibraryState: ObservableObject {
 
     func reload() {
         do { items = try store.items(); itemFocuses = try store.itemFocuses() } catch { self.error = error.localizedDescription }
+        refreshAttached()
+    }
+
+    func showAttachments(conversationID: String, projectID: String?) {
+        attachedTo = (conversationID, projectID); refreshAttached()
+    }
+
+    private func refreshAttached() {
+        let fresh = sources(conversationID: attachedTo.conversationID, projectID: attachedTo.projectID)
+        if fresh != attached { attached = fresh }
     }
 
     func results(limit: Int? = nil) -> [ChatLibraryItem] {

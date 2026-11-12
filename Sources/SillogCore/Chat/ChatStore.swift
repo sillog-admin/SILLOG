@@ -174,6 +174,10 @@ public struct ConversationMessage: Codable, Identifiable, Sendable {
     public var trace: [ChatStep]?
     public var automation: ChatAutomationProposal?
     public var approvedAutomationID: String?
+    /// The chat model that wrote this answer; nil in messages saved before it existed.
+    public var model: String?
+    /// Earlier answers to the same question, oldest first, kept when the answer was regenerated.
+    public var previous: [ConversationMessage]?
 
     /// Args: conversationID는 소속 대화, role·text·status는 메시지 내용과 상태이다.
     /// Returns: 저장 가능한 채팅 메시지.
@@ -191,6 +195,12 @@ extension ConversationMessage {
         guard let index = messages.firstIndex(where: { $0.id == message.id }) else { return [] }
         let start = message.role == "user" ? index : (messages[..<index].lastIndex(where: { $0.role == "user" }) ?? index)
         return Array(messages[start...])
+    }
+
+    /// Earlier answers then this one, oldest first, without nesting so a regenerate never stores copies of copies.
+    public var versions: [ConversationMessage] {
+        var latest = self; latest.previous = nil
+        return (previous ?? []) + [latest]
     }
 }
 

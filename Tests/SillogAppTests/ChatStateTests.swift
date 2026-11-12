@@ -132,4 +132,34 @@ final class ChatStateTests: XCTestCase {
         XCTAssertGreaterThan(chat.inputFocusRequest, last)
         XCTAssertNil(chat.activeMessage, "a starter never sends")
     }
+    func testRegeneratingKeepsEarlierAnswersAndTheModel() async throws {
+        let chat = try chatState()
+        _ = try await finishedChat(chat, "q")
+        for _ in 0..<2 {
+            XCTAssertTrue(chat.resend(from: chat.messages[1]))
+            try await waitUntil { !chat.running }
+        }
+        let answer = chat.messages[1]
+        XCTAssertEqual(chat.messages.count, 2)
+        XCTAssertEqual(answer.model, "stub")
+        XCTAssertEqual(answer.previous?.count, 2, "two regenerates keep two earlier answers")
+        XCTAssertTrue(answer.previous?.allSatisfy { $0.previous == nil } == true, "earlier answers are not nested")
+        XCTAssertEqual(answer.versions.last?.id, answer.id)
+
+        XCTAssertTrue(chat.resend(from: chat.messages[0], text: "edited"))
+        try await waitUntil { !chat.running }
+        XCTAssertNil(chat.messages[1].previous, "an edited question starts over")
+    }
+
+    func testAttachmentsFollowTheChatOnScreen() async throws {
+        let chat = try chatState()
+        let first = try await finishedChat(chat, "a")
+        let item = try chat.library.store.saveResponse(chat.messages[1], title: "note")
+        chat.attachLibraryItem(item)
+        XCTAssertEqual(chat.library.attached.map(\.id), [item.id])
+        chat.newConversation()
+        XCTAssertEqual(chat.library.attached, [])
+        chat.select(first)
+        XCTAssertEqual(chat.library.attached.map(\.id), [item.id])
+    }
 }

@@ -161,6 +161,14 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(sent?.last?["tool_call_id"] as? String, "c1")
     }
 
+    func testOldMessagesDecodeWithoutModelOrEarlierAnswers() throws {
+        let old = #"{"id":"m","conversationID":"c","role":"assistant","text":"답","status":"complete","createdAt":1,"sources":[],"artifacts":[],"steps":[]}"#
+        let message = try JSONDecoder().decode(ConversationMessage.self, from: Data(old.utf8))
+        XCTAssertNil(message.model)
+        XCTAssertNil(message.previous)
+        XCTAssertEqual(message.versions.map(\.id), ["m"])
+    }
+
     func testEditAndRegenerateReplaceFromTheQuestion() throws {
         let store = ChatStore(try .inMemory()), conversation = ChatConversation()
         let q1 = ConversationMessage(conversationID: conversation.id, role: "user", text: "첫 질문")

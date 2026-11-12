@@ -2,10 +2,15 @@ import SwiftUI
 import SillogCore
 
 /// 채팅 본문의 제목·문단·코드를 구분한다. 완성된 문서는 별도 미리보기로 제공한다.
-struct ChatMessageText: View {
+struct ChatMessageText: View, Equatable {
     let text: String
     let sources: [ChatSource]
     let onSource: (ChatSource) -> Void
+
+    // onSource is a new closure on every parent render but always opens the tapped source, so it is left out.
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.text == rhs.text && lhs.sources.map(\.id) == rhs.sources.map(\.id)
+    }
 
     private static let citationPattern = try! NSRegularExpression(pattern: #"\[((?:(?:node|observation|card|chat|conversation|message|library|file|git|gmail|drive|notion|digest|usage|recording):|https?://)[^\]\n]+)\]"#)
 

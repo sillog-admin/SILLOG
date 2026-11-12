@@ -130,7 +130,7 @@ public enum ChatBackend: Sendable {
     case codex(CodexAppServerClient)
 
     /// 시스템 프롬프트의 chat_model에 넣는 모델 이름.
-    var modelName: String {
+    public var modelName: String {
         switch self {
         case .model(let client): client.modelName
         case .codex(let client): client.model

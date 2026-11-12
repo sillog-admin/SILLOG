@@ -335,7 +335,26 @@ enum SnapshotCatalog {
         return [Snapshot(name: "CH-01", size: window, view: AnyView(MainWindow().environmentObject(state))),
                 Snapshot(name: "CH-SKILL-PINS", size: nil, view: AnyView(PinnedSkillPicker(chat: state.chat!, onManage: {}).background(.white))),
                 Snapshot(name: "CH-13", size: window, view: AnyView(MainWindow().environmentObject(tab(.connectors)))),
-                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus + artifactPanel + longQuestion + failedAnswer
+                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus + artifactPanel + longQuestion + failedAnswer + regenerated
+    }
+
+    /// A regenerated answer: earlier answers behind a 2/2 stepper, the model that wrote it, and the model menu next to regenerate
+    private static var regenerated: [Snapshot] {
+        guard let database = try? SillogDatabase.inMemory() else { return [] }
+        let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
+        let chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        let id = chat.current.id
+        var first = ConversationMessage(conversationID: id, role: "assistant", text: "첫 답변"); first.model = "gpt-6"
+        var answer = ConversationMessage(conversationID: id, role: "assistant", text: "## 이번 주\n\n- `ChatView` 정리\n- 결과물 패널")
+        answer.model = "gpt-6-luna"; answer.previous = [first]
+        chat.messages = [.init(conversationID: id, role: "user", text: "이번 주에 한 일을 정리해줘"), answer]
+        let state = AppState(preview: { s in
+            s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat
+            s.settings.chatProvider = "codex"; s.settings.chatCodexModel = "gpt-6-luna"; s.settings.chatSameAsOrganize = false
+            s.chatCodexModels = [CodexModel(slug: "gpt-6-luna", displayName: "GPT-6 Luna", defaultEffort: nil),
+                                 CodexModel(slug: "gpt-6", displayName: "GPT-6", defaultEffort: nil)]
+        })
+        return [Snapshot(name: "CH-regenerated", size: window, view: AnyView(MainWindow().environmentObject(state)))]
     }
 
     /// A failed answer that streamed some Markdown first: the received part, one error line, one retry button

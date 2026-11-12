@@ -120,7 +120,7 @@ private struct TitleBarBrand: View {
 
 /// 연결 알약 (Figma 923:2819): [로고 이름 | 모델 ●]. ChatGPT 구독이면 OpenAI 로고와 요금제, OpenAI 호환 서버면 주소로 Claude API 를 가리고 그 밖은 링크와 API.
 /// 점은 연결됨 초록, 아니면 회색
-private struct TitleConnection: View {
+struct TitleConnection: View {
     @EnvironmentObject private var state: AppState
     private var compat: Bool { state.settings.chatUsesAPI }
     private var host: String { URL(string: state.settings.chatEndpoint.url)?.host?.lowercased() ?? "" }

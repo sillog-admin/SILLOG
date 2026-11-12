@@ -67,7 +67,7 @@ struct ChatComposer: View {
     // MARK: 입력 상자
 
     private var box: some View {
-        let attachments = library.sources(conversationID: chat.current.id, projectID: chat.current.projectID)
+        let attachments = library.attached
         let paths = chat.current.scope.paths
         return VStack(alignment: .leading, spacing: 0) {
             if !attachments.isEmpty || !paths.isEmpty {

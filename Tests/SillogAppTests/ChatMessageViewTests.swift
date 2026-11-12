@@ -15,6 +15,12 @@ final class ChatMessageViewTests: XCTestCase {
         XCTAssertEqual(ChatView.failureParts("unexpected").error, "unexpected")
     }
 
+    func testMessageTextRedrawsOnlyWhenTextOrSourcesChange() {
+        let a = ChatMessageText(text: "x", sources: [], onSource: { _ in })
+        XCTAssertEqual(a, ChatMessageText(text: "x", sources: [], onSource: { _ in print("other") }), "a new closure is not a change")
+        XCTAssertNotEqual(a, ChatMessageText(text: "xy", sources: [], onSource: { _ in }))
+    }
+
     func testInlineCodeHasABackground() {
         let text = ChatMessageText.inlineMarkdown("a `b` c")
         let code = text.runs.filter { $0.inlinePresentationIntent?.contains(.code) == true }
