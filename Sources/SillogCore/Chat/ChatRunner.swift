@@ -206,12 +206,14 @@ public struct ChatRunner: Sendable {
         await ledger.setEarlier(history.flatMap(\.artifacts))
         // A stopped answer's partial text stays in, so "continue" can pick up where it ended.
         let eligible = Array(history.filter { $0.role == "user" || ($0.role == "assistant" && ($0.status == "complete" || (["cancelled", "interrupted"].contains($0.status) && !$0.text.isEmpty))) })
+        // Older versions of a revised artifact are replaced by the latest, so only that one is resent.
+        let latest = Set(Dictionary(eligible.flatMap(\.artifacts).map { ($0.seriesID, $0.id) }, uniquingKeysWith: { $1 }).values)
         let rendered = eligible.indices.map { index in
             let message = eligible[index]
             // The question being asked now is sent whole up to the budget; window() always keeps it.
             let last = index == eligible.count - 1 && message.role == "user"
             var text = String(message.text.prefix(last ? Self.historyBudget : 12000))
-            for artifact in message.artifacts.suffix(2) { text += "\n<previous_artifact id=\"\(artifact.id)\" format=\"\(artifact.format)\" title=\"\(artifact.title)\">\n\(String(artifact.content.prefix(18000)))\n</previous_artifact>" }
+            for artifact in message.artifacts.filter({ latest.contains($0.id) }).suffix(2) { text += "\n<previous_artifact id=\"\(artifact.id)\" format=\"\(artifact.format)\" title=\"\(artifact.title)\">\n\(String(artifact.content.prefix(18000)))\n</previous_artifact>" }
             if !message.sources.isEmpty { text += "\n이전 조회 출처:\n" + message.sources.prefix(12).map { "[\($0.id)] \($0.title) \($0.location)\n\(String($0.excerpt.prefix(500)))" }.joined(separator: "\n") }
             return text
         }
@@ -245,7 +247,7 @@ public struct ChatRunner: Sendable {
 
     /// Args: messages are the sendable messages oldest first, texts their rendered form, memory the stored summary.
     /// Returns: the index of the first message to send in full, and the summary that covers the ones before it.
-    /// Raises: cancellation. A failed summary is logged and the old one is kept.
+    /// Raises: cancellation. A failed summary is logged and falls back without a stale summary or a gap.
     private func window(_ messages: [ConversationMessage], _ texts: [String], memory: ChatMemory?) async throws -> (Int, ChatMemory?) {
         let size = { (from: Int) in texts[from...].reduce(0) { $0 + $1.count } }
         // Reuse the stored summary while everything after it still fits, so it isn't redone every turn.
@@ -261,14 +263,16 @@ public struct ChatRunner: Sendable {
         let cap = max(500, Self.historyBudget / max(1, start - from))
         let transcript = zip(messages[from..<start], texts[from..<start]).map { "<message role=\"\($0.role)\">\n\($1.prefix(cap))\n</message>" }.joined(separator: "\n")
         let input = (previous.isEmpty ? "" : "<previous_summary>\n\(previous)\n</previous_summary>\n") + transcript
+        // A failed summary must not inject a stale one or skip the messages after a valid one.
+        let fallback: (Int, ChatMemory?) = from > 0 ? (from, memory) : (start, nil)
         do {
             let summary = try await backend.complete(system: Self.memoryPrompt, text: input).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !summary.isEmpty else { return (start, memory) }
+            guard !summary.isEmpty else { return fallback }
             return (start, ChatMemory(summary: String(summary.prefix(4000)), through: messages[start - 1].id))
         } catch {
             if Task.isCancelled || error is CancellationError { throw CancellationError() }
             AppLog.write("chat memory summary failed: \(error)")
-            return (start, memory)
+            return fallback
         }
     }
 

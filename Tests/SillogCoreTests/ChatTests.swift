@@ -438,6 +438,51 @@ final class ChatTests: XCTestCase {
         XCTAssertNil(short.memory)
     }
 
+    func testAFailedSummaryNeitherSendsAStaleOneNorSkipsMessages() async throws {
+        let long = String(repeating: "가", count: 9_000)
+        var history: [ConversationMessage] = []
+        for i in 0..<14 {
+            history.append(.init(conversationID: "c", role: "user", text: "질문 \(i) " + long))
+            history.append(.init(conversationID: "c", role: "assistant", text: "답 \(i) " + long))
+        }
+        history.append(.init(conversationID: "c", role: "user", text: "마지막 질문"))
+        let model = MemoryModel(failsSummary: true)
+        let runner = ChatRunner(client: model, tools: ChatTools(db: try .inMemory(), scope: .init()))
+
+        // The summarized message was edited away, so its summary must not come back.
+        let stale = ChatMemory(summary: "지운 질문 요약", through: "deleted")
+        let first = try await runner.run(history: history, skillIDs: [], memory: stale) { _ in }
+        XCTAssertNil(first.memory)
+        var sent = await model.sent
+        XCTAssertFalse(sent.last!.contains("지운 질문 요약"))
+        XCTAssertTrue(sent.last!.contains("마지막 질문"))
+
+        // A valid summary keeps its boundary, so nothing after it is dropped.
+        let valid = ChatMemory(summary: "앞 요약", through: history[1].id)
+        let second = try await runner.run(history: history, skillIDs: [], memory: valid) { _ in }
+        XCTAssertEqual(second.memory, valid)
+        sent = await model.sent
+        XCTAssertTrue(sent.last!.hasPrefix("<earlier_conversation_summary>\n앞 요약"))
+        XCTAssertTrue(sent.last!.contains("질문 1 "))
+    }
+
+    func testOnlyTheLatestVersionOfARevisedArtifactIsResent() async throws {
+        var first = ConversationMessage(conversationID: "c", role: "assistant", text: "초안")
+        first.artifacts = [ChatArtifact(title: "보고", format: "docx", content: "옛 본문")]
+        var revised = ChatArtifact(title: "보고", format: "docx", content: "새 본문")
+        revised.baseID = first.artifacts[0].id
+        var second = ConversationMessage(conversationID: "c", role: "assistant", text: "수정")
+        second.artifacts = [revised]
+        let model = MemoryModel()
+        let runner = ChatRunner(client: model, tools: ChatTools(db: try .inMemory(), scope: .init()))
+        _ = try await runner.run(history: [.init(conversationID: "c", role: "user", text: "만들어줘"), first,
+                                           .init(conversationID: "c", role: "user", text: "고쳐줘"), second,
+                                           .init(conversationID: "c", role: "user", text: "또 고쳐줘")], skillIDs: []) { _ in }
+        let sent = await model.sent
+        XCTAssertTrue(sent[0].contains("새 본문"))
+        XCTAssertFalse(sent[0].contains("옛 본문"))
+    }
+
     func testOfficeArtifactsPreviewAsHTML() {
         let deck = ChatArtifactHTML.render(.init(title: "d", format: "pptx", content: "# 하나\n- a\n## 둘\n- b"))
         XCTAssertEqual(deck.components(separatedBy: "<section>").count - 1, 2)
@@ -493,8 +538,11 @@ private actor MemoryModel: ChatModelClient {
     nonisolated var modelName: String { "memory" }
     var sent: [String] = []
     var summaries = 0
+    let failsSummary: Bool
+    init(failsSummary: Bool = false) { self.failsSummary = failsSummary }
     func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec], onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply {
         sent.append(messages.map(\.text).joined(separator: "\n"))
+        if system == ChatRunner.memoryPrompt, failsSummary { throw URLError(.timedOut) }
         if system == ChatRunner.memoryPrompt { summaries += 1; return .init(text: "요약 \(summaries)") }
         return .init(text: "답")
     }

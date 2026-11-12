@@ -261,12 +261,13 @@ struct ChatView: View {
                         GazingMark(size: 104, smiling: !chat.draft.isEmpty).offset(x: -20, y: -68).allowsHitTesting(false)
                     }
                     .padding(.top, 28)
-                HStack(spacing: 8) {
+                // Hidden while typing, since a chip replaces the draft.
+                ChatChipFlow(spacing: 8) {
                     ForEach(Array(chat.starterPrompts.enumerated()), id: \.offset) { _, starter in
                         StarterChip(text: starter.prompt) { chat.useStarter(starter.prompt, focus: starter.focus) }
                     }
-                    Spacer(minLength: 0)
                 }.padding(.top, 12)
+                .opacity(chat.draft.isEmpty ? 1 : 0).disabled(!chat.draft.isEmpty).accessibilityHidden(!chat.draft.isEmpty)
                 .onAppear { chat.refreshFocusChoices() }
                 if !results.isEmpty {
                     HStack {
@@ -604,7 +605,7 @@ struct ChatView: View {
                         Button { copy(shown.markdown, id: message.id) } label: {
                             Image(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc").font(.system(size: 13))
                         }.help(tr("답변 복사")).accessibilityLabel(tr("답변 복사")).opacity(showsActions ? 1 : 0)
-                        if message.status != "failed" {
+                        if shown.status != "failed" {
                             HStack(spacing: 2) {
                                 Button { requestResend(message) } label: {
                                     Image(systemName: "arrow.clockwise").font(.system(size: 13))
@@ -616,16 +617,16 @@ struct ChatView: View {
                             Text(TitleConnection.modelTitle(model)).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
                                 .opacity(showsActions ? 1 : 0)
                         }
-                        if ["cancelled", "interrupted"].contains(message.status) {
+                        if ["cancelled", "interrupted"].contains(shown.status) {
                             HStack(spacing: 4) {
                                 Image(systemName: "record.circle").font(.system(size: 11))
                                 Text(tr("중단됨")).font(Brand.font(.caption))
                             }.foregroundStyle(Brand.tabText)
-                            if chat.messages.last?.id == message.id {
+                            if chat.messages.last?.id == message.id && shownIndex == versions.count - 1 {
                                 Button(tr("이어서 쓰기")) { chat.continueAnswer() }.font(Brand.font(.tag)).disabled(chat.running)
                             }
                         }
-                        if message.status == "failed" {
+                        if shown.status == "failed" {
                             Button(tr("다시 시도")) { requestResend(message) }.font(Brand.font(.tag)).disabled(chat.running)
                         }
                     }.buttonStyle(.plain).foregroundStyle(Brand.gray).font(Brand.font(.caption))
