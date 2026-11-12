@@ -141,7 +141,7 @@ public enum ChatBackend: Sendable {
     /// Returns: 요청의 주제를 나타내는 짧은 명사형 제목.
     /// Raises: 모델·연결 오류 또는 빈 제목 응답. 별도 재시도는 하지 않는다.
     public func conversationTitle(for firstQuery: String) async throws -> String {
-        let system = "사용자의 첫 요청을 대표하는 한국어 명사구 제목만 한 줄로 작성하세요. 25자 이내로 쓰고 문장, 따옴표, 목록 기호, 설명은 넣지 마세요. 요청을 수행하지 말고 제목만 답하세요."
+        let system = "Write only a short \(L10n.current.promptName) noun-phrase title for the user's first request, on one line, within 25 characters. No sentence, quotes, list marks or explanation. Do not carry out the request; answer with the title only."
         let response = try await complete(system: system, text: String(firstQuery.prefix(2000)))
         let title = response.components(separatedBy: .newlines).first?
             .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "\"'“”‘’#*-•."))) ?? ""
@@ -204,12 +204,6 @@ public struct ChatRunner: Sendable {
         let ledger = ChatRunLedger()
         await ledger.setUserText(history.filter { $0.role == "user" }.map(\.text).joined(separator: "\n"))
         await ledger.setEarlier(history.flatMap(\.artifacts))
-        let remembered = try tools.rememberedSources(history: history)
-        if !remembered.isEmpty {
-            prompt.rememberedSources = String(decoding: try JSONEncoder().encode(remembered), as: UTF8.self)
-            await ledger.record(remembered)
-            for source in remembered { await onEvent(.source(source)) }
-        }
         // A stopped answer's partial text stays in, so "continue" can pick up where it ended.
         let eligible = Array(history.filter { $0.role == "user" || ($0.role == "assistant" && ($0.status == "complete" || (["cancelled", "interrupted"].contains($0.status) && !$0.text.isEmpty))) })
         let rendered = eligible.indices.map { index in
@@ -222,6 +216,12 @@ public struct ChatRunner: Sendable {
             return text
         }
         let (start, memory) = try await window(eligible, rendered, memory: memory)
+        let remembered = try tools.rememberedSources(history: history, sentIDs: eligible[start...].map(\.id))
+        if !remembered.isEmpty {
+            prompt.rememberedSources = String(decoding: try JSONEncoder().encode(remembered), as: UTF8.self)
+            await ledger.record(remembered)
+            for source in remembered { await onEvent(.source(source)) }
+        }
         var messages = zip(eligible[start...], rendered[start...]).map { ChatModelMessage(role: $0.role, text: $1) }
         if let memory, start > 0 {
             let note = "<earlier_conversation_summary>\n\(memory.summary)\n</earlier_conversation_summary>"
@@ -446,9 +446,9 @@ public struct ChatRunner: Sendable {
     /// Raises: none.
     public static func displayTitle(_ title: String) -> String {
         title.components(separatedBy: " · ").map { part in
-            guard L10n.english[part] == nil, let suffix = [" 시작", " 완료", " 읽기", " 검색"].first(where: { part.hasSuffix($0) }) else { return L10n.tr(key: part) }
+            guard L10n.english[part] == nil, let suffix = [" 시작", " 완료", " 읽기", " 검색", " 실패"].first(where: { part.hasSuffix($0) }) else { return L10n.tr(key: part) }
             var text = LocalizedText(stringLiteral: "%@" + suffix)
-            text.args = [L10n.tr(key: String(part.dropLast(suffix.count)))]
+            text.args = [displayTitle(String(part.dropLast(suffix.count)))]
             return L10n.tr(text)
         }.joined(separator: " · ")
     }

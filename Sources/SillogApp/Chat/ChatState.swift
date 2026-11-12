@@ -578,7 +578,7 @@ final class ChatState: ObservableObject {
         guard var message = activeMessage else { return }
         var checkpoint = true
         switch event {
-        case .textReset: message.text = ""; checkpoint = false
+        case .textReset: message.text = ""   // saving here keeps a crash from leaving the last step's preamble as the answer
         case .text(let text): message.text += text; checkpoint = false
         case .step(let text): message.trace = (message.trace ?? []) + [ChatStep(title: text, status: .done)]
         case .stepStarted(let step): message.trace = (message.trace ?? []) + [step]

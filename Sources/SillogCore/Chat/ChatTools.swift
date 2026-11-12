@@ -213,9 +213,9 @@ public struct ChatTools: Sendable {
     }
 
     /// 중요한 저장 자료와 질문에 맞는 과거 기록을 첫 요청부터 제공한다. 원문 추가 조회는 도구로 이어간다.
-    func rememberedSources(history: [ConversationMessage]) throws -> [ChatSource] {
+    func rememberedSources(history: [ConversationMessage], sentIDs: [String]) throws -> [ChatSource] {
         let query = history.last(where: { $0.role == "user" })?.text ?? ""
-        let recentIDs = Set(history.suffix(16).map { "message:\($0.id)" })
+        let recentIDs = Set(sentIDs.map { "message:\($0)" })
         let records = scope.useActivity || scope.projectID != nil ? try search.search(query: query).filter { !recentIDs.contains($0.id) } : []
         let ids = try currentLibraryIDs()
         let ownIDs = ids.filter { scope.libraryIDs.contains($0) }

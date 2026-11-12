@@ -385,6 +385,11 @@ final class ChatTests: XCTestCase {
         let versions = ChatArtifact.versions(of: result.artifacts[0], in: [old, answer])
         XCTAssertEqual(versions.map(\.id), [id, result.artifacts[0].id])
         XCTAssertEqual(ChatArtifact.versions(of: result.artifacts[1], in: [old, answer]).count, 1)
+
+        var regenerated = ConversationMessage(conversationID: "t", role: "assistant", text: "")
+        regenerated.previous = [answer]
+        XCTAssertEqual(ChatArtifact.versions(of: result.artifacts[0], in: [old, regenerated]).map(\.id), [id, result.artifacts[0].id],
+                       "an artifact in an earlier answer version keeps its place in the series")
     }
 
     func testEachToolCallIsLoggedWithWhatItLookedAtAndHowItEnded() async throws {
@@ -466,6 +471,8 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(ChatRunner.displayTitle("자료 조사 시작"), "Research started")
         XCTAssertEqual(ChatRunner.displayTitle("Slack 읽기"), "Read Slack")
         XCTAssertEqual(ChatRunner.displayTitle("웹 검색"), "Web search")
+        XCTAssertEqual(ChatRunner.displayTitle("답변 작성 · 기록 검색 실패"), "Answer · Search records failed")
+        XCTAssertEqual(ChatRunner.displayTitle("Slack 검색 실패"), "Search Slack failed")
     }
 
     func testConversationMarkdownKeepsEachAnswersSources() {

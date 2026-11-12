@@ -8,7 +8,7 @@ private struct StubChatModel: ChatModelClient {
     var modelName: String { "stub" }
     func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec],
                  onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply {
-        if system.hasPrefix("사용자의 첫 요청") {
+        if system.hasPrefix("Write only a short") {
             guard let title else { throw LLMError.backend("no title") }
             return .init(text: title)
         }

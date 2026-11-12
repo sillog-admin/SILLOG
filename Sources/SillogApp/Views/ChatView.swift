@@ -262,12 +262,12 @@ struct ChatView: View {
                     }
                     .padding(.top, 28)
                 HStack(spacing: 8) {
-                    ForEach(chat.starterPrompts, id: \.prompt) { starter in
+                    ForEach(Array(chat.starterPrompts.enumerated()), id: \.offset) { _, starter in
                         StarterChip(text: starter.prompt) { chat.useStarter(starter.prompt, focus: starter.focus) }
                     }
                     Spacer(minLength: 0)
                 }.padding(.top, 12)
-                .onAppear { if chat.focusChoices.tasks.isEmpty { chat.refreshFocusChoices() } }
+                .onAppear { chat.refreshFocusChoices() }
                 if !results.isEmpty {
                     HStack {
                         Text(tr("최근 결과물")).font(Brand.font(.body)).foregroundStyle(Brand.tabText).padding(.leading, 4)
