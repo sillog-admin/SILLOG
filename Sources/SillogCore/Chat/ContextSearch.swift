@@ -282,7 +282,7 @@ public struct ContextSearch: Sendable {
                 return [.init(id: sourceID, title: row["activity"], location: row["uri"] ?? "", excerpt: "AI 화면 요약 (원문 아님)\n\(row["content"] as String)\n\(row["entities"] as String)")]
             case "chat":
                 guard let row = try Row.fetchOne(conn, sql: "SELECT * FROM chat_messages WHERE id = ?", arguments: [id]) else { return [] }
-                return [.init(id: sourceID, title: "사용자의 요청 (실행 완료 증거 아님)", location: row["cwd"] ?? "", excerpt: String((row["text"] as String).prefix(18000)))]
+                return [.init(id: sourceID, title: "\(row["tool"] as String? ?? "AI 도구") 사용자 메시지", location: row["cwd"] ?? "", excerpt: "사용자의 요청 원문 (실행 완료 증거 아님)\n" + String((row["text"] as String).prefix(18000)))]
             case "digest":
                 guard let digest = try DigestStore.digest(conn, id: id) else { return [] }
                 var header = "AI 요약 · 수치는 사용 시간 기록에서 계산"

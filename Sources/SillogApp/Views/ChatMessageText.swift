@@ -238,11 +238,13 @@ private struct ChatCitationButton: View {
     let onSource: (ChatSource) -> Void
     @State private var showingSources = false
 
+    static func chipTitle(_ title: String) -> String { title.count > 28 ? String(title.prefix(28)) + "…" : title }
+
     var body: some View {
         Button { showingSources = true } label: {
             HStack(spacing: 5) {
                 Image(systemName: "text.book.closed").font(.system(size: 9))
-                Text(sources[0].title).lineLimit(1).frame(maxWidth: 220)
+                Text(Self.chipTitle(sources[0].title)).lineLimit(1)
                 if sources.count > 1 { Text("+\(sources.count - 1)").font(Brand.jost(10)) }
             }
             .font(Brand.font(.tag))
@@ -250,6 +252,7 @@ private struct ChatCitationButton: View {
             .padding(.horizontal, 7).frame(height: 26)
             .background(.white, in: RoundedRectangle(cornerRadius: 4))
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Brand.line))
+            .fixedSize()
         }
         .buttonStyle(.plain)
         .popover(isPresented: $showingSources) {

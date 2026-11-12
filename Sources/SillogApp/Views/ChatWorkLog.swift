@@ -22,7 +22,7 @@ struct ChatWorkLog: View {
                             .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     }
                 }.contentShape(Rectangle())
-            }.buttonStyle(.plain).disabled(steps.isEmpty)
+            }.buttonStyle(.plain).fixedSize().disabled(steps.isEmpty)
             .accessibilityValue(isExpanded ? tr("펼침") : tr("접힘"))
             if isExpanded && !steps.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
@@ -32,6 +32,7 @@ struct ChatWorkLog: View {
                 }.padding(.leading, 2)
             }
         }
+        .accessibilityElement(children: .contain)
     }
 
     private var summary: String {

@@ -47,6 +47,9 @@ public struct ChatSource: Codable, Identifiable, Equatable, Sendable {
     public var title: String
     public var location: String
     public var excerpt: String
+    public init(id: String, title: String, location: String, excerpt: String) {
+        self.id = id; self.title = title; self.location = location; self.excerpt = excerpt
+    }
 }
 
 public struct ChatArtifact: Codable, Identifiable, Equatable, Sendable {

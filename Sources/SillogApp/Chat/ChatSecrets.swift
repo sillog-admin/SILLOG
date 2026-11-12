@@ -15,6 +15,9 @@ enum ChatSecrets {
     nonisolated(unsafe) private static var readFailure: Error?
     // Snapshot builds are unsigned, so reading the signed app's item would block on a Keychain prompt.
     nonisolated(unsafe) static var memoryOnly = false
+    // Names of accounts that hold a secret, so launch skips the prompting read for empty ones. Never values.
+    nonisolated(unsafe) static var defaults: UserDefaults? = .standard
+    private static let accountsKey = "sillog.chat.secretAccounts"
 
     /// Args: account is the secret's name.
     /// Returns: the stored secret, or an empty string when there is none.
@@ -40,20 +43,27 @@ enum ChatSecrets {
             readFailure = nil
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty && failedLoads.contains(account) { return }
+            let known = knownAccounts
+            if trimmed.isEmpty, let known, !known.contains(account) { return }
             var secrets = try combined()
+            var names = known ?? listed(secrets)
             secrets[account] = trimmed.isEmpty ? nil : trimmed
             try write(secrets)
             cache = secrets
-            guard trimmed.isEmpty else { return }
+            guard trimmed.isEmpty else { names?.insert(account); remember(names); return }
             // A leftover old item would bring a removed secret back on the next launch.
             let status = SecItemDelete(query(account) as CFDictionary)
             guard status == errSecSuccess || status == errSecItemNotFound else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
             legacyMisses.insert(account)
+            names?.remove(account); remember(names)
         }
     }
 
     private static func loadLocked(_ account: String) throws -> String {
+        let known = knownAccounts
+        if let known, !known.contains(account) { return "" }
         var secrets = try combined()
+        if known == nil { remember(listed(secrets)) }
         if let value = secrets[account] { return value }
         if legacyMisses.contains(account) { return "" }
         guard let data = try read(account), let value = String(data: data, encoding: .utf8), !value.isEmpty else {
@@ -77,6 +87,29 @@ enum ChatSecrets {
         guard let secrets = try? JSONDecoder().decode([String: String].self, from: data) else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(errSecDecode)) }
         cache = secrets
         return secrets
+    }
+
+    private static var knownAccounts: Set<String>? { defaults?.stringArray(forKey: accountsKey).map(Set.init) }
+
+    private static func remember(_ names: Set<String>?) {
+        if let names { defaults?.set(names.sorted(), forKey: accountsKey) }
+    }
+
+    /// Returns: the combined item's accounts plus old per-account items, or nil when the old items can't be listed.
+    private static func listed(_ secrets: [String: String]) -> Set<String>? {
+        if memoryOnly { return Set(secrets.keys) }
+        // Attributes only, so this does not prompt.
+        let search: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                     kSecReturnAttributes as String: true, kSecMatchLimit as String: kSecMatchLimitAll]
+        var items: CFTypeRef?
+        let status = SecItemCopyMatching(search as CFDictionary, &items)
+        if status == errSecItemNotFound { return Set(secrets.keys) }
+        guard status == errSecSuccess, let rows = items as? [[String: Any]] else { return nil }
+        return Set(secrets.keys).union(rows.compactMap { $0[kSecAttrAccount as String] as? String }).subtracting([combinedAccount])
+    }
+
+    static func resetForTests() {
+        lock.withLock { cache = nil; legacyMisses = []; failedLoads = []; readFailure = nil }
     }
 
     private static func read(_ account: String) throws -> Data? {

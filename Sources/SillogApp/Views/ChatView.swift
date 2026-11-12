@@ -101,7 +101,7 @@ struct ChatView: View {
 
     private var sheets: some View {
         layout
-        .sheet(item: $source) { ChatSourceSheet(source: $0) }
+        .sheet(item: $source) { ChatSourceSheet(source: $0).environmentObject(state) }
         .sheet(item: $pendingAutomation) { message in automationApproval(message) }
         .sheet(isPresented: $showSchedules) { ChatSchedulesView(chat: chat) }
         .sheet(item: $previewItem) { LibraryPreview(library: library, item: $0) }
@@ -652,6 +652,8 @@ struct ChatView: View {
                     }
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
+            // Keep the answer a container, or accessibility folds it into the work-log toggle.
+            .accessibilityElement(children: .contain)
             .contentShape(Rectangle())
             .onHover { hovering in
                 if hovering { hoveredMessageID = message.id } else if hoveredMessageID == message.id { hoveredMessageID = nil }
@@ -899,9 +901,16 @@ private struct QuestionPositionKey: PreferenceKey {
     }
 }
 
-private struct ChatSourceSheet: View {
+struct ChatSourceSheet: View {
     let source: ChatSource
+    @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
+
+    /// Task nodes are left out: opening one would leave the chat tab.
+    static func opensNode(_ source: ChatSource) -> Bool {
+        source.id.hasPrefix("node:") && URINormalizer.openableURL(forKey: source.location, home: NSHomeDirectory()) != nil
+    }
+
     var body: some View {
         ChatDialogFrame(title: source.title, width: 600, height: 400, onClose: { dismiss() }) {
             ScrollView {
@@ -920,6 +929,10 @@ private struct ChatSourceSheet: View {
             } else if source.location.hasPrefix("/") {
                 Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: source.location)]) } label: {
                     HStack(spacing: 6) { Text(tr("Finder에서 보기")); Image(systemName: "arrow.up.right").font(.system(size: 11)) }
+                }.buttonStyle(ChatDialogButtonStyle())
+            } else if Self.opensNode(source) {
+                Button { state.openGraphItem(uri: source.location); dismiss() } label: {
+                    HStack(spacing: 6) { Text(tr("원문 열기")); Image(systemName: "arrow.up.right").font(.system(size: 11)) }
                 }.buttonStyle(ChatDialogButtonStyle())
             }
             Button(tr("닫기")) { dismiss() }.buttonStyle(ChatDialogButtonStyle())

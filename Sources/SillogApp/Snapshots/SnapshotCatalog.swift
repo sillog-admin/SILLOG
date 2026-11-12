@@ -5,7 +5,7 @@ import SillogCore
 /// 스냅샷으로 그릴 화면 목록. 이름은 Figma 화면 번호를 따른다 (Figma 에서 내보낸 같은 이름의 PNG 와 나란히 본다)
 @MainActor
 enum SnapshotCatalog {
-    static var all: [Snapshot] { menus + windows + activity + chat + library + storage + [mathAnswer, codeAnswer, workLog] + recording }
+    static var all: [Snapshot] { menus + windows + activity + chat + library + storage + [mathAnswer, codeAnswer, workLog, citations] + recording }
 
     /// Figma 창(760) 에서 제목 줄(44)을 뺀 내용 영역
     static let window = CGSize(width: 1180, height: 716)
@@ -172,6 +172,15 @@ enum SnapshotCatalog {
         let answer = "설치 순서예요.\n\n1. 패키지를 받아요.\n\n    ```bash\n    brew install sillog\n    ```\n\n2. 설정 파일을 열어요. 문장 안의 ```이건 코드가 아니에요``` 는 그대로 보여요.\n\n```swift\nlet answer = 42\nprint(answer)\n```\n\n스트리밍 중인 블록:\n\n```json\n{\"ok\": true"
         let view = ChatMessageText(text: answer, sources: [], onSource: { _ in }).frame(width: 640).padding(24).background(Color.white)
         return Snapshot(name: "CH-code", size: CGSize(width: 688, height: 560), view: AnyView(view.environmentObject(AppState(preview: { _ in }))))
+    }
+
+    /// Citation chips hug a short title, cut a long one, and count the rest
+    static var citations: Snapshot {
+        let sources = [ChatSource(id: "chat:1", title: "Claude Code 사용자 메시지", location: "~/Developer/SILLOG", excerpt: "사용자의 요청 원문 (실행 완료 증거 아님)\n채팅 인용 칩 고치기"),
+                       ChatSource(id: "node:2", title: "Task · SILLOG 채팅 화면의 인용 칩과 출처 시트 다듬기", location: "task:chat-citations", excerpt: "")]
+        let answer = "인용 칩을 왼쪽 정렬로 바꾸기로 했어요. [chat:1][node:2]\n\n긴 제목만 따로 인용하면 이렇게 보여요. [node:2]"
+        let view = ChatMessageText(text: answer, sources: sources, onSource: { _ in }).frame(width: 640).padding(24).background(Color.white)
+        return Snapshot(name: "CH-citations", size: CGSize(width: 688, height: 200), view: AnyView(view.environmentObject(AppState(preview: { _ in }))))
     }
 
     /// A finished answer's work log, opened, with one result shown and one failed step
