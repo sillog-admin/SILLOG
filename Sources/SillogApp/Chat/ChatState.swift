@@ -492,7 +492,14 @@ final class ChatState: ObservableObject {
         switch event {
         case .textReset: message.text = ""; checkpoint = false
         case .text(let text): message.text += text; checkpoint = false
-        case .step(let text): message.steps.append(text)
+        case .step(let text): message.trace = (message.trace ?? []) + [ChatStep(title: text, status: .done)]
+        case .stepStarted(let step): message.trace = (message.trace ?? []) + [step]
+        case .stepFinished(let id, let result, let failed):
+            if let index = message.trace?.firstIndex(where: { $0.id == id }) {
+                message.trace?[index].result = result
+                message.trace?[index].status = failed ? .failed : .done
+                message.trace?[index].endedAt = Date().timeIntervalSince1970
+            }
         case .source(let source):
             message.sources.removeAll { $0.id == source.id }; message.sources.append(source)
         case .artifact(let artifact):

@@ -69,6 +69,22 @@ public struct ChatArtifact: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+/// One tool call or agent step of an answer, shown in the answer's work log.
+public struct ChatStep: Codable, Identifiable, Equatable, Sendable {
+    public enum Status: String, Codable, Sendable { case running, done, failed }
+    public var id = UUID().uuidString
+    public var title: String
+    public var detail = ""
+    public var result = ""
+    public var status = Status.running
+    public var startedAt = Date().timeIntervalSince1970
+    public var endedAt: Double?
+    public init(title: String, detail: String = "", status: Status = .running) {
+        self.title = title; self.detail = detail; self.status = status
+        if status != .running { endedAt = startedAt }
+    }
+}
+
 public struct ChatAutomationProposal: Codable, Equatable, Sendable {
     public var title: String
     public var prompt: String
@@ -146,6 +162,8 @@ public struct ConversationMessage: Codable, Identifiable, Sendable {
     public var sources: [ChatSource] = []
     public var artifacts: [ChatArtifact] = []
     public var steps: [String] = []
+    /// Tool steps with what they looked at and a preview of what came back. Nil in messages saved before it existed.
+    public var trace: [ChatStep]?
     public var automation: ChatAutomationProposal?
     public var approvedAutomationID: String?
 

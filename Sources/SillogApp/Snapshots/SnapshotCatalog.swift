@@ -5,7 +5,7 @@ import SillogCore
 /// 스냅샷으로 그릴 화면 목록. 이름은 Figma 화면 번호를 따른다 (Figma 에서 내보낸 같은 이름의 PNG 와 나란히 본다)
 @MainActor
 enum SnapshotCatalog {
-    static var all: [Snapshot] { menus + windows + activity + chat + library + storage + [mathAnswer, codeAnswer] + recording }
+    static var all: [Snapshot] { menus + windows + activity + chat + library + storage + [mathAnswer, codeAnswer, workLog] + recording }
 
     /// Figma 창(760) 에서 제목 줄(44)을 뺀 내용 영역
     static let window = CGSize(width: 1180, height: 716)
@@ -172,6 +172,22 @@ enum SnapshotCatalog {
         let answer = "설치 순서예요.\n\n1. 패키지를 받아요.\n\n    ```bash\n    brew install sillog\n    ```\n\n2. 설정 파일을 열어요. 문장 안의 ```이건 코드가 아니에요``` 는 그대로 보여요.\n\n```swift\nlet answer = 42\nprint(answer)\n```\n\n스트리밍 중인 블록:\n\n```json\n{\"ok\": true"
         let view = ChatMessageText(text: answer, sources: [], onSource: { _ in }).frame(width: 640).padding(24).background(Color.white)
         return Snapshot(name: "CH-code", size: CGSize(width: 688, height: 560), view: AnyView(view.environmentObject(AppState(preview: { _ in }))))
+    }
+
+    /// A finished answer's work log, opened, with one result shown and one failed step
+    static var workLog: Snapshot {
+        var message = ConversationMessage(conversationID: "c", role: "assistant", text: "")
+        var steps = [ChatStep(title: "기록 검색", detail: "SILLOG 채팅 개선", status: .done),
+                     ChatStep(title: "기간 집계", detail: "2026-11-09 – 2026-11-13", status: .done),
+                     ChatStep(title: "웹 원문 확인", detail: "https://example.com/notes", status: .failed),
+                     ChatStep(title: "결과물 생성", detail: "주간 업무 보고", status: .done)]
+        let start = steps[0].startedAt
+        for i in steps.indices { steps[i].startedAt = start + Double(i) * 4; steps[i].endedAt = start + Double(i) * 4 + 3 }
+        steps[1].result = "11월 9일–13일 활동 41시간\n· SILLOG 채팅 개선 18시간\n· 삼일PwC 과제 9시간\n· 기타 14시간"
+        steps[2].result = "도구 실행 실패: 검색 결과나 사용자가 준 주소만 읽을 수 있습니다."
+        message.trace = steps
+        let view = WorkLogPreview(message: message).frame(width: 560, alignment: .leading).padding(24).background(Color.white)
+        return Snapshot(name: "CH-worklog", size: CGSize(width: 608, height: 420), view: AnyView(view.environmentObject(AppState(preview: { _ in }))))
     }
 
     /// 채팅 답의 수식: 블록 행렬(\text{①}, \qquad), 글줄 수식, \text 안 한글, 분수
@@ -642,4 +658,10 @@ enum SnapshotCatalog {
         DeviceCode(verificationURL: URL(string: "https://auth.openai.com/codex/device")!, userCode: "SILL-OG26",
                    deviceAuthId: "preview", interval: 5, expiresAt: Date().timeIntervalSince1970 + 900)
     }
+}
+
+private struct WorkLogPreview: View {
+    let message: ConversationMessage
+    @State private var open = true
+    var body: some View { ChatWorkLog(message: message, isExpanded: $open, openResults: [message.trace?[1].id ?? ""]) }
 }

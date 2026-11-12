@@ -441,23 +441,14 @@ struct ChatView: View {
             VStack(alignment: .leading, spacing: 12) {
                 let picked = chat.skills.filter { chat.current.skillIDs.contains($0.id) }
                 if !picked.isEmpty { HStack(spacing: 4) { ForEach(picked, id: \.id) { BrandBadge($0.title) } } }
-                if message.status == "running" || !message.steps.isEmpty {
-                    DisclosureGroup(isExpanded: Binding(
+                if message.status == "running" || !message.steps.isEmpty || !(message.trace ?? []).isEmpty {
+                    ChatWorkLog(message: message, isExpanded: Binding(
                         get: { message.status == "running" ? !collapsedSteps.contains(message.id) : expandedSteps.contains(message.id) },
                         set: { open in
                             if message.status == "running" {
                                 if open { collapsedSteps.remove(message.id) } else { collapsedSteps.insert(message.id) }
                             } else if open { expandedSteps.insert(message.id) } else { expandedSteps.remove(message.id) }
-                        })) {
-                        ForEach(Array(message.steps.enumerated()), id: \.offset) { _, step in
-                            Text(step).font(Brand.font(.tag)).foregroundStyle(Brand.gray).frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            if message.status == "running" { ProgressView().controlSize(.small) }
-                            Text(message.steps.last ?? tr("답변을 준비하고 있습니다")).font(Brand.font(.caption))
-                        }
-                    }.foregroundStyle(Brand.gray)
+                        }))
                 }
                 if message.status == "failed" {
                     VStack(alignment: .leading, spacing: 8) {

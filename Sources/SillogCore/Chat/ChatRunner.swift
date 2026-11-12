@@ -56,6 +56,8 @@ public enum ChatRunEvent: Sendable {
     case textReset
     case text(String)
     case step(String)
+    case stepStarted(ChatStep)
+    case stepFinished(id: String, result: String, failed: Bool)
     case source(ChatSource)
     case artifact(ChatArtifact)
     case automation(ChatAutomationProposal)
@@ -272,7 +274,7 @@ public struct ChatRunner: Sendable {
     private func loop(messages: [ChatModelMessage], prompt: ChatSystemPrompt, role: String?, allowAutomation: Bool,
                       ledger: ChatRunLedger, onEvent: @escaping @Sendable (ChatRunEvent) async -> Void) async throws -> String {
         var history = messages
-        let label = role.map { Self.roleTitle($0) } ?? "답변 작성"
+        let label = role.map { Self.roleTitle($0) + " · " } ?? ""
         let available = availableTools(role: role, allowAutomation: allowAutomation)
         let system = prompt.render(role: role)
         /// Args: call은 모델이 요청한 앱 도구 호출이다.
@@ -281,7 +283,9 @@ public struct ChatRunner: Sendable {
         @Sendable func execute(_ call: ChatToolCall) async throws -> String {
             try Task.checkCancellation()
             guard available.contains(where: { $0.name == call.name }) else { throw ChatToolError.unavailable("허용되지 않은 도구 호출입니다.") }
-            await onEvent(.step("\(label) · \(Self.toolTitle(call.name))"))
+            let step = ChatStep(title: label + Self.toolTitle(call.name), detail: Self.stepDetail(call))
+            await onEvent(.stepStarted(step))
+            var failed = false
             let output: String
             do {
                 switch call.name {
@@ -330,10 +334,12 @@ public struct ChatRunner: Sendable {
                 if Task.isCancelled || error is CancellationError { throw CancellationError() }
                 AppLog.write("chat tool \(call.name) failed: \(error) args(\(call.arguments.utf8.count)B)=\(PIIMasker.mask(String(call.arguments.prefix(120))))")
                 output = "도구 실행 실패: \(error.localizedDescription). 같은 인자로 자동 재시도하지 말고 원인을 설명하거나 다른 자료를 사용하세요."
-                await onEvent(.step("\(label) · \(Self.toolTitle(call.name)) 실패"))
+                failed = true
             }
             // Tool results carry records and connector data. The user's own messages are sent as typed.
-            return PIIMasker.mask(String(output.prefix(28000)))
+            let masked = PIIMasker.mask(String(output.prefix(28000)))
+            await onEvent(.stepFinished(id: step.id, result: String(masked.prefix(800)), failed: failed))
+            return masked
         }
         if case .codex(let client) = backend {
             try await ledger.consume()
@@ -406,6 +412,21 @@ public struct ChatRunner: Sendable {
             ])))
         }
         return specs
+    }
+
+    /// Args: call is a tool call from the model.
+    /// Returns: what the call looks at, such as its query, path, address or title, for the work log.
+    /// Raises: none.
+    static func stepDetail(_ call: ChatToolCall) -> String {
+        guard let args = try? JSONDecoder().decode(JSONValue.self, from: Data(call.arguments.utf8)).objectValue else { return "" }
+        if let tasks = args["tasks"]?.arrayValue { return String(tasks.compactMap { $0.objectValue?["task"]?.stringValue }.joined(separator: " / ").prefix(300)) }
+        for key in ["query", "path", "url", "title", "id", "repository", "from"] {
+            if let value = args[key]?.stringValue, !value.isEmpty {
+                let text = key == "from" ? "\(value) – \(args["to"]?.stringValue ?? "")" : value
+                return PIIMasker.mask(String(text.prefix(300)))
+            }
+        }
+        return ""
     }
 
     /// Args: role은 내부 역할 식별자이다.

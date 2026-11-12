@@ -379,6 +379,20 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(ChatArtifact.versions(of: result.artifacts[1], in: [old, answer]).count, 1)
     }
 
+    func testEachToolCallIsLoggedWithWhatItLookedAtAndHowItEnded() async throws {
+        let model = ArtifactCallModel(calls: [##"{"title":"주간 보고","format":"docx","content":"# 보고"}"##, #"{"title":"x","format":"pdf","content":"x"}"#])
+        let runner = ChatRunner(client: model, tools: ChatTools(db: try .inMemory(), scope: .init()))
+        let log = StepBox()
+        _ = try await runner.run(history: [.init(conversationID: "t", role: "user", text: "만들어줘")], skillIDs: []) { await log.add($0) }
+        let started = await log.started, finished = await log.finished
+        XCTAssertEqual(started.map(\.detail), ["주간 보고", "x"])
+        XCTAssertEqual(started.map(\.title), ["결과물 생성", "결과물 생성"])
+        XCTAssertEqual(finished.map(\.0), started.map(\.id))
+        XCTAssertEqual(finished.map(\.2), [false, true])
+        XCTAssertTrue(finished[1].1.contains("도구 실행 실패"))
+        XCTAssertEqual(ChatRunner.stepDetail(.init(id: "a", name: "summarize_period", arguments: #"{"from":"2026-11-09","to":"2026-11-13"}"#)), "2026-11-09 – 2026-11-13")
+    }
+
     func testLongChatsSendASummaryOfWhatNoLongerFits() async throws {
         let long = String(repeating: "가", count: 9_000)
         var history: [ConversationMessage] = []
@@ -428,6 +442,15 @@ private actor MemoryModel: ChatModelClient {
         sent.append(messages.map(\.text).joined(separator: "\n"))
         if system == ChatRunner.memoryPrompt { summaries += 1; return .init(text: "요약 \(summaries)") }
         return .init(text: "답")
+    }
+}
+
+private actor StepBox {
+    var started: [ChatStep] = []
+    var finished: [(String, String, Bool)] = []
+    func add(_ event: ChatRunEvent) {
+        if case .stepStarted(let step) = event { started.append(step) }
+        if case .stepFinished(let id, let result, let failed) = event { finished.append((id, result, failed)) }
     }
 }
 
