@@ -335,7 +335,19 @@ enum SnapshotCatalog {
         return [Snapshot(name: "CH-01", size: window, view: AnyView(MainWindow().environmentObject(state))),
                 Snapshot(name: "CH-SKILL-PINS", size: nil, view: AnyView(PinnedSkillPicker(chat: state.chat!, onManage: {}).background(.white))),
                 Snapshot(name: "CH-13", size: window, view: AnyView(MainWindow().environmentObject(tab(.connectors)))),
-                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus + artifactPanel + longQuestion
+                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus + artifactPanel + longQuestion + failedAnswer
+    }
+
+    /// A failed answer that streamed some Markdown first: the received part, one error line, one retry button
+    private static var failedAnswer: [Snapshot] {
+        guard let database = try? SillogDatabase.inMemory() else { return [] }
+        let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
+        let chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        let id = chat.current.id
+        chat.messages = [.init(conversationID: id, role: "user", text: "이번 주에 한 일을 정리해줘"),
+                         .init(conversationID: id, role: "assistant", text: "## 이번 주\n\n- `ChatView` 정리\n- 결과물 패널\n\n응답을 완료하지 못했습니다: 연결이 끊겼습니다.", status: "failed")]
+        let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })
+        return [Snapshot(name: "CH-failed", size: window, view: AnyView(MainWindow().environmentObject(state)))]
     }
 
     /// An answer whose revised Word file is open in the side panel at version 2 of 2

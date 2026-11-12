@@ -28,7 +28,7 @@ struct ChatMessageText: View {
     }
 
     /// Args: value는 코드 블록을 제외한 채팅 문단이다.
-    /// Returns: 단일 물결표는 보존하고 명시적인 ~~취소선~~만 해석한 본문.
+    /// Returns: 단일 물결표는 보존하고 명시적인 ~~취소선~~만 해석한 본문. 글줄 코드는 옅은 바탕의 고정폭 글자.
     /// Raises: 없음. Markdown 해석 실패 시 원문을 표시한다.
     static func inlineMarkdown(_ value: String) -> AttributedString {
         // Foundation은 ~ 하나도 취소선으로 해석한다. 코드·자동 링크·기존 이스케이프는 그대로 둔다.
@@ -38,7 +38,12 @@ struct ChatMessageText: View {
             guard let range = Range(match.range, in: escaped), escaped[range] == "~" else { continue }
             escaped.replaceSubrange(range, with: #"\~"#)
         }
-        return (try? AttributedString(markdown: escaped, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(value)
+        guard var text = try? AttributedString(markdown: escaped, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) else { return AttributedString(value) }
+        for run in text.runs where run.inlinePresentationIntent?.contains(.code) == true {
+            text[run.range].backgroundColor = ChatPalette.soft
+            text[run.range].font = .system(size: 11, design: .monospaced)
+        }
+        return text
     }
 
     /// 문단: 수식이 없으면 그대로, 있으면 글줄(글자 + 글줄 수식 이미지)과 블록 수식을 차례로.

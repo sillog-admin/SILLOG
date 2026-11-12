@@ -23,6 +23,7 @@ struct ChatWorkLog: View {
                     }
                 }.contentShape(Rectangle())
             }.buttonStyle(.plain).disabled(steps.isEmpty)
+            .accessibilityValue(isExpanded ? tr("펼침") : tr("접힘"))
             if isExpanded && !steps.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in

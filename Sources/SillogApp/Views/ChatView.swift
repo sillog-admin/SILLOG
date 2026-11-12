@@ -36,6 +36,10 @@ struct ChatView: View {
     @State private var hoveredMessageID: String?
     @State private var expandedQuestions: Set<String> = []
     @State private var pendingResend: PendingResend?
+    @State private var copiedID: String?
+    @State private var hoveredArtifactID: String?
+    @State private var atBottom = true
+    @FocusState private var focusedActions: String?
 
     private struct PendingResend: Identifiable {
         let message: ConversationMessage
@@ -336,7 +340,7 @@ struct ChatView: View {
                     .zIndex(1)
                 }
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 24) {
+                    LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(chat.messages) { message in
                             messageView(message)
                                 .id(message.id)
@@ -348,8 +352,11 @@ struct ChatView: View {
                                         }
                                     }
                                 }
+                                // A question sits farther from the previous answer than its own answer sits from it.
+                                .padding(.top, message.role == "user" ? (chat.messages.first?.id == message.id ? 0 : 32) : 4)
                         }
                         Color.clear.frame(height: 1).id("bottom")
+                            .onAppear { atBottom = true }.onDisappear { atBottom = false }
                     }.frame(maxWidth: ChatPalette.columnWidth).frame(maxWidth: .infinity).padding(.horizontal, 32).padding(.vertical, 24)
                 }
                 .coordinateSpace(name: "chatTranscript")
@@ -364,11 +371,18 @@ struct ChatView: View {
                     hoveredQuestionID = nil
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }
-                .overlay(alignment: .bottomTrailing) {
-                    if chat.running {
-                        Button { proxy.scrollTo("bottom", anchor: .bottom) } label: {
+                .overlay(alignment: .top) {
+                    LinearGradient(colors: [.white, .white.opacity(0)], startPoint: .top, endPoint: .bottom).frame(height: 20).allowsHitTesting(false)
+                }
+                .overlay(alignment: .bottom) {
+                    LinearGradient(colors: [.white.opacity(0), .white], startPoint: .top, endPoint: .bottom).frame(height: 16).allowsHitTesting(false)
+                }
+                .overlay(alignment: .bottom) {
+                    if !atBottom {
+                        Button { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) } } label: {
                             Image(systemName: "arrow.down").font(.system(size: 11)).foregroundStyle(Brand.tabText).frame(width: 30, height: 30).background(.white, in: Circle()).overlay(Circle().strokeBorder(Brand.line))
-                        }.buttonStyle(.plain).help(tr("최근 응답으로")).padding(16)
+                                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                        }.buttonStyle(.plain).help(tr("최근 응답으로")).accessibilityLabel(tr("최근 응답으로")).padding(16)
                     }
                 }
             }
@@ -420,8 +434,8 @@ struct ChatView: View {
                     .font(Brand.font(.body)).foregroundStyle(Brand.text).scrollContentBackground(.hidden)
                     .frame(minHeight: 60, maxHeight: 240).fixedSize(horizontal: false, vertical: true)
                     .padding(10)
-                    .background(.white, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Brand.line))
+                    .background(.white, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Brand.line))
                 HStack(spacing: 8) {
                     Button(tr("취소")) { editingMessageID = nil }.keyboardShortcut(.cancelAction)
                     Button(tr("보내기")) { requestResend(message, text: editText) }
@@ -429,7 +443,7 @@ struct ChatView: View {
                         .disabled(chat.running || editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }.font(Brand.font(.caption))
             }
-            .frame(maxWidth: 560).frame(maxWidth: .infinity, alignment: .trailing)
+            .frame(maxWidth: 480).frame(maxWidth: .infinity, alignment: .trailing)
         } else if message.role == "user" {
             // 내 질문: 오른쪽 말풍선 (이름표 없이). 올리면 복사·편집
             let expanded = expandedQuestions.contains(message.id)
@@ -439,20 +453,22 @@ struct ChatView: View {
                 Text(message.text).font(Brand.font(.body)).foregroundStyle(Brand.text).lineSpacing(5).textSelection(.enabled)
                     .lineLimit(long && !expanded ? 12 : nil)
                     .padding(.horizontal, 14).padding(.vertical, 10)
-                    .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 12))
-                    .frame(maxWidth: 560, alignment: .trailing)
+                    .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 16))
+                    .frame(maxWidth: 480, alignment: .trailing)
                 if long {
                     Button(expanded ? tr("접기") : tr("더 보기")) {
                         if expanded { expandedQuestions.remove(message.id) } else { expandedQuestions.insert(message.id) }
                     }.buttonStyle(.plain).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 }
                 HStack(spacing: 14) {
-                    Button { copy(message.text) } label: { Image(systemName: "doc.on.doc").font(.system(size: 12)) }.help(tr("질문 복사"))
+                    Button { copy(message.text, id: message.id) } label: { Image(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc").font(.system(size: 12)) }
+                        .help(tr("질문 복사")).accessibilityLabel(tr("질문 복사"))
                     Button { editText = message.text; editingMessageID = message.id } label: { Image(systemName: "pencil").font(.system(size: 12)) }
-                        .help(tr("질문 편집")).disabled(chat.running)
+                        .help(tr("질문 편집")).accessibilityLabel(tr("질문 편집")).disabled(chat.running)
                 }
                 .buttonStyle(.plain).foregroundStyle(Brand.gray)
-                .opacity(hoveredMessageID == message.id ? 1 : 0)
+                .focused($focusedActions, equals: message.id)
+                .opacity(hoveredMessageID == message.id || focusedActions == message.id ? 1 : 0)
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
             .contentShape(Rectangle())
@@ -474,30 +490,36 @@ struct ChatView: View {
                         }))
                 }
                 if message.status == "failed" {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label(tr("응답을 완료하지 못했습니다"), systemImage: "exclamationmark.circle").font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
-                        Text(message.text.trimmingCharacters(in: .whitespacesAndNewlines))
-                            .font(Brand.font(.body)).foregroundStyle(Brand.tabText).textSelection(.enabled)
-                    }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    let parts = Self.failureParts(message.text)
+                    if !parts.received.isEmpty {
+                        ChatMessageText(text: parts.received, sources: message.sources) { source = $0 }
+                    }
+                    Label(parts.error, systemImage: "exclamationmark.circle")
+                        .font(Brand.font(.body)).foregroundStyle(Brand.tabText).textSelection(.enabled)
+                        .padding(14).frame(maxWidth: .infinity, alignment: .leading)
                         .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 6))
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
                 } else if !message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     ChatMessageText(text: message.text, sources: message.sources) { source = $0 }
                 }
                 ForEach(message.artifacts) { item in
+                    let version = (ChatArtifact.versions(of: item, in: chat.messages).firstIndex { $0.id == item.id } ?? 0) + 1
                     Button { chat.openArtifactID = item.id } label: {
                         HStack(spacing: 14) {
-                            Image(systemName: "doc.text").font(.system(size: 22, weight: .light)).foregroundStyle(Brand.ink)
+                            Image(systemName: Self.artifactIcon(item.format)).font(.system(size: 22, weight: .light)).foregroundStyle(Brand.ink)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(item.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
-                                Text(tr("\(item.format.uppercased()) 결과물, 미리보기")).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
+                                Text(item.format.uppercased() + " · " + tr("버전 \(version)")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                             }
-                            Spacer(minLength: 24); Image(systemName: "arrow.up.right").font(.system(size: 13)).foregroundStyle(Brand.ink)
+                            Spacer(minLength: 24); Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(Brand.ink)
                         }.padding(.horizontal, 16).frame(maxWidth: 360, minHeight: 68, maxHeight: 68, alignment: .leading)
-                            .background(.white, in: RoundedRectangle(cornerRadius: 6))
-                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
+                            .background(hoveredArtifactID == item.id ? ChatPalette.rowHover : .white, in: RoundedRectangle(cornerRadius: 6))
+                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(chat.openArtifactID == item.id ? Brand.ink : Brand.line))
                             .contentShape(Rectangle())
                     }.buttonStyle(.plain)
+                    .onHover { hovering in
+                        if hovering { hoveredArtifactID = item.id } else if hoveredArtifactID == item.id { hoveredArtifactID = nil }
+                    }
                 }
                 if let proposal = message.automation {
                     HStack {
@@ -526,12 +548,15 @@ struct ChatView: View {
                                 }.foregroundStyle(Brand.gray)
                             }
                         }
-                        Button { copy(message.markdown) } label: {
-                            Image(systemName: "doc.on.doc").font(.system(size: 13))
-                        }.help(tr("답변 복사"))
-                        Button { requestResend(message) } label: {
-                            Image(systemName: "arrow.clockwise").font(.system(size: 13))
-                        }.help(tr("다시 생성")).disabled(chat.running)
+                        let showsActions = hoveredMessageID == message.id || focusedActions == message.id || chat.messages.last?.id == message.id
+                        Button { copy(message.markdown, id: message.id) } label: {
+                            Image(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc").font(.system(size: 13))
+                        }.help(tr("답변 복사")).accessibilityLabel(tr("답변 복사")).opacity(showsActions ? 1 : 0)
+                        if message.status != "failed" {
+                            Button { requestResend(message) } label: {
+                                Image(systemName: "arrow.clockwise").font(.system(size: 13))
+                            }.help(tr("다시 생성")).accessibilityLabel(tr("다시 생성")).disabled(chat.running).opacity(showsActions ? 1 : 0)
+                        }
                         if ["cancelled", "interrupted"].contains(message.status) {
                             HStack(spacing: 4) {
                                 Image(systemName: "record.circle").font(.system(size: 11))
@@ -545,6 +570,7 @@ struct ChatView: View {
                             Button(tr("다시 시도")) { requestResend(message) }.font(Brand.font(.tag)).disabled(chat.running)
                         }
                     }.buttonStyle(.plain).foregroundStyle(Brand.gray).font(Brand.font(.caption))
+                    .focused($focusedActions, equals: message.id)
                 }
                 if expandedSources.contains(message.id) {
                     // 본문의 [1] 번호와 맞도록 순서, 번호를 그대로 둔다
@@ -563,11 +589,42 @@ struct ChatView: View {
                     }
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                if hovering { hoveredMessageID = message.id } else if hoveredMessageID == message.id { hoveredMessageID = nil }
+            }
         }
     }
 
-    private func copy(_ text: String) {
+    /// Args: text is a failed answer's stored text.
+    /// Returns: the part that arrived before the failure, and the appended error line.
+    /// Raises: none.
+    static func failureParts(_ text: String) -> (received: String, error: String) {
+        // The error line was appended in whichever language was active when the run failed.
+        let key = "\n\n응답을 완료하지 못했습니다: %@"
+        for marker in [key, L10n.english[key] ?? key].map({ $0.replacingOccurrences(of: "%@", with: "") }) {
+            if let range = text.range(of: marker, options: .backwards) {
+                return (String(text[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines),
+                        String(text[range.lowerBound...]).trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+        }
+        return ("", text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    static func artifactIcon(_ format: String) -> String {
+        switch format.lowercased() {
+        case "docx": return "doc.text"
+        case "pptx": return "rectangle.on.rectangle"
+        case "xlsx", "csv": return "tablecells"
+        case "html", "svg": return "chevron.left.forwardslash.chevron.right"
+        default: return "doc.plaintext"
+        }
+    }
+
+    private func copy(_ text: String, id: String) {
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
+        copiedID = id
+        Task { try? await Task.sleep(for: .seconds(1.5)); if copiedID == id { copiedID = nil } }
     }
 
     /// Resends at once when only this turn is replaced; asks first when later turns would be deleted too.
