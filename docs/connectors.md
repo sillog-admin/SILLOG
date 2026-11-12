@@ -1,6 +1,6 @@
 # 커넥터 설정
 
-[README로 돌아가기](../README.md)
+[README로 돌아가기](../README.ko.md)
 
 Sillog의 커넥터는 외부 서비스의 자료를 검색하고 읽기 위한 계정 연결입니다. 메일 발송, 파일 수정, 저장소 변경은 지원하지 않습니다.
 
@@ -12,11 +12,11 @@ Sillog의 커넥터는 외부 서비스의 자료를 검색하고 읽기 위한 
 
 ChatGPT의 앱 연결은 별개입니다. 해당 권한이나 토큰을 Sillog에 복사할 수 없습니다.
 
-Gmail·Google Drive·Slack은 설치형 OAuth로, Notion·Higgsfield·Lovable은 공급자가 운영하는 MCP의 OAuth로 연결합니다. 이 경로에는 Sillog 운영 서버가 필요하지 않습니다. 계정 연결 성공과 실제 자료 조회 성공은 별도로 확인합니다. 연결 상세의 **검색·읽기 확인**은 검색 결과를 바탕으로 원문을 읽으며, 자료가 없으면 읽기 성공으로 표시하지 않습니다.
+Gmail·Google Drive·Slack은 설치형 OAuth로, Notion·Higgsfield·Lovable·Canva는 공급자가 운영하는 MCP의 OAuth로 연결합니다. 이 경로에는 Sillog 운영 서버가 필요하지 않습니다. 계정 연결 성공과 실제 자료 조회 성공은 별도로 확인합니다. 연결 상세의 **검색·읽기 확인**은 검색 결과를 바탕으로 원문을 읽으며, 자료가 없으면 읽기 성공으로 표시하지 않습니다.
 
 ## Google: Gmail · Google Drive · Google Calendar
 
-**진행 보류 (2026-11-09 사용자 결정):** Gmail·Drive 일반 공개를 위한 홈페이지·개인정보 안내 게시, 도메인 등록·구매, Google 검증·심사, 관련 AI 연결 제한 변경은 보류합니다. 사용자가 다시 요청하기 전에는 진행하거나 추가 결정을 요청하지 않습니다. 현재 테스트 계정의 기존 연결은 유지하며, GitHub 커넥터도 기존 결정대로 보류합니다. 미완료한 커넥터 검수의 추가 로그인·승인 요청도 중단합니다.
+**진행 보류 (2026-11-09 사용자 결정):** Gmail·Drive 일반 공개를 위한 홈페이지·개인정보 안내 게시, 도메인 등록·구매, Google 검증·심사, 관련 AI 연결 제한 변경은 보류합니다. 사용자가 다시 요청하기 전에는 진행하거나 추가 결정을 요청하지 않습니다. 현재 테스트 계정의 기존 연결은 유지합니다. 미완료한 커넥터 검수의 추가 로그인·승인 요청도 중단합니다.
 
 - [데스크톱 앱용 OAuth 클라이언트](https://developers.google.com/identity/protocols/oauth2/native-app)를 등록합니다.
 - Gmail·Drive·Calendar API를 사용할 수 있도록 프로젝트를 설정합니다. Gmail·Drive는 읽기 전용, 캘린더(캘린더 탭의 [구글 계정 연결])는 캘린더 목록 읽기(`calendar.calendarlist.readonly`)와 일정 읽기·쓰기(`calendar.events`)를 요청합니다. 캘린더 권한은 구글이 민감한 권한으로 분류해, 앱 검수 전에는 OAuth 동의 화면에 등록한 테스트 사용자만 로그인할 수 있습니다.
@@ -25,21 +25,27 @@ Gmail·Google Drive·Slack은 설치형 OAuth로, Notion·Higgsfield·Lovable은
 - 사용자는 필요한 Gmail·Drive 항목만 고르고 Google에서 승인합니다. 선택한 항목에 해당하는 권한을 요청합니다.
 - 로컬 콜백은 `http://127.0.0.1:8765/callback`입니다. 승인 중 앱이 실행되고 포트를 사용할 수 있어야 합니다.
 
+TODO (정식 게시 전):
+- [ ] 브랜드 인증: sillog.app에 개인정보처리방침 추가, Search Console 도메인 확인, Google Auth Platform → 브랜딩에서 신청. 권한 수정과 상관없이 먼저 할 수 있습니다.
+- [ ] Gmail: 제한 권한이라 매년 유료 보안 평가(CASA)가 필요해 배포 버전에서 숨깁니다.
+- [ ] Drive: `drive.readonly`를 `drive.file`과 파일 선택창으로 바꿉니다.
+- [ ] 캘린더: 권한 심사 동안 Google 연결 버튼을 숨깁니다(`CalendarService.googleAvailable`).
+- [ ] 권한 심사: 브랜드 인증과 Drive 변경을 마친 뒤 캘린더·Drive 권한으로 신청합니다.
+
 ```bash
 SILLOG_GOOGLE_CLIENT_ID="등록한 클라이언트 ID" SILLOG_GOOGLE_CLIENT_SECRET="클라이언트 시크릿" ./scripts/make-app.sh
 ```
 
 ## GitHub
 
-**진행 보류:** GitHub 커넥터 연동은 보류 중입니다. 앱 등록·실제 연결·검색 및 파일 읽기 검증은 미완료이며, 재개할 때는 서버 없는 디바이스 인증(최초 승인 코드 입력 허용)을 사용합니다.
+`sillog-admin` 계정에 GitHub App을 등록하고, 기기 코드 승인(디바이스 인증)으로 연결합니다. 로컬 콜백 포트와 클라이언트 비밀키는 쓰지 않습니다.
 
-- [GitHub App](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app)을 등록하고 디바이스 인증을 활성화합니다.
-- 저장소 **Contents**, **Pull requests** 접근을 읽기 전용으로 설정합니다.
-- 빌드할 때 `SILLOG_GITHUB_CLIENT_ID`를 설정합니다.
-- 사용자는 Sillog에 표시된 코드를 GitHub 승인 페이지에 입력합니다. 로컬 콜백 포트는 사용하지 않습니다.
+- GitHub App은 **Contents**, **Pull requests** 읽기 전용 권한과 **Enable Device Flow**, **Expire user authorization tokens**를 켜고, 어느 계정에나 설치할 수 있게 등록합니다.
+- `Config/OAuthClients.plist`에 `SILLOG_GITHUB_CLIENT_ID`(앱의 Client ID)와 `SILLOG_GITHUB_APP_SLUG`(앱 주소 `github.com/apps/<slug>`의 slug)를 넣습니다.
+- 사용자는 SILLOG에 표시된 코드를 GitHub에 입력해 로그인한 뒤, 이어서 열리는 GitHub 화면에서 SILLOG이 읽을 Repository를 고릅니다. 고르지 않으면 로그인은 되어도 Repository가 보이지 않습니다. 나중에는 커넥터 상세의 **Repository 선택**에서 바꿉니다.
 
 ```bash
-SILLOG_GITHUB_CLIENT_ID="등록한 클라이언트 ID" ./scripts/make-app.sh
+SILLOG_GITHUB_CLIENT_ID="Client ID" SILLOG_GITHUB_APP_SLUG="앱 slug" ./scripts/make-app.sh
 ```
 
 디바이스 인증으로 발급한 토큰은 클라이언트 비밀키나 별도 서버 없이 자동 갱신합니다. GitHub App의 기본 액세스 토큰은 8시간 후 만료되며 갱신 토큰은 6개월 동안 유효합니다. 갱신 토큰이 만료되거나 사용자가 권한을 철회하면 다시 연결해야 합니다. [GitHub 토큰 갱신 안내](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/refreshing-user-access-tokens)
@@ -55,7 +61,7 @@ SILLOG_GITHUB_CLIENT_ID="등록한 클라이언트 ID" ./scripts/make-app.sh
 
 [Slack PKCE 안내](https://docs.slack.dev/authentication/using-pkce/)
 
-## Notion · Higgsfield · Lovable
+## Notion · Higgsfield · Lovable · Canva
 
 앱이 공급자에게 설치형 클라이언트를 자동 등록하고, PKCE와 브라우저 승인으로 연결합니다. 사용자가 개발자 앱을 만들거나 API 키를 붙여 넣을 필요가 없습니다.
 
@@ -64,15 +70,17 @@ SILLOG_GITHUB_CLIENT_ID="등록한 클라이언트 ID" ./scripts/make-app.sh
 | Notion | `https://mcp.notion.com/mcp` | `default` |
 | Higgsfield | `https://mcp.higgsfield.ai/mcp` | `openid email offline_access` |
 | Lovable | `https://mcp.lovable.dev` | `offline projects:read workspaces:read` |
+| Canva | `https://mcp.canva.com/mcp` | `profile:read design:meta:read design:content:read folder:read comment:read` |
 
 - 로컬 콜백은 `http://127.0.0.1:8765/callback`입니다.
 - 등록한 클라이언트 ID와 갱신 토큰은 Keychain에 보관해 재사용합니다. 공유 클라이언트 비밀키를 번들에 넣지 않습니다.
 - Notion·Higgsfield의 공급자 승인 범위에는 쓰기 기능이 포함될 수 있습니다. Sillog은 별도의 **명시적 읽기 도구 허용 목록**을 실행 직전에 검사합니다. 공급자가 `readOnlyHint`를 표시하더라도 허용 목록에 없는 도구는 실행하지 않습니다.
+- Canva에는 읽기 범위만 요청하고, 디자인 검색·페이지·글자·댓글·폴더 읽기 도구만 허용합니다.
 - Lovable에는 프로젝트·워크스페이스 읽기 범위만 요청합니다. 코드 읽기를 제공하며 생성·메시지 전송·배포·SQL 실행은 허용하지 않습니다.
 - 기존에 수동 토큰으로 연결한 계정은 다시 연결하기 전까지 기존 읽기 경로를 유지합니다. MCP 토큰을 REST API에 전달하지 않습니다.
 - 구독·관리자 정책·자료 접근 범위는 서비스마다 다릅니다. 연결됐더라도 자료가 없거나 접근이 제한되면 검색·읽기 검사를 통과하지 못할 수 있습니다.
 
-[Notion 클라이언트 구현 안내](https://developers.notion.com/guides/mcp/build-mcp-client), [Higgsfield MCP](https://higgsfield.ai/mcp), [Lovable MCP](https://docs.lovable.dev/integrations/lovable-mcp-server)
+[Notion 클라이언트 구현 안내](https://developers.notion.com/guides/mcp/build-mcp-client), [Higgsfield MCP](https://higgsfield.ai/mcp), [Lovable MCP](https://docs.lovable.dev/integrations/lovable-mcp-server), [Canva MCP](https://www.canva.dev/docs/mcp/tools/)
 
 ## 인증 정보와 배포
 
@@ -81,6 +89,6 @@ SILLOG_GITHUB_CLIENT_ID="등록한 클라이언트 ID" ./scripts/make-app.sh
 - 승인 후 받은 커넥터 토큰은 macOS Keychain에 저장합니다.
 - 계정 연결·해제 상태는 커넥터 화면에서 확인합니다. 연결한 서비스도 대화의 자료 설정에서 사용을 허용해야 조회합니다.
 - 공급자 앱 등록과 필요한 검증·권한 설정이 끝나기 전에는 실제 연결을 사용할 수 없습니다.
-- Google·Notion·Higgsfield·Lovable은 승인 중 로컬 포트 8765를 사용합니다. 같은 포트를 쓰는 다른 실행이 있으면 먼저 종료해야 합니다. Slack은 앱 전용 URL로 돌아오므로 이 포트를 사용하지 않습니다.
+- Google·Notion·Higgsfield·Lovable·Canva는 승인 중 로컬 포트 8765를 사용합니다. 같은 포트를 쓰는 다른 실행이 있으면 먼저 종료해야 합니다. Slack은 앱 전용 URL로 돌아오므로 이 포트를 사용하지 않습니다.
 
-Google의 테스트 모드 연결 성공은 일반 사용자용 공개 검수 완료를 뜻하지 않습니다. Gmail·Drive의 읽기 범위와 조회 자료를 AI에 전달하는 흐름을 포함해 공개 배포 요건을 확인해야 합니다. Figma·Discord·Canva의 기존 수동 연결은 이 로그인 전환에 포함되지 않습니다.
+Google의 테스트 모드 연결 성공은 일반 사용자용 공개 검수 완료를 뜻하지 않습니다. Gmail·Drive의 읽기 범위와 조회 자료를 AI에 전달하는 흐름을 포함해 공개 배포 요건을 확인해야 합니다. Figma·Discord는 사용자가 직접 발급한 토큰으로 연결하고, 연결 창에 발급 순서를 안내합니다.

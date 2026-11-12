@@ -20,6 +20,7 @@ struct ConnectorOAuthClient: Codable {
     let tokenEndpoint: String
 }
 
+// Old manual Canva connections still refresh with the user's own app keys.
 struct CanvaOAuthClient: Codable {
     let id: String
     let secret: String
@@ -38,7 +39,7 @@ enum ConnectorAuth {
         switch id {
         case "gmail", "drive", "gcal": return try !configuration("google-client", environment: "GOOGLE_CLIENT_ID").isEmpty
         case "github": return try !configuration("github-client", environment: "GITHUB_CLIENT_ID").isEmpty
-        case "notion", "higgsfield", "lovable": return true
+        case "notion", "higgsfield", "lovable", "canva": return true
         case "slack": return try !configuration("slack-client", environment: "SLACK_CLIENT_ID").isEmpty
         default: return ExternalReadConnector(rawValue: id) != nil
         }
@@ -240,7 +241,9 @@ enum ConnectorAuth {
     static func googleScopes(_ ids: Set<String>) -> [String] {
         ids.sorted().flatMap { id -> [String] in
             switch id {
+            // TODO: hide Gmail in release builds; gmail.readonly is restricted and needs a paid yearly CASA audit.
             case "gmail": ["https://www.googleapis.com/auth/gmail.readonly"]
+            // TODO: switch to drive.file with a file picker; drive.readonly is restricted and needs CASA.
             case "drive": ["https://www.googleapis.com/auth/drive.readonly"]
             case "gcal": ["https://www.googleapis.com/auth/calendar.calendarlist.readonly", "https://www.googleapis.com/auth/calendar.events"]
             default: []
@@ -254,29 +257,17 @@ enum ConnectorAuth {
         return secret.isEmpty ? [:] : ["client_secret": secret]
     }
 
-    static func connectCanva(clientID: String, clientSecret: String) async throws {
-        let client = CanvaOAuthClient(id: clientID.trimmingCharacters(in: .whitespacesAndNewlines),
-                                      secret: clientSecret.trimmingCharacters(in: .whitespacesAndNewlines))
-        let verifier = randomURLSafe(32)
-        let challenge = Data(SHA256.hash(data: Data(verifier.utf8))).base64URLEncoded()
-        let state = randomURLSafe(16)
-        var auth = URLComponents(string: "https://www.canva.com/api/oauth/authorize")!
-        auth.queryItems = ["client_id": client.id, "redirect_uri": callback, "response_type": "code",
-                           "scope": "design:meta:read", "code_challenge": challenge,
-                           "code_challenge_method": "S256", "state": state].map { URLQueryItem(name: $0.key, value: $0.value) }
-        let code = try await LoopbackOAuth.receive(auth: auth.url!, state: state)
-        let request = canvaTokenRequest(client, ["grant_type": "authorization_code", "code": code,
-                                                 "redirect_uri": callback, "code_verifier": verifier])
-        var token = try await exchange(request)
-        try await ExternalReadConnector.canva.verify(token: token.accessToken, resource: "")
-        token.canvaClient = client
-        try save(token, id: "canva")
-    }
-
     private static func canvaTokenRequest(_ client: CanvaOAuthClient, _ body: [String: String]) -> URLRequest {
         var request = formRequest(URL(string: "https://api.canva.com/rest/v1/oauth/token")!, body)
         request.setValue("Basic " + Data("\(client.id):\(client.secret)".utf8).base64EncodedString(), forHTTPHeaderField: "Authorization")
         return request
+    }
+
+    /// Returns: the GitHub App page where the user picks which repositories SILLOG can read, or nil if the build has no app slug.
+    /// Raises: Keychain errors.
+    static func githubInstallURL() throws -> URL? {
+        let slug = try configuration("github-app-slug", environment: "GITHUB_APP_SLUG")
+        return slug.isEmpty ? nil : URL(string: "https://github.com/apps/\(slug)/installations/new")
     }
 
     /// Args: clientID는 읽기 권한을 등록하고 디바이스 흐름을 켠 GitHub App의 ID, onCode는 승인 코드 표시 함수이다.

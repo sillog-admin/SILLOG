@@ -76,7 +76,7 @@ PLIST
 
 # OAuth client settings: env (SILLOG_* or legacy WORKGRAPH_*), then Config/OAuthClients.plist.
 OAUTH_CONFIG="$ROOT/Config/OAuthClients.plist"
-for name in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID NOTION_CLIENT_ID SLACK_CLIENT_ID; do
+for name in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_APP_SLUG NOTION_CLIENT_ID SLACK_CLIENT_ID; do
   key="SILLOG_$name"
   legacy="WORKGRAPH_$name"
   oauth_value="${!key:-${!legacy:-}}"

@@ -45,8 +45,8 @@ struct ConnectorEntry: Identifiable {
         .init(id: "higgsfield", name: "Higgsfield", summary: tr("생성 기록과 결과 읽기"),
               description: tr("계정의 생성 기록과 결과를 읽어요. 새 이미지나 영상을 생성하지 않아요. 서비스에서 유료 구독을 요구할 수 있어요."),
               examples: [tr("최근 Higgsfield 생성 기록을 찾아 결과를 정리해 줘.")]),
-        .init(id: "canva", name: "Canva", summary: tr("디자인 검색과 기본 정보"),
-              description: tr("접근할 수 있는 디자인을 찾아 제목, 종류, 페이지 수와 수정 시각을 읽어요."),
+        .init(id: "canva", name: "Canva", summary: tr("디자인 검색과 읽기"),
+              description: tr("접근할 수 있는 디자인을 찾아 페이지와 글자, 댓글을 읽어요. 디자인을 만들거나 수정하지 않아요."),
               examples: [tr("발표 디자인을 찾아 제목과 페이지 수를 정리해 줘.")]),
         .init(id: "lovable", name: "Lovable", summary: tr("프로젝트 검색과 코드 읽기"),
               description: tr("승인한 워크스페이스에서 프로젝트를 찾고 설명과 코드 파일을 읽어요. 프로젝트를 수정하거나 배포하지 않아요."),
@@ -76,6 +76,7 @@ struct ConnectorCatalogView: View {
 
     private static let soft = Brand.paper
 
+    private var githubInstallURL: URL? { try? ConnectorAuth.githubInstallURL() }
     private var selected: ConnectorEntry? { ConnectorEntry.all.first { $0.id == selectedID } }
     private var searching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var filtered: [ConnectorEntry] {
@@ -186,7 +187,7 @@ struct ConnectorCatalogView: View {
                     }.padding(.top, 22)
                     examplePanel(connector, on: on).padding(.top, 15)
                     Text(connector.description).font(Brand.font(.body)).foregroundStyle(Brand.tabText).padding(.top, 18)
-                    if ["gmail", "drive", "slack", "notion", "higgsfield", "lovable"].contains(connector.id) {
+                    if ["gmail", "drive", "slack", "notion", "higgsfield", "lovable", "canva"].contains(connector.id) {
                         Text(tr("연결을 누르면 브라우저에서 로그인하고 권한을 승인해요. 키를 직접 발급할 필요가 없어요."))
                             .font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 10)
                     }
@@ -195,8 +196,13 @@ struct ConnectorCatalogView: View {
                             .font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 10)
                     }
                     if on {
-                        Button(tr("검색·읽기 확인")) { checkConnection(connector) }
-                            .buttonStyle(BrandButtonStyle(kind: .secondary)).disabled(connecting).padding(.top, 16)
+                        HStack(spacing: 8) {
+                            if connector.id == "github", let url = githubInstallURL {
+                                Button(tr("Repository 선택")) { NSWorkspace.shared.open(url) }.buttonStyle(BrandButtonStyle(kind: .secondary))
+                            }
+                            Button(tr("검색·읽기 확인")) { checkConnection(connector) }
+                                .buttonStyle(BrandButtonStyle(kind: .secondary)).disabled(connecting)
+                        }.padding(.top, 16)
                     }
                     if let verificationCode, connector.id == "github" {
                         Text(tr("GitHub 승인 코드: \(verificationCode)"))
@@ -242,6 +248,9 @@ struct ConnectorCatalogView: View {
             if showsChatAction {
                 Button(tr("채팅에서 사용해 보기")) { onUseInChat(connector.id, connector.examples[0]) }
             }
+            if connector.id == "github", let url = githubInstallURL {
+                Button(tr("Repository 선택")) { NSWorkspace.shared.open(url) }
+            }
             Button(tr("검색·읽기 확인")) { checkConnection(connector) }
             Button(tr("다시 연결")) { selectedID = connector.id; install(connector) }
             Button(tr("연결 해제"), role: .destructive) { disconnect(connector.id) }
@@ -279,22 +288,41 @@ struct ConnectorCatalogView: View {
 
     private func externalConnectSheet(_ connector: ConnectorEntry) -> some View {
         let resourceLabel: String?
-        let instructions: String
+        let credentialLabel: String
+        let steps: [String]
+        let guide: (title: String, url: URL)?
         switch ExternalReadConnector(rawValue: connector.id) {
         case .figma:
-            (resourceLabel, instructions) = (tr("폴더 ID"), tr("Figma에서 folders:read와 file_content:read 권한을 넣은 개인 액세스 토큰을 발급하세요."))
+            (resourceLabel, credentialLabel) = (tr("폴더 ID"), tr("개인 액세스 토큰"))
+            steps = [tr("Figma 왼쪽 위 계정 메뉴에서 설정 → 보안 탭을 열고, ‘개인 액세스 토큰’의 ‘새 토큰 생성’을 누르세요."),
+                     tr("권한은 file_content:read와 folders:read 두 가지만 읽기로 켜고 토큰을 만드세요. 토큰은 만들 때 한 번만 보이니 바로 복사하세요."),
+                     tr("SILLOG이 읽을 Figma 폴더를 브라우저에서 열고, 주소에서 folder/ 또는 project/ 뒤의 숫자를 폴더 ID 칸에 넣으세요.")]
+            guide = (tr("Figma 토큰 안내 열기"), URL(string: "https://help.figma.com/hc/en-us/articles/8085703771159-Manage-personal-access-tokens")!)
         case .discord:
-            (resourceLabel, instructions) = (tr("채널 ID"), tr("채널 보기, 메시지 기록 읽기, Message Content 권한이 있는 Discord 봇 토큰을 입력하세요."))
-        case .canva:
-            (resourceLabel, instructions) = (tr("클라이언트 ID"), tr("Canva 개발자 화면에서 SILLOG의 클라이언트 ID와 비밀키를 확인한 뒤 브라우저에서 디자인 기본 정보 읽기를 승인하세요."))
+            (resourceLabel, credentialLabel) = (tr("채널 ID"), tr("봇 토큰"))
+            steps = [tr("Discord 개발자 포털에서 New Application을 눌러 앱을 만드세요."),
+                     tr("Bot 메뉴에서 Reset Token을 눌러 봇 토큰을 복사하고, 같은 화면의 Message Content Intent를 켜세요."),
+                     tr("OAuth2 → URL Generator에서 bot을 고르고 View Channels와 Read Message History 권한만 체크한 뒤, 만들어진 주소로 봇을 서버에 초대하세요."),
+                     tr("Discord 사용자 설정 → 고급에서 개발자 모드를 켜고, 읽을 채널을 오른쪽 클릭해 ‘채널 ID 복사’를 누르세요.")]
+            guide = (tr("Discord 개발자 포털 열기"), URL(string: "https://discord.com/developers/applications")!)
         default:
-            (resourceLabel, instructions) = (nil, tr("이 서비스는 브라우저 로그인으로 연결해 주세요."))
+            (resourceLabel, credentialLabel) = (nil, tr("토큰 또는 API 키"))
+            steps = [tr("이 서비스는 브라우저 로그인으로 연결해 주세요.")]
+            guide = nil
         }
         return VStack(alignment: .leading, spacing: 12) {
             Text(tr("\(connector.name) 연결")).font(Brand.font(.screenTitle))
-            Text(instructions).font(Brand.font(.body)).foregroundStyle(Brand.tabText)
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("\(index + 1)").font(Brand.font(.caption, .medium)).foregroundStyle(Brand.gray)
+                        Text(step).font(Brand.font(.body)).foregroundStyle(Brand.tabText).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            if let guide { Link(guide.title, destination: guide.url).font(Brand.font(.body)) }
             if let resourceLabel { TextField(resourceLabel, text: $externalResource) }
-            SecureField(connector.id == "canva" ? tr("클라이언트 비밀키") : tr("토큰 또는 API 키"), text: $externalCredential)
+            SecureField(credentialLabel, text: $externalCredential)
             Text(tr("연결을 확인한 뒤 이 Mac의 키체인에 저장해요.")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
             if let externalError { Text(externalError).font(Brand.font(.body)).foregroundStyle(.red) }
             HStack {
@@ -305,7 +333,7 @@ struct ConnectorCatalogView: View {
                               || (resourceLabel != nil && externalResource.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
             }
         }
-        .padding(24).frame(width: 440)
+        .padding(24).frame(width: 480)
         .interactiveDismissDisabled(connecting)
     }
 
@@ -315,9 +343,7 @@ struct ConnectorCatalogView: View {
         Task {
             defer { connecting = false }
             do {
-                if connector.id == "canva" {
-                    try await ConnectorAuth.connectCanva(clientID: externalResource, clientSecret: externalCredential)
-                } else if let external = ExternalReadConnector(rawValue: connector.id) {
+                if let external = ExternalReadConnector(rawValue: connector.id) {
                     try await ConnectorAuth.connectExternal(external, token: externalCredential, resource: externalResource)
                 }
                 connected.insert(connector.id)
@@ -417,6 +443,11 @@ struct ConnectorCatalogView: View {
                 if connector.id == "github" {
                     let client = try ConnectorAuth.configuration("github-client", environment: "GITHUB_CLIENT_ID")
                     try await ConnectorAuth.connectGitHub(clientID: client) { verificationCode = $0 }
+                    // A GitHub App token sees no repositories until the app is installed on some.
+                    if let url = githubInstallURL {
+                        NSWorkspace.shared.open(url)
+                        notify(tr("GitHub 계정을 연결했어요. 브라우저에서 SILLOG이 읽을 Repository를 선택해 주세요. 나중에 바꾸려면 ‘Repository 선택’을 누르세요."))
+                    }
                 }
                 connected.insert(connector.id)
             } catch { notify(error.localizedDescription) }

@@ -44,6 +44,9 @@ final class RemoteReadConnectorTests: XCTestCase {
         XCTAssertFalse(RemoteReadConnector.higgsfield.allowedTools.contains("generate_image"))
         XCTAssertFalse(RemoteReadConnector.higgsfield.allowedTools.contains("execute_preset"))
         XCTAssertFalse(RemoteReadConnector.higgsfield.allowedTools.contains("apps_invoke"))
+        XCTAssertFalse(RemoteReadConnector.canva.scopes.contains("write"))
+        XCTAssertTrue(RemoteReadConnector.canva.allowedTools.isDisjoint(with: ["export-design", "generate-design", "comment-on-design", "perform-editing-operations"]))
+        XCTAssertThrowsError(try RemoteReadConnector.canva.trustedAuthURL("https://www.canva.com/api/oauth/token"))
     }
 
     func testSourcesUseDocumentMetadataNotBodyLinks() {

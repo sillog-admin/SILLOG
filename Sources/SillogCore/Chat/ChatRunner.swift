@@ -320,6 +320,7 @@ public struct ChatRunner: Sendable {
             }
             if role == "research" {
                 for connector in ExternalReadConnector.allCases { names.formUnion(connector.specs.map(\.name)) }
+                for connector in RemoteReadConnector.allCases { names.formUnion(connector.specs.map(\.name)) }
             }
             return specs.filter { names.contains($0.name) }
         }
