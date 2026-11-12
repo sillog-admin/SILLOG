@@ -93,7 +93,9 @@ public struct ChatAutomationProposal: Codable, Equatable, Sendable {
 
 public struct ChatConversation: Codable, Identifiable, Sendable {
     public var id = UUID().uuidString
-    public var title = "새 대화"
+    /// Stored untranslated so the auto-title check works in every language.
+    public static let defaultTitle = "새 대화"
+    public var title = defaultTitle
     /// 비면 스킬 지침을 적용하지 않는다. 예전 저장값 skillID 는 읽을 때 옮긴다.
     public var skillIDs: [String] = []
     public var scope = ChatScope()
@@ -131,6 +133,10 @@ public struct ChatConversation: Codable, Identifiable, Sendable {
         try v.encode(updatedAt, forKey: .updatedAt); try v.encodeIfPresent(pinnedAt, forKey: .pinnedAt)
         try v.encodeIfPresent(memory, forKey: .memory)
     }
+
+    /// Args: title is a stored conversation title.
+    /// Returns: the title to show, with the untouched default translated.
+    public static func display(_ title: String) -> String { title == defaultTitle ? L10n.tr(key: title) : title }
 }
 
 /// Running summary of a conversation's older messages; `through` is the last message it covers.

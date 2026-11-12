@@ -30,6 +30,8 @@ final class ChatState: ObservableObject {
     private var runTask: Task<Void, Never>?
     private var scheduler: Task<Void, Never>?
     private var titleTask: Task<Void, Never>?
+    // shortcut: in memory only, lost on quit; persist if users ask for it.
+    private var drafts: [String: String] = [:]
     var running: Bool { activeMessage != nil }
 
     /// Args: db는 앱 DB, makeClient는 현재 설정으로 모델 연결을 생성한다.
@@ -123,18 +125,27 @@ final class ChatState: ObservableObject {
     func newConversation(projectID: String? = nil, focus: [ChatFocus] = []) {
         draftConnectors = []
         openArtifactID = nil
-        current = ChatConversation(); current.projectID = projectID; current.scope.focus = focus; messages = []; draft = ""; error = nil
-        if !focus.isEmpty { refreshFocusChoices(); inputFocusRequest += 1 }   // 업무에서 '이 업무로 묻기'로 왔으면 바로 쓰게
+        // Coming back to the chat tab also lands here, so an unsent home draft is kept.
+        let kept = messages.isEmpty ? draft : ""
+        if !messages.isEmpty { stashDraft() }
+        current = ChatConversation(); current.projectID = projectID; current.scope.focus = focus; messages = []; draft = kept; error = nil
+        if !focus.isEmpty { refreshFocusChoices() }
+        inputFocusRequest += 1
     }
+
+    private func stashDraft() { drafts[current.id] = draft.isEmpty ? nil : draft }
 
     /// Args: conversation은 선택한 대화이다.
     /// Returns: 없음. 저장된 메시지와 진행 중인 응답을 표시한다.
     /// Raises: 없음. 조회 오류는 화면에 표시한다.
     func select(_ conversation: ChatConversation) {
+        guard conversation.id != current.id else { return }
         draftConnectors = []
         do {
             let loaded = try store.messages(conversation.id)
-            current = conversation; messages = loaded; draft = ""; error = nil; openArtifactID = nil
+            stashDraft()
+            current = conversation; messages = loaded; draft = drafts[conversation.id] ?? ""; error = nil; openArtifactID = nil
+            inputFocusRequest += 1
             let available = Set(skills.map(\.id))
             current.skillIDs.removeAll { !available.contains($0) }
             if let activeMessage, activeMessage.conversationID == conversation.id { replaceVisible(activeMessage) }
@@ -246,11 +257,17 @@ final class ChatState: ObservableObject {
     @discardableResult
     func send() -> Bool {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !running else { return false }
+        guard !text.isEmpty else { return false }
+        if let activeMessage {
+            if activeMessage.conversationID != current.id { error = tr("다른 대화의 응답이 끝나면 보낼 수 있어요") }
+            return false
+        }
         guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
         guard begin(text, conversation: current, automationID: nil, draftConnectors: draftConnectors) else { return false }
         draft = ""
+        drafts[current.id] = nil
         draftConnectors = []
+        inputFocusRequest += 1     // the home input and the conversation input are different views
         return true
     }
 
@@ -400,7 +417,8 @@ final class ChatState: ObservableObject {
             let replacedIDs = Set(replacing.map(\.id))
             let previous = try store.messages(conversation.id).filter { !replacedIDs.contains($0.id) }
             let remoteConnectors = try ConnectorAuth.remoteIDs()
-            let needsTitle = previous.isEmpty && automationID == nil && conversation.title == tr("새 대화")
+            // Retried on later turns too, so a stopped or failed first answer still gets a title.
+            let needsTitle = automationID == nil && conversation.title == ChatConversation.defaultTitle
             conversation.updatedAt = Date().timeIntervalSince1970
             let user = ConversationMessage(conversationID: conversation.id, role: "user", text: text)
             let answer = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "", status: "running")
@@ -467,8 +485,8 @@ final class ChatState: ObservableObject {
                 if needsTitle, !Task.isCancelled {
                     do {
                         let title = try await backend.conversationTitle(for: text)
-                        self.applyTitle(title, to: conversation.id, replacing: tr("새 대화"))
-                    } catch { self.error = tr("대화 제목 생성 실패: \(error.localizedDescription)") }
+                        self.applyTitle(title, to: conversation.id, replacing: ChatConversation.defaultTitle)
+                    } catch { AppLog.write("chat title failed: \(error.localizedDescription)") }
                 }
             }
             return true

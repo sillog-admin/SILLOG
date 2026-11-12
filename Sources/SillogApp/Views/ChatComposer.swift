@@ -91,7 +91,7 @@ struct ChatComposer: View {
                 }
                 ChatInput(text: $chat.draft, height: $inputHeight, minimumHeight: 38, focusRequest: chat.inputFocusRequest,
                           selectionOnFocus: shortcutCaret, onShortcut: updateShortcut, shortcutKey: handleShortcutKey,
-                          onFiles: { chat.attach($0) }, onSend: send)
+                          onFiles: { chat.attach($0) }, onEscape: { if busy { chat.cancel() } }, onSend: send)
                     .frame(height: inputHeight)
             }
             .padding(.top, 18).padding(.horizontal, 13)
@@ -252,16 +252,19 @@ struct ChatComposer: View {
 
     private var sendButton: some View {
         let empty = chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        // Only this conversation's answer can be stopped here; another one running just blocks sending.
+        let elsewhere = chat.running && !busy
         return Button {
-            if chat.running { chat.cancel() } else { send() }
+            if busy { chat.cancel() } else { send() }
         } label: {
-            Image(systemName: chat.running ? "stop.fill" : "arrow.up")
+            Image(systemName: busy ? "stop.fill" : "arrow.up")
                 .font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
                 .frame(width: 28, height: 28)
-                .background(Brand.accent.opacity(chat.running || !empty ? 1 : 0.3), in: Circle())
+                .background(Brand.accent.opacity(busy || (!empty && !elsewhere) ? 1 : 0.3), in: Circle())
         }
-        .buttonStyle(.plain).disabled(!chat.running && empty)
-        .help(chat.running ? tr("응답 중단") : tr("전송 (Enter)")).accessibilityLabel(chat.running ? tr("응답 중단") : tr("전송"))
+        .buttonStyle(.plain).disabled(!busy && (empty || elsewhere))
+        .help(busy ? tr("응답 중단 (Esc)") : elsewhere ? tr("다른 대화의 응답이 끝나면 보낼 수 있어요") : tr("전송 (Enter)"))
+        .accessibilityLabel(busy ? tr("응답 중단") : tr("전송"))
     }
 
     // MARK: 칩 (웹 검색, 첨부)

@@ -51,7 +51,7 @@ struct ChatView: View {
                             onSearch: { showSearch = true },
                             onSchedules: { showSchedules = true },
                             onCollapse: { sidebarVisible = false },
-                            onRename: { item in editingConversation = item; conversationName = item.title; showRename = true },
+                            onRename: { item in editingConversation = item; conversationName = ChatConversation.display(item.title); showRename = true },
                             onDelete: { item in deletingConversation = item; showDelete = true })
                     .frame(width: ChatPalette.sidebarWidth)
                 Rectangle().fill(Brand.line).frame(width: 1)
@@ -120,7 +120,7 @@ struct ChatView: View {
                 if let item = deletingConversation { chat.delete(item) }
             }
         } message: {
-            Text(tr("‘\(deletingConversation?.title ?? "")’의 메시지와 결과물이 삭제되며 복구할 수 없습니다. 원본 자료와 등록된 예약 작업은 유지됩니다."))
+            Text(tr("‘\(ChatConversation.display(deletingConversation?.title ?? ""))’의 메시지와 결과물이 삭제되며 복구할 수 없습니다. 원본 자료와 등록된 예약 작업은 유지됩니다."))
         }
         .environment(\.openURL, OpenURLAction { url in
             ["https", "http"].contains(url.scheme ?? "") ? .systemAction : .discarded
@@ -129,6 +129,12 @@ struct ChatView: View {
         .onChange(of: chat.openArtifactID, initial: true) { old, new in if new != nil, old == nil || old == new { sidebarVisible = false } }
         .onChange(of: chat.current.scope) { old, new in if old != new { chat.saveScope() } }
         .onChange(of: chat.current.skillIDs) { old, new in if old != new { chat.saveScope() } }
+        .background {
+            Group {
+                Button("") { chat.newConversation(); pane = .chat }.keyboardShortcut("n").disabled(editingMessageID != nil)
+                Button("") { showSearch = true }.keyboardShortcut("k")
+            }.opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
+        }
     }
 
     private var mainContent: some View {
@@ -190,8 +196,15 @@ struct ChatView: View {
             }
             if let error = chat.error ?? library.chatImportError {
                 // CH-17: 입력칸과 같은 600 열, 위아래 줄, 입력칸 위 8 간격
-                Label(error, systemImage: "exclamationmark.circle")
-                    .font(Brand.font(.caption)).foregroundStyle(Brand.ink).textSelection(.enabled)
+                HStack(alignment: .top, spacing: 8) {
+                    Label(error, systemImage: "exclamationmark.circle")
+                        .font(Brand.font(.caption)).foregroundStyle(Brand.ink).textSelection(.enabled)
+                    Spacer(minLength: 0)
+                    Button { chat.error = nil; library.chatImportError = nil } label: {
+                        Image(systemName: "xmark").font(.system(size: 9, weight: .semibold)).foregroundStyle(Brand.gray)
+                            .frame(width: 16, height: 16).contentShape(Rectangle())
+                    }.buttonStyle(.plain).help(tr("닫기")).accessibilityLabel(tr("닫기"))
+                }
                     .padding(.horizontal, 14).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
                     .background(ChatPalette.soft)
                     .overlay(alignment: .top) { Rectangle().fill(Brand.line).frame(height: 1) }
@@ -263,11 +276,11 @@ struct ChatView: View {
                 // CH-30: 아이콘 중심 35, 64, 제목 시작 87 (아이콘 28 폭, 간격 1)
                 HStack(spacing: 1) {
                     ChatIconButton(systemName: "sidebar.left", help: tr("대화 목록 표시 전환")) { sidebarVisible = true }
-                    ChatIconButton(systemName: "square.and.pencil", help: tr("새 대화")) { chat.newConversation(); pane = .chat }
+                    ChatIconButton(systemName: "square.and.pencil", help: tr("새 대화 (⌘N)")) { chat.newConversation(); pane = .chat }
                 }
             }
             if !chat.messages.isEmpty {
-                HoverScrollingText(text: chat.current.title).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
+                HoverScrollingText(text: ChatConversation.display(chat.current.title)).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
             }
             Spacer(minLength: 0)
         }.padding(.top, sidebarVisible ? 20.5 : 20)   // 목록 "채팅" 제목과 글자 바닥선을 맞춘다

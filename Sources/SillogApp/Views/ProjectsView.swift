@@ -139,7 +139,7 @@ struct ProjectOverview<Composer: View>: View {
                 HStack(spacing: 12) {
                     Button { onConversation(conversation) } label: {
                         VStack(alignment: .leading, spacing: 5) {
-                            HoverScrollingText(text: conversation.title, rowHovered: hoveredConversation == conversation.id)
+                            HoverScrollingText(text: ChatConversation.display(conversation.title), rowHovered: hoveredConversation == conversation.id)
                                 .font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText)
                             let preview = chat.conversationPreviews[conversation.id, default: ""]
                             if !preview.isEmpty {

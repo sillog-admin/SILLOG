@@ -78,7 +78,7 @@ struct ChatSearchPanel: View {
                 Image(systemName: "bubble.left").font(.system(size: 14)).foregroundStyle(Brand.tabText).frame(width: 16, height: 18)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
-                        HoverScrollingText(text: hit.title).font(Brand.font(.body)).foregroundStyle(Brand.ink)
+                        HoverScrollingText(text: ChatConversation.display(hit.title)).font(Brand.font(.body)).foregroundStyle(Brand.ink)
                         Spacer(minLength: 8)
                         Text(ChatDateText.day(hit.updatedAt)).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                     }

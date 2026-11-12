@@ -27,10 +27,10 @@ struct ChatSidebar: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             VStack(spacing: 2) {
-                navRow(tr("새 대화"), "plus", selected: pane == .chat && chat.messages.isEmpty && !isSearching) {
+                navRow(tr("새 대화"), "plus", selected: pane == .chat && chat.messages.isEmpty && !isSearching, help: tr("새 대화 (⌘N)")) {
                     chat.newConversation(); pane = .chat
                 }
-                navRow(tr("검색"), "magnifyingglass", selected: isSearching, action: onSearch)
+                navRow(tr("검색"), "magnifyingglass", selected: isSearching, help: tr("검색 (⌘K)"), action: onSearch)
                 navRow(tr("프로젝트"), "folder", selected: isProjectPane) { pane = .projects }
                 navRow(tr("결과물"), "square.on.square", selected: pane == .results) { pane = .results }
                 navRow(tr("예약 작업"), "clock", selected: false, trailing: "\(chat.automations.count)", action: onSchedules)
@@ -100,7 +100,7 @@ struct ChatSidebar: View {
         }.padding(.horizontal, 14).padding(.top, 14).frame(height: 56, alignment: .topLeading)
     }
 
-    private func navRow(_ title: String, _ icon: String, selected: Bool, trailing: String? = nil,
+    private func navRow(_ title: String, _ icon: String, selected: Bool, trailing: String? = nil, help: String = "",
                         action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
@@ -113,7 +113,7 @@ struct ChatSidebar: View {
             .padding(.leading, 10).padding(.trailing, 12).frame(height: 32)
             .background(RoundedRectangle(cornerRadius: 7).fill(selected ? ChatPalette.navSelected : .clear))
             .contentShape(Rectangle())
-        }.buttonStyle(.plain).hoverHighlight(cornerRadius: 7)
+        }.buttonStyle(.plain).hoverHighlight(cornerRadius: 7).help(help)
     }
 
     private func sectionHeader(_ title: String, open: Binding<Bool>) -> some View {
@@ -138,7 +138,7 @@ struct ChatSidebar: View {
                 HStack(spacing: 8) {
                     Image(systemName: selected.contains(item.id) ? "checkmark.circle.fill" : "circle")
                         .foregroundStyle(selected.contains(item.id) ? Brand.accent : Brand.gray)
-                    HoverScrollingText(text: item.title)
+                    HoverScrollingText(text: ChatConversation.display(item.title))
                     Spacer(minLength: 0)
                 }.font(Brand.font(.body)).foregroundStyle(Brand.tabText)
                     .padding(.horizontal, 10).frame(height: 32).contentShape(Rectangle())
@@ -301,7 +301,7 @@ private struct ConversationRow<Context: View, Pop: View>: View {
     var body: some View {
         HStack(spacing: 0) {
             Button(action: open) {
-                HoverScrollingText(text: item.title, rowHovered: hovering)
+                HoverScrollingText(text: ChatConversation.display(item.title), rowHovered: hovering)
                     .font(Brand.font(.rowTitle)).foregroundStyle(isCurrent ? Brand.ink : Brand.tabText)
                     .padding(.leading, 10)
                     .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading).contentShape(Rectangle())

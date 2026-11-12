@@ -37,6 +37,7 @@ struct ChatInput: NSViewRepresentable {
     var onShortcut: (ChatShortcut?) -> Void = { _ in }
     var shortcutKey: (UInt16) -> Bool = { _ in false }
     var onFiles: ([URL]) -> Void = { _ in }
+    var onEscape: () -> Void = {}
     var onSend: () -> Void
 
     /// Args: context는 SwiftUI 연결 상태이다.
@@ -54,7 +55,7 @@ struct ChatInput: NSViewRepresentable {
         editor.autoresizingMask = [.width]
         editor.textContainer?.widthTracksTextView = true
         editor.delegate = context.coordinator; editor.onSend = onSend
-        editor.shortcutKey = shortcutKey; editor.onFiles = onFiles
+        editor.shortcutKey = shortcutKey; editor.onFiles = onFiles; editor.onEscape = onEscape
         editor.setAccessibilityLabel(tr("메시지 입력"))
         scroll.documentView = editor; scroll.drawsBackground = false
         scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true
@@ -67,7 +68,7 @@ struct ChatInput: NSViewRepresentable {
     func updateNSView(_ view: NSScrollView, context: Context) {
         guard let editor = view.documentView as? ChatTextView else { return }
         context.coordinator.parent = self; editor.onSend = onSend
-        editor.shortcutKey = shortcutKey; editor.onFiles = onFiles
+        editor.shortcutKey = shortcutKey; editor.onFiles = onFiles; editor.onEscape = onEscape
         if editor.string != text, !editor.hasMarkedText() { editor.string = text }
         context.coordinator.resize(editor)
         if context.coordinator.focusRequest != focusRequest {
@@ -129,6 +130,7 @@ final class ChatTextView: NSTextView {
     var onSend: (() -> Void)?
     var shortcutKey: ((UInt16) -> Bool)?
     var onFiles: (([URL]) -> Void)?
+    var onEscape: (() -> Void)?
 
     /// Args: pasteboard is a paste or drop.
     /// Returns: copied or dropped files, or a pasted image saved as a temporary PNG. Nil for plain text.
@@ -160,6 +162,8 @@ final class ChatTextView: NSTextView {
     /// Raises: 없음.
     override func keyDown(with event: NSEvent) {
         if !hasMarkedText(), !event.modifierFlags.contains(.shift), shortcutKey?(event.keyCode) == true { return }
+        // Esc would otherwise open NSTextView's word completion list.
+        if event.keyCode == 53, !hasMarkedText() { onEscape?(); return }
         if [36, 76].contains(event.keyCode), !hasMarkedText() {
             if event.modifierFlags.contains(.shift) { insertNewline(nil) }
             else { onSend?() }
