@@ -130,6 +130,39 @@ final class ScreenCardBatchTests: XCTestCase {
         XCTAssertEqual(try ScreenCardStore(db).card(id: cards[0].id!)?.tsEnd, 550, "재사용하면 카드의 끝 시각이 늘어난다 (460 + 체류 상한 90)")
     }
 
+    /// A bare title once let the model borrow a neighbouring task's name ('참여사 비교' became '캡스톤 참여사 비교 조사').
+    func testRowsThatContinueAScreenAcrossBatchesGetItsCard() async throws {
+        let db = try SillogDatabase.inMemory()
+        let store = EventStore(db)
+        try await db.writer.write { try TBox.seed(GraphTx($0), at: 0) }
+        let shot = try jpeg("d.jpg", gray: 0.35)
+        func add(_ ts: Double, _ title: String, path: String?, hash: UInt64?) throws {
+            let id = try store.insert(Observation(ts: ts, trigger: "periodic", appBundle: "com.apple.Preview", appName: "미리보기", windowTitle: title, docPath: "/Users/me/\(title)"))
+            if let hash { try store.attachScreen(observationId: id, path: path, hash: hash) }
+        }
+        try add(100, "lecture.pdf", path: shot, hash: 0xAAAA)
+        _ = try store.insert(Observation(ts: 160, trigger: "app_activate", appBundle: "com.apple.Preview", appName: "미리보기", windowTitle: "memo.txt", docPath: "/Users/me/memo.txt"))
+        let answer = #"{"tasks":[{"ref":"A","match":"new","title":"강의 복습","task_type":"복습"}],"rows":[{"rows":"1-2","task":"A","resource":true,"reason":"강의자료"}],"work":[]}"#
+        let llm = StubVisionLLM(assignAnswer: answer)
+        let make = { (now: Double) in OntologyBatcher(db: db, llm: llm, config: .singleCall, home: "/Users/me", fileExists: { FileManager.default.fileExists(atPath: $0) || $0.hasPrefix("/Users/me") }, clock: { now }) }
+        let first = await make(2_000).runIfDue(force: true)
+        guard case .ok = first else { return XCTFail("첫 배치: \(first)") }
+        XCTAssertEqual(llm.visionCalls, 1)
+
+        try add(400, "lecture.pdf", path: nil, hash: 0xAAAB)          // same screen, hash only
+        try add(460, "lecture.pdf", path: nil, hash: 0xAAAB)
+        try add(600, "lecture.pdf", path: nil, hash: 0xFFFF_0000_FFFF_0000)   // scrolled to another screen
+        _ = try store.insert(Observation(ts: 700, trigger: "app_activate", appBundle: "com.apple.Preview", appName: "미리보기", windowTitle: "memo.txt", docPath: "/Users/me/memo.txt"))
+        let second = await make(3_000).runIfDue(force: true)
+        guard case .ok = second else { return XCTFail("두 번째 배치: \(second)") }
+        XCTAssertEqual(llm.visionCalls, 1, "사진이 없으니 새로 만들지 않는다")
+        let user = try XCTUnwrap(llm.assignUsers.last)
+        XCTAssertTrue(user.contains("screen: 문서 1 을 읽고 있다"), user)
+        let card = try XCTUnwrap(ScreenCardStore(db).cards(from: 0, to: 10_000).first?.id)
+        let linked = try await db.writer.read { try Int64.fetchAll($0, sql: "SELECT ts FROM observations WHERE card_id = ? ORDER BY ts", arguments: [card]).map { $0 } }
+        XCTAssertEqual(linked, [100, 400, 460])
+    }
+
     func testReprocessingKeepsExistingCardsInsteadOfMakingNewOnes() async throws {
         let db = try SillogDatabase.inMemory()
         let store = EventStore(db)

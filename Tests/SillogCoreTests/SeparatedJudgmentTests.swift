@@ -6,6 +6,7 @@ final class RowJudge: ChoiceModel, @unchecked Sendable {
     private let lock = NSLock()
     private var replies: [String: [Result<ChoiceAnswer, ChoiceError>]]
     private(set) var optionCounts: [String: [Int]] = [:]
+    private(set) var asked: [ChoiceQuestion] = []
     let modelName = "stub-judge"
 
     init(_ replies: [String: [Result<ChoiceAnswer, ChoiceError>]]) { self.replies = replies }
@@ -15,6 +16,7 @@ final class RowJudge: ChoiceModel, @unchecked Sendable {
         let next: Result<ChoiceAnswer, ChoiceError> = lock.withLock {
             guard let key = replies.keys.sorted().first(where: { state.contains($0) }) else { return .failure(.badResponse) }
             optionCounts[key, default: []].append(question.options.count)
+            asked.append(question)
             return replies[key]!.isEmpty ? .failure(.badResponse) : replies[key]!.removeFirst()
         }
         return [id: try next.get()]
@@ -46,6 +48,16 @@ final class SeparatedJudgmentTests: XCTestCase {
         XCTAssertNil(state.assignment.rows[3], "new work is named later by the organizer")
         XCTAssertEqual(state.input.rows.map(\.row), [1, 2, 3])
         XCTAssertEqual(state.calls.last?.stage, "assign-choice")
+    }
+
+    /// A record that does not show its goal is off, not none; none is left for records with no content.
+    func testARecordThatDoesNotShowItsGoalIsOff() async throws {
+        let judge = RowJudge([r1: [pick("off")]])
+        _ = try await StagedPipeline.decideSeparately(input(1), using: .choice(judge))
+        let question = try XCTUnwrap(judge.asked.first)
+        XCTAssertTrue(question.instructions.contains("does not show which goal it serves"), question.instructions)
+        XCTAssertTrue(question.options["off"]?.contains("does not show which goal it serves") == true, question.options["off"] ?? "")
+        XCTAssertFalse(question.options["none"]?.contains("Too little content") == true, question.options["none"] ?? "")
     }
 
     func testLowConfidenceBecomesNoneInsteadOfStalling() async throws {

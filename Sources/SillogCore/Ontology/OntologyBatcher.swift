@@ -316,7 +316,8 @@ public actor OntologyBatcher {
             shots[id] = KeyframeSelector.Shot(observationId: id, ts: observation.ts, path: path, hash: UInt64(bitPattern: hash))
         }
         let groups = KeyframeSelector.select(rows: rows, shots: shots)
-        guard !groups.isEmpty else { return [:] }
+        let carried = await carriedCards(rows: rows, window: window, shots: shots)
+        guard !groups.isEmpty else { return carried }
 
         // 같은 화면의 최근 카드가 있으면 재사용
         let reuseWindow = config.cardReuseWindow
@@ -382,7 +383,44 @@ public actor OntologyBatcher {
                 return byRow
             }
         } catch { AppLog.write("카드 저장 실패: \(error)") }
+        byRow.merge(carried) { made, _ in made }
         return byRow.mapValues { $0.sorted { $0.tsStart < $1.tsStart } }
+    }
+
+    /// Unchanged periodic captures keep only a hash, so a screen that continues past a batch boundary would reach the model as a bare title.
+    /// Returns: row number → the recent card of the same app, title and address whose hash is within `sameScreenDistance`.
+    private func carriedCards(rows: [ActivityRow], window: [Observation], shots: [Int64: KeyframeSelector.Shot]) async -> [Int: [ScreenCard]] {
+        let hashes = Dictionary(window.compactMap { o in o.id.flatMap { id in o.screenHash.map { (id, UInt64(bitPattern: $0)) } } }, uniquingKeysWith: { a, _ in a })
+        let bare = rows.filter { row in
+            !row.isChat && !EventStore.contentlessBundles.contains(row.appBundle) && !TransientPages.isTransient(url: row.uri, title: row.title)
+                && row.observationIds.allSatisfy { shots[$0] == nil } && row.observationIds.contains { hashes[$0] != nil }
+        }
+        guard !bare.isEmpty else { return [:] }
+        let reuseWindow = config.cardReuseWindow
+        do {
+            return try await db.writer.write { conn in
+                var byRow: [Int: [ScreenCard]] = [:]
+                for row in bare {
+                    let candidates = try ScreenCardStore.recentCards(conn, appBundle: row.appBundle, title: row.title, uri: row.uri, since: row.start - reuseWindow)
+                    var linked: [Int64] = []
+                    var match: ScreenCard?
+                    for id in row.observationIds {
+                        guard let hash = hashes[id],
+                              let card = candidates.first(where: { KeyframeSelector.distance(UInt64(bitPattern: $0.screenHash), hash) <= KeyframeSelector.sameScreenDistance }) else { continue }
+                        if match == nil { match = card }
+                        if card.id == match?.id { linked.append(id) }
+                    }
+                    guard let card = match, let cardId = card.id else { continue }
+                    try ScreenCardStore.extend(conn, cardId: cardId, to: row.end)
+                    try ScreenCardStore.link(conn, observationIds: linked, cardId: cardId)
+                    byRow[row.row] = [card]
+                }
+                return byRow
+            }
+        } catch {
+            AppLog.write("이어 본 화면 카드 붙이기 실패: \(error)")
+            return [:]
+        }
     }
 
     /// 사람이 읽는 배정 결과: 행 | 업무 | 자료 여부

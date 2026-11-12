@@ -26,8 +26,9 @@ extension StagedPipeline {
 
     private static let choiceRules = """
         Decide which goal each activity serves. Use the content and purpose, rather than the app name.
-        Choose an existing task ID for the same goal, new for a distinct goal, off for distraction unrelated to work,
-        or none if the record has too little content to establish a goal. Do not title or describe tasks.
+        Choose an existing task ID for the same goal, new for a distinct goal, off for distraction unrelated to work
+        or when the record does not show which goal it serves, and none only for a record with no content
+        (a system screen, a switch between apps, an empty page). Do not title or describe tasks.
         Reading, setup, references, and tool billing belong to the goal they help achieve.
         """
 
@@ -132,8 +133,9 @@ extension StagedPipeline {
     static let choiceConfidenceFloor = 0.6
     /// Options per question, specials included. Accuracy drops past 20.
     static let choiceMaxOptions = 20
-    private static let choiceSpecials = ["new": "Work for a different goal than the listed goals.", "off": "Distraction unrelated to work.",
-                                         "none": "Too little content to establish a goal."]
+    private static let choiceSpecials = ["new": "Work for a different goal than the listed goals.",
+                                         "off": "Distraction unrelated to work, or a record that does not show which goal it serves.",
+                                         "none": "No content: a system screen, a switch between apps, or an empty page."]
     private static var choiceTaskLimit: Int { choiceMaxOptions - choiceSpecials.count }
     /// Jev rejects states over 64,000 characters.
     static let choiceStateLimit = 20_000
