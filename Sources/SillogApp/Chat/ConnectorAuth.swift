@@ -10,7 +10,6 @@ struct ConnectorToken: Codable {
     var refreshToken: String?
     var expiresAt: Double?
     var resource: String? = nil
-    var canvaClient: CanvaOAuthClient? = nil
     var oauthClient: ConnectorOAuthClient? = nil
     var remoteMCP: Bool? = nil
 }
@@ -18,12 +17,6 @@ struct ConnectorToken: Codable {
 struct ConnectorOAuthClient: Codable {
     let id: String
     let tokenEndpoint: String
-}
-
-// Old manual Canva connections still refresh with the user's own app keys.
-struct CanvaOAuthClient: Codable {
-    let id: String
-    let secret: String
 }
 
 // 기존 계정 연결을 유지하기 위해 Keychain 저장 키의 plugin- 접두사는 그대로 사용한다.
@@ -178,8 +171,6 @@ enum ConnectorAuth {
                     endpoint = URL(string: client.tokenEndpoint)!
                 } else { throw ChatToolError.unavailable(tr("커넥터 인증 설정을 확인할 수 없습니다. 다시 연결하세요.")) }
                 request = formRequest(endpoint, fields)
-            } else if id == "canva", let client = token.canvaClient {
-                request = canvaTokenRequest(client, fields)
             } else if googleIDs.contains(id) {
                 fields["client_id"] = try configuration("google-client", environment: "GOOGLE_CLIENT_ID")
                 fields["client_secret"] = googleSecretField()["client_secret"]
@@ -196,7 +187,6 @@ enum ConnectorAuth {
             }
             var updated = try await id == "slack" ? slackExchange(request, oldRefresh: refresh) : exchange(request, oldRefresh: refresh)
             updated.resource = token.resource
-            updated.canvaClient = token.canvaClient
             updated.oauthClient = token.oauthClient
             updated.remoteMCP = token.remoteMCP
             try save(updated, id: id, replacing: saved)
@@ -255,12 +245,6 @@ enum ConnectorAuth {
     private static func googleSecretField() -> [String: String] {
         let secret = (try? configuration("google-secret", environment: "GOOGLE_CLIENT_SECRET")) ?? ""
         return secret.isEmpty ? [:] : ["client_secret": secret]
-    }
-
-    private static func canvaTokenRequest(_ client: CanvaOAuthClient, _ body: [String: String]) -> URLRequest {
-        var request = formRequest(URL(string: "https://api.canva.com/rest/v1/oauth/token")!, body)
-        request.setValue("Basic " + Data("\(client.id):\(client.secret)".utf8).base64EncodedString(), forHTTPHeaderField: "Authorization")
-        return request
     }
 
     /// Returns: the GitHub App page where the user picks which repositories SILLOG can read, or nil if the build has no app slug.
