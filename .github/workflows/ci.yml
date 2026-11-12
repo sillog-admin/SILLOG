@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build-test:
-    runs-on: macos-15
+    runs-on: macos-latest
     timeout-minutes: 60
     permissions:
       contents: write
