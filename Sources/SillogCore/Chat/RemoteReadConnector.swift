@@ -2,13 +2,14 @@ import Foundation
 
 /// 공급자가 운영하는 MCP에 직접 연결한다. OAuth 권한과 별개로 실행할 읽기 도구를 제한한다.
 public enum RemoteReadConnector: String, CaseIterable, Sendable {
-    case notion, higgsfield, lovable
+    case notion, higgsfield, lovable, canva
 
     public var endpoint: URL {
         let value = switch self {
         case .notion: "https://mcp.notion.com/mcp"
         case .higgsfield: "https://mcp.higgsfield.ai/mcp"
         case .lovable: "https://mcp.lovable.dev"
+        case .canva: "https://mcp.canva.com/mcp"
         }
         return URL(string: value)!
     }
@@ -22,6 +23,7 @@ public enum RemoteReadConnector: String, CaseIterable, Sendable {
         case .notion: "https://mcp.notion.com/.well-known/oauth-authorization-server"
         case .higgsfield: "https://clerk.higgsfield.ai/.well-known/oauth-authorization-server"
         case .lovable: "https://lovable.dev/.well-known/oauth-authorization-server/oauth"
+        case .canva: "https://mcp.canva.com/.well-known/oauth-authorization-server"
         }
         return URL(string: value)!
     }
@@ -31,6 +33,7 @@ public enum RemoteReadConnector: String, CaseIterable, Sendable {
         case .notion: "default"
         case .higgsfield: "openid email offline_access"
         case .lovable: "offline projects:read workspaces:read"
+        case .canva: "profile:read design:meta:read design:content:read folder:read comment:read"
         }
     }
 
@@ -39,6 +42,7 @@ public enum RemoteReadConnector: String, CaseIterable, Sendable {
         case .notion: ["mcp.notion.com"]
         case .higgsfield: ["clerk.higgsfield.ai", "mcp.higgsfield.ai"]
         case .lovable: ["lovable.dev"]
+        case .canva: ["mcp.canva.com"]
         }
         guard let url = URL(string: value), url.scheme == "https", let host = url.host,
               hosts.contains(host), url.user == nil, url.password == nil,
@@ -53,6 +57,8 @@ public enum RemoteReadConnector: String, CaseIterable, Sendable {
         case .notion: ["notion-search", "notion-fetch"]
         case .higgsfield: ["show_generations", "show_generation_by_ids", "job_status"]
         case .lovable: ["list_workspaces", "list_projects", "get_project", "list_files", "read_file", "list_edits"]
+        case .canva: ["search-designs", "get-design", "get-design-pages", "get-design-content", "get-presenter-notes",
+                      "list-comments", "list-replies", "search-folders", "list-folder-items", "resolve-shortlink"]
         }
     }
 
@@ -137,6 +143,13 @@ public actor RemoteReadSession {
             guard let id = jobs.compactMap({ $0["id"]?.stringValue }).first else { return false }
             let job = try await call("job_status", arguments: ["jobId": .string(id)])
             return !Self.text(job).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .canva:
+            let found = try await call("search-designs", arguments: ["limit": 3])
+            for id in Self.objects(found).compactMap({ $0["id"]?.stringValue }) {
+                let content = try await call("get-design-content", arguments: ["design_id": .string(id), "content_types": .array(["richtexts"])])
+                if !Self.text(content).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+            }
+            return false
         }
     }
 

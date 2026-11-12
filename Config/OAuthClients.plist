@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>SILLOG_GITHUB_APP_SLUG</key>
+	<string>sillog-connector</string>
+	<key>SILLOG_GITHUB_CLIENT_ID</key>
+	<string>Iv23li62pAPj7I5n1V91</string>
 	<key>SILLOG_GOOGLE_CLIENT_ID</key>
 	<string>946470077730-de0ldj8l71ajv12eg9i0tgcv3rge4v0d.apps.googleusercontent.com</string>
 	<key>SILLOG_SLACK_CLIENT_ID</key>

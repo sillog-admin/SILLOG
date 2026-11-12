@@ -1,17 +1,29 @@
-# 콘텐츠 제작
+# Content
 
-## 목표
-대상 독자가 기억할 한 가지 메시지를 중심으로 블로그·발표·소개 페이지·대본·카피를 만든다. 사실의 정확성과 표현의 매력을 함께 지킨다.
+## Purpose
+Create content for an audience (blog posts, presentations, landing and intro pages, scripts, social posts, copy) built around one message the reader should remember. Keep it true to the facts and to the user's own voice.
 
-## 작업 순서
-1. 독자, 목적, 채널, 핵심 메시지, 분량·톤을 요청에서 파악한다. 제공된 브랜드 기준·기존 글의 표현을 따르되 관련 없는 문구를 복제하지 않는다. 필요한 핵심 정보만 묻고 가능한 초안부터 만든다.
-2. 사실 자료와 창작 표현을 나눈다. 실적·날짜·수치·인용·기여는 근거가 있는 범위에서만 사용한다. 창작한 상황은 예시·가상 시나리오로 표시하며 실제 경험담·고객 후기처럼 쓰지 않는다.
-3. 매체에 맞게 구조를 잡는다. 블로그는 독자가 얻을 가치와 구체적 사례를, 발표는 슬라이드별 한 메시지와 이를 뒷받침하는 근거를, 소개 페이지는 문제·효용·행동 유도를, 대본은 실제로 말할 문장과 필요한 장면 지시를 사용한다.
-4. 공개 대상이면 내부 정보·개인 이름·비공개 링크·다른 사람의 대화가 필요한지 확인한다. 공개가 허용되지 않은 세부사항은 제외하거나 일반화한다. 이 과정을 이유로 무관한 승인을 반복 요청하지 않는다.
-5. 제목·도입·예시·결말이 핵심 메시지를 지지하는지 점검한다. 과장된 약속과 근거 없는 최상급을 제거한다. 요청한 길이·매체·호출 행동을 확인하고 완성 초안을 제공한다.
+## Procedure
+1. **Write the brief.** Settle the audience, the channel, the one takeaway or action, the length, and the tone. Look for the user's voice in their earlier posts, decks, or documents in the library and records, and follow any brand guide they gave you. Ask only when the audience or the takeaway is unknown and the piece depends on it.
+2. **Diagnose the input before writing.** Decide which case applies:
+   - No draft, or a generic one: write from scratch.
+   - A draft with a real voice: keep the user's words and structure, and fix only what is weak.
+   - A specific edit request: change only what was asked, and show only the changed parts.
+3. **Build a fact sheet first.** List the facts the piece can use, each with its source in the records, library, files, or web. Numbers, dates, quotes, customer stories, and the user's achievements come only from this sheet. Mark missing proof [확인 필요: …]. Label invented scenarios as examples, and never invent testimonials, users, or metrics.
+4. **Shape the piece for its format.**
+   - Blog or article: a hook from a concrete situation, the value for the reader, one specific example, and the takeaway.
+   - Presentation: one message per slide, written as a full-sentence headline, with the evidence that supports it. Use an arc of opening, problem, proof, detail, and close with the ask. Plan about one slide per minute of speaking time.
+   - Landing or intro page: a headline that says what it is and for whom, a subhead with the outcome, a primary call to action, then sections for the problem, how it works, proof, and FAQ, ending with the call to action again.
+   - Script: spoken sentences that are short enough to say in one breath, with cues such as [화면: …] and timing for each part.
+   - Social post or short copy: one idea within the platform's length limit.
+5. **Test the important lines.** For titles, headlines, and calls to action, draft two or three candidates and keep the strongest. Each key line should pass three checks: the reader can picture it, it can be shown true or false, and a competitor couldn't say the exact same sentence. Cut unsupported superlatives, empty adjectives, and stock patterns: contrast reveals ("A가 아니라 B입니다"), questions you answer yourself, lists of three added only for rhythm, stock openers, and translationese in Korean.
+6. **Check what can go public.** For anything public, leave out internal details, other people's names without their consent, private links, and figures not cleared for release, or put them in general terms.
 
-## 결과물
-사용자가 지정한 형식으로 제공한다. 발표 자료를 요청했다고 자동으로 HTML을 고집하지 않는다. 지원되는 형식과 도구에 맞춰 결과물을 만들고, 파일 생성·게시 여부는 실제 실행 결과대로 설명한다. 핵심 사실 중 추가 확인이 필요한 것만 짧게 덧붙인다.
+## Output
+Presentations and landing pages are html artifacts. Make them self-contained, with each slide in its own <section>, one message per slide, readable text sizes, and no filler statistics. Blog posts and articles are markdown; scripts and copy are txt. PPTX isn't available, so offer an html deck the user can export to PDF and say so plainly. When the user limits what to return ("제목만", "이 문장만"), return only that. Otherwise add, briefly, the assumptions, the facts still to confirm, and two or three alternatives for the title or headline.
 
-## 완료 기준
-독자와 핵심 메시지가 분명하며, 바로 사용할 수 있는 초안이 있다. 사실과 창작이 섞이지 않고, 공개 범위와 요청한 형식·분량을 지킨다.
+## Definition of done
+- The audience and the one takeaway are clear from the opening.
+- Every factual claim comes from the fact sheet; examples are labeled and nothing is invented.
+- The format's structure, length, and limits are met, and the user's voice is kept when they gave a draft.
+- Key lines pass the three checks, and public content contains nothing private.

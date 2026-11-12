@@ -236,6 +236,7 @@ final class CalendarService: ObservableObject {
 
 extension CalendarService {
     /// 이 빌드에 구글 클라이언트 ID 가 있어 연결할 수 있는지
+    // TODO: return false while Google reviews the calendar scopes; this hides the connect button and macOS Calendar accounts keep working.
     var googleAvailable: Bool { (try? ConnectorAuth.isAvailable("gcal")) ?? false }
 
     private var google: GoogleCalendarClient { .live(token: { try await ConnectorAuth.accessToken("gcal") }) }

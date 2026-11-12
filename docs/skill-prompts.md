@@ -1,6 +1,17 @@
 # 스킬 지침 개선과 평가
 
-기본 6개 스킬은 목표, 작업 순서, 결과물, 완료 기준을 나눕니다. 사용자 지정 형식과 분량을 우선하며, 증거가 없는 사실·기여·완료 상태를 만들지 않습니다. 사용자 편집본은 기본 리소스보다 우선하므로 업데이트로 덮어쓰지 않습니다.
+기본 6개 스킬은 영어로 쓰며 Purpose, Procedure, Output, Definition of done으로 나눕니다. 답변 언어는 사용자 언어를 따르고, `[확인 필요: …]` 같은 표식은 시스템 프롬프트와 같은 한국어를 씁니다. 공통 규칙(근거, 보고서 구조, 결과물 형식)은 [채팅 시스템 프롬프트](../Sources/SillogCore/Chat/Prompts/chat-system-prompt.md)에 두고, 스킬에는 그 작업에만 필요한 절차를 적습니다. 사용자 편집본은 기본 리소스보다 우선하므로 업데이트로 덮어쓰지 않습니다.
+
+아래 공개 자료에서 방법만 참고했고 문장은 옮기지 않았습니다.
+
+| 스킬 | 참고 자료 (라이선스) |
+| --- | --- |
+| 문서 작성 | [anthropics/skills doc-coauthoring·internal-comms](https://github.com/anthropics/skills) (Apache-2.0), [mattpocock/skills](https://github.com/mattpocock/skills) (MIT) |
+| 리서치 | [anthropics/claude-cookbooks 연구 에이전트 프롬프트](https://github.com/anthropics/claude-cookbooks/tree/main/patterns/agents/prompts) (MIT), [dzhng/deep-research](https://github.com/dzhng/deep-research) (MIT), [assafelovic/gpt-researcher](https://github.com/assafelovic/gpt-researcher) (Apache-2.0) |
+| 기획·계획 | [snarktank/ai-dev-tasks](https://github.com/snarktank/ai-dev-tasks) (Apache-2.0), [obra/superpowers](https://github.com/obra/superpowers) (MIT), mattpocock/skills grilling (MIT) |
+| 학습 | Google LearnLM 튜터링 가이드(google-gemini/cookbook, Apache-2.0), mattpocock/skills teach (MIT) |
+| 콘텐츠 제작 | [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills) (MIT), anthropics/skills pptx (Apache-2.0) |
+| 작업 자동화 | Claude Code 예약 작업 문서의 독립 실행 프롬프트 원칙 |
 
 | 스킬 | 중점 |
 | --- | --- |
