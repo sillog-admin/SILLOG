@@ -54,7 +54,7 @@ struct SkillCatalogView: View {
                 addActions
                 if shown.isEmpty {
                     Text(searchTerm.isEmpty ? tr("새 스킬을 만들거나 스킬 파일을 가져와 보세요.") : tr("맞는 스킬이 없어요."))
-                        .font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 6)
+                        .font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 6)
                 } else if !searchTerm.isEmpty {
                     section(tr("검색 결과"), shown)
                 } else {
@@ -74,13 +74,13 @@ struct SkillCatalogView: View {
         HStack(spacing: 8) {
             Button { draft = SkillDraft() } label: {
                 Label(tr("새 스킬 만들기"), systemImage: "plus")
-                    .font(Brand.suit(12, .medium)).foregroundStyle(.white)
+                    .font(Brand.font(.body, .medium)).foregroundStyle(.white)
                     .padding(.horizontal, 12).frame(height: 32)
                     .background(Brand.accent, in: Capsule()).contentShape(Capsule())
             }.buttonStyle(.plain)
             Button { importing = true } label: {
                 Label(tr("스킬 파일 가져오기"), systemImage: "square.and.arrow.down")
-                    .font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText)
+                    .font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText)
                     .padding(.horizontal, 12).frame(height: 32)
                     .overlay(Capsule().strokeBorder(Brand.line)).contentShape(Capsule())
             }.buttonStyle(.plain)
@@ -144,8 +144,8 @@ struct SkillCatalogView: View {
             HStack(spacing: 11) {
                 icon(skill, size: 40)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(skill.displayTitle).font(Brand.suit(18, .bold)).foregroundStyle(Brand.ink)
-                    Text(skill.isCustom ? tr("내 스킬") : tr("기본 스킬")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                    Text(skill.displayTitle).font(Brand.font(.sectionTitle, .semibold)).foregroundStyle(Brand.ink)
+                    Text(skill.isCustom ? tr("내 스킬") : tr("기본 스킬")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 }
                 Spacer(minLength: 8)
                 moreMenu(skill)
@@ -155,15 +155,15 @@ struct SkillCatalogView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(alignment: .top, spacing: 18) {
-                        Text(tr("설명")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.gray)
-                        Text(summary(skill)).font(Brand.suit(12)).foregroundStyle(Brand.ink)
+                        Text(tr("설명")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.gray)
+                        Text(summary(skill)).font(Brand.font(.body)).foregroundStyle(Brand.ink)
                         Spacer(minLength: 0)
                     }
                     .padding(13).background(Brand.paper, in: RoundedRectangle(cornerRadius: 8))
                     VStack(alignment: .leading, spacing: 8) {
-                        Label(tr("지침"), systemImage: "doc.text").font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
+                        Label(tr("지침"), systemImage: "doc.text").font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
                         Text(verbatim: (try? skill.instructions()) ?? tr("스킬 지침을 읽지 못했어요."))
-                            .font(Brand.suit(12)).foregroundStyle(Brand.tabText)
+                            .font(Brand.font(.body)).foregroundStyle(Brand.tabText)
                             .textSelection(.enabled).lineSpacing(4).fixedSize(horizontal: false, vertical: true)
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
@@ -171,7 +171,7 @@ struct SkillCatalogView: View {
             HStack {
                 Spacer()
                 Button { start(skill) } label: {
-                    Text(tr("채팅에서 사용해 보기")).font(Brand.suit(12, .medium)).foregroundStyle(.white)
+                    Text(tr("채팅에서 사용해 보기")).font(Brand.font(.body, .medium)).foregroundStyle(.white)
                         .padding(.horizontal, 15).frame(height: 32).background(Brand.accent, in: Capsule())
                 }.buttonStyle(.plain)
             }

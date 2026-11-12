@@ -35,8 +35,8 @@ struct FilesView: View {
 
     private var emptyState: some View {
         VStack(spacing: 0) {
-            Text(tr("정리할 파일이 없어요")).font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink)
-            Text(tr("다운로드 폴더에 새 파일이 생기면 어디에 둘지 제안해요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 8)
+            Text(tr("정리할 파일이 없어요")).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
+            Text(tr("다운로드 폴더에 새 파일이 생기면 어디에 둘지 제안해요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -44,9 +44,9 @@ struct FilesView: View {
     private func errorBanner(_ error: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.circle").font(.system(size: 13)).foregroundStyle(Brand.ink)
-            Text(error).font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink)
+            Text(error).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
             Spacer()
-            Button(tr("닫기")) { state.fileError = nil }.buttonStyle(.plain).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
+            Button(tr("닫기")) { state.fileError = nil }.buttonStyle(.plain).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
         }
         .padding(.horizontal, 34).frame(height: 52).frame(maxWidth: .infinity)
         .background(ChatPalette.soft)
@@ -59,7 +59,7 @@ struct FilesView: View {
                 Text(tr("알림이 꺼져 있어요. 설정의 일반에서 켤 수 있어요."))
                 Image(systemName: "arrow.up.right").font(.system(size: 9))
             }
-            .font(Brand.suit(11)).foregroundStyle(Brand.gray)
+            .font(Brand.font(.caption)).foregroundStyle(Brand.gray)
             .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -88,14 +88,16 @@ struct FileHistoryView: View {
         Group {
             if rows.isEmpty {
                 VStack(spacing: 0) {
-                    Text(tr("아직 지난 기록이 없어요")).font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink)
-                    Text(tr("정리 제안을 옮기거나 무시하면 여기에 남아요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 8)
+                    Text(tr("아직 지난 기록이 없어요")).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
+                    Text(tr("정리 제안을 옮기거나 무시하면 여기에 남아요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 8)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(alignment: .leading, spacing: 0) {
                     SectionTitle(title: tr("지난 기록"), count: total).padding(.horizontal, 34)
-                    HistoryRow.header.padding(.horizontal, 34)                     // 열 머리는 고정
+                    legend.padding(.horizontal, 34).padding(.bottom, 10)
+                    HistoryRow.header(oldestFirst: state.fileHistoryOldestFirst, toggleOrder: state.toggleFileHistoryOrder)
+                        .padding(.horizontal, 34)
                     HistoryList(rows: rows, page: state.fileHistoryPage, state: state, fields: state.fileFields(for: rows))
                     if pages > 1 {
                         PageNumbers(current: state.fileHistoryPage, pages: pages) { state.showFileHistoryPage($0) }
@@ -107,6 +109,33 @@ struct FileHistoryView: View {
         .background(.white)
         .onAppear { state.refreshFileSuggestions() }
     }
+
+    private var legend: some View {
+        let all = state.fileHistoryLegend.reduce(0) { $0 + $1.count }
+        return HStack(spacing: 6) {
+            legendChip(tr("전체"), color: nil, count: all, on: state.fileHistoryField == nil) { state.filterFileHistory(nil) }
+            ForEach(state.fileHistoryLegend) { item in
+                legendChip(item.name.isEmpty ? tr("분야 없음") : L10n.tr(key: item.name), color: item.name.isEmpty ? nil : item.color,
+                           count: item.count, on: state.fileHistoryField == item.name) { state.filterFileHistory(item.name) }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func legendChip(_ title: String, color: Color?, count: Int, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if let color { Circle().fill(color).frame(width: 8, height: 8) }
+                Text(title).font(Brand.font(.body, on ? .semibold : .regular)).foregroundStyle(on ? Brand.ink : Brand.tabText)
+                Text("\(count)").font(Brand.jost(11)).foregroundStyle(Brand.gray)
+            }
+            .padding(.horizontal, 12).frame(height: 28)
+            .background(Capsule().fill(on ? (color ?? Brand.ink).opacity(0.14) : Color(hex: 0xF3F1EF)))
+            .overlay(Capsule().strokeBorder(on ? (color ?? Brand.ink).opacity(0.5) : .clear))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 /// 구역 제목: 이름과 개수
@@ -116,7 +145,7 @@ private struct SectionTitle: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(title).font(Brand.suit(14)).foregroundStyle(Brand.ink)
+            Text(title).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
             if let count { Text("\(count)").font(Brand.jost(12)).foregroundStyle(Brand.gray) }
             Spacer()
         }
@@ -132,6 +161,7 @@ private struct PendingSection: View {
     let state: AppState
     let fields: [Int64: FileField]
     @State private var hovered: FileSuggestion.ID?          // 커서를 댄 제안: 왼쪽 나무에서 그 가지를 진하게
+    @State private var marked: FileSuggestion.ID?
     /// 왼쪽 나무 폭
     static let treeWidth: CGFloat = 400
 
@@ -139,12 +169,18 @@ private struct PendingSection: View {
         VStack(alignment: .leading, spacing: 0) {
             SectionTitle(title: tr("대기 중인 제안"), count: pending.count)
             HStack(alignment: .top, spacing: 28) {
-                ScrollView { tree.padding(.bottom, 28) }        // 고정: 카드를 스크롤해도 움직이지 않는다 (나무가 길면 따로 스크롤)
-                    .frame(width: Self.treeWidth)
+                ScrollViewReader { proxy in
+                    ScrollView { tree.padding(.bottom, 28) }    // scrolls on its own so card scrolling never re-lays out the tree
+                        .onChange(of: marked) { _, id in
+                            if let id { withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(id, anchor: .center) } }
+                        }
+                }
+                .frame(width: Self.treeWidth)
                 List {                                              // 카드 목록: AppKit 표가 스크롤을 맡는다 (지난 기록과 같은 까닭, 10/29 측정)
                     ForEach(pending) { suggestion in
                         PendingCard(suggestion: suggestion, source: FilesView.source(suggestion), folder: FilesView.short(suggestion.suggestedFolder),
-                                    field: suggestion.id.flatMap { fields[$0] },
+                                    field: suggestion.id.flatMap { fields[$0] }, marked: marked == suggestion.id,
+                                    mark: { marked = marked == suggestion.id ? nil : suggestion.id },
                                     accept: { state.acceptSuggestion(suggestion) }, choose: { state.chooseFolderAndMove(suggestion) },
                                     ignore: { state.ignoreSuggestion(suggestion) }, reveal: { state.revealSuggestionFile(suggestion) })
                             .equatable()
@@ -179,49 +215,60 @@ private struct PendingSection: View {
     /// 옮겨질 곳: 원래 폴더에서 옮길 폴더로 가지가 뻗고, 그 아래에 파일. 같은 폴더로 가는 파일은 한 가지에 묶인다
     private var tree: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(tr("옮겨질 곳")).font(Brand.suit(11, .medium)).foregroundStyle(Brand.gray).padding(.bottom, 6)
+            Text(tr("옮겨질 곳")).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.gray).padding(.bottom, 6)
             ForEach(Array(groups.enumerated()), id: \.offset) { _, group in
                 HStack(spacing: 6) {
                     Image(systemName: "folder").font(.system(size: 12)).foregroundStyle(Brand.ink).frame(width: 12)
-                    Text(group.source).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
+                    Text(group.source).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
                     Text("\(group.folders.reduce(0) { $0 + $1.files.count })").font(Brand.jost(11)).foregroundStyle(Brand.gray)
                 }
                 .frame(height: 28)
                 ForEach(Array(group.folders.enumerated()), id: \.offset) { index, folder in
                     let lastFolder = index == group.folders.count - 1
                     let on = folder.files.contains { $0.id == hovered }
+                    let folderMarked = folder.files.contains { $0.id == marked }
                     let shown = FilesView.short(folder.path)
                     HStack(spacing: 0) {
-                        TreeElbow(last: lastFolder).stroke(Brand.line, lineWidth: 1).frame(width: 20)
+                        TreeElbow(last: lastFolder).stroke(folderMarked ? Brand.blue : Brand.line, lineWidth: folderMarked ? 1.5 : 1).frame(width: 20)
                         HStack(spacing: 7) {
                             Image(systemName: "folder.fill").font(.system(size: 12)).foregroundStyle(Brand.blue)
-                            BoldOnHover(text: (shown as NSString).lastPathComponent, size: 13, on: on).foregroundStyle(Brand.ink).lineLimit(1)
-                            Text((shown as NSString).deletingLastPathComponent + "/").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                            BoldOnHover(text: (shown as NSString).lastPathComponent, size: 13, on: on || folderMarked)
+                                .foregroundStyle(folderMarked ? Brand.blue : Brand.ink).lineLimit(1)
+                            Text((shown as NSString).deletingLastPathComponent + "/").font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                                 .lineLimit(1).truncationMode(.head)
                         }
-                        .padding(.leading, 8)
+                        .padding(.horizontal, 6).frame(height: 26)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Brand.blue.opacity(folderMarked ? 0.18 : 0)))
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.blue.opacity(folderMarked ? 0.55 : 0), lineWidth: 1.2))
+                        .padding(.leading, 2)
                         Spacer(minLength: 0)
                     }
                     .frame(height: 30)
                     .help(shown)
                     ForEach(folder.files) { file in
-                        let fileOn = file.id == hovered
+                        let fileMarked = file.id == marked
+                        let fileOn = file.id == hovered || fileMarked
                         HStack(spacing: 0) {
                             if lastFolder { Color.clear.frame(width: 20) }       // 위 가지가 이어지면 세로 줄기만
                             else { Rectangle().fill(Brand.line).frame(width: 1).padding(.leading, 6).frame(width: 20, alignment: .leading) }
-                            TreeElbow(last: file.id == folder.files.last?.id).stroke(Brand.line, lineWidth: 1).frame(width: 20).padding(.leading, 7.5)
+                            TreeElbow(last: file.id == folder.files.last?.id).stroke(fileMarked ? Brand.blue : Brand.line, lineWidth: fileMarked ? 1.5 : 1)
+                                .frame(width: 20).padding(.leading, 7.5)
                             HStack(spacing: 6) {
-                                Image(systemName: "doc").font(.system(size: 11)).foregroundStyle(Brand.gray)
+                                Image(systemName: fileMarked ? "doc.fill" : "doc").font(.system(size: 11)).foregroundStyle(fileMarked ? Brand.blue : Brand.gray)
                                 BoldOnHover(text: file.fileName, size: 12, on: fileOn)
-                                    .foregroundStyle(fileOn ? Brand.ink : Brand.tabText).lineLimit(1).truncationMode(.middle)
+                                    .foregroundStyle(fileMarked ? Brand.blue : fileOn ? Brand.ink : Brand.tabText).lineLimit(1).truncationMode(.middle)
                             }
                             .padding(.horizontal, 6).frame(height: 24)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.black.opacity(fileOn ? 0.05 : 0)))
+                            .background(RoundedRectangle(cornerRadius: 6).fill(fileMarked ? Brand.blue.opacity(0.18) : Color.black.opacity(fileOn ? 0.05 : 0)))
+                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.blue.opacity(fileMarked ? 0.55 : 0), lineWidth: 1.2))
+                            .overlay { if fileMarked { MarkPulse() } }
                             .padding(.leading, 2)
                             Spacer(minLength: 0)
+                            if fileMarked { MarkBuddy().padding(.trailing, 4) }
                         }
                         .frame(height: 28)
                         .contentShape(Rectangle())
+                        .id(file.id)
                         .onHover { h in hovered = h ? file.id : (hovered == file.id ? nil : hovered) }
                     }
                 }
@@ -231,6 +278,48 @@ private struct PendingSection: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 10).fill(Brand.paper))
         .padding(.top, 18)
+        .animation(.easeOut(duration: 0.2), value: marked)
+    }
+
+}
+
+private struct MarkPulse: View {
+    @State private var spread = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.blue, lineWidth: 2)
+            .scaleEffect(spread ? 1.12 : 1)
+            .opacity(spread ? 0 : 0.8)
+            .allowsHitTesting(false)
+            .onAppear {
+                guard !reduceMotion else { spread = true; return }
+                withAnimation(.easeOut(duration: 0.7).repeatCount(2, autoreverses: false)) { spread = true }
+            }
+    }
+}
+
+private struct MarkBuddy: View {
+    @State private var shown = false
+    @State private var hops = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        GazingMark(size: 22, smiling: true)
+            .scaleEffect(shown ? 1 : 0.2, anchor: .bottom)
+            .opacity(shown ? 1 : 0)
+            .keyframeAnimator(initialValue: CGFloat(0), trigger: hops) { view, y in view.offset(y: y) } keyframes: { _ in
+                KeyframeTrack {
+                    SpringKeyframe(-7, duration: 0.18); SpringKeyframe(0, duration: 0.2)
+                    SpringKeyframe(-4, duration: 0.16); SpringKeyframe(0, duration: 0.2)
+                }
+            }
+            .onAppear {
+                if reduceMotion { shown = true; return }
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) { shown = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { hops += 1 }
+            }
+            .help(tr("여기로 옮겨져요"))
     }
 }
 
@@ -279,41 +368,61 @@ struct HistoryList: View {
     }
 }
 
+/// Shared by history rows and pending cards so the two stay identical.
+private struct FieldPill: View {
+    let field: FileField?
+
+    var body: some View {
+        if let field {
+            HStack(spacing: 5) {
+                Circle().fill(field.color).frame(width: 7, height: 7)
+                Text(field.title).font(Brand.font(.caption)).lineLimit(1).foregroundStyle(Brand.ink)
+            }
+            .padding(.horizontal, 8).frame(height: 22)
+            .background(Capsule().fill(field.color.opacity(0.16)))
+        } else {
+            Text(tr("분야 없음")).font(Brand.font(.caption)).lineLimit(1).foregroundStyle(Brand.gray)
+        }
+    }
+}
+
 /// 지난 기록 한 줄: 파일 · 폴더 · 처리 결과 · 시간 · 되돌리기
 private struct HistoryRow: View {
     let suggestion: FileSuggestion
     let field: FileField?
     let undo: () -> Void
 
-    static var header: some View {
-        cells(Text(tr("파일")), AnyView(Text(tr("분야"))), Text(tr("폴더")), Text(tr("처리 결과")), Text(tr("시간")), AnyView(EmptyView()), header: true)
+    static func header(oldestFirst: Bool, toggleOrder: @escaping () -> Void) -> some View {
+        cells(Text(tr("파일")), AnyView(Text(tr("분야"))), Text(tr("폴더")), Text(tr("처리 결과")),
+              AnyView(Button(action: toggleOrder) {
+                  HStack(spacing: 4) {
+                      Text(oldestFirst ? tr("시간, 오래된순") : tr("시간, 최신순"))
+                      Image(systemName: oldestFirst ? "arrow.up" : "arrow.down").font(.system(size: 9, weight: .medium))
+                  }.contentShape(Rectangle())
+              }.buttonStyle(.plain).help(tr("눌러서 순서 바꾸기"))),
+              AnyView(EmptyView()), header: true)
     }
 
     var body: some View {
         let folder = FilesView.short(suggestion.status == "moved"
             ? (suggestion.movedTo.map { ($0 as NSString).deletingLastPathComponent } ?? suggestion.suggestedFolder) : suggestion.suggestedFolder)
         return Self.cells(Text(suggestion.fileName), AnyView(fieldCell), Text(folder), Text(Self.label(suggestion.status)),
-                          Text(FilesView.time.string(from: Date(timeIntervalSince1970: suggestion.ts))),
+                          AnyView(Text(FilesView.time.string(from: Date(timeIntervalSince1970: suggestion.ts)))),
                           AnyView(undoButton), header: false, failed: suggestion.status == "rejected")
     }
 
-    private var fieldCell: some View {
-        HStack(spacing: 5) {
-            if let field { Circle().fill(field.color).frame(width: 6, height: 6) }
-            Text(field?.title ?? tr("분야 없음")).lineLimit(1)
-        }
-    }
+    private var fieldCell: some View { FieldPill(field: field) }
 
     @ViewBuilder private var undoButton: some View {
         if suggestion.status == "moved" {
             Button(action: undo) {
-                HStack(spacing: 6) { Image(systemName: "arrow.uturn.backward").font(.system(size: 11)); Text(tr("되돌리기")) }
+                HStack(spacing: 5) { Image(systemName: "arrow.uturn.backward").font(.system(size: 10, weight: .semibold)); Text(tr("되돌리기")) }
             }
-            .buttonStyle(.plain).font(Brand.suit(11)).foregroundStyle(Brand.tabText)
+            .buttonStyle(BrandButtonStyle(kind: .primary)).controlSize(.small)
         }
     }
 
-    private static func cells(_ file: Text, _ field: AnyView, _ folder: Text, _ result: Text, _ time: Text, _ action: AnyView,
+    private static func cells(_ file: Text, _ field: AnyView, _ folder: Text, _ result: Text, _ time: AnyView, _ action: AnyView,
                               header: Bool, failed: Bool = false) -> some View {
         HStack(spacing: 0) {
             file.lineLimit(1).truncationMode(.middle).padding(.leading, 14).frame(maxWidth: .infinity, alignment: .leading)
@@ -323,7 +432,7 @@ private struct HistoryRow: View {
             time.foregroundStyle(Brand.gray).padding(.leading, 12).frame(width: 190, alignment: .leading)
             Color.clear.frame(width: 140).overlay(alignment: .leading) { action.padding(.leading, 12) }   // 단추가 없는 머리·줄도 이 칸 자리를 차지해야 칸이 맞는다
         }
-        .font(Brand.suit(header ? 10 : 11)).foregroundStyle(header ? Brand.gray : Brand.tabText)
+        .font(Brand.font(header ? .tag : .caption)).foregroundStyle(header ? Brand.gray : Brand.tabText)
         .frame(height: header ? 38 : HistoryList.rowHeight)
         .overlay(alignment: .bottom) { Rectangle().fill(Brand.line).frame(height: 1) }
     }
@@ -340,29 +449,27 @@ private struct HistoryRow: View {
     }
 }
 
-/// 파일 구역 맨 위의 설정 한 줄: 제안 켜고 끄기와 정리 대상 폴더(나무 그림). 폴더가 5개를 넘으면 접어 둔다.
+/// Sits on a paper panel so it reads as settings, apart from the pending list below.
 private struct FileSuggestSettings: View {
     @EnvironmentObject private var state: AppState
-    @State private var open = false
 
     private var roots: [String] { state.settings.folderRoots }
-    private var collapsible: Bool { roots.count > 5 }
-    private var showTree: Bool { !collapsible || open }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(tr("새 파일의 정리 위치 제안")).font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink)
-                    Text(tr("새 파일에 어울리는 폴더 한 곳을 추천해요. 승인한 파일만 옮겨요.")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                    Text(tr("새 파일의 정리 위치 제안")).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
+                    Text(tr("새 파일에 어울리는 폴더 한 곳을 추천해요. 승인한 파일만 옮겨요.")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 }
                 Spacer(minLength: 12)
                 Toggle("", isOn: $state.settings.suggestFolders).toggleStyle(BrandSwitchStyle())
             }
-            .padding(.vertical, 12)
-            tree.padding(.bottom, 12)
+            tree.padding(.top, 8)
         }
-        .overlay(alignment: .bottom) { Rectangle().fill(Brand.line).frame(height: 1) }
+        .padding(.horizontal, 16).padding(.vertical, 12)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Brand.paper))
+        .padding(.bottom, 8)
     }
 
     /// 뿌리 "정리 대상 폴더" 아래로 폴더마다 가지가 뻗고, 맨 끝 가지가 "폴더 추가"
@@ -370,33 +477,27 @@ private struct FileSuggestSettings: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
                 Image(systemName: "folder").font(.system(size: 12)).foregroundStyle(Brand.ink).frame(width: 12)
-                Text(tr("정리 대상 폴더")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
+                Text(tr("정리 대상 폴더")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
                 Text("\(roots.count)").font(Brand.jost(11)).foregroundStyle(Brand.gray)
-                if collapsible {
-                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.system(size: 9, weight: .medium)).foregroundStyle(Brand.gray)
-                }
             }
-            .frame(height: 28).contentShape(Rectangle())
-            .onTapGesture { if collapsible { withAnimation(.easeOut(duration: 0.15)) { open.toggle() } } }
-            if showTree {
-                ForEach(roots, id: \.self) { root in
-                    FolderBranch(root: root, last: false) { state.settings.folderRoots.removeAll { $0 == root } }
-                }
-                HStack(spacing: 0) {
-                    TreeElbow(last: true).stroke(Brand.line, lineWidth: 1).frame(width: 20)
-                    Button { addRoot() } label: {
-                        HStack(spacing: 7) {
-                            Image(systemName: "plus").font(.system(size: 10, weight: .medium)).frame(width: 12)
-                            Text(tr("폴더 추가")).font(Brand.suit(12))
-                        }
-                        .foregroundStyle(Brand.tabText).padding(.horizontal, 8).frame(height: 26).contentShape(Rectangle())
-                        .hoverHighlight(cornerRadius: 6)
+            .frame(height: 28)
+            ForEach(roots, id: \.self) { root in
+                FolderBranch(root: root, last: false) { state.settings.folderRoots.removeAll { $0 == root } }
+            }
+            HStack(spacing: 0) {
+                TreeElbow(last: true).stroke(Brand.line, lineWidth: 1).frame(width: 20)
+                Button { addRoot() } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: "plus").font(.system(size: 10, weight: .medium)).frame(width: 12)
+                        Text(tr("폴더 추가")).font(Brand.font(.body))
                     }
-                    .buttonStyle(.plain)
-                    Spacer(minLength: 0)
+                    .foregroundStyle(Brand.tabText).padding(.horizontal, 8).frame(height: 26).contentShape(Rectangle())
+                    .hoverHighlight(cornerRadius: 6)
                 }
-                .frame(height: 30)
+                .buttonStyle(.plain)
+                Spacer(minLength: 0)
             }
+            .frame(height: 30)
         }
     }
 
@@ -422,13 +523,15 @@ private struct PendingCard: View, Equatable {
     let source: String
     let folder: String
     let field: FileField?
+    let marked: Bool
+    let mark: () -> Void
     let accept: () -> Void
     let choose: () -> Void
     let ignore: () -> Void
     let reveal: () -> Void
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.suggestion == rhs.suggestion && lhs.source == rhs.source && lhs.folder == rhs.folder && lhs.field == rhs.field
+        lhs.suggestion == rhs.suggestion && lhs.source == rhs.source && lhs.folder == rhs.folder && lhs.field == rhs.field && lhs.marked == rhs.marked
     }
 
     var body: some View {
@@ -436,28 +539,21 @@ private struct PendingCard: View, Equatable {
             Image(systemName: "doc.text").font(.system(size: 20, weight: .light)).foregroundStyle(Brand.ink).padding(.top, 2)
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(suggestion.fileName).font(Brand.suit(15, .bold)).foregroundStyle(Brand.ink).lineLimit(1).truncationMode(.middle)
+                    Text(suggestion.fileName).font(Brand.font(.sectionTitle, .semibold)).foregroundStyle(Brand.ink).lineLimit(1).truncationMode(.middle)
                     Spacer(minLength: 8)
-                    Text(FilesView.time.string(from: Date(timeIntervalSince1970: suggestion.ts))).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                    Text(FilesView.time.string(from: Date(timeIntervalSince1970: suggestion.ts))).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 }
                 if let reason = suggestion.reason, !reason.isEmpty {
-                    Text(reason).font(Brand.suit(12)).foregroundStyle(Brand.tabText).lineLimit(2).fixedSize(horizontal: false, vertical: true).padding(.top, 8)
+                    Text(reason).font(Brand.font(.body)).foregroundStyle(Brand.tabText).lineLimit(2).fixedSize(horizontal: false, vertical: true).padding(.top, 8)
                 }
                 HStack(spacing: 8) {
-                    Text(source).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                    Text(source).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                     Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
                     Image(systemName: "folder").font(.system(size: 11)).foregroundStyle(Brand.ink)
-                    Text(folder).font(Brand.suit(11, .medium)).foregroundStyle(Brand.ink)
+                    Text(folder).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink)
                         .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
                     Spacer(minLength: 8)
-                    if let field {
-                        HStack(spacing: 5) {
-                            Circle().fill(field.color).frame(width: 6, height: 6)
-                            Text(field.title).font(Brand.suit(11)).foregroundStyle(Brand.gray)
-                        }
-                    } else {
-                        Text(tr("분야 없음")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
-                    }
+                    FieldPill(field: field)
                 }
                 .padding(.top, 14)
                 HStack(spacing: 4) {
@@ -468,13 +564,25 @@ private struct PendingCard: View, Equatable {
                     Button(tr("다른 폴더 고르기"), action: choose).buttonStyle(BrandButtonStyle())
                     Button(tr("무시"), action: ignore).buttonStyle(BrandButtonStyle())
                     Spacer(minLength: 0)
+                    Button(action: mark) {
+                        Text(marked ? tr("표시 끄기") : tr("위치 표시")).font(Brand.font(.body, .medium))
+                        .foregroundStyle(marked ? .white : Brand.blue)
+                        .padding(.horizontal, 12).frame(height: 30)
+                        .background(Capsule().fill(marked ? Brand.blue : Brand.blue.opacity(0.12)))
+                        .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .help(tr("왼쪽 옮겨질 곳에서 이 파일 자리를 보여 줘요"))
                     Button(tr("Finder에서 보기"), action: reveal).buttonStyle(BrandButtonStyle())
                 }
                 .padding(.top, 12)
             }
         }
         .padding(.vertical, 18)
+        .padding(.horizontal, marked ? 12 : 0)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Brand.blue.opacity(marked ? 0.07 : 0)))
         .overlay(alignment: .bottom) { Rectangle().fill(Brand.line).frame(height: 1) }
+        .animation(.easeOut(duration: 0.2), value: marked)
     }
 }
 
@@ -510,15 +618,16 @@ private struct FolderBranch: View {
             TreeElbow(last: last).stroke(Brand.line, lineWidth: 1).frame(width: 20)
             HStack(spacing: 7) {
                 Image(systemName: "folder.fill").font(.system(size: 12)).foregroundStyle(Brand.blue)
-                Text(name).font(Brand.suit(13)).foregroundStyle(Brand.ink)
-                if !parent.isEmpty { Text(parent).font(Brand.suit(11)).foregroundStyle(Brand.gray) }
+                Text(name).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
+                if !parent.isEmpty { Text(parent).font(Brand.font(.caption)).foregroundStyle(Brand.gray) }
                 Spacer(minLength: 8)
                 Button(action: onRemove) {
-                    Image(systemName: "xmark").font(.system(size: 10)).foregroundStyle(Brand.gray)
-                        .frame(width: 22, height: 22).contentShape(Rectangle())
+                    Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(hover ? Brand.ink : Brand.tabText)
+                        .frame(width: 24, height: 24)
+                        .background(Circle().fill(hover ? Brand.line : Color(hex: 0xEDEAE7)))
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain).help(tr("\(root) 폴더 삭제"))
-                .opacity(hover ? 1 : 0.35)
             }
             .padding(.leading, 8).padding(.trailing, 4).frame(height: 26)
             .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }

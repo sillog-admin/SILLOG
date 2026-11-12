@@ -9,11 +9,11 @@ struct PinnedSkillPicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(tr("채팅에 표시할 스킬")).font(Brand.suit(12, .semibold))
+                Text(tr("채팅에 표시할 스킬")).font(Brand.font(.body, .semibold))
                 Spacer()
-                Text("\(chat.pinnedSkillIDs.count)/6").font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                Text("\(chat.pinnedSkillIDs.count)/6").font(Brand.font(.caption)).foregroundStyle(Brand.gray)
             }.padding(.horizontal, 8)
-            Text(tr("최대 6개까지 표시할 수 있어요.")).font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.horizontal, 8)
+            Text(tr("최대 6개까지 표시할 수 있어요.")).font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.horizontal, 8)
             ScrollView {
                 VStack(spacing: 2) {
                     ForEach(chat.skills) { skill in
@@ -22,7 +22,7 @@ struct PinnedSkillPicker: View {
                             HStack(spacing: 9) {
                                 Image(systemName: pinned ? "checkmark.square.fill" : "square")
                                     .foregroundStyle(pinned ? Brand.accent : Brand.gray)
-                                Text(skill.displayTitle).font(Brand.suit(12)).lineLimit(1)
+                                Text(skill.displayTitle).font(Brand.font(.body)).lineLimit(1)
                                 Spacer(minLength: 0)
                             }
                             .padding(.horizontal, 8).frame(height: 30).contentShape(Rectangle())
@@ -37,7 +37,7 @@ struct PinnedSkillPicker: View {
             Button(action: onManage) {
                 HStack(spacing: 8) {
                     Image(systemName: "slider.horizontal.3")
-                    Text(tr("스킬 관리")).font(Brand.suit(12))
+                    Text(tr("스킬 관리")).font(Brand.font(.body))
                     Spacer()
                     Image(systemName: "arrow.up.right").font(.system(size: 10))
                 }.padding(.horizontal, 8).frame(height: 30).contentShape(Rectangle())

@@ -144,10 +144,10 @@ struct ChatView: View {
                 // CH-14: 본문 600 열 안, 머리에서 떨어진 47 높이 띠, 아래 줄 하나, '이동'은 글자 링크
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text(tr("다른 대화에서 작업 중")).font(Brand.suit(11)).foregroundStyle(Brand.tabText)
+                    Text(tr("다른 대화에서 작업 중")).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
                     Button {
                         if let item = chat.conversations.first(where: { $0.id == active.conversationID }) { chat.select(item) }
-                    } label: { Text(tr("이동")).font(Brand.suit(11, .medium)).foregroundStyle(Brand.ink) }
+                    } label: { Text(tr("이동")).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink) }
                         .buttonStyle(.plain)
                     Spacer()
                 }.padding(.horizontal, 28).frame(height: 47)
@@ -164,7 +164,7 @@ struct ChatView: View {
             if let error = chat.error {
                 // CH-17: 입력칸과 같은 600 열, 위아래 줄, 입력칸 위 8 간격
                 Label(error, systemImage: "exclamationmark.circle")
-                    .font(Brand.suit(11)).foregroundStyle(Brand.ink).textSelection(.enabled)
+                    .font(Brand.font(.caption)).foregroundStyle(Brand.ink).textSelection(.enabled)
                     .padding(.horizontal, 14).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
                     .background(ChatPalette.soft)
                     .overlay(alignment: .top) { Rectangle().fill(Brand.line).frame(height: 1) }
@@ -199,7 +199,7 @@ struct ChatView: View {
             Spacer(minLength: 0)
             VStack(alignment: .leading, spacing: 0) {
                 Text(tr("쌓아 온 기록으로 다음 일을 시작해요"))
-                    .font(Brand.suit(24)).tracking(-0.48).foregroundStyle(Brand.ink).lineLimit(1)
+                    .font(Brand.font(.screenTitle)).tracking(-0.48).foregroundStyle(Brand.ink).lineLimit(1)
                     .frame(maxWidth: .infinity)
                 ChatComposer(chat: chat, library: library, modelName: modelName, openSettings: openSettings,
                              pendingRecords: pendingRecords, tidyNow: tidyNow, onOpenConnectors: { state.selectedTab = .connectors },
@@ -210,10 +210,10 @@ struct ChatView: View {
                     .padding(.top, 28)
                 if !results.isEmpty {
                     HStack {
-                        Text(tr("최근 결과물")).font(Brand.suit(12)).foregroundStyle(Brand.tabText).padding(.leading, 4)
+                        Text(tr("최근 결과물")).font(Brand.font(.body)).foregroundStyle(Brand.tabText).padding(.leading, 4)
                         Spacer()
                         Button { pane = .results } label: {
-                            Text(tr("모두 보기")).font(Brand.suit(12)).foregroundStyle(Brand.tabText).contentShape(Rectangle())
+                            Text(tr("모두 보기")).font(Brand.font(.body)).foregroundStyle(Brand.tabText).contentShape(Rectangle())
                         }.buttonStyle(.plain).padding(.trailing, 4)
                     }.padding(.top, 36)
                     HStack(spacing: 12) {
@@ -225,7 +225,7 @@ struct ChatView: View {
             }.frame(width: ChatPalette.columnWidth)
             Spacer(minLength: 0)
             Text(tr("질문과 조회한 자료는 연결한 AI로 전송돼요. 웹 검색과 커넥터는 허용한 범위만 사용해요."))
-                .font(Brand.suit(9)).foregroundStyle(Brand.gray).lineLimit(1).padding(.bottom, 14)
+                .font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1).padding(.bottom, 14)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -240,7 +240,7 @@ struct ChatView: View {
                 }
             }
             if !chat.messages.isEmpty {
-                HoverScrollingText(text: chat.current.title).font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink)
+                HoverScrollingText(text: chat.current.title).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
             }
             Spacer(minLength: 0)
         }.padding(.top, sidebarVisible ? 20.5 : 20)   // 목록 "채팅" 제목과 글자 바닥선을 맞춘다
@@ -354,13 +354,13 @@ struct ChatView: View {
     /// Raises: 없음.
     private func turnPreview(_ turn: ConversationTurn) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(turn.question.text).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink).lineLimit(2)
+            Text(turn.question.text).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).lineLimit(2)
             Rectangle().fill(Brand.line).frame(height: 1)
             if let answer = turn.answer, !answer.text.isEmpty {
-                Text(answer.text).font(Brand.suit(12)).foregroundStyle(Brand.gray).lineLimit(3)
+                Text(answer.text).font(Brand.font(.body)).foregroundStyle(Brand.gray).lineLimit(3)
             } else {
                 Text(turn.answer?.status == "running" ? tr("답변 작성 중…") : tr("답변 없음"))
-                    .font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                    .font(Brand.font(.body)).foregroundStyle(Brand.gray)
             }
         }
         .frame(width: 300, alignment: .leading)
@@ -375,7 +375,7 @@ struct ChatView: View {
     @ViewBuilder private func messageView(_ message: ConversationMessage) -> some View {
         if message.role == "user" {
             // 내 질문: 오른쪽 말풍선 (이름표 없이)
-            Text(message.text).font(Brand.suit(12)).foregroundStyle(Brand.text).lineSpacing(5).textSelection(.enabled)
+            Text(message.text).font(Brand.font(.body)).foregroundStyle(Brand.text).lineSpacing(5).textSelection(.enabled)
                 .padding(.horizontal, 14).padding(.vertical, 10)
                 .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 12))
                 .frame(maxWidth: 560, alignment: .trailing)
@@ -394,20 +394,20 @@ struct ChatView: View {
                             } else if open { expandedSteps.insert(message.id) } else { expandedSteps.remove(message.id) }
                         })) {
                         ForEach(Array(message.steps.enumerated()), id: \.offset) { _, step in
-                            Text(step).font(Brand.suit(10)).foregroundStyle(Brand.gray).frame(maxWidth: .infinity, alignment: .leading)
+                            Text(step).font(Brand.font(.tag)).foregroundStyle(Brand.gray).frame(maxWidth: .infinity, alignment: .leading)
                         }
                     } label: {
                         HStack(spacing: 8) {
                             if message.status == "running" { ProgressView().controlSize(.small) }
-                            Text(message.steps.last ?? tr("답변을 준비하고 있습니다")).font(Brand.suit(11))
+                            Text(message.steps.last ?? tr("답변을 준비하고 있습니다")).font(Brand.font(.caption))
                         }
                     }.foregroundStyle(Brand.gray)
                 }
                 if message.status == "failed" {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label(tr("응답을 완료하지 못했습니다"), systemImage: "exclamationmark.circle").font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
+                        Label(tr("응답을 완료하지 못했습니다"), systemImage: "exclamationmark.circle").font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
                         Text(message.text.trimmingCharacters(in: .whitespacesAndNewlines))
-                            .font(Brand.suit(12)).foregroundStyle(Brand.tabText).textSelection(.enabled)
+                            .font(Brand.font(.body)).foregroundStyle(Brand.tabText).textSelection(.enabled)
                     }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
                         .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 6))
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
@@ -419,8 +419,8 @@ struct ChatView: View {
                         HStack(spacing: 14) {
                             Image(systemName: "doc.text").font(.system(size: 22, weight: .light)).foregroundStyle(Brand.ink)
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(item.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
-                                Text(tr("\(item.format.uppercased()) 결과물, 미리보기")).font(Brand.suit(10)).foregroundStyle(Brand.gray)
+                                Text(item.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
+                                Text(tr("\(item.format.uppercased()) 결과물, 미리보기")).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
                             }
                             Spacer(minLength: 24); Image(systemName: "arrow.up.right").font(.system(size: 13)).foregroundStyle(Brand.ink)
                         }.padding(.horizontal, 16).frame(width: 360, height: 68, alignment: .leading)
@@ -432,8 +432,8 @@ struct ChatView: View {
                 if let proposal = message.automation {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(proposal.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
-                            Text(tr("\(proposal.intervalHours)시간마다, 앱 실행 중")).font(Brand.suit(10)).foregroundStyle(Brand.gray)
+                            Text(proposal.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
+                            Text(tr("\(proposal.intervalHours)시간마다, 앱 실행 중")).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
                         }
                         Spacer()
                         Button(message.approvedAutomationID == nil ? tr("예약안 확인") : tr("등록됨")) { pendingAutomation = message }
@@ -462,16 +462,16 @@ struct ChatView: View {
                         if ["cancelled", "interrupted"].contains(message.status) {
                             HStack(spacing: 4) {
                                 Image(systemName: "record.circle").font(.system(size: 11))
-                                Text(tr("중단됨")).font(Brand.suit(11))
+                                Text(tr("중단됨")).font(Brand.font(.caption))
                             }.foregroundStyle(Brand.tabText)
                         }
                         if message.status == "failed" {
                             Button(tr("요청 다시 입력")) {
                                 if let index = chat.messages.firstIndex(where: { $0.id == message.id }),
                                    let request = chat.messages[..<index].last(where: { $0.role == "user" }) { chat.draft = request.text }
-                            }.font(Brand.suit(10))
+                            }.font(Brand.font(.tag))
                         }
-                    }.buttonStyle(.plain).foregroundStyle(Brand.gray).font(Brand.suit(11))
+                    }.buttonStyle(.plain).foregroundStyle(Brand.gray).font(Brand.font(.caption))
                 }
                 if expandedSources.contains(message.id) {
                     // 본문의 [1] 번호와 맞도록 순서, 번호를 그대로 둔다
@@ -480,7 +480,7 @@ struct ChatView: View {
                             Button { source = item } label: {
                                 HStack(spacing: 10) {
                                     Text("\(index + 1)").font(Brand.jost(10)).foregroundStyle(Brand.gray).frame(width: 14, alignment: .trailing)
-                                    Text(item.title).font(Brand.suit(11)).foregroundStyle(Brand.tabText).lineLimit(1)
+                                    Text(item.title).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
                                     Spacer(minLength: 8)
                                     Image(systemName: "arrow.up.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
                                 }.frame(height: 28).contentShape(Rectangle())
@@ -503,10 +503,10 @@ struct ChatView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if let proposal = message.automation {
-                        Text(proposal.title).font(Brand.suit(16)).foregroundStyle(Brand.tabText)
-                        Text(proposal.prompt).font(Brand.suit(13)).foregroundStyle(Brand.tabText).lineSpacing(6).textSelection(.enabled)
+                        Text(proposal.title).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.tabText)
+                        Text(proposal.prompt).font(Brand.font(.body)).foregroundStyle(Brand.tabText).lineSpacing(6).textSelection(.enabled)
                         Text(tr("\(proposal.intervalHours)시간마다 현재 자료 범위로 실행해요. LLM과 외부 API 사용량이 발생할 수 있어요."))
-                            .font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                            .font(Brand.font(.body)).foregroundStyle(Brand.gray)
                         VStack(alignment: .leading, spacing: 8) {
                             ChatInfoRow(label: tr("기록 범위"), value: ChatFocusButton.label(scope, choices: chat.focusChoices))
                             ChatInfoRow(label: tr("웹 검색"), value: scope.useWeb ? tr("허용") : tr("미허용"))
@@ -517,7 +517,7 @@ struct ChatView: View {
                             .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 6))
                             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
                         Label(tr("원본 파일 변경, 명령 실행, 메시지 발송은 하지 않아요. 앱 종료나 절전 중에는 실행되지 않아요."), systemImage: "info.circle")
-                            .font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                            .font(Brand.font(.body)).foregroundStyle(Brand.gray)
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 27).padding(.vertical, 24)
             }
@@ -546,7 +546,7 @@ enum ChatPalette {
 struct ChatTag: View {
     let text: String
     var body: some View {
-        Text(text).font(Brand.suit(10, .medium)).foregroundStyle(Brand.gray)
+        Text(text).font(Brand.font(.tag, .medium)).foregroundStyle(Brand.gray)
             .padding(.horizontal, 5).frame(height: 20)
             .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 4))
             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Brand.line))
@@ -576,7 +576,7 @@ struct ChatDialogButtonStyle: ButtonStyle {
     var primary = false
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Brand.suit(12, .medium))
+            .font(Brand.font(.body, .medium))
             .foregroundStyle(primary ? Color.white : Brand.tabText)
             .padding(.horizontal, 14).frame(height: 38)
             .background(RoundedRectangle(cornerRadius: 6).fill(primary ? Brand.accentDark : .white))
@@ -599,8 +599,8 @@ struct ChatDialogFrame<Content: View, Footer: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
-                Text(title).font(Brand.suit(22)).tracking(-0.77).foregroundStyle(Brand.ink).lineLimit(1).padding(.trailing, 30)
-                if let detail { Text(detail).font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 9) }
+                Text(title).font(Brand.font(.screenTitle)).tracking(-0.77).foregroundStyle(Brand.ink).lineLimit(1).padding(.trailing, 30)
+                if let detail { Text(detail).font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 9) }
             }.padding(.horizontal, 27).padding(.top, 25).padding(.bottom, 22)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(ChatPalette.soft)
@@ -624,8 +624,8 @@ private struct ChatInfoRow: View {
     let value: String
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Text(label).font(Brand.suit(11)).foregroundStyle(Brand.gray).frame(width: 72, alignment: .leading)
-            Text(value).font(Brand.suit(12)).foregroundStyle(Brand.tabText).textSelection(.enabled)
+            Text(label).font(Brand.font(.caption)).foregroundStyle(Brand.gray).frame(width: 72, alignment: .leading)
+            Text(value).font(Brand.font(.body)).foregroundStyle(Brand.tabText).textSelection(.enabled)
             Spacer(minLength: 0)
         }
     }
@@ -656,9 +656,9 @@ private struct ChatSourceSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if !source.location.isEmpty {
-                        Text(source.location).font(Brand.suit(11)).foregroundStyle(Brand.gray).textSelection(.enabled)
+                        Text(source.location).font(Brand.font(.caption)).foregroundStyle(Brand.gray).textSelection(.enabled)
                     }
-                    Text(source.excerpt).font(Brand.suit(13)).foregroundStyle(Brand.tabText).lineSpacing(6).textSelection(.enabled)
+                    Text(source.excerpt).font(Brand.font(.body)).foregroundStyle(Brand.tabText).lineSpacing(6).textSelection(.enabled)
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 27).padding(.vertical, 24)
             }
         } footer: {
@@ -693,8 +693,8 @@ private struct ChatSchedulesView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     VStack(spacing: 0) {
                         Image(systemName: "calendar.badge.clock").font(.system(size: 26, weight: .light)).foregroundStyle(Brand.tabText)
-                        Text(tr("등록된 예약이 없어요")).font(Brand.suit(17, .medium)).foregroundStyle(Brand.ink).padding(.top, 16)
-                        Text(tr("채팅에서 반복할 일을 요청하고 예약안을 승인해 주세요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 10)
+                        Text(tr("등록된 예약이 없어요")).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink).padding(.top, 16)
+                        Text(tr("채팅에서 반복할 일을 요청하고 예약안을 승인해 주세요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 10)
                     }.frame(maxWidth: .infinity, maxHeight: .infinity)
                     Button { dismiss() } label: {
                         HStack(spacing: 8) { Text(tr("채팅에서 예약안 만들기")); Image(systemName: "arrow.up.right").font(.system(size: 11)) }
@@ -708,9 +708,9 @@ private struct ChatSchedulesView: View {
                                 HStack(spacing: 2) {
                                     Button { selectedID = job.id } label: {
                                         VStack(alignment: .leading, spacing: 4) {
-                                            Text(job.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
+                                            Text(job.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
                                             Text(tr("\(job.intervalHours)시간마다, \(job.lastStatus)"))
-                                                .font(Brand.suit(10)).foregroundStyle(Brand.gray).lineLimit(1)
+                                                .font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
                                         }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                                     }.buttonStyle(.plain)
                                     ChatIconButton(systemName: job.enabled ? "pause.fill" : "play.fill", help: job.enabled ? tr("일시 중지") : tr("다시 시작")) { chat.toggle(job) }
@@ -726,11 +726,11 @@ private struct ChatSchedulesView: View {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack(spacing: 8) {
-                                    Text(job.title).font(Brand.suit(16)).foregroundStyle(Brand.ink)
+                                    Text(job.title).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink)
                                     ChatTag(text: job.enabled ? tr("실행 대기") : tr("일시 중지됨"))
                                 }
-                                Text(tr("요청 내용")).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 4)
-                                Text(job.prompt).font(Brand.suit(13)).foregroundStyle(Brand.tabText).lineSpacing(5)
+                                Text(tr("요청 내용")).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.top, 4)
+                                Text(job.prompt).font(Brand.font(.body)).foregroundStyle(Brand.tabText).lineSpacing(5)
                                     .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                                 Rectangle().fill(Brand.line).frame(height: 1).padding(.vertical, 4)
                                 ChatInfoRow(label: tr("실행 간격"), value: tr("\(job.intervalHours)시간마다"))
@@ -751,7 +751,7 @@ private struct ChatSchedulesView: View {
             }
         } footer: {
             Spacer()
-            Button(tr("닫기")) { dismiss() }.buttonStyle(.plain).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText)   // CH-10: 테두리 없는 글자 단추
+            Button(tr("닫기")) { dismiss() }.buttonStyle(.plain).font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText)   // CH-10
         }
         .alert(tr("예약 작업 삭제"), isPresented: $confirmDelete) {
             Button(tr("취소"), role: .cancel) { deletingJob = nil }

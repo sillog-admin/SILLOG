@@ -68,40 +68,35 @@ struct SettingsView: View {
 
     private var general: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionLabel(tr("기본 설정")); basics
             SectionLabel(tr("권한")); permissions
             SectionLabel(tr("기록할 내용")); collection
+            if let launchError { Text(launchError).font(Brand.font(.caption)).foregroundStyle(Brand.text).padding(.vertical, 12) }
             SectionLabel(tr("업무 정리")); organizing
             StorageSettingsView()
+            SectionLabel(tr("앱")); SettingTiles { languageTile; appTiles }
         }
         .sheet(isPresented: $editingExcluded) {
             SettingSheet(tr("기록하지 않을 앱")) { ExcludedAppsView() }.environmentObject(state)
         }
     }
 
-    private var basics: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SettingTiles(columns: 3) {
-                SettingTile(tr("언어")) {
-                    BrandMenu(selection: Binding(get: { state.settings.language.rawValue },
-                                                 set: { state.settings.language = AppLanguage(rawValue: $0) ?? .ko }),
-                              options: [("ko", "한국어"), ("en", "English")], width: 120)
-                }
-                .help(tr("화면과 AI가 만드는 업무 이름·요약에 써요. 이미 만든 기록은 그대로예요."))
-                SettingTile(tr("로그인 시 실행")) {
-                    Toggle("", isOn: $launchAtLogin).toggleStyle(BrandSwitchStyle())
-                        .disabled(!launchStatusLoaded)
-                        .onChange(of: launchAtLogin) { _, enabled in if launchStatusLoaded { setLaunchAtLogin(enabled) } }
-                }
-                .help(tr("Mac에 로그인하면 메뉴 막대에서 시작해요."))
-                SettingTile(tr("Dock 아이콘")) {
-                    Toggle("", isOn: $state.settings.showDockIcon).toggleStyle(BrandSwitchStyle())
-                }
-                .help(tr("끄면 메뉴 막대에만 보여요."))
-            }
-            if let launchError {
-                Text(launchError).font(Brand.suit(11)).foregroundStyle(Brand.text).padding(.vertical, 12)
-            }
+    private var languageTile: some View {
+        SettingTile(tr("언어"), detail: tr("화면과 AI가 만드는 업무 이름·요약"), icon: "globe") {
+            PillPicker(selection: Binding(get: { state.settings.language.rawValue },
+                                          set: { state.settings.language = AppLanguage(rawValue: $0) ?? .ko }),
+                       options: [("ko", "한국어"), ("en", "English")])
+        }
+        .help(tr("화면과 AI가 만드는 업무 이름·요약에 써요. 이미 만든 기록은 그대로예요."))
+    }
+
+    @ViewBuilder private var appTiles: some View {
+        SettingTile(tr("로그인 시 실행"), detail: tr("Mac에 로그인하면 메뉴 막대에서 시작해요."), icon: "power") {
+            Toggle("", isOn: $launchAtLogin).toggleStyle(BrandSwitchStyle())
+                .disabled(!launchStatusLoaded)
+                .onChange(of: launchAtLogin) { _, enabled in if launchStatusLoaded { setLaunchAtLogin(enabled) } }
+        }
+        SettingTile(tr("Dock 아이콘"), detail: tr("끄면 메뉴 막대에만 보여요."), icon: "dock.rectangle") {
+            Toggle("", isOn: $state.settings.showDockIcon).toggleStyle(BrandSwitchStyle())
         }
     }
 
@@ -113,7 +108,7 @@ struct SettingsView: View {
             let names = [Permissions.accessibilityName, tr("화면 기록"), tr("알림")] + (AppFeatures.calendarOn ? [tr("캘린더")] : [])
             SettingTile(names.joined(separator: " · "), icon: "checkmark.shield") {
                 Label(tr("모두 허용됨"), systemImage: "checkmark.circle.fill")
-                    .font(Brand.suit(11, .semibold)).foregroundStyle(ActivityLogView.okColor)
+                    .font(Brand.font(.caption, .semibold)).foregroundStyle(ActivityLogView.okColor)
             }
         } else {
             permissionTiles
@@ -169,12 +164,12 @@ struct SettingsView: View {
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: icon).font(.system(size: 14)).foregroundStyle(Brand.ink).frame(width: 18)
-                Text(title).font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink)
+                Text(title).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
                 Spacer(minLength: 4)
                 Label(granted ? tr("허용됨") : tr("꺼짐"), systemImage: granted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                    .font(Brand.suit(11, .semibold)).foregroundStyle(color)
+                    .font(Brand.font(.caption, .semibold)).foregroundStyle(color)
             }
-            Text(detail).font(Brand.suit(11)).foregroundStyle(Brand.tabText).fixedSize(horizontal: false, vertical: true).padding(.top, 10)
+            Text(detail).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).fixedSize(horizontal: false, vertical: true).padding(.top, 10)
             Spacer(minLength: 12)
             if !granted { Button(tr("허용하기"), action: request).buttonStyle(BrandButtonStyle()) }
         }
@@ -249,7 +244,7 @@ struct SettingsView: View {
 
 /// 알약 하나. 고른 것은 바탕 #EAE3DC에 1pt 테두리 #CCBEB3와 글자 #3D2F27 medium, 안 고른 것은 바탕 #F3F1EF와 글자 #4A4541.
 /// 진한 갈색 채움 알약은 쓰지 않는다. 테두리는 선 대신 채움 두 겹(바깥 테두리색, 안쪽 바탕색)으로 그린다: 같은 모양이고 화면 캡처 때 끝이 지저분해지지 않는다.
-private struct SettingPill<Content: View>: View {
+struct SettingPill<Content: View>: View {
     let on: Bool
     let action: () -> Void
     @ViewBuilder let content: () -> Content
@@ -257,7 +252,7 @@ private struct SettingPill<Content: View>: View {
     var body: some View {
         Button(action: action) {
             content()
-                .font(Brand.suit(11, on ? .medium : .regular))
+                .font(Brand.font(.caption, on ? .medium : .regular))
                 .foregroundStyle(on ? Color(hex: 0x3D2F27) : Brand.tabText)
                 .padding(.horizontal, 14).frame(height: 28)
                 .background {
@@ -271,17 +266,65 @@ private struct SettingPill<Content: View>: View {
     }
 }
 
-/// Jev 로고 (Resources/Brand/jev.png). Brand 의 그림 불러오기와 같은 방식이고, 그림을 못 찾으면 아무것도 그리지 않는다
-private struct SettingJevLogo: View {
-    let size: CGFloat
-    private static let image: NSImage? = {
-        let url = BundledResources.url(forResource: "jev", withExtension: "png", subdirectory: "Brand", main: .main) { .module }
-        return url.flatMap(NSImage.init(contentsOf:))
-    }()
+/// A few options picked directly as pills; for lists short enough that a menu only hides them.
+struct PillPicker: View {
+    @Binding var selection: String
+    let options: [(String, String)]
+    var logos = false
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(options, id: \.0) { value, label in
+                SettingPill(on: selection == value, action: { selection = value }) {
+                    HStack(spacing: 5) {
+                        if logos { ProviderLogo(kind: value).frame(width: 12, height: 12) }
+                        Text(label)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// One usage window of the ChatGPT plan: window length, a short bar of what is left, the percent, and when it resets.
+private struct UsageMeter: View {
+    let window: CodexUsage.Window
+
+    private var left: Double { window.remainingPercent }
+    private var color: Color { left < 10 ? ActivityLogView.failColor : Brand.ink }
+    private var reset: String? {
+        let seconds = window.resetAt - Date().timeIntervalSince1970
+        guard seconds > 0 else { return nil }
+        let hours = Int(seconds / 3600)
+        return hours >= 24 ? tr("\(hours / 24)일 뒤 초기화") : hours >= 1 ? tr("\(hours)시간 뒤 초기화") : tr("곧 초기화")
+    }
 
     var body: some View {
-        if let image = Self.image {
-            Image(nsImage: image).resizable().interpolation(.high).frame(width: size, height: size).clipShape(Circle())
+        HStack(spacing: 7) {
+            Text(verbatim: window.label).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+            ZStack(alignment: .leading) {
+                Capsule().fill(Brand.line)
+                Capsule().fill(color).frame(width: 64 * left / 100)
+            }
+            .frame(width: 64, height: 6)
+            Text(tr("\(Int(left.rounded()))% 남음")).font(Brand.font(.body, .semibold)).foregroundStyle(color).monospacedDigit()
+            if let reset { Text(reset).font(Brand.font(.caption)).foregroundStyle(Brand.gray) }
+        }
+        .padding(.trailing, 6)
+    }
+}
+
+/// Connection logo: ChatGPT and OpenAI Decisions use the OpenAI mark, Jev its own logo, an API server a server symbol.
+struct ProviderLogo: View {
+    let kind: String
+
+    var body: some View {
+        switch kind {
+        case "codex", "decisions":
+            if let mark = Brand.openAIMark { Image(nsImage: mark).renderingMode(.template).resizable().scaledToFit().foregroundStyle(Color(hex: 0x4A3E37)) }
+        case "jev":
+            if let logo = Brand.jevLogo { Image(nsImage: logo).resizable().interpolation(.high).scaledToFit().clipShape(Circle()) }
+        default:
+            Image(systemName: "server.rack").resizable().scaledToFit().foregroundStyle(Brand.tabText)
         }
     }
 }
@@ -298,13 +341,13 @@ private struct SettingCheckStatus: View {
             if let result {
                 HStack(spacing: 6) {
                     if !testing { Image(systemName: result.isOK ? "checkmark.circle.fill" : "xmark.circle.fill").font(.system(size: 13)) }
-                    Text(result.message).font(Brand.suit(11)).lineLimit(3).multilineTextAlignment(.trailing).textSelection(.enabled)
+                    Text(result.message).font(Brand.font(.caption)).lineLimit(3).multilineTextAlignment(.trailing).textSelection(.enabled)
                 }.foregroundStyle(testing ? Brand.gray : result.isOK ? Color(hex: 0x2D8053) : Color(hex: 0xC9452E))
             } else {
-                Text(tr("확인 전")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                Text(tr("확인 전")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
             }
             if testing { ProgressView().controlSize(.small) }
-            Button(action: action) { Text(tr("연결 확인")).font(Brand.suit(12, .medium)) }   // Figma 단추 글자는 12
+            Button(action: action) { Text(tr("연결 확인")).font(Brand.font(.body, .medium)) }
                 .buttonStyle(BrandButtonStyle(kind: .primary)).disabled(testing)
         }
     }
@@ -322,7 +365,7 @@ private struct ModelDropdown: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if !models.isEmpty { BrandMenu(selection: $selection, options: choices, width: 260) }
+            if !models.isEmpty { BrandMenu(selection: $selection, options: choices, width: 200, pill: true) }
             if models.isEmpty || directEntry {
                 BrandInput(text: $selection, placeholder: tr("모델 이름 직접 입력"), width: 260, height: 34)
             }
@@ -342,6 +385,14 @@ private struct ConnectionSection: View {
     /// The connection whose address or key fields are open under the tiles.
     private enum Panel { case api, jev, decisions }
 
+    /// The model row whose API pill opened the API fields; the fields sit right under it.
+    private enum Role { case organize, chat, judge }
+    @State private var apiUnder: Role = .organize
+
+    @ViewBuilder private func apiFields(under role: Role) -> some View {
+        if panel == .api, usesAPI, apiUnder == role { SettingCard { apiRows } }
+    }
+
     /// Organize and chat share one API server; writing its address or key also writes the chat copy.
     private func shared(_ main: WritableKeyPath<AppSettings, String>, _ chat: WritableKeyPath<AppSettings, String>) -> Binding<String> {
         Binding(get: { state.settings[keyPath: main] },
@@ -349,9 +400,12 @@ private struct ConnectionSection: View {
     }
 
     private var judgeChoice: Binding<String> {
-        Binding(get: { state.settings.judgeChoice.rawValue },
+        Binding(get: { state.settings.judgeChoice == .customAPI ? "api" : state.settings.judgeChoice.rawValue },
                 set: { state.settings.judgeChoice = AppSettings.JudgeChoice(rawValue: $0) ?? .codex })
     }
+
+    private var judge: AppSettings.JudgeChoice { state.settings.judgeChoice }
+    private var usesAPI: Bool { state.settings.llmProvider == "openai" || state.settings.chatProvider == "openai" || judge == .api }
 
     private func chatUses(_ provider: String) -> Bool { state.settings.effectiveChatProvider == provider }
 
@@ -375,21 +429,26 @@ private struct ConnectionSection: View {
             SectionLabel(tr("연결"))
             SettingTiles {
                 codexTile
-                connectionTile(tr("API 서버"), detail: tr("OpenAI 호환 서버"), ready: false, open: .api, closed: tr("설정"))
-                connectionTile("Jev", detail: tr("판단 모델 전용"), ready: !state.settings.jevAPIKey.isEmpty, open: .jev, closed: tr("키 입력"))
-                connectionTile("OpenAI Decisions", detail: tr("판단 모델 전용"), ready: !state.settings.decisionsAPIKey.isEmpty, open: .decisions, closed: tr("키 입력"))
-            }
-            codexExtras
-            switch panel {
-            case .api: SettingCard { apiRows }
-            case .jev: choiceKeyRow(.jev)
-            case .decisions: choiceKeyRow(.decisions)
-            case nil: EmptyView()
+                codexExtras
+                // Connections appear only while a model row uses them; each one's fields and check sit right under it.
+                if usesAPI { connectionTile(tr("API 서버"), detail: tr("OpenAI 호환 서버"), logo: "openai", ready: false, open: .api, closed: tr("설정")) }
+                if judge == .jev {
+                    connectionTile("Jev", detail: tr("판단 모델 전용"), logo: "jev", ready: !state.settings.jevAPIKey.isEmpty, open: .jev, closed: tr("키 입력"))
+                    if panel == .jev { choiceKeyRow(.jev) }
+                }
+                if judge == .decisions {
+                    connectionTile("OpenAI Decisions", detail: tr("판단 모델 전용"), logo: "decisions", ready: !state.settings.decisionsAPIKey.isEmpty, open: .decisions, closed: tr("키 입력"))
+                    if panel == .decisions { choiceKeyRow(.decisions) }
+                }
             }
             SectionLabel(tr("모델"))
-            VStack(spacing: 8) { organizeRow; chatRow; judgeRow }
+            VStack(spacing: 8) {
+                organizeRow; modelNote(organizeModelError); apiFields(under: .organize)
+                chatRow; modelNote(chatModelError); apiFields(under: .chat)
+                judgeRow; modelNote(judgeModelError); apiFields(under: .judge)
+            }
             Text(tr("기록은 Mac에 저장되고, 정리와 채팅을 쓸 때 창 제목, 주소, 화면 텍스트 일부, 질문, 새 파일 정보가 연결한 AI 계정으로 전송돼요. 연결 확인은 개인 자료 없이 시험 호출만 하고, 모델 사용량이 소량 발생해요."))
-                .font(Brand.suit(11)).foregroundStyle(Brand.gray).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+                .font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 4).padding(.top, 14)
         }
         .onAppear(perform: splitChat)
@@ -397,11 +456,19 @@ private struct ConnectionSection: View {
         .onChange(of: state.settings.decisionsAPIKey) { _, _ in choiceChecks[.decisions] = nil }
         // Picking a connection that still needs an address or key opens its fields.
         .onChange(of: state.settings.judgeChoice) { _, choice in
-            if choice == .api { panel = .api }
+            if choice == .api { apiUnder = .judge; panel = .api }
             if choice == .jev, state.settings.jevAPIKey.isEmpty { panel = .jev }
             if choice == .decisions, state.settings.decisionsAPIKey.isEmpty { panel = .decisions }
         }
-        .onChange(of: [state.settings.llmProvider, state.settings.chatProvider]) { _, used in if used.contains("openai") { panel = .api } }
+        .onChange(of: [state.settings.llmProvider, state.settings.chatProvider]) { old, used in
+            if used[0] == "openai", old[0] != "openai" { apiUnder = .organize }
+            else if used[1] == "openai", old[1] != "openai" { apiUnder = .chat }
+            // The row that opened the fields left API: move them to a row still on it.
+            else if apiUnder == .organize, used[0] != "openai", used[1] == "openai" { apiUnder = .chat }
+            else if apiUnder == .chat, used[1] != "openai", used[0] == "openai" { apiUnder = .organize }
+            if used.contains("openai") { panel = .api }
+            else if panel == .api, state.settings.judgeChoice != .api { panel = nil }
+        }
         .task(id: [state.settings.llmProvider, state.settings.chatProvider, state.settings.judgeChoice.rawValue, state.settings.llmBaseURL, state.settings.llmAPIKey]) {
             let s = state.settings
             let used = s.llmProvider == "openai" || s.chatProvider == "openai" || s.judgeChoice == .api
@@ -426,8 +493,8 @@ private struct ConnectionSection: View {
                                         column: CGFloat? = 460, @ViewBuilder _ content: () -> Content) -> some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: -3) {
-                Text(title).font(Brand.suit(13)).foregroundStyle(Brand.ink).frame(height: slot)
-                if let sub { Text(sub).font(Brand.suit(11)).foregroundStyle(Brand.gray).frame(height: 13).offset(y: 1) }
+                Text(title).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink).frame(height: slot)
+                if let sub { Text(sub).font(Brand.font(.caption)).foregroundStyle(Brand.gray).frame(height: 13).offset(y: 1) }
             }
             Spacer(minLength: 16)
             if let column { content().frame(width: column, alignment: .trailing) } else { content() }
@@ -445,7 +512,7 @@ private struct ConnectionSection: View {
     }
 
     private func okLabel(_ text: String) -> some View {
-        Label(text, systemImage: "checkmark.circle.fill").font(Brand.suit(11, .semibold)).foregroundStyle(ActivityLogView.okColor)
+        Label(text, systemImage: "checkmark.circle.fill").font(Brand.font(.caption, .semibold)).foregroundStyle(ActivityLogView.okColor)
     }
 
     // MARK: 연결
@@ -455,18 +522,19 @@ private struct ConnectionSection: View {
         switch state.codexStatus {
         case .loggedIn(let email, let plan, _):
             let windows = [state.codexUsage?.primary, state.codexUsage?.secondary].compactMap { $0 }
-            let parts = [plan] + windows.map { tr("\($0.label) \(Int($0.remainingPercent.rounded()))% 남음") }
-            SettingTile(tr("ChatGPT 구독"), detail: parts.compactMap { $0 }.joined(separator: " · ")) {
+            SettingTile(tr("ChatGPT 구독"), detail: plan, logo: "codex") {
+                // Remaining usage up front: bar, percent, and when it resets.
+                ForEach(Array(windows.enumerated()), id: \.offset) { _, window in UsageMeter(window: window) }
+                if !windows.isEmpty { Rectangle().fill(Brand.line).frame(width: 1, height: 16).padding(.horizontal, 4) }
                 switch check("codex") {
                 case .checking: ProgressView().controlSize(.small)
-                case .failed: Label(tr("확인 실패"), systemImage: "xmark.circle.fill").font(Brand.suit(11, .semibold)).foregroundStyle(ActivityLogView.failColor)
+                case .failed: Label(tr("확인 실패"), systemImage: "xmark.circle.fill").font(Brand.font(.caption, .semibold)).foregroundStyle(ActivityLogView.failColor)
                 default: okLabel(tr("연결됨"))
                 }
                 Menu {
-                    Button(tr("연결 확인")) { runCheck("codex") }
-                    if state.codexModelsLoading { Button(tr("모델 검사 중단")) { state.cancelCodexModelLoading() } }
-                    else { Button(tr("모델 다시 확인")) { Task { await state.loadCodexModels(force: true) } } }
-                    Button(tr("사용량 자세히 보기")) { NSWorkspace.shared.open(CodexResponsesClient.usagePage) }
+                    // One check: the connection, then which models answer.
+                    if state.codexModelsLoading { Button(tr("확인 중단")) { state.cancelCodexModelLoading() } }
+                    else { Button(tr("연결 확인")) { runCheck("codex"); Task { await state.loadCodexModels(force: true) } } }
                     Divider()
                     Button(tr("로그아웃")) { state.logoutCodex() }
                 } label: {
@@ -476,7 +544,7 @@ private struct ConnectionSection: View {
             }
             .help(email ?? "")
         case .loggedOut:
-            SettingTile(tr("ChatGPT 구독"), detail: tr("로그인하면 정리와 채팅을 쓸 수 있어요")) {
+            SettingTile(tr("ChatGPT 구독"), detail: tr("로그인하면 정리와 채팅을 쓸 수 있어요"), logo: "codex") {
                 if state.deviceCode == nil {
                     Button(tr("ChatGPT 로그인")) { state.startCodexLogin() }.buttonStyle(BrandButtonStyle(kind: .primary))
                 }
@@ -485,8 +553,8 @@ private struct ConnectionSection: View {
     }
 
     /// A connection that needs an address or key: the button opens its fields under the tiles.
-    private func connectionTile(_ title: String, detail: String, ready: Bool, open target: Panel, closed: String) -> some View {
-        SettingTile(title, detail: detail) {
+    private func connectionTile(_ title: String, detail: String, logo: String, ready: Bool, open target: Panel, closed: String) -> some View {
+        SettingTile(title, detail: detail, logo: logo) {
             if ready { okLabel(tr("키 있음")) }
             Button(panel == target ? tr("닫기") : closed) { panel = panel == target ? nil : target }
                 .buttonStyle(BrandButtonStyle(kind: .primary))
@@ -503,20 +571,24 @@ private struct ConnectionSection: View {
         SettingRow(tr("API 서버 연결"), top: 16, bottom: 7) { SettingCheckStatus(result: check("openai"), action: { runCheck("openai") }) }
     }
 
-    /// Under the tiles: device code, the last check's full message, errors.
+    /// Under the ChatGPT tile: device code, the last connection check's full message, login messages.
     @ViewBuilder private var codexExtras: some View {
         if case .loggedOut = state.codexStatus, let code = state.deviceCode { deviceCodeRows(code) }
-        if case .loggedIn = state.codexStatus, let modelsError = state.codexModelsError { resultLine(modelsError) }
         if case .loggedIn = state.codexStatus, let result = check("codex"), result != .checking { resultLine(result.message) }
+        // "연결 확인" also checks the models, so their results land here too; a row repeats only its own model's line.
+        if case .loggedIn = state.codexStatus {
+            if let error = state.codexModelsError { resultLine(error) }
+            if let error = state.chatCodexModelsError, error != state.codexModelsError { resultLine(error) }
+        }
         if let message = state.codexMessage { resultLine(message) }
     }
 
     private func deviceCodeRows(_ code: DeviceCode) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(tr("열린 브라우저에 이 코드를 입력해 주세요")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.text)
+            Text(tr("열린 브라우저에 이 코드를 입력해 주세요")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.text)
                 .padding(.vertical, 16)
             VStack(alignment: .leading, spacing: 8) {
-                Text(tr("기기 코드")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                Text(tr("기기 코드")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 Text(code.userCode).font(Brand.jost(28)).tracking(1.4).foregroundStyle(Brand.ink).textSelection(.enabled)
             }
             .padding(.vertical, 14)
@@ -529,12 +601,25 @@ private struct ConnectionSection: View {
                 ProgressView().controlSize(.small)
             }
             .padding(.top, 14)
-            Text(tr("코드는 복사돼 있어요. 브라우저에 붙여 넣으세요.")).font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.top, 10).padding(.bottom, 14)
+            Text(tr("코드는 복사돼 있어요. 브라우저에 붙여 넣으세요.")).font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.top, 10).padding(.bottom, 14)
+        }
+    }
+
+    /// Model checks belong to the row whose model was checked: organize (and judge when only it is on ChatGPT), chat.
+    private var organizeModelError: String? { state.settings.llmProvider == "codex" ? state.codexModelFailures[state.settings.codexModel] : nil }
+    private var chatModelError: String? {
+        state.settings.effectiveChatProvider == "codex" ? state.chatCodexModelFailures[state.settings.effectiveChatCodexModel] : nil
+    }
+    private var judgeModelError: String? { judge == .codex ? state.codexModelFailures[state.settings.judgeCodexModel] : nil }
+
+    @ViewBuilder private func modelNote(_ text: String?) -> some View {
+        if case .loggedIn = state.codexStatus, let text {
+            resultLine(text).frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 6)
         }
     }
 
     private func resultLine(_ text: String) -> some View {
-        Text(text).font(Brand.suit(11)).foregroundStyle(Brand.text).textSelection(.enabled).padding(.horizontal, 4).padding(.top, 10)
+        Text(text).font(Brand.font(.caption)).foregroundStyle(Brand.text).textSelection(.enabled).padding(.horizontal, 4).padding(.top, 10)
     }
 
     // MARK: 모델
@@ -548,14 +633,14 @@ private struct ConnectionSection: View {
 
     private var organizeRow: some View {
         modelRow(tr("정리 모델"), tr("업무에 이름과 요약을 붙여요")) {
-            BrandMenu(selection: $state.settings.llmProvider, options: Self.connections, width: 150)
+            PillPicker(selection: $state.settings.llmProvider, options: Self.connections, logos: true)
             modelList(state.settings.llmProvider, codex: $state.settings.codexModel, openAI: $state.settings.llmModel, codexModels: state.codexModels)
         }
     }
 
     private var chatRow: some View {
         modelRow(tr("채팅 모델"), tr("채팅에서 질문에 답해요")) {
-            BrandMenu(selection: $state.settings.chatProvider, options: Self.connections, width: 150)
+            PillPicker(selection: $state.settings.chatProvider, options: Self.connections, logos: true)
             modelList(state.settings.chatProvider, codex: $state.settings.chatCodexModel, openAI: $state.settings.chatModel,
                       codexModels: state.chatCodexModels.isEmpty ? state.codexModels : state.chatCodexModels)
         }
@@ -563,8 +648,8 @@ private struct ConnectionSection: View {
 
     private var judgeRow: some View {
         modelRow(tr("판단 모델"), tr("기록이 어느 업무인지 골라요")) {
-            BrandMenu(selection: judgeChoice, options: [("codex", tr("ChatGPT 구독")), ("api", tr("API 서버")), ("customAPI", tr("다른 API 서버")),
-                                                         ("jev", "Jev"), ("decisions", "OpenAI Decisions")], width: 150)
+            PillPicker(selection: judgeChoice, options: [("codex", tr("ChatGPT 구독")), ("decisions", "OpenAI Decisions"),
+                                                          ("jev", "Jev"), ("api", tr("API 서버"))], logos: true)
             switch state.settings.judgeChoice {
             case .codex: codexModelField($state.settings.judgeCodexModel, state.codexModels)
             case .api: ModelDropdown(selection: $state.settings.judgeAPIModel, models: apiModels.map { ($0, $0) }, directEntry: true)
@@ -601,9 +686,8 @@ private struct ConnectionSection: View {
                 HStack(spacing: 12) {
                     keyLink(jev ? AppSettings.jevSite : AppSettings.openAIKeySite, help: jev ? tr("Jev 사이트에서 키를 만들어요") : tr("OpenAI 사이트에서 키를 만들어요"))
                     HStack(spacing: 8) {
-                        if jev { SettingJevLogo(size: 16) }
                         SecureField("", text: choiceKey(kind), prompt: Text(jev ? tr("Jev 사이트에서 받은 키를 붙여 넣어요") : tr("OpenAI에서 받은 키를 붙여 넣어요")).foregroundStyle(Color(hex: 0x9E9994)))
-                            .textFieldStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.text)
+                            .textFieldStyle(.plain).font(Brand.font(.body)).foregroundStyle(Brand.text)
                             .focused($focusedKey, equals: kind)
                     }
                     .settingField()
@@ -644,9 +728,9 @@ private struct ConnectionSection: View {
     @ViewBuilder private func codexModelField(_ selection: Binding<String>, _ models: [CodexModel]) -> some View {
         if state.codexModelsLoading {
             HStack(spacing: 8) {
-                Text(tr("불러오는 중…")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                Text(tr("불러오는 중…")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 ProgressView().controlSize(.mini)
-            }.frame(width: 260, height: 36)
+            }.frame(width: 200, height: 28)
         } else {
             ModelDropdown(selection: selection, models: models.map { ($0.slug, $0.displayName) })
         }
@@ -689,7 +773,7 @@ struct SettingRow<Trailing: View>: View {
                 Image(systemName: icon).font(.system(size: 13)).foregroundStyle(Brand.tabText).frame(width: 18)
             }
             // Figma 설정 줄에는 설명이 없다: 회색 설명 글은 그리지 않고 마우스를 올리면 말풍선으로만 보인다
-            Text(title).font(Brand.suit(13)).foregroundStyle(Brand.ink)
+            Text(title).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
                 .help(detail ?? "")
             Spacer(minLength: 16)
             trailing()
@@ -711,7 +795,7 @@ struct SectionLabel: View {
         self.text = text; self.top = top; self.inset = inset; self.bottom = bottom; self.height = height
     }
     var body: some View {
-        Text(text).font(Brand.suit(11, .medium)).foregroundStyle(Brand.gray)
+        Text(text).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.gray)
             .frame(height: height).padding(.horizontal, inset).padding(.top, top).padding(.bottom, bottom)
     }
 }
@@ -721,7 +805,7 @@ struct InfoLine: View {
     let text: String
     init(_ text: String) { self.text = text }
     var body: some View {
-        Text(text).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.horizontal, 4).padding(.vertical, 10)
+        Text(text).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.horizontal, 4).padding(.vertical, 10)
     }
 }
 
@@ -730,7 +814,7 @@ struct NoteBox: View {
     let text: String
     init(_ text: String) { self.text = text }
     var body: some View {
-        Text(text).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.vertical, 6)
+        Text(text).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.vertical, 6)
     }
 }
 
@@ -739,62 +823,55 @@ struct GrayBadge: View {
     let text: String
     init(_ text: String) { self.text = text }
     var body: some View {
-        Text(text).font(Brand.suit(10, .medium)).foregroundStyle(Brand.gray)
+        Text(text).font(Brand.font(.tag, .medium)).foregroundStyle(Brand.gray)
             .padding(.horizontal, 5).padding(.vertical, 2)
             .background(RoundedRectangle(cornerRadius: 4).fill(Brand.paper))
     }
 }
 
-/// On/off switch in the brand brown, so it does not read as the check mark used for status.
+/// Native small macOS switch; kept as a style so every settings toggle changes in one place.
 struct BrandSwitchStyle: ToggleStyle {
-    @Environment(\.isEnabled) private var enabled
     func makeBody(configuration: Configuration) -> some View {
-        Button { configuration.isOn.toggle() } label: {
-            Capsule().fill(configuration.isOn ? Color(hex: 0x86756B) : Color(hex: 0xD6D1CC))
-                .frame(width: 36, height: 22)
-                .overlay(alignment: configuration.isOn ? .trailing : .leading) { Circle().fill(.white).padding(2) }
-                .opacity(enabled ? 1 : 0.4)
-                .animation(.easeOut(duration: 0.15), value: configuration.isOn)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityValue(configuration.isOn ? tr("켜짐") : tr("꺼짐"))
+        Toggle(configuration).toggleStyle(.switch).controlSize(.small).labelsHidden().tint(Color(hex: 0x86756B))
     }
 }
 
-/// One setting on a bordered tile: icon, title over a one-line description, control on the right.
+/// One setting as a plain row: icon, title over a one-line description, control on the right, hairline below.
 struct SettingTile<Trailing: View>: View {
     let title: String
     let detail: String?
     let icon: String?
+    /// A brand logo in place of the symbol (see ProviderLogo)
+    let logo: String?
     @ViewBuilder let trailing: () -> Trailing
 
-    init(_ title: String, detail: String? = nil, icon: String? = nil, @ViewBuilder trailing: @escaping () -> Trailing) {
-        self.title = title; self.detail = detail; self.icon = icon; self.trailing = trailing
+    init(_ title: String, detail: String? = nil, icon: String? = nil, logo: String? = nil, @ViewBuilder trailing: @escaping () -> Trailing) {
+        self.title = title; self.detail = detail; self.icon = icon; self.logo = logo; self.trailing = trailing
     }
 
     var body: some View {
         HStack(spacing: 10) {
             if let icon { Image(systemName: icon).font(.system(size: 14)).foregroundStyle(Brand.tabText).frame(width: 20) }
+            if let logo { ProviderLogo(kind: logo).frame(width: 18, height: 18).frame(width: 20) }
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(Brand.suit(13)).foregroundStyle(Brand.ink)
-                if let detail { Text(detail).font(Brand.suit(11)).foregroundStyle(Brand.gray).fixedSize(horizontal: false, vertical: true) }
+                Text(title).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
+                if let detail { Text(detail).font(Brand.font(.caption)).foregroundStyle(Brand.gray).fixedSize(horizontal: false, vertical: true) }
             }
             Spacer(minLength: 8)
             trailing()
         }
-        .padding(.horizontal, 14).padding(.vertical, 10)
-        .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Brand.line))
+        .padding(.horizontal, 4).padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+        .overlay(alignment: .bottom) { Rectangle().fill(Brand.line).frame(height: 1) }
     }
 }
 
-/// Tiles in equal columns.
+/// Rows stacked in one column; `columns` is ignored since borderless tiles read as loose text side by side.
 struct SettingTiles<Content: View>: View {
-    var columns = 2
+    var columns = 1
     @ViewBuilder let content: () -> Content
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: columns), spacing: 8, content: content)
+        VStack(alignment: .leading, spacing: 0, content: content)
     }
 }
 
@@ -809,7 +886,7 @@ struct SettingSheet<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text(title).font(Brand.suit(16, .bold)).foregroundStyle(Brand.ink)
+                Text(title).font(Brand.font(.sectionTitle, .semibold)).foregroundStyle(Brand.ink)
                 Spacer()
                 Button(tr("닫기")) { dismiss() }.keyboardShortcut(.cancelAction).buttonStyle(BrandButtonStyle(kind: .primary))
             }
@@ -839,6 +916,8 @@ struct BrandMenu: View {
     @Binding var selection: String
     let options: [(String, String)]
     let width: CGFloat
+    /// Matches the neighboring pill buttons.
+    var pill = false
 
     var body: some View {
         Menu {
@@ -846,13 +925,24 @@ struct BrandMenu: View {
                 Button(option.1) { selection = option.0 }
             }
         } label: {
-            HStack {
-                Text(options.first { $0.0 == selection }?.1 ?? selection).font(Brand.suit(12)).foregroundStyle(Brand.text).lineLimit(1)
-                Spacer(minLength: 4)
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .medium)).foregroundStyle(Brand.tabText)
+            if pill {
+                HStack(spacing: 8) {
+                    Text(options.first { $0.0 == selection }?.1 ?? selection).font(Brand.font(.caption, .medium)).foregroundStyle(Color(hex: 0x3D2F27)).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .medium)).foregroundStyle(Brand.tabText)
+                }
+                .padding(.horizontal, 14).frame(width: width, height: 28)
+                .background(Capsule().fill(Color(hex: 0xF3F1EF)))
+                .contentShape(Capsule())
+            } else {
+                HStack {
+                    Text(options.first { $0.0 == selection }?.1 ?? selection).font(Brand.font(.body)).foregroundStyle(Brand.text).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .medium)).foregroundStyle(Brand.tabText)
+                }
+                .settingField()
+                .frame(width: width)
             }
-            .settingField()
-            .frame(width: width)
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
@@ -878,7 +968,7 @@ struct BrandInput: View {
                 TextField("", text: $text, prompt: Text(placeholder).foregroundStyle(Brand.sub))
             }
         }
-        .textFieldStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.text)
+        .textFieldStyle(.plain).font(Brand.font(.body)).foregroundStyle(Brand.text)
         .focused($focused)
         .settingField(height: height)
         .frame(width: width)

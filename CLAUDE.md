@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Sillog(실록)는 macOS에서 앱·창·URL·화면 텍스트·파일·AI 코딩 도구 대화·녹음을 기록하고, LLM으로 업무 그래프를 만든 뒤 그 기록을 근거로 채팅과 결과물을 만드는 네이티브 앱입니다. 사용자 설명은 `README.md`, 환경변수와 데이터 조회는 `docs/development.md`, OAuth 설정은 `docs/connectors.md`에 있습니다.
+SILLOG(실록)는 macOS에서 앱·창·URL·화면 텍스트·파일·AI 코딩 도구 대화·녹음을 기록하고, LLM으로 업무 그래프를 만든 뒤 그 기록을 근거로 채팅과 결과물을 만드는 네이티브 앱입니다. 사용자 설명은 `README.md`, 환경변수와 데이터 조회는 `docs/development.md`, OAuth 설정은 `docs/connectors.md`에 있습니다.
 
 ## 명령
 
@@ -55,7 +55,15 @@ LLM 클라이언트는 `Settings.swift`(`AppSettings`)의 값으로 `AppState.ma
 | 판단 모델 | `ActivityJudging`: `.gpt(LLMClient)` 또는 `.choice(ChoiceModel)` (보기 중 하나와 확률만 받음) | 위 둘 + `JevClient` (TypeSafe `/v1/systemone`), `DecisionsClient` (OpenAI `/v1/decisions`) |
 | 채팅 모델 | `ChatBackend`: `.codex` / `.model` | `CodexAppServerClient`, `OpenAICompatClient` |
 
-연결은 네 가지입니다. "ChatGPT 구독"은 앱 전용 OAuth 토큰으로 Codex 백엔드를 부르는 방식이고 공개 API가 아닙니다. "API 서버"는 OpenAI 호환 서버, "Jev"와 "OpenAI Decisions"는 판단 모델 전용입니다. 설정 화면은 [연결](계정·키)과 [용도별 모델](정리·채팅·판단이 어느 연결을 쓰는지)로 나뉩니다. 판단 모델 선택은 `AppSettings.judgeChoice`로 읽고 씁니다. API 키는 `AppSettings.save()`가 Keychain에 넣고 UserDefaults JSON에는 비워 둡니다.
+연결은 네 가지입니다. "ChatGPT 구독"은 앱 전용 OAuth 토큰으로 Codex 백엔드를 부르는 방식이고 공개 API가 아닙니다. "API 서버"는 OpenAI 호환 서버, "Jev"와 "OpenAI Decisions"는 판단 모델 전용입니다. 설정 화면은 [연결](계정·키)과 [용도별 모델](정리·채팅·판단이 어느 연결을 쓰는지)로 나뉩니다. 판단 모델 선택은 `AppSettings.judgeChoice`로 읽고 씁니다.
+
+설정 화면(`SettingsView.swift`의 `ConnectionSection`)은 이렇게 동작합니다.
+
+- 연결 목록에는 ChatGPT 구독만 늘 보입니다. API 서버, Jev, OpenAI Decisions는 그 연결을 쓰는 모델 줄이 있을 때만 나옵니다.
+- 정리, 채팅, 판단 모델은 모두 알약 단추로 연결을 고릅니다. 판단 모델 순서는 ChatGPT 구독, OpenAI Decisions, Jev, API 서버입니다. 연결 이름 앞에는 브랜드 로고(`ProviderLogo`)를 붙입니다.
+- 판단 모델의 "다른 API 서버"(`JudgeChoice.customAPI`)는 고르는 단추에서 뺐습니다. 예전 저장값은 그대로 읽히고 화면에는 "API 서버"로 보입니다.
+- API 서버 주소와 키 입력칸은 API 서버를 고른 모델 줄 바로 밑에 엽니다.
+- 결과 문구는 해당하는 자리에 둡니다. ChatGPT 구독의 "연결 확인"(연결과 모델 확인을 한 번에 함) 결과는 ChatGPT 구독 줄 밑에 나옵니다. 모델 줄 밑에는 그 줄에서 고른 모델이 실패했을 때만 그 모델 한 줄이 나옵니다(`codexModelFailures`, `chatCodexModelFailures`). API 키는 `AppSettings.save()`가 Keychain에 넣고 UserDefaults JSON에는 비워 둡니다.
 
 ## 코드 작성 규칙
 
@@ -70,6 +78,8 @@ LLM 클라이언트는 `Settings.swift`(`AppSettings`)의 값으로 `AppState.ma
 - **시각은 Unix 초(`Double`)로** 저장하고 주고받습니다. DB와 Core 전체가 이미 이렇게 되어 있습니다.
 - **비밀값은 Keychain에 둡니다.** API 키와 토큰은 `ChatSecrets`(서비스 `com.sillog.app.chat`)에 저장하고, UserDefaults·로그·DB·배치 기록에는 넣지 않습니다.
 - **화면 문구는 `tr("한국어 원문")`으로 씁니다.** 한국어 원문이 키이고, 영어는 `Sources/SillogCore/Localization/en.json` 한 곳에서 찾습니다. 보간 값은 키에서 `%@`로 바뀌고, 영어에서 순서를 바꿔야 하면 `%1$@`처럼 씁니다. 번역이 없으면 한국어 원문이 그대로 나옵니다. 저장값으로 쓰는 enum 원시값은 그대로 두고 화면에서만 `L10n.tr(key:)`로 바꿉니다. AppLog, 프롬프트, DB에 저장되는 이름은 감싸지 않습니다. 새 문구를 넣으면 `en.json`에도 추가합니다(`L10nTests`가 자리표시자 수를 확인합니다).
+- **글자 크기는 역할 6단계로만 씁니다.** 화면 글자는 `Brand.font(.역할)`로 지정합니다. 역할은 화면 제목(`.screenTitle`, 22 bold), 구역 제목(`.sectionTitle`, 15 medium), 줄 제목(`.rowTitle`, 13 medium), 본문(`.body`, 12), 보조 설명(`.caption`, 11), 작은 표식(`.tag`, 10)입니다. 크기가 아니라 그 글이 화면에서 하는 역할로 고르고, 굵기는 강조가 필요할 때만 두 번째 인자로 바꿉니다. `Brand.suit(크기)`를 직접 쓰는 것은 처음 실행 화면 같은 26pt 이상의 큰 글자뿐입니다. 숫자용 Jost 글꼴(`Brand.jost`)도 놓이는 자리의 역할 크기에 맞춥니다.
+- **이름은 SILLOG로 씁니다.** 화면 문구, 문서, 커밋 메시지, PR 설명에서 앱 이름은 대문자 `SILLOG`로 씁니다(`Sillog`, `sillog` 아님). 한국어 문장에서는 "실록"으로 읽어 조사를 붙입니다(SILLOG은, SILLOG이, SILLOG을). 코드 식별자(`SillogCore`, `SillogApp` 등 타깃·타입 이름), 번들 ID `com.sillog.app`, URL scheme `sillog`, 데이터 경로, `SILLOG_*` 환경변수는 호환성 때문에 지금 이름을 그대로 둡니다.
 - **언어 설정**은 `AppSettings.language`(`ko`/`en`)이고 `L10n.current`에 반영됩니다. 바꾸면 창 전체를 다시 그립니다(`View.localized`). 그래프·캘린더 웹 화면은 `WebL10n`이 같은 표로 글자를 바꿔 주므로 JS에는 한국어 원문을 그대로 씁니다. AI가 만드는 업무 이름·요약은 프롬프트의 `L10n.current.promptName`으로 언어를 정합니다.
 
 ## 검증

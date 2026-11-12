@@ -32,11 +32,11 @@ struct AccountPopover: View {
     private var signedIn: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                Text(String((email ?? "?").prefix(2)).uppercased()).font(Brand.suit(11, .semibold)).foregroundStyle(Brand.badgeText)
+                Text(String((email ?? "?").prefix(2)).uppercased()).font(Brand.font(.caption, .semibold)).foregroundStyle(Brand.badgeText)
                     .frame(width: 30, height: 30).background(Circle().fill(Brand.badgeFill))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(name).font(Brand.suit(13, .semibold)).foregroundStyle(Brand.ink).lineLimit(1)
-                    Text(email ?? "").font(Brand.suit(11)).foregroundStyle(Brand.gray).lineLimit(1).truncationMode(.middle)
+                    Text(name).font(Brand.font(.rowTitle, .semibold)).foregroundStyle(Brand.ink).lineLimit(1)
+                    Text(email ?? "").font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer(minLength: 8)
                 Button { dismiss(); state.logoutCodex() } label: {
@@ -61,17 +61,17 @@ struct AccountPopover: View {
 
     private func row(_ label: String, _ value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(label).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+            Text(label).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
             Spacer(minLength: 8)
-            Text(value).font(Brand.suit(12)).foregroundStyle(Brand.ink).multilineTextAlignment(.trailing)
+            Text(value).font(Brand.font(.body)).foregroundStyle(Brand.ink).multilineTextAlignment(.trailing)
         }
     }
 
     private var signedOut: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(tr("로그인되지 않음")).font(Brand.suit(13, .semibold)).foregroundStyle(Brand.ink)
+            Text(tr("로그인되지 않음")).font(Brand.font(.rowTitle, .semibold)).foregroundStyle(Brand.ink)
             Button { dismiss(); state.settingsSection = .ai; state.selectedTab = .settings } label: {
-                Text(tr("설정에서 연결")).font(Brand.suit(12, .semibold)).foregroundStyle(.white)
+                Text(tr("설정에서 연결")).font(Brand.font(.body, .semibold)).foregroundStyle(.white)
                     .padding(.horizontal, 14).frame(height: 30).background(Capsule().fill(Brand.accent))
             }
             .buttonStyle(.plain)

@@ -59,13 +59,13 @@ struct LoginBlockedView: View {
     private var login: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(tr("Mac에서 한 일을 기록하고 업무 단위로 정리해요.\n시작하려면 로그인해 주세요."))
-                .font(Brand.suit(14)).foregroundStyle(Brand.gray).lineSpacing(6)
+                .font(Brand.font(.body)).foregroundStyle(Brand.gray).lineSpacing(6)
             Button { state.startCodexLogin() } label: {
                 HStack(spacing: 8) {
                     Text(tr("ChatGPT로 로그인"))
                     Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .medium))
                 }
-                .font(Brand.suit(14, .medium)).foregroundStyle(.white)
+                .font(Brand.font(.rowTitle)).foregroundStyle(.white)
                 .frame(maxWidth: .infinity).frame(height: 46)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Brand.accent))
                 .contentShape(Rectangle())
@@ -75,7 +75,7 @@ struct LoginBlockedView: View {
             .padding(.top, 32)
             HStack(spacing: 14) {
                 Image(systemName: "exclamationmark.circle").font(.system(size: 14)).foregroundStyle(Brand.gray)
-                Text(CodexAuthError.deviceLoginNotEnabled.description).font(Brand.suit(13)).foregroundStyle(Brand.ink)
+                Text(CodexAuthError.deviceLoginNotEnabled.description).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
@@ -91,9 +91,9 @@ struct LoginBlockedView: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "checkmark.shield").font(.system(size: 14)).foregroundStyle(Brand.ink).frame(width: 14)
             VStack(alignment: .leading, spacing: 13) {
-                Text(PrivacyNote.title).font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink)
+                Text(PrivacyNote.title).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
                 Text(PrivacyNote.body)                                   // Figma W1 문구 대신 사실대로 (PrivacyNote 참고)
-                    .font(Brand.suit(12)).foregroundStyle(Brand.gray).lineSpacing(6)
+                    .font(Brand.font(.body)).foregroundStyle(Brand.gray).lineSpacing(6)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
@@ -125,8 +125,8 @@ struct LoginBlockedView: View {
                 Circle().fill(tint).frame(width: on ? 12 : 8, height: on ? 12 : 8)
             }
             .frame(height: 28)
-            Text(tr("\(number)단계")).font(Brand.suit(11)).foregroundStyle(on ? tint : Brand.sub)
-            Text(name).font(Brand.suit(on ? 14 : 13, on ? .bold : .regular)).foregroundStyle(on ? tint : Brand.gray)
+            Text(tr("\(number)단계")).font(Brand.font(.caption)).foregroundStyle(on ? tint : Brand.sub)
+            Text(name).font(Brand.font(.rowTitle, on ? .semibold : .regular)).foregroundStyle(on ? tint : Brand.gray)
         }
     }
 }

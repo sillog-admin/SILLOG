@@ -11,7 +11,7 @@ struct ChatFocusButton: View {
         Button { picking = true } label: {
             HStack(spacing: 4) {
                 Image(systemName: "diamond").font(.system(size: 10))
-                Text(Self.label(scope, choices: chat.focusChoices)).font(Brand.suit(11)).lineLimit(1)
+                Text(Self.label(scope, choices: chat.focusChoices)).font(Brand.font(.caption)).lineLimit(1)
                 Image(systemName: "chevron.down").font(.system(size: 8))
             }
             .foregroundStyle(Brand.tabText)
@@ -77,7 +77,7 @@ struct ChatFocusTree: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Brand.gray)
-                TextField(tr("업무·분야 검색"), text: $query).textFieldStyle(.plain).font(Brand.suit(12))
+                TextField(tr("업무·분야 검색"), text: $query).textFieldStyle(.plain).font(Brand.font(.body))
             }
             .padding(.horizontal, 14).frame(height: 32)
             Rectangle().fill(Brand.line).frame(height: 1).padding(.horizontal, 12)
@@ -101,7 +101,7 @@ struct ChatFocusTree: View {
                                 Image(systemName: on ? "checkmark.square.fill" : "square").font(.system(size: 13))
                                     .foregroundStyle(on ? Brand.accentDark : Brand.gray)
                                 Circle().fill(colors[task.field ?? TasksView.noField] ?? Brand.sub).frame(width: 7, height: 7)
-                                Text(task.focus.title).font(Brand.suit(12)).foregroundStyle(Brand.ink).lineLimit(1)
+                                Text(task.focus.title).font(Brand.font(.body)).foregroundStyle(Brand.ink).lineLimit(1)
                                 Spacer(minLength: 0)
                             }
                             .padding(.horizontal, 8).frame(height: 31).contentShape(Rectangle())
@@ -130,7 +130,7 @@ struct ChatFocusTree: View {
         } label: {
             HStack(spacing: 5) {
                 Circle().fill(field.color).frame(width: 7, height: 7)
-                Text(field.title).font(Brand.suit(11, on ? .medium : .regular)).lineLimit(1)
+                Text(field.title).font(Brand.font(.caption, on ? .medium : .regular)).lineLimit(1)
             }
             .foregroundStyle(on ? Brand.chipSelectedText : Brand.tabText)
             .padding(.horizontal, 9).frame(height: 24)
@@ -150,9 +150,9 @@ struct ChatFocusTree: View {
             HStack(spacing: 9) {
                 Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Brand.ink)
                     .frame(width: 13).opacity(mark == .check ? 1 : 0)
-                Text(title).font(Brand.suit(12)).foregroundStyle(Brand.ink).lineLimit(1)
+                Text(title).font(Brand.font(.body)).foregroundStyle(Brand.ink).lineLimit(1)
                 Spacer(minLength: 8)
-                Text(detail).font(Brand.suit(10)).foregroundStyle(Brand.gray).lineLimit(1)
+                Text(detail).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
             }
             .padding(.horizontal, 8).frame(height: 31).contentShape(Rectangle())
         }

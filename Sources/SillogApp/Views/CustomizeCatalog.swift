@@ -23,9 +23,9 @@ struct CatalogHeader<Actions: View>: View {
 
     private var heading: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(Brand.suit(22, .bold)).foregroundStyle(Brand.ink)
+            Text(title).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink)
                 .accessibilityAddTraits(.isHeader)
-            Text(description).font(Brand.suit(12)).foregroundStyle(Brand.gray)
+            Text(description).font(Brand.font(.body)).foregroundStyle(Brand.gray)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -35,7 +35,7 @@ struct CatalogHeader<Actions: View>: View {
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Brand.gray)
                 TextField(tr("\(title) 검색"), text: $query)
-                    .textFieldStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.text)
+                    .textFieldStyle(.plain).font(Brand.font(.body)).foregroundStyle(Brand.text)
                 if !query.isEmpty {
                     Button { query = "" } label: {
                         Image(systemName: "xmark.circle.fill").font(.system(size: 11)).foregroundStyle(Brand.gray)
@@ -52,13 +52,17 @@ struct CatalogHeader<Actions: View>: View {
 
 struct CatalogSection<Items: View>: View {
     let title: String
+    /// Fixed column count; nil fits 290-440pt columns to the width.
+    var columns: Int? = nil
     @ViewBuilder let items: () -> Items
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
-            Text(title).font(Brand.suit(13, .semibold)).foregroundStyle(Brand.ink)
+            Text(title).font(Brand.font(.rowTitle, .semibold)).foregroundStyle(Brand.ink)
                 .accessibilityAddTraits(.isHeader)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 290, maximum: 440), spacing: 15)], spacing: 7, content: items)
+            LazyVGrid(columns: columns.map { Array(repeating: GridItem(.flexible(), spacing: 20), count: $0) }
+                      ?? [GridItem(.adaptive(minimum: 290, maximum: 440), spacing: 15)],
+                      spacing: columns == nil ? 7 : 10, content: items)
         }
     }
 }
@@ -66,6 +70,7 @@ struct CatalogSection<Items: View>: View {
 struct CatalogRow<Icon: View, Actions: View>: View {
     let title: String
     let subtitle: String
+    var large = false
     let open: () -> Void
     @ViewBuilder let icon: () -> Icon
     @ViewBuilder let actions: () -> Actions
@@ -73,15 +78,15 @@ struct CatalogRow<Icon: View, Actions: View>: View {
     var body: some View {
         HStack(spacing: 4) {
             Button(action: open) {
-                HStack(spacing: 10) {
+                HStack(spacing: large ? 14 : 10) {
                     icon().accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(title).font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
-                        Text(subtitle).font(Brand.suit(11)).foregroundStyle(Brand.gray).lineLimit(1)
+                    VStack(alignment: .leading, spacing: large ? 5 : 3) {
+                        Text(title).font(Brand.font(large ? .sectionTitle : .rowTitle)).foregroundStyle(Brand.ink).lineLimit(1)
+                        Text(subtitle).font(Brand.font(large ? .body : .caption)).foregroundStyle(Brand.gray).lineLimit(1)
                     }
                     Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: large ? 68 : 48, alignment: .leading)
                 .contentShape(Rectangle())
             }.buttonStyle(.plain)
             actions()

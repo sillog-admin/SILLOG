@@ -13,10 +13,10 @@ struct ArtifactPreview: View {
         ChatDialogFrame(title: artifact.title, width: 760, height: 679, onClose: { dismiss() }) {
             VStack(spacing: 0) {
                 ArtifactWebView(state: preview)
-                if let error { Text(error).font(Brand.suit(12)).foregroundStyle(Brand.ink).padding(12) }
+                if let error { Text(error).font(Brand.font(.body)).foregroundStyle(Brand.ink).padding(12) }
             }
         } footer: {
-            Text(artifact.format.uppercased()).font(Brand.suit(10)).foregroundStyle(Brand.gray)
+            Text(artifact.format.uppercased()).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
             Spacer()
             Button { save(pdf: false) } label: {
                 HStack(spacing: 8) { Image(systemName: "arrow.down.to.line").font(.system(size: 11)); Text(tr("파일로 저장")) }

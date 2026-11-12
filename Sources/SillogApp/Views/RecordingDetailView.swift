@@ -95,11 +95,11 @@ struct RecordingDetailView: View {
             LibrarySheetHeader(title: recording.displayTitle, detail: RecordingDetail.when(recording)) { dismiss() }
             VStack(alignment: .leading, spacing: 8) {
                 if let notice = RecordingDetail.notice(recording, textExists: textExists) {
-                    Text(notice).font(Brand.suit(12)).foregroundStyle(Brand.ink).fixedSize(horizontal: false, vertical: true)
+                    Text(notice).font(Brand.font(.body)).foregroundStyle(Brand.ink).fixedSize(horizontal: false, vertical: true)
                 }
                 if let summary = recording.summary, !summary.isEmpty {
                     Eyebrow(tr("요약"))
-                    Text(summary).font(Brand.suit(12)).foregroundStyle(Brand.tabText).textSelection(.enabled)
+                    Text(summary).font(Brand.font(.body)).foregroundStyle(Brand.tabText).textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Eyebrow(tr("받아쓴 글")).padding(.top, 6)
@@ -125,7 +125,7 @@ struct RecordingDetailView: View {
                 .buttonStyle(BrandButtonStyle())
             }
             if let note = RecordingDetail.audioNote(recording, audioExists: audioExists, now: Date().timeIntervalSince1970) {
-                Text(note).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                Text(note).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
             }
             Spacer()
             if recording.status == .ready || recording.status == .failed {

@@ -8,6 +8,12 @@ struct FileField: Equatable {
     var title: String { L10n.tr(key: name) }
 }
 
+/// One history legend chip; an empty name means no field.
+struct FileHistoryLegendItem: Equatable, Identifiable {
+    let name: String; let color: Color; let count: Int
+    var id: String { name }
+}
+
 /// 내려받은 파일의 정리 위치 제안: 감지 → 문맥 모으기 → 제안 → 알림, 그리고 사용자의 결정.
 extension AppState {
     var pendingFileSuggestions: Int { fileSuggestions.filter { $0.status == "pending" }.count }
@@ -39,10 +45,28 @@ extension AppState {
             gone.forEach { notifier.remove(id: $0) }
         }
         let pending = (try? store.pending()) ?? []
-        let total = (try? store.decidedCount()) ?? 0
+        // Fields come from the in-memory task list, not the DB, so filtering and ordering happen here.
+        // shortcut: loads every history row, store the field in the DB and filter in SQL if it gets slow
+        let all = (try? store.decided(limit: 100_000, offset: 0)) ?? []
+        let fields = fileFields(for: all)
+        let fieldName = { (row: FileSuggestion) in row.id.flatMap { fields[$0]?.name } ?? "" }
+        var legend: [FileHistoryLegendItem] = []
+        for row in all {
+            let name = fieldName(row)
+            if let i = legend.firstIndex(where: { $0.name == name }) {
+                legend[i] = FileHistoryLegendItem(name: name, color: legend[i].color, count: legend[i].count + 1)
+            } else {
+                legend.append(FileHistoryLegendItem(name: name, color: row.id.flatMap { fields[$0]?.color } ?? Brand.sub, count: 1))
+            }
+        }
+        legend.sort { ($0.name.isEmpty ? 1 : 0, -$0.count) < ($1.name.isEmpty ? 1 : 0, -$1.count) }   // largest first, "no field" last
+        if legend != fileHistoryLegend { fileHistoryLegend = legend }
+        var shown = fileHistoryField.map { field in all.filter { fieldName($0) == field } } ?? all
+        if fileHistoryOldestFirst { shown.reverse() }
+        let total = shown.count
         let size = Self.fileHistoryPageSize
         let page = min(fileHistoryPage, max(0, (total - 1) / size))
-        let decided = (try? store.decided(limit: size, offset: page * size)) ?? []
+        let decided = Array(shown.dropFirst(page * size).prefix(size))
         if page != fileHistoryPage { fileHistoryPage = page }
         if total != fileHistoryTotal { fileHistoryTotal = total }
         let ordered: [FileSuggestion] = pending + decided
@@ -54,6 +78,19 @@ extension AppState {
     /// 지난 기록의 다른 쪽 (0부터)
     func showFileHistoryPage(_ page: Int) {
         fileHistoryPage = max(0, page)
+        refreshFileSuggestions()
+    }
+
+    /// Tapping the selected chip again clears the filter.
+    func filterFileHistory(_ field: String?) {
+        fileHistoryField = fileHistoryField == field ? nil : field
+        fileHistoryPage = 0
+        refreshFileSuggestions()
+    }
+
+    func toggleFileHistoryOrder() {
+        fileHistoryOldestFirst.toggle()
+        fileHistoryPage = 0
         refreshFileSuggestions()
     }
 

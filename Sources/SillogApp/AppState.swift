@@ -40,6 +40,9 @@ final class AppState: ObservableObject {
     @Published var codexModelsLoading = false
     @Published var codexModelsError: String?
     @Published var chatCodexModelsError: String?
+    /// Failed model checks by slug, so each settings row shows only its own model.
+    @Published var codexModelFailures: [String: String] = [:]
+    @Published var chatCodexModelFailures: [String: String] = [:]
     @Published var codexUsage: CodexUsage?
     /// 로그인해야 쓸 수 있다. `.ready` 가 되기 전에는 수집기도 배치도 돌지 않는다.
     @Published var phase: AppPhase = .login
@@ -71,6 +74,11 @@ final class AppState: ObservableObject {
     @Published var fileSuggestions: [FileSuggestion] = []
     /// 파일 > 지난 기록: 보고 있는 쪽(0부터)과 결정한 제안 전체 개수
     @Published var fileHistoryPage = 0
+    /// History filter: nil shows all, "" shows rows without a field.
+    @Published var fileHistoryField: String?
+    @Published var fileHistoryOldestFirst = false
+    /// Field counts over all history, not just the current page.
+    @Published var fileHistoryLegend: [FileHistoryLegendItem] = []
     @Published var fileHistoryTotal = 0
     @Published var fileError: String?
     @Published var notificationsDenied = false
@@ -463,8 +471,8 @@ final class AppState: ObservableObject {
         let id = UUID()
         codexModelTaskID = id
         codexModelsLoading = true
-        if checkBatch { codexModelsError = nil }
-        if checkChat { chatCodexModelsError = nil }
+        if checkBatch { codexModelsError = nil; codexModelFailures = [:] }
+        if checkChat { chatCodexModelsError = nil; chatCodexModelFailures = [:] }
         let task = Task { [self] in
             defer {
                 if codexModelTaskID == id {
@@ -488,6 +496,7 @@ final class AppState: ObservableObject {
                     guard codexModelTaskID == id else { return }
                     codexModels = result.models
                     codexModelsError = verificationError(result, empty: tr("현재 연결에서 사용할 수 있는 정리 모델이 없습니다."))
+                    codexModelFailures = Self.failureLines(result)
                     if settings.llmProvider == "codex", result.isComplete, let first = result.models.first,
                        !result.models.contains(where: { $0.slug == settings.codexModel }),
                        !result.failures.contains(where: { $0.model.slug == settings.codexModel }) {
@@ -507,6 +516,7 @@ final class AppState: ObservableObject {
                     guard codexModelTaskID == id else { return }
                     chatCodexModels = result.models
                     chatCodexModelsError = verificationError(result, empty: tr("현재 연결에서 사용할 수 있는 채팅 모델이 없습니다."))
+                    chatCodexModelFailures = Self.failureLines(result)
                     let chatModel = settings.effectiveChatCodexModel
                     if result.isComplete, let first = result.models.first,
                        !result.models.contains(where: { $0.slug == chatModel }),
@@ -544,6 +554,10 @@ final class AppState: ObservableObject {
         return line.count > 80 ? String(line.prefix(80)) + "…" : line
     }
 
+    private static func failureLines(_ result: CodexModelVerification) -> [String: String] {
+        Dictionary(result.failures.map { ($0.model.slug, "\($0.model.displayName): \(friendlyModelError($0.message))") }) { first, _ in first }
+    }
+
     private func verificationError(_ result: CodexModelVerification, empty: String) -> String? {
         if !result.failures.isEmpty {
             return result.failures.map { "\($0.model.displayName): \(Self.friendlyModelError($0.message))" }.joined(separator: "\n")
@@ -573,6 +587,8 @@ final class AppState: ObservableObject {
             chatCodexModels = []
             codexModelsError = nil
             chatCodexModelsError = nil
+            codexModelFailures = [:]
+            chatCodexModelFailures = [:]
         }
     }
 

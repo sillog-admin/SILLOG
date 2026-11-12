@@ -158,8 +158,8 @@ struct TasksView: View {
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline, spacing: 9) {
-                    Text(tr("업무")).font(Brand.suit(23, .bold)).tracking(-0.8).foregroundStyle(Brand.ink)
-                    Text("\(state.taskList.count)").font(Brand.suit(19)).foregroundStyle(Brand.gray)
+                    Text(tr("업무")).font(Brand.font(.screenTitle)).tracking(-0.8).foregroundStyle(Brand.ink)
+                    Text("\(state.taskList.count)").font(Brand.font(.sectionTitle)).foregroundStyle(Brand.gray)
                 }
                 if !fields.isEmpty { fieldBar(fields, filter: filter) }
                 ReviewBanner()                                              // 정리 제안이 있으면 한 줄
@@ -170,8 +170,8 @@ struct TasksView: View {
             if state.taskList.isEmpty {
                 // 창에서는 상세가 접혀 있어 오른쪽 빈 화면 안내가 안 보이므로 목록에도 한 줄
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(tr("아직 업무가 없어요")).font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink)
-                    Text(tr("활동이 쌓여 정리되면 업무가 여기에 모여요.")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                    Text(tr("아직 업무가 없어요")).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
+                    Text(tr("활동이 쌓여 정리되면 업무가 여기에 모여요.")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.horizontal, 27)
@@ -234,7 +234,7 @@ struct TasksView: View {
                 }
                 if sel.isEmpty {
                     Text(tr("막대를 누르면 종류가 펼쳐져요. 여러 개 고를 수 있어요."))
-                        .font(Brand.suit(10.5)).foregroundStyle(Color(hex: 0x8C837C)).lineLimit(1)
+                        .font(Brand.font(.tag)).foregroundStyle(Color(hex: 0x8C837C)).lineLimit(1)
                         .offset(y: 16)
                 }
                 ForEach(Array(sel.enumerated()), id: \.element.id) { k, field in
@@ -279,7 +279,7 @@ struct TasksView: View {
                 .onTapGesture { toggleField(field.name) }     // 늘어난 목이 막대를 덮으므로 여기를 눌러도 접힌다
             Circle().fill(field.color).frame(width: 22, height: 22).offset(x: cx - 11, y: 15)
                 .onTapGesture { toggleField(field.name) }
-            Text("\(count)").font(Brand.suit(10, .bold)).foregroundStyle(.white).offset(x: cx - 11, y: 15).frame(width: 22, height: 22)
+            Text("\(count)").font(Brand.font(.tag, .bold)).foregroundStyle(.white).offset(x: cx - 11, y: 15).frame(width: 22, height: 22)
                 .allowsHitTesting(false)
             if !rows.isEmpty {
                 Path { p in
@@ -296,8 +296,8 @@ struct TasksView: View {
             }
             ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
                 HStack(spacing: 5) {
-                    Text(L10n.tr(key: row.0)).font(Brand.suit(11.5, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
-                    Text("\(row.1)").font(Brand.suit(11)).foregroundStyle(Brand.gray).lineLimit(1)
+                    Text(L10n.tr(key: row.0)).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
+                    Text("\(row.1)").font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
                 }
                 .padding(.vertical, 3).padding(.horizontal, 9)
                 .background(Capsule().fill(field.color.opacity(0.13)))
@@ -334,7 +334,7 @@ struct TasksView: View {
             HStack(spacing: 7) {
                 Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(Brand.gray)
                     .rotationEffect(.degrees(open ? 90 : 0)).frame(width: 10)
-                Text(L10n.tr(key: folder.name)).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
+                Text(L10n.tr(key: folder.name)).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
                 Spacer(minLength: 6)
                 Text("\(folder.tasks.count)").font(.custom("Jost-Light", size: 13)).foregroundStyle(Brand.gray)
             }
@@ -357,8 +357,8 @@ struct TasksView: View {
         let field = task.field ?? Self.noField
         let type = task.taskType.flatMap { $0.isEmpty || $0 == field ? nil : $0 }              // 종류가 없으면 분야만
         let meta = type.map { t in
-            Text("\(Text(L10n.tr(key: field)).font(Brand.suit(11, .medium)).foregroundStyle(Color(hex: 0x6E6862)))\(Text(" › ").font(Brand.suit(11)).foregroundStyle(Color(hex: 0xB8AFA8)))\(Text(L10n.tr(key: t)).font(Brand.suit(11)).foregroundStyle(Color(hex: 0x8C837C)))")
-        } ?? Text(L10n.tr(key: field)).font(Brand.suit(11, .medium)).foregroundStyle(Color(hex: 0x6E6862))
+            Text("\(Text(L10n.tr(key: field)).font(Brand.font(.caption, .medium)).foregroundStyle(Color(hex: 0x6E6862)))\(Text(" › ").font(Brand.font(.caption)).foregroundStyle(Color(hex: 0xB8AFA8)))\(Text(L10n.tr(key: t)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x8C837C)))")
+        } ?? Text(L10n.tr(key: field)).font(Brand.font(.caption, .medium)).foregroundStyle(Color(hex: 0x6E6862))
         return Button {
             if on {   // 고른 업무를 다시 누르면: 상자 지우고, 그래프 확대 풀고, 업무 상세도 닫는다
                 selectedTask = nil; state.selectedTaskId = nil; state.taskDetailOpen = false
@@ -375,11 +375,11 @@ struct TasksView: View {
                 }
                 .frame(width: 14, height: 10).padding(.top, 4)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(task.title).font(Brand.suit(14, on ? .bold : .medium)).foregroundStyle(Color(hex: 0x2A201B)).lineLimit(1)
+                    Text(task.title).font(Brand.font(.rowTitle, on ? .semibold : .medium)).foregroundStyle(Color(hex: 0x2A201B)).lineLimit(1)
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         meta.lineLimit(1)
                         Spacer(minLength: 4)
-                        Text(Self.rowDuration(task.activeSeconds)).font(Brand.suit(11)).foregroundStyle(Color(hex: 0x8C837C)).fixedSize()
+                        Text(Self.rowDuration(task.activeSeconds)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x8C837C)).fixedSize()
                     }
                 }
             }
@@ -424,8 +424,8 @@ struct TasksView: View {
     /// TK-W5: 업무가 하나도 없을 때
     private var emptyState: some View {
         VStack(spacing: 8) {
-            Text(tr("아직 업무가 없어요")).font(Brand.suit(20, .bold)).foregroundStyle(Brand.ink)
-            Text(tr("활동이 쌓여 정리되면 업무가 여기에 모여요. 지금 바로 정리할 수도 있어요.")).font(Brand.suit(14)).foregroundStyle(Brand.gray)
+            Text(tr("아직 업무가 없어요")).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink)
+            Text(tr("활동이 쌓여 정리되면 업무가 여기에 모여요. 지금 바로 정리할 수도 있어요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
             Button(tr("지금 정리")) { Task { await state.runBatch(force: true) } }
                 .buttonStyle(BrandButtonStyle(kind: .primary))
                 .disabled(state.batchRunning).opacity(state.batchRunning ? 0.4 : 1)
@@ -436,8 +436,8 @@ struct TasksView: View {
     private var placeholder: some View {
         VStack(spacing: 8) {
             Image(systemName: "square.3.stack.3d").font(.system(size: 30, weight: .light)).foregroundStyle(Brand.sub)
-            Text(tr("업무를 골라 주세요")).font(Brand.suit(20, .bold)).foregroundStyle(Brand.ink).padding(.top, 8)
-            Text(tr("세션마다 그때 열었던 파일, 페이지, 앱을 다시 열 수 있어요.")).font(Brand.suit(14)).foregroundStyle(Brand.gray)
+            Text(tr("업무를 골라 주세요")).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink).padding(.top, 8)
+            Text(tr("세션마다 그때 열었던 파일, 페이지, 앱을 다시 열 수 있어요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
         }
     }
 
@@ -463,7 +463,7 @@ struct TasksView: View {
                 let total = state.offTaskToday.reduce(0) { $0 + $1.seconds }
                 let top = state.offTaskToday.prefix(3).map { "\($0.app) \(Self.duration($0.seconds))" }.joined(separator: ", ")
                 Text(tr("업무 외 오늘 \(Self.duration(total)), \(top)"))
-                    .font(Brand.suit(11)).foregroundStyle(Brand.gray).lineLimit(1)
+                    .font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
                     .padding(.horizontal, 33).frame(height: 44, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
             }
 
@@ -475,7 +475,7 @@ struct TasksView: View {
                         tabButton(tr("요약"), count: digests.count, on: tab == .digests) { tab = .digests }
                         tabButton(tr("자료"), count: Self.kinds.reduce(0) { $0 + materials[keyPath: $1.items].count }, on: tab == .materials) { tab = .materials }
                         Spacer()
-                        Text(tab == .digests ? tr("주간·월간, 최근 기간 순") : tab == .materials ? tr("종류별, 처음 쓴 순") : tr("최근 활동 순")).font(Brand.suit(10)).foregroundStyle(Brand.gray)
+                        Text(tab == .digests ? tr("주간·월간, 최근 기간 순") : tab == .materials ? tr("종류별, 처음 쓴 순") : tr("최근 활동 순")).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
                     }
                     .padding(.vertical, 23)
                     if tab == .digests {
@@ -485,8 +485,8 @@ struct TasksView: View {
                     } else if sessions.isEmpty {
                         VStack(spacing: 8) {
                             Image(systemName: "square.3.stack.3d").font(.system(size: 26, weight: .light)).foregroundStyle(Brand.gray)
-                            Text(tr("아직 기록된 세션이 없어요")).font(Brand.suit(17, .medium)).foregroundStyle(Brand.ink).padding(.top, 6)
-                            Text(tr("이 업무의 활동이 기록되면 시간과 사용한 자료를 함께 보여 드려요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                            Text(tr("아직 기록된 세션이 없어요")).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink).padding(.top, 6)
+                            Text(tr("이 업무의 활동이 기록되면 시간과 사용한 자료를 함께 보여 드려요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 40)
                     } else {
@@ -506,7 +506,7 @@ struct TasksView: View {
         Button { state.askErase(NodeRef(label: NodeLabel.task, key: task.key)) } label: {
             HStack(spacing: 6) {
                 Image(systemName: "trash").font(.system(size: 11))
-                Text(tr("이 업무 지우기")).font(Brand.suit(12))
+                Text(tr("이 업무 지우기")).font(Brand.font(.body))
             }
             .foregroundStyle(Color(hex: 0xC0573F))
             .contentShape(Rectangle())
@@ -521,7 +521,7 @@ struct TasksView: View {
             HStack(spacing: 10) {
                 if let type = task.taskType { BrandBadge(type) }
             }
-            Text(task.title).font(Brand.suit(28, .semibold)).tracking(-1.26).foregroundStyle(Brand.ink).lineLimit(lines).padding(.top, 14)
+            Text(task.title).font(Brand.font(.screenTitle)).tracking(-1.26).foregroundStyle(Brand.ink).lineLimit(lines).padding(.top, 14)
         }
     }
 
@@ -563,7 +563,7 @@ struct TasksView: View {
             }
             statCell(tr("마지막 활동"), note: tr("내 업무 기록"), leading: true) {
                 Text(task.sessionCount == 0 ? tr("활동 없음") : Self.lastActive(task.lastActive))
-                    .font(Brand.suit(17)).foregroundStyle(Brand.ink).frame(height: 60)
+                    .font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink).frame(height: 60)
             }
         }
         .padding(.top, 28).padding(.bottom, 28)
@@ -572,9 +572,9 @@ struct TasksView: View {
     /// 큰 숫자와 작은 단위를 한 글줄로 (예: 2 시간  40 분). 칸이 좁으면(드로어가 줄면) 잘리지 않고 통째로 작아진다
     private func bigNumber(_ parts: [(value: String, unit: String)]) -> some View {
         parts.enumerated().reduce(Text(verbatim: "")) { line, part in
-            let gap = Text(verbatim: part.offset == 0 ? "" : "   ").font(Brand.suit(11))
+            let gap = Text(verbatim: part.offset == 0 ? "" : "   ").font(Brand.font(.caption))
             let value = Text(verbatim: part.element.value).font(.custom("Jost-ExtraLight", size: 48)).foregroundStyle(Brand.ink)
-            let unit = Text(verbatim: " " + part.element.unit).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+            let unit = Text(verbatim: " " + part.element.unit).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
             return Text("\(line)\(gap)\(value)\(unit)")
         }
         .lineLimit(1).minimumScaleFactor(0.5)
@@ -584,7 +584,7 @@ struct TasksView: View {
         VStack(alignment: .leading, spacing: 0) {
             Eyebrow(eyebrow)
             content().frame(height: 60, alignment: .leading)
-            Text(note).font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.top, 0)
+            Text(note).font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.top, 0)
         }
         .padding(.leading, leading ? 29 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -601,28 +601,28 @@ struct TasksView: View {
                 .frame(width: 9)
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 14) {
-                    Text(Self.dayLabel(start)).font(Brand.suit(11, .medium)).foregroundStyle(Brand.tabText)
+                    Text(Self.dayLabel(start)).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.tabText)
                     Text(range).font(Brand.jost(12)).tracking(0.18).foregroundStyle(Brand.gray)
                     Spacer()
-                    Text(Self.duration(max(0, session.end - session.start))).font(Brand.suit(12)).foregroundStyle(Brand.tabText)
+                    Text(Self.duration(max(0, session.end - session.start))).font(Brand.font(.body)).foregroundStyle(Brand.tabText)
                 }
                 if session.summaries.isEmpty {
-                    Text(session.title).font(Brand.suit(13)).foregroundStyle(Brand.tabText).lineLimit(2).padding(.top, 11)
+                    Text(session.title).font(Brand.font(.body)).foregroundStyle(Brand.tabText).lineLimit(2).padding(.top, 11)
                 } else {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(Array(session.summaries.prefix(4).enumerated()), id: \.offset) { _, line in
-                            Text(line).font(Brand.suit(13)).foregroundStyle(Brand.tabText).lineLimit(2)
+                            Text(line).font(Brand.font(.body)).foregroundStyle(Brand.tabText).lineLimit(2)
                         }
-                        if session.summaries.count > 4 { Text(tr("외 \(session.summaries.count - 4)개")).font(Brand.suit(10)).foregroundStyle(Brand.gray) }
+                        if session.summaries.count > 4 { Text(tr("외 \(session.summaries.count - 4)개")).font(Brand.font(.tag)).foregroundStyle(Brand.gray) }
                     }
                     .padding(.top, 11)
                 }
                 HStack {
-                    Text(meta.joined(separator: "   |   ")).font(Brand.suit(10)).foregroundStyle(Brand.gray).lineLimit(1)
+                    Text(meta.joined(separator: "   |   ")).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
                     Spacer()
                     Button { state.prepareResume(sessionId: session.id) } label: {
                         HStack(spacing: 6) {
-                            Text(tr("다시 열기")).font(Brand.suit(11))
+                            Text(tr("다시 열기")).font(Brand.font(.caption))
                             Image(systemName: "arrow.up.right").font(.system(size: 10))
                         }
                         .foregroundStyle(Brand.tabText)
@@ -638,7 +638,7 @@ struct TasksView: View {
     private func tabButton(_ title: String, count: Int, on: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                Text(title).font(Brand.suit(14)).foregroundStyle(on ? Brand.ink : Brand.gray)
+                Text(title).font(Brand.font(.body)).foregroundStyle(on ? Brand.ink : Brand.gray)
                 Text("\(count)").font(Brand.jost(12)).foregroundStyle(Brand.gray)
             }
             .padding(.bottom, 6)
@@ -667,8 +667,8 @@ struct TasksView: View {
         if materials.isEmpty {
             VStack(spacing: 8) {
                 Image(systemName: "tray").font(.system(size: 26, weight: .light)).foregroundStyle(Brand.gray)
-                Text(tr("아직 모인 자료가 없어요")).font(Brand.suit(17, .medium)).foregroundStyle(Brand.ink).padding(.top, 6)
-                Text(tr("세션에서 쓴 자료, 앱, 주제가 여기에 모여요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                Text(tr("아직 모인 자료가 없어요")).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink).padding(.top, 6)
+                Text(tr("세션에서 쓴 자료, 앱, 주제가 여기에 모여요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
             }
             .frame(maxWidth: .infinity).padding(.vertical, 40)
         } else {
@@ -688,14 +688,14 @@ struct TasksView: View {
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 7) {
                 Circle().fill(color).frame(width: 7, height: 7)
-                Text(name).font(Brand.suit(12, .semibold)).foregroundStyle(Brand.ink)
+                Text(name).font(Brand.font(.body, .semibold)).foregroundStyle(Brand.ink)
                 Text("\(items.count)").font(Brand.jost(12)).foregroundStyle(Brand.gray)
             }
             .padding(.bottom, 8)
             ForEach(shown) { item in itemRow(item, opens: opens) }
             if items.count > Self.shownPerKind {
                 Button { if open { openKinds.remove(name) } else { openKinds.insert(name) } } label: {
-                    Text(open ? tr("접기") : tr("외 \(items.count - Self.shownPerKind)개 더 보기")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                    Text(open ? tr("접기") : tr("외 \(items.count - Self.shownPerKind)개 더 보기")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                         .padding(.vertical, 6).padding(.leading, 14).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -705,7 +705,7 @@ struct TasksView: View {
 
     @ViewBuilder private func itemRow(_ item: TaskMaterials.Item, opens: Opens) -> some View {
         let label = HStack(spacing: 8) {
-            Text(item.name).font(Brand.suit(12)).foregroundStyle(Brand.text).lineLimit(1).truncationMode(.middle)
+            Text(item.name).font(Brand.font(.body)).foregroundStyle(Brand.text).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
             if opens != .none { Image(systemName: "arrow.up.right").font(.system(size: 9)).foregroundStyle(Brand.gray) }
         }
@@ -727,7 +727,7 @@ struct TasksView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 7) {
                 Circle().fill(Brand.ink.opacity(0.55)).frame(width: 7, height: 7)
-                Text(tr("같은 맥락 업무")).font(Brand.suit(12, .semibold)).foregroundStyle(Brand.ink)
+                Text(tr("같은 맥락 업무")).font(Brand.font(.body, .semibold)).foregroundStyle(Brand.ink)
                 Text("\(materials.related.count)").font(Brand.jost(12)).foregroundStyle(Brand.gray)
             }
             .padding(.bottom, 8)
@@ -735,9 +735,9 @@ struct TasksView: View {
                 Button { selectedTask = related.taskId; state.openTaskDetail(id: related.taskId) } label: {
                     HStack(spacing: 8) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(related.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
+                            Text(related.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
                             Text(tr("함께 쓴 항목 \(related.shared.count)개, \(related.shared.prefix(2).joined(separator: ", "))"))
-                                .font(Brand.suit(10)).foregroundStyle(Brand.gray).lineLimit(1)
+                                .font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
                         }
                         Spacer(minLength: 8)
                         Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
@@ -756,9 +756,9 @@ struct TasksView: View {
         if digests.isEmpty {
             VStack(spacing: 8) {
                 Image(systemName: "text.alignleft").font(.system(size: 24, weight: .light)).foregroundStyle(Brand.gray)
-                Text(tr("아직 요약이 없어요")).font(Brand.suit(17, .medium)).foregroundStyle(Brand.ink).padding(.top, 6)
+                Text(tr("아직 요약이 없어요")).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink).padding(.top, 6)
                 Text(tr("한 주가 끝나고 이틀 뒤, 그 주의 활동을 요약해 둬요. 오래된 원문은 이 요약이 대신해요."))
-                    .font(Brand.suit(12)).foregroundStyle(Brand.gray).multilineTextAlignment(.center)
+                    .font(Brand.font(.body)).foregroundStyle(Brand.gray).multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity).padding(.vertical, 40)
         } else {
@@ -769,23 +769,23 @@ struct TasksView: View {
     private func digestCard(_ digest: Digest) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                Text(Self.periodLabel(digest)).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText)
+                Text(Self.periodLabel(digest)).font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText)
                 switch digest.status {
                 case .draft: GrayBadge(tr("초안"))
                 case .edited: BrandBadge(tr("수정함"))
                 case .verified: EmptyView()
                 }
                 Spacer()
-                Button(tr("고치기")) { editing = digest }.buttonStyle(.plain).font(Brand.suit(11)).foregroundStyle(Brand.tabText)
+                Button(tr("고치기")) { editing = digest }.buttonStyle(.plain).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
             }
             if digest.status == .draft, digest.attempts >= DigestBuilder.maxAttempts {
                 Text(digest.level == .week ? tr("AI 요약이 검증을 통과하지 못해 기록을 모아 만든 초안이에요. 그래서 이 주 원문은 지우지 않아요. '고치기'에서 확인하고 저장하면 유예 기간 뒤 정리돼요.")
                                            : tr("AI 요약이 검증을 통과하지 못해 기록을 모아 만든 초안이에요."))
-                    .font(Brand.suit(11)).foregroundStyle(Brand.gray).fixedSize(horizontal: false, vertical: true)
+                    .font(Brand.font(.caption)).foregroundStyle(Brand.gray).fixedSize(horizontal: false, vertical: true)
             }
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(Array(digest.body.split(separator: "\n", omittingEmptySubsequences: true).enumerated()), id: \.offset) { _, line in
-                    Text(Self.inline(String(line))).font(Brand.suit(12)).foregroundStyle(Brand.text).fixedSize(horizontal: false, vertical: true)
+                    Text(Self.inline(String(line))).font(Brand.font(.body)).foregroundStyle(Brand.text).fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -846,8 +846,8 @@ struct ResumeSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(tr("다시 열기")).font(Brand.suit(22, .bold)).foregroundStyle(Brand.ink)
-                    Text(request.plan.title).font(Brand.suit(12)).foregroundStyle(Brand.gray).lineLimit(2).padding(.top, 10)
+                    Text(tr("다시 열기")).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink)
+                    Text(request.plan.title).font(Brand.font(.body)).foregroundStyle(Brand.gray).lineLimit(2).padding(.top, 10)
                 }
                 Spacer()
                 Button { state.resumeRequest = nil } label: {
@@ -859,7 +859,7 @@ struct ResumeSheet: View {
             if request.plan.items.isEmpty {
                 VStack(spacing: 14) {
                     Image(systemName: "square.3.stack.3d").font(.system(size: 26, weight: .light)).foregroundStyle(Brand.sub)
-                    Text(tr("다시 열 수 있는 파일이나 페이지가 남아 있지 않아요.")).font(Brand.suit(13)).foregroundStyle(Brand.gray)
+                    Text(tr("다시 열 수 있는 파일이나 페이지가 남아 있지 않아요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
                 }
                 .frame(maxWidth: .infinity, minHeight: 195)
             } else {
@@ -892,7 +892,7 @@ struct ResumeSheet: View {
 
     private func group(_ title: String, selected: Bool) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.gray).padding(.top, 14).padding(.bottom, 8)
+            Text(title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.gray).padding(.top, 14).padding(.bottom, 8)
             ForEach($request.plan.items) { $item in
                 if initiallySelected.contains(item.id) == selected { row($item) }
             }
@@ -909,8 +909,8 @@ struct ResumeSheet: View {
                     .frame(width: 14, height: 14)
                 Image(systemName: icon(item.wrappedValue.kind)).font(.system(size: 12)).foregroundStyle(Brand.gray).frame(width: 16)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(item.wrappedValue.title).font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
-                    Text(detail(item.wrappedValue)).font(Brand.suit(11)).foregroundStyle(Brand.gray).lineLimit(1).truncationMode(.middle)
+                    Text(item.wrappedValue.title).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink).lineLimit(1)
+                    Text(detail(item.wrappedValue)).font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer()
             }
@@ -956,18 +956,18 @@ struct DigestEditSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
-                Text(tr("요약 고치기")).font(Brand.suit(22, .bold)).foregroundStyle(Brand.ink)
-                Text(digest.title).font(Brand.suit(12)).foregroundStyle(Brand.gray).lineLimit(1).padding(.top, 10)
+                Text(tr("요약 고치기")).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink)
+                Text(digest.title).font(Brand.font(.body)).foregroundStyle(Brand.gray).lineLimit(1).padding(.top, 10)
             }
             .padding(.horizontal, 32).padding(.top, 26).padding(.bottom, 18)
             TextEditor(text: $text)
-                .font(Brand.suit(12)).scrollContentBackground(.hidden)
+                .font(Brand.font(.body)).scrollContentBackground(.hidden)
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 6).fill(Color(hex: 0xF9F8F7)))
                 .frame(minHeight: 320)
                 .padding(.horizontal, 32).padding(.top, 18)
             Text(tr("저장하면 '수정함'으로 바뀌고 자동으로 다시 만들지 않아요. 채팅도 고친 내용을 요약으로 읽어요."))
-                .font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.horizontal, 32).padding(.vertical, 12)
+                .font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.horizontal, 32).padding(.vertical, 12)
             HStack(spacing: 8) {
                 Spacer()
                 Button(tr("취소"), action: cancel).keyboardShortcut(.cancelAction).buttonStyle(BrandButtonStyle(kind: .secondary))
@@ -987,7 +987,7 @@ private struct TasksLoadingView: View {
     var body: some View {
         VStack(spacing: 12) {
             ProgressView().controlSize(.small)
-            Text(tr("업무를 불러오고 있어요")).font(Brand.suit(14)).foregroundStyle(Brand.gray)
+            Text(tr("업무를 불러오고 있어요")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -998,8 +998,8 @@ private struct TasksErrorView: View {
     let retry: () -> Void
     var body: some View {
         VStack(spacing: 8) {
-            Text(tr("업무를 불러오지 못했어요")).font(Brand.suit(20, .bold)).foregroundStyle(Brand.ink)
-            Text(tr("기록을 읽는 중에 문제가 생겼어요. 잠시 뒤 다시 시도해 주세요.")).font(Brand.suit(14)).foregroundStyle(Brand.gray)
+            Text(tr("업무를 불러오지 못했어요")).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink)
+            Text(tr("기록을 읽는 중에 문제가 생겼어요. 잠시 뒤 다시 시도해 주세요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
             Button(tr("다시 시도"), action: retry).buttonStyle(BrandButtonStyle(kind: .secondary)).padding(.top, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
