@@ -1,6 +1,6 @@
 # 개발 가이드
 
-[README로 돌아가기](../README.md)
+[README로 돌아가기](../README.ko.md)
 
 ## 빌드와 권한
 
