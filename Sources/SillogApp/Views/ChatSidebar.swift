@@ -220,6 +220,8 @@ struct ChatSidebar: View {
         }
         Button { onRename(item) } label: { Label(tr("이름 바꾸기"), systemImage: "pencil") }
         ProjectMoveMenu(projects: chat.projects, itemID: "conversation:\(item.id)").disabled(busy)
+        Button { chat.exportMarkdown(item, toFile: false) } label: { Label(tr("전체 복사"), systemImage: "doc.on.doc") }
+        Button { chat.exportMarkdown(item, toFile: true) } label: { Label(tr("Markdown으로 내보내기"), systemImage: "square.and.arrow.up") }
         Divider()
         Button(role: .destructive) { onDelete(item) } label: { Label(tr("삭제"), systemImage: "trash") }.disabled(busy)
     }
@@ -230,6 +232,8 @@ struct ChatSidebar: View {
             PopRow(icon: item.pinnedAt != nil ? "pin.slash" : "pin", title: item.pinnedAt != nil ? tr("고정 해제") : tr("고정")) { close(); chat.togglePin(item) }
             PopRow(icon: "pencil", title: tr("이름 바꾸기")) { close(); onRename(item) }
             MoveRow(projects: chat.projects, itemID: "conversation:\(item.id)", close: close)
+            PopRow(icon: "doc.on.doc", title: tr("전체 복사")) { close(); chat.exportMarkdown(item, toFile: false) }
+            PopRow(icon: "square.and.arrow.up", title: tr("Markdown으로 내보내기")) { close(); chat.exportMarkdown(item, toFile: true) }
             Divider().padding(.vertical, 2)
             PopRow(icon: "trash", title: tr("삭제"), color: PopRow.red) { close(); onDelete(item) }
         }.padding(6).frame(width: 190)

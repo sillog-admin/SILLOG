@@ -335,7 +335,7 @@ enum SnapshotCatalog {
         return [Snapshot(name: "CH-01", size: window, view: AnyView(MainWindow().environmentObject(state))),
                 Snapshot(name: "CH-SKILL-PINS", size: nil, view: AnyView(PinnedSkillPicker(chat: state.chat!, onManage: {}).background(.white))),
                 Snapshot(name: "CH-13", size: window, view: AnyView(MainWindow().environmentObject(tab(.connectors)))),
-                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus + artifactPanel
+                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus + artifactPanel + longQuestion
     }
 
     /// An answer whose revised Word file is open in the side panel at version 2 of 2
@@ -357,6 +357,19 @@ enum SnapshotCatalog {
         chat.openArtifactID = v2.id
         let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })
         return [Snapshot(name: "CH-artifact", size: window, view: AnyView(MainWindow().environmentObject(state)))]
+    }
+
+    /// A 200-line pasted question clipped with 더 보기, and a stopped last answer with 이어서 쓰기
+    private static var longQuestion: [Snapshot] {
+        guard let database = try? SillogDatabase.inMemory() else { return [] }
+        let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
+        let chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        let id = chat.current.id
+        let pasted = (1...200).map { "로그 \($0): 배치 처리 중 판단 모델 응답 지연" }.joined(separator: "\n")
+        chat.messages = [.init(conversationID: id, role: "user", text: "이 로그에서 원인을 찾아줘\n" + pasted),
+                         .init(conversationID: id, role: "assistant", text: "로그를 보면 판단 모델 응답이 늦어지면서", status: "cancelled")]
+        let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })
+        return [Snapshot(name: "CH-long-question", size: window, view: AnyView(MainWindow().environmentObject(state)))]
     }
 
     /// 채팅 범위: 업무 하나로 좁힌 대화(정리 전 기록 안내 포함)와 범위 고르기 창

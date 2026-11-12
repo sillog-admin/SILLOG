@@ -92,7 +92,7 @@ private actor ChatRunLedger {
     /// Returns: 없음. 주·하위 에이전트가 공유하는 실행 예산을 차감한다.
     /// Raises: 한 요청에서 모델 호출이 24회를 초과한 경우.
     func consume() throws {
-        guard calls < 24 else { throw ChatToolError.unavailable("조사 단계 한도에 도달했습니다. 요청 범위를 좁혀 다시 시도하세요.") }
+        guard calls < 24 else { throw ChatToolError.unavailable(tr("조사 단계 한도에 도달했습니다. 요청 범위를 좁혀 다시 시도하세요.")) }
         calls += 1
     }
 
@@ -210,9 +210,13 @@ public struct ChatRunner: Sendable {
             await ledger.record(remembered)
             for source in remembered { await onEvent(.source(source)) }
         }
-        let eligible = Array(history.filter { $0.role == "user" || ($0.role == "assistant" && $0.status == "complete") })
-        let rendered = eligible.map { message in
-            var text = String(message.text.prefix(12000))
+        // A stopped answer's partial text stays in, so "continue" can pick up where it ended.
+        let eligible = Array(history.filter { $0.role == "user" || ($0.role == "assistant" && ($0.status == "complete" || (["cancelled", "interrupted"].contains($0.status) && !$0.text.isEmpty))) })
+        let rendered = eligible.indices.map { index in
+            let message = eligible[index]
+            // The question being asked now is sent whole up to the budget; window() always keeps it.
+            let last = index == eligible.count - 1 && message.role == "user"
+            var text = String(message.text.prefix(last ? Self.historyBudget : 12000))
             for artifact in message.artifacts.suffix(2) { text += "\n<previous_artifact id=\"\(artifact.id)\" format=\"\(artifact.format)\" title=\"\(artifact.title)\">\n\(String(artifact.content.prefix(18000)))\n</previous_artifact>" }
             if !message.sources.isEmpty { text += "\n이전 조회 출처:\n" + message.sources.prefix(12).map { "[\($0.id)] \($0.title) \($0.location)\n\(String($0.excerpt.prefix(500)))" }.joined(separator: "\n") }
             return text
@@ -363,15 +367,15 @@ public struct ChatRunner: Sendable {
             try Task.checkCancellation()
             history.append(.init(role: "assistant", text: reply.text, calls: reply.calls, responseItems: reply.responseItems))
             if reply.calls.isEmpty {
-                guard !reply.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ChatToolError.unavailable("모델이 빈 응답을 반환했습니다.") }
+                guard !reply.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ChatToolError.unavailable(tr("모델이 빈 응답을 반환했습니다.")) }
                 return reply.text
             }
-            guard reply.calls.count <= 8 else { throw ChatToolError.unavailable("한 번에 요청한 도구가 너무 많습니다.") }
+            guard reply.calls.count <= 8 else { throw ChatToolError.unavailable(tr("한 번에 요청한 도구가 너무 많습니다.")) }
             for call in reply.calls {
                 history.append(.init(role: "tool", text: try await execute(call), callID: call.id))
             }
         }
-        throw ChatToolError.unavailable("조사 단계 한도에 도달했습니다. 범위를 좁혀 다시 요청하세요.")
+        throw ChatToolError.unavailable(tr("조사 단계 한도에 도달했습니다. 범위를 좁혀 다시 요청하세요."))
     }
 
     /// Args: role은 하위 역할, allowAutomation은 예약안 도구 노출 여부이다.
@@ -432,8 +436,21 @@ public struct ChatRunner: Sendable {
     /// Args: role은 내부 역할 식별자이다.
     /// Returns: 진행 화면에 표시할 이름.
     /// Raises: 없음.
-    private static func roleTitle(_ role: String) -> String {
-        ["context": "활동 조사", "repository": "코드·문서 조사", "research": "자료 조사", "review": "근거 검토"][role] ?? role
+    private static func roleTitle(_ role: String) -> String { roleTitles[role] ?? role }
+
+    static let roleTitles = ["context": "활동 조사", "repository": "코드·문서 조사", "research": "자료 조사", "review": "근거 검토"]
+    static let toolTitles = ["search_context": "기록 검색", "read_context": "기록 상세 확인", "summarize_period": "기간 집계", "search_library": "보관 자료 검색", "read_library": "보관 자료 읽기", "list_files": "파일 찾기", "read_file": "파일 읽기", "inspect_repository": "Git 이력 확인", "read_revision": "커밋 파일 확인", "github_search": "GitHub 저장소 검색", "github_read": "GitHub 확인", "github_list": "GitHub 파일 목록", "gmail_search": "메일 검색", "gmail_read": "메일 읽기", "drive_search": "Drive 검색", "drive_read": "Drive 읽기", "notion_search": "Notion 검색", "notion_read": "Notion 읽기", "web_search": "웹 검색", "web_read": "웹 원문 확인", "delegate": "작업 분담", "create_artifact": "결과물 생성", "propose_automation": "예약안 작성"]
+
+    /// Args: title is a stored step title such as "활동 조사 · 기록 검색" or "Slack 읽기".
+    /// Returns: the title in the app language. Titles are saved in Korean, so old answers follow a language change too.
+    /// Raises: none.
+    public static func displayTitle(_ title: String) -> String {
+        title.components(separatedBy: " · ").map { part in
+            guard L10n.english[part] == nil, let suffix = [" 시작", " 완료", " 읽기", " 검색"].first(where: { part.hasSuffix($0) }) else { return L10n.tr(key: part) }
+            var text = LocalizedText(stringLiteral: "%@" + suffix)
+            text.args = [L10n.tr(key: String(part.dropLast(suffix.count)))]
+            return L10n.tr(text)
+        }.joined(separator: " · ")
     }
 
     /// Args: tool은 내부 도구 이름이다.
@@ -444,6 +461,6 @@ public struct ChatRunner: Sendable {
            let connector = ExternalReadConnector(rawValue: String(tool[..<separator])) {
             return "\(connector.name) \(tool.hasSuffix("_read") ? "읽기" : "검색")"
         }
-        return ["search_context": "기록 검색", "read_context": "기록 상세 확인", "summarize_period": "기간 집계", "search_library": "보관 자료 검색", "read_library": "보관 자료 읽기", "list_files": "파일 찾기", "read_file": "파일 읽기", "inspect_repository": "Git 이력 확인", "read_revision": "커밋 파일 확인", "github_search": "GitHub 저장소 검색", "github_read": "GitHub 확인", "github_list": "GitHub 파일 목록", "gmail_search": "메일 검색", "gmail_read": "메일 읽기", "drive_search": "Drive 검색", "drive_read": "Drive 읽기", "notion_search": "Notion 검색", "notion_read": "Notion 읽기", "web_search": "웹 검색", "web_read": "웹 원문 확인", "delegate": "작업 분담", "create_artifact": "결과물 생성", "propose_automation": "예약안 작성"][tool] ?? tool
+        return toolTitles[tool] ?? tool
     }
 }

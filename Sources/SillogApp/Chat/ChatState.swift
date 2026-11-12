@@ -289,6 +289,26 @@ final class ChatState: ObservableObject {
         return begin(request, conversation: current, automationID: nil, replacing: replaced)
     }
 
+    /// Asks for the rest of a stopped answer; ChatRunner keeps the partial text in the history.
+    // shortcut: adds a visible follow-up turn instead of extending the stopped answer, merge them if users want one answer.
+    @discardableResult func continueAnswer() -> Bool {
+        guard !running else { error = tr("응답이 끝난 뒤에 다시 보내 주세요."); return false }
+        guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
+        return begin(tr("앞 답변에 이어서 계속 써 줘"), conversation: current, automationID: nil)
+    }
+
+    /// Copies the conversation as Markdown with sources, or saves it to a file the user picks.
+    func exportMarkdown(_ conversation: ChatConversation, toFile: Bool) {
+        do {
+            let title = ChatConversation.display(conversation.title)
+            let text = ConversationMessage.markdown(title: title, messages: try store.messages(conversation.id))
+            guard toFile else { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string); return }
+            let panel = NSSavePanel(); panel.nameFieldStringValue = title.replacingOccurrences(of: "/", with: "-") + ".md"
+            guard panel.runModal() == .OK, let destination = panel.url else { return }
+            try Data(text.utf8).write(to: destination, options: .atomic)
+        } catch { self.error = error.localizedDescription }
+    }
+
     /// 고정한 대화, 고정 시각 내림차순.
     var pinnedConversations: [ChatConversation] {
         conversations.filter { $0.pinnedAt != nil }.sorted { ($0.pinnedAt ?? 0) > ($1.pinnedAt ?? 0) }

@@ -34,6 +34,7 @@ struct ChatView: View {
     @State private var editingMessageID: String?
     @State private var editText = ""
     @State private var hoveredMessageID: String?
+    @State private var expandedQuestions: Set<String> = []
     @State private var pendingResend: PendingResend?
 
     private struct PendingResend: Identifiable {
@@ -431,11 +432,20 @@ struct ChatView: View {
             .frame(maxWidth: 560).frame(maxWidth: .infinity, alignment: .trailing)
         } else if message.role == "user" {
             // 내 질문: 오른쪽 말풍선 (이름표 없이). 올리면 복사·편집
+            let expanded = expandedQuestions.contains(message.id)
+            // shortcut: guesses "long" from lines and length instead of measuring the laid-out text.
+            let long = message.text.count > 600 || message.text.split(separator: "\n", omittingEmptySubsequences: false).count > 12
             VStack(alignment: .trailing, spacing: 6) {
                 Text(message.text).font(Brand.font(.body)).foregroundStyle(Brand.text).lineSpacing(5).textSelection(.enabled)
+                    .lineLimit(long && !expanded ? 12 : nil)
                     .padding(.horizontal, 14).padding(.vertical, 10)
                     .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 12))
                     .frame(maxWidth: 560, alignment: .trailing)
+                if long {
+                    Button(expanded ? tr("접기") : tr("더 보기")) {
+                        if expanded { expandedQuestions.remove(message.id) } else { expandedQuestions.insert(message.id) }
+                    }.buttonStyle(.plain).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+                }
                 HStack(spacing: 14) {
                     Button { copy(message.text) } label: { Image(systemName: "doc.on.doc").font(.system(size: 12)) }.help(tr("질문 복사"))
                     Button { editText = message.text; editingMessageID = message.id } label: { Image(systemName: "pencil").font(.system(size: 12)) }
@@ -516,7 +526,7 @@ struct ChatView: View {
                                 }.foregroundStyle(Brand.gray)
                             }
                         }
-                        Button { copy(message.text) } label: {
+                        Button { copy(message.markdown) } label: {
                             Image(systemName: "doc.on.doc").font(.system(size: 13))
                         }.help(tr("답변 복사"))
                         Button { requestResend(message) } label: {
@@ -527,6 +537,9 @@ struct ChatView: View {
                                 Image(systemName: "record.circle").font(.system(size: 11))
                                 Text(tr("중단됨")).font(Brand.font(.caption))
                             }.foregroundStyle(Brand.tabText)
+                            if chat.messages.last?.id == message.id {
+                                Button(tr("이어서 쓰기")) { chat.continueAnswer() }.font(Brand.font(.tag)).disabled(chat.running)
+                            }
                         }
                         if message.status == "failed" {
                             Button(tr("다시 시도")) { requestResend(message) }.font(Brand.font(.tag)).disabled(chat.running)

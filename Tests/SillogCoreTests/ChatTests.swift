@@ -431,6 +431,46 @@ final class ChatTests: XCTestCase {
         XCTAssertTrue(ChatArtifactHTML.render(.init(title: "s", format: "xlsx", content: "A,<B>\n1,2")).contains("<td>&lt;B&gt;</td>"))
         XCTAssertTrue(ChatArtifactHTML.render(.init(title: "w", format: "docx", content: "# 제목")).contains("<h1>제목</h1>"))
     }
+
+    func testTheNewQuestionIsSentWholeAndAStoppedAnswerStaysForContinuing() async throws {
+        let question = String(repeating: "나", count: 20_000)
+        let stopped = ConversationMessage(conversationID: "c", role: "assistant", text: "중간까지 쓴 답", status: "cancelled")
+        let failed = ConversationMessage(conversationID: "c", role: "assistant", text: "실패 문구", status: "failed")
+        let model = MemoryModel()
+        let runner = ChatRunner(client: model, tools: ChatTools(db: try .inMemory(), scope: .init()))
+        _ = try await runner.run(history: [.init(conversationID: "c", role: "user", text: "앞 질문"), stopped,
+                                           .init(conversationID: "c", role: "user", text: "다른 질문"), failed,
+                                           .init(conversationID: "c", role: "user", text: question)], skillIDs: []) { _ in }
+        let calls = await model.sent
+        let sent = try XCTUnwrap(calls.first)
+        XCTAssertTrue(sent.contains(question))
+        XCTAssertTrue(sent.contains("중간까지 쓴 답"))
+        XCTAssertFalse(sent.contains("실패 문구"))
+    }
+
+    func testStepTitlesHaveEnglishAndTranslateEachPart() {
+        for title in Array(ChatRunner.roleTitles.values) + Array(ChatRunner.toolTitles.values) {
+            XCTAssertNotNil(L10n.english[title], title)
+        }
+        L10n.current = .en
+        defer { L10n.current = .ko }
+        XCTAssertEqual(ChatRunner.displayTitle("활동 조사 · 기록 검색"), "Activity research · Search records")
+        XCTAssertEqual(ChatRunner.displayTitle("자료 조사 시작"), "Research started")
+        XCTAssertEqual(ChatRunner.displayTitle("Slack 읽기"), "Read Slack")
+        XCTAssertEqual(ChatRunner.displayTitle("웹 검색"), "Web search")
+    }
+
+    func testConversationMarkdownKeepsEachAnswersSources() {
+        var answer = ConversationMessage(conversationID: "c", role: "assistant", text: "정리했습니다 [1]")
+        answer.sources = [.init(id: "s1", title: "주간 회의", location: "https://example.com/a", excerpt: "x"), .init(id: "s2", title: "메모", location: "", excerpt: "")]
+        let running = ConversationMessage(conversationID: "c", role: "assistant", text: "작성 중", status: "running")
+        let markdown = ConversationMessage.markdown(title: "보고", messages: [
+            .init(conversationID: "c", role: "user", text: "정리해줘"), answer,
+            .init(conversationID: "c", role: "user", text: "더"), running,
+        ])
+        XCTAssertEqual(markdown, "# 보고\n\n## 질문\n\n정리해줘\n\n## 답변\n\n정리했습니다 [1]\n\n**출처**\n\n1. 주간 회의 — https://example.com/a\n2. 메모\n\n## 질문\n\n더\n")
+        XCTAssertEqual(ConversationMessage(conversationID: "c", role: "assistant", text: "a").markdown, "a")
+    }
 }
 
 /// Answers the memory prompt with numbered summaries and records what each call got.

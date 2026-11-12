@@ -34,7 +34,7 @@ struct ChatWorkLog: View {
     }
 
     private var summary: String {
-        if running { return steps.last?.title ?? tr("답변을 준비하고 있습니다") }
+        if running { return steps.last.map { ChatRunner.displayTitle($0.title) } ?? tr("답변을 준비하고 있습니다") }
         guard message.trace != nil, let first = steps.first?.startedAt else { return tr("작업 \(steps.count)단계") }
         let end = steps.compactMap(\.endedAt).max() ?? first
         return tr("작업 \(steps.count)단계 · \(Self.duration(end - first))")
@@ -52,7 +52,7 @@ struct ChatWorkLog: View {
                 if !last { Rectangle().fill(Brand.line).frame(width: 1).frame(maxHeight: .infinity) }
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(step.title).font(Brand.font(.caption)).foregroundStyle(step.status == .failed ? Brand.ink : Brand.tabText)
+                Text(ChatRunner.displayTitle(step.title)).font(Brand.font(.caption)).foregroundStyle(step.status == .failed ? Brand.ink : Brand.tabText)
                 if !step.detail.isEmpty {
                     Text(step.detail).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(2).textSelection(.enabled)
                 }
