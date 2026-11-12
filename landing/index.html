@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SILLOG, 업무 기록 정리 앱</title>
+<meta name="description" content="컴퓨터에서 한 일을 업무별로 정리하는 macOS 앱, SILLOG">
+<link rel="icon" type="image/png" href="assets/icon-256.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --mint:#0AFFF7; --ink:#04212A; --bg:#050A15; --mute:rgba(255,255,255,.62); --line:rgba(255,255,255,.12); --paper:#F6F5F4; --brown:#24150F;
+  --font:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;background:var(--bg)}
+body{font-family:var(--font);color:#fff;background:var(--bg);word-break:keep-all;-webkit-font-smoothing:antialiased;overflow-x:clip}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+img,video{display:block}
+h1,h2,h3{font-weight:600}
+section[id]{scroll-margin-top:60px}
+.wordmark{filter:brightness(0) invert(1)}
+
+/* 우주: 화면에 고정된 별 두 겹. 내용은 정적이고 반짝임은 opacity만 */
+.stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+.stars::before,.stars::after{content:"";position:absolute;inset:0}
+.stars::before{background-image:radial-gradient(circle at 12% 18%,#fff 0 1px,transparent 1.7px),radial-gradient(circle at 37% 64%,rgba(255,255,255,.8) 0 .8px,transparent 1.5px),radial-gradient(circle at 71% 33%,#fff 0 1.2px,transparent 1.9px),radial-gradient(circle at 88% 79%,rgba(255,255,255,.7) 0 .8px,transparent 1.5px),radial-gradient(circle at 54% 8%,rgba(255,255,255,.85) 0 .9px,transparent 1.6px),radial-gradient(circle at 23% 88%,rgba(255,255,255,.75) 0 .8px,transparent 1.5px);background-size:430px 390px;opacity:.85}
+.stars::after{background-image:radial-gradient(circle at 8% 52%,#fff 0 1px,transparent 1.7px),radial-gradient(circle at 46% 27%,rgba(190,255,252,.9) 0 1.3px,transparent 2.1px),radial-gradient(circle at 64% 83%,rgba(255,255,255,.8) 0 .8px,transparent 1.5px),radial-gradient(circle at 93% 41%,#fff 0 1px,transparent 1.7px),radial-gradient(circle at 29% 6%,rgba(255,255,255,.8) 0 .8px,transparent 1.5px);background-size:640px 560px;animation:twinkle 5s ease-in-out infinite alternate}
+@keyframes twinkle{from{opacity:.3}to{opacity:.85}}
+@keyframes float{0%,100%{translate:0 0;rotate:calc(var(--rt,3deg)*-1)}50%{translate:0 calc(var(--fy,14px)*-1);rotate:var(--rt,3deg)}}
+@keyframes bob{0%,100%{translate:0 0}50%{translate:0 -4px}}
+@keyframes riseIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes chevBob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+
+/* 3D 자리 */
+.m3d{position:relative}
+.m3d canvas{position:absolute;inset:0;width:100%;height:100%;background:transparent}
+.m3d .m3d-fb{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transition:opacity .4s}
+.m3d-on .m3d-fb{opacity:0}
+
+/* 머리 */
+.topbar{position:fixed;top:0;left:0;right:0;height:77px;z-index:100;display:flex;justify-content:center;animation:fadeIn .8s .05s backwards}
+.topbar::before{content:"";position:absolute;inset:0;background:rgba(5,10,21,.9);opacity:0;transition:opacity .24s,background-color .24s}
+.topbar.scrolled::before{opacity:1}
+.topbar.onpaper{color:var(--brown)}
+.topbar.onpaper::before{background:rgba(246,245,244,.92)}
+.topbar.onpaper .wordmark{filter:none}
+.topbar-in{position:relative;width:min(993px,100% - 80px);display:flex;align-items:center;justify-content:space-between}
+.topbar .wordmark{height:22px;width:auto}
+.nav{display:flex;align-items:center;gap:23px}
+.nav a.l{font-size:18px;line-height:21.6px;font-weight:500;letter-spacing:-.36px;transition:opacity .16s}
+.nav a.l:hover{opacity:.6}
+.mint{display:inline-flex;align-items:center;justify-content:center;gap:12px;width:fit-content;border-radius:999px;background:var(--mint);color:var(--ink);font-weight:600;box-shadow:0 8px 28px rgba(10,255,247,.22)}
+.mint:not(.rv){transition:transform .18s,background-color .24s,color .24s}
+.paper .mint,.onpaper .mint{background:var(--brown);color:#fff;box-shadow:0 10px 28px rgba(36,21,15,.18)}
+.mint:hover{transform:translateY(-2px)}
+.mint:active{transform:translateY(0)}
+.dl{height:48px;padding:0 18px;font-size:17px;letter-spacing:-.34px}
+.btn-dl{height:64px;padding:0 32px 0 26px;font-size:20px;letter-spacing:-.4px}
+.btn-dl svg{width:22px;height:22px}
+.btn-end{height:56px;padding:0 28px;font-size:18px;letter-spacing:-.36px}
+
+main>section{position:relative;z-index:1}
+main>section::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse 55% 42% at 50% 50%,var(--g,transparent),transparent)}
+.paper{background:var(--paper);color:var(--brown);--mute:#736D68;--line:#E5E2DF}
+.wrap{width:min(980px,100% - 80px);margin:0 auto}
+.wrap-w{width:min(1120px,100% - 80px);margin:0 auto}
+.center{text-align:center}
+.h2{font-size:44px;line-height:61.6px;letter-spacing:-.44px}
+.lead{font-size:20px;line-height:28px;letter-spacing:-.2px;font-weight:500;color:var(--mute)}
+
+/* 첫 화면 */
+.hero{position:relative;height:100svh;min-height:640px}
+.hero-scene{position:absolute;inset:0;overflow:hidden;background:radial-gradient(90% 70% at 50% 112%,rgba(10,255,247,.2),transparent 62%),radial-gradient(55% 45% at 84% 8%,rgba(110,150,255,.13),transparent 70%),linear-gradient(180deg,transparent 0,rgba(7,24,42,.7) 55%,transparent 100%)}
+.hero-scene::before{content:"";position:absolute;left:-30vw;right:-30vw;bottom:-1px;height:clamp(64px,7.5vw,120px);background:var(--paper);border-radius:50% 50% 0 0/100% 100% 0 0}
+.orb{position:absolute;left:var(--l,auto);right:var(--r,auto);bottom:var(--b);width:var(--s);height:var(--s);border-radius:50%;background:radial-gradient(circle at 34% 30%,var(--c1),var(--c2) 58%,var(--c3));box-shadow:0 0 calc(var(--s)*.4) rgba(10,255,247,.12);animation:float var(--fd,9s) ease-in-out var(--bd,0s) infinite;--rt:0deg}
+.hero h1{color:#fff}
+.hero-copy{position:absolute;left:0;right:0;top:34.9%;margin:0 auto;width:min(700px,100% - 48px);text-align:center;z-index:2}
+.hero h1{font-size:56px;line-height:72.8px;letter-spacing:-1.68px;animation:riseIn .9s cubic-bezier(.22,1,.36,1) .12s backwards}
+.hero .sub{margin-top:16px;font-size:24px;line-height:28.8px;letter-spacing:-.24px;font-weight:600;animation:riseIn .9s cubic-bezier(.22,1,.36,1) .26s backwards}
+.hero .sub .wordmark{height:30px;width:auto;margin:24px auto 0}
+.chev{position:absolute;left:50%;bottom:calc(clamp(64px,7.5vw,120px) + 20px);margin-left:-10px;z-index:2;animation:fadeIn .6s .7s backwards,chevBob 2.4s ease-in-out 1.3s infinite}
+.chev svg{width:21px;height:21px;display:block}
+.hm,.fm{position:absolute;width:var(--s);height:var(--s);pointer-events:none}
+.hm{left:var(--l,auto);right:var(--r,auto);bottom:var(--b)}
+.hm .m3d,.fm .m3d{width:100%;height:100%;z-index:1;animation:bob 5s ease-in-out var(--bd,0s) infinite}
+.hm .m3d{animation:float var(--fd,8s) ease-in-out var(--bd,0s) infinite}
+.hm canvas,.fm canvas{pointer-events:auto}
+
+/* 소개: 궤도 선택기 */
+.intro{padding:120px 0 132px}
+.intro .btn-dl{margin:34px auto 0}
+.intro .req{margin-top:12px;font-size:14px;line-height:19.6px;letter-spacing:-.14px;color:var(--mute)}
+.stage{--u:calc(100cqw/1440);container-type:inline-size;position:relative;width:100%;max-width:1440px;aspect-ratio:1440/776;margin:110px auto 0}
+.ring{position:absolute;left:50%;top:50%;width:calc(var(--u)*var(--w));height:calc(var(--u)*var(--h));border:1px solid rgba(36,21,15,.1);border-radius:50%;translate:-50% -50%;rotate:var(--r)}
+.winbox{position:absolute;left:50%;top:calc(var(--u)*89);width:calc(var(--u)*860);translate:-50% 0;z-index:1}
+.screen{position:relative;display:grid;border-radius:14px;overflow:hidden;border:1px solid rgba(36,21,15,.1);box-shadow:0 24px 60px rgba(36,21,15,.16)}
+.screen img,.gshow video{grid-area:1/1;width:100%;height:auto;opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s .3s}
+.screen img.on,.gshow video.on{opacity:1;visibility:visible;transition:opacity .3s}
+.planets{position:absolute;inset:0;z-index:2;pointer-events:none}
+.pl{pointer-events:auto;position:absolute;left:calc(50% + var(--x)*var(--u));top:calc(var(--u)*var(--y));display:flex;align-items:center;gap:12px;font-size:15px;font-weight:600;letter-spacing:-.15px;white-space:nowrap;color:var(--mute);transition:color .3s}
+.pl.l{flex-direction:row-reverse;translate:calc(-100% + var(--d)/2) -50%}
+.pl.r{translate:calc(var(--d)/-2) -50%}
+.pl i{position:relative;flex:none;width:var(--d);height:var(--d);border-radius:50%;background:radial-gradient(circle at 34% 30%,#E9FFFE,#19E6DF 55%,#0A8F8B);opacity:.6;transition:opacity .3s,transform .3s}
+.pl i::after{content:"";position:absolute;inset:-14px;border-radius:50%;background:radial-gradient(circle,rgba(10,255,247,.55),transparent 70%);opacity:0;transition:opacity .3s}
+.pl:hover{color:#4A4541}
+.pl.on{color:var(--brown)}
+.pl.on i{opacity:1;transform:scale(1.5)}
+.pl.on i::after{opacity:1}
+.cap{position:absolute;left:0;right:0;top:calc(var(--u)*716);font-size:18px;line-height:25.2px;letter-spacing:-.18px;color:var(--mute);min-height:26px;transition:opacity .3s}
+.chr{position:absolute;left:calc(50% + var(--x)*var(--u));top:calc(var(--u)*var(--y));width:calc(var(--u)*var(--s));height:calc(var(--u)*var(--s));z-index:var(--z,0);pointer-events:none;animation:bob 5s ease-in-out var(--bd,0s) infinite}
+.chr canvas{pointer-events:auto}
+
+/* 부탁 예시 */
+.ask{padding:100px 0 60px;overflow:hidden}
+.ask .lead{margin-top:16px}
+.qwall{margin-top:56px;display:flex;flex-direction:column;gap:14px;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.qrow{display:flex;width:max-content;font-size:16px;opacity:.7;animation:qmove 70s linear infinite}
+.qrow.r2{font-size:21px;opacity:1;animation-duration:78s;animation-direction:reverse}
+.qrow.r3{animation-duration:86s}
+.qwall:hover .qrow{animation-play-state:paused}
+@keyframes qmove{to{transform:translateX(-50%)}}
+.qp{flex:none;margin-right:14px;display:flex;align-items:center;gap:.6em;padding:.4em 1.2em .4em .4em;border-radius:999px;background:#fff;border:1px solid var(--line);font-weight:500;letter-spacing:-.01em;white-space:nowrap}
+.qp i{width:2em;height:2em;border-radius:50%;background:#EAE3DC;display:grid;place-items:center}
+.qp svg{width:1em;height:1em;stroke:#5E4B40;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* 정리 방식 */
+.features{padding:80px 0 120px}
+.features .lead{margin-top:16px}
+.flow{--cx:50;--cy:50;position:relative;container-type:size;margin:56px auto 0;width:100%;aspect-ratio:1120/440;border-radius:28px;overflow:hidden;text-align:left;
+  background:radial-gradient(60% 80% at 12% 6%,rgba(180,208,228,.6),transparent 70%),radial-gradient(50% 70% at 88% 8%,rgba(250,232,196,.65),transparent 70%),radial-gradient(60% 80% at 94% 72%,rgba(238,200,196,.6),transparent 70%),radial-gradient(50% 60% at 4% 94%,rgba(196,224,206,.55),transparent 70%),#F1EEF0}
+#fdots{position:absolute;inset:0}
+.fd{--px:var(--x);--py:var(--y);position:absolute;left:calc(var(--px)*1%);top:calc(var(--py)*1%);width:var(--s);height:var(--s);margin:calc(var(--s)/-2) 0 0 calc(var(--s)/-2);border-radius:50%;background:var(--c);animation:fdin 8s cubic-bezier(.5,0,.9,.5) var(--dl) infinite both;animation-play-state:paused}
+.fd span{position:absolute;left:calc(100% + 8px);top:50%;translate:0 -50%;font-size:14px;font-style:normal;font-weight:500;color:#9A938D;white-space:nowrap}
+@keyframes fdin{0%{opacity:0;transform:none}8%,56%{opacity:1;transform:none}90%{opacity:1}96%,100%{opacity:0;transform:translate(calc((var(--cx) - var(--px))*1cqw),calc((var(--cy) - var(--py))*1cqh)) scale(.5)}}
+.fmk{position:absolute;left:50%;top:calc(var(--cy)*1%);translate:-50% -50%;width:44cqh;height:44cqh;border-radius:50%;background:#fff;box-shadow:0 0 0 14px rgba(255,255,255,.45),0 18px 50px rgba(36,21,15,.12);display:grid;place-items:center}
+.fmk .m3d{width:78%;height:78%}
+.fc{position:absolute;left:calc(var(--x)*1%);top:calc(var(--y)*1%);padding:11px 18px 12px;border-radius:14px;background:#fff;box-shadow:0 8px 24px rgba(36,21,15,.08);white-space:nowrap;animation:fcin 8s ease calc(var(--i)*.7s) infinite both;animation-play-state:paused}
+.fc b{display:flex;align-items:center;gap:8px;font-size:17px;line-height:24px;font-weight:600;letter-spacing:-.17px}
+.fc b i{width:9px;height:9px;border-radius:50%}
+.fc small{display:block;margin-top:2px;padding-left:17px;font-size:13px;line-height:18px;color:var(--mute)}
+@keyframes fcin{0%,4%{opacity:0;transform:translateX(-18px) scale(.96)}12%,86%{opacity:1;transform:none}94%,100%{opacity:0;transform:none}}
+.flow.run .fd,.flow.run .fc{animation-play-state:running}
+
+/* 그래프 */
+.graph{padding:100px 0 110px}
+.graph .lead{margin:16px auto 0;max-width:640px}
+.tabs{margin-top:44px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+.tab{height:48px;padding:0 20px;border-radius:90px;border:1px solid var(--line);background:#fff;font-size:17px;font-weight:600;letter-spacing:-.17px;color:#4A4541;transition:opacity .16s}
+.tab:hover{opacity:.7}
+.tab.on{background:#EAE3DC;color:#3D2F27;border-color:#CCBEB3;opacity:1}
+.gwin{margin:48px auto 0;width:min(980px,100% - 32px)}
+.gshow{position:relative;display:grid;border-radius:14px;overflow:hidden;border:1px solid rgba(36,21,15,.1);box-shadow:0 24px 60px rgba(36,21,15,.16)}
+
+/* 개인정보 */
+.privacy{padding:140px 0 60px}
+.privacy .lead{margin-top:20px}
+.items{margin-top:72px;display:grid;grid-template-columns:repeat(3,1fr);gap:48px}
+.it{text-align:center}
+.it img{width:200px;height:auto;margin:0 auto;--rt:0deg;--fy:10px;animation:float var(--fd) ease-in-out var(--bd,0s) infinite}
+.it .lb{margin-top:28px;font-size:14px;line-height:1.25;font-weight:600;color:#8A7566}
+.it h3{margin-top:10px;font-size:20px;line-height:1.35}
+.note{margin-top:56px;text-align:center;font-size:15px;line-height:22px;letter-spacing:-.15px;color:var(--mute)}
+
+/* 자주 묻는 질문 */
+.faqs{padding:60px 0 120px}
+.faqs h2{font-size:44px;line-height:52.8px;letter-spacing:-.88px;margin-bottom:36px}
+.q{border-top:1px solid var(--line)}
+.q:last-child{border-bottom:1px solid var(--line)}
+.q button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 0;text-align:left;font-size:20px;line-height:28px;font-weight:600;transition:opacity .16s}
+.q button:hover{opacity:.7}
+.q svg{flex:none;width:20px;height:20px;stroke:var(--mute);fill:none;stroke-width:2;stroke-linecap:round;transition:transform .26s cubic-bezier(.32,.72,0,1)}
+.q.open svg{transform:rotate(45deg)}
+.ans{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s cubic-bezier(.32,.72,0,1)}
+.q.open .ans{grid-template-rows:1fr}
+.ans>div{overflow:hidden}
+.ans p{padding:0 40px 24px 0;font-size:17px;line-height:1.6;letter-spacing:-.17px;color:var(--mute)}
+
+/* 끝 장면 */
+.end{height:1010px;overflow:hidden;padding-top:210px}
+.end::after{content:"";position:absolute;left:-30vw;right:-30vw;top:-1px;height:clamp(56px,6.5vw,104px);background:var(--paper);border-radius:0 0 50% 50%/0 0 100% 100%}
+.end h2{font-size:44px;line-height:61.6px;letter-spacing:-.44px}
+.end .btn-end{margin:26px auto 0}
+.planet{position:absolute;left:50%;bottom:0;width:2304px;height:2304px;border-radius:50%;translate:-50% calc(100% - 300px);z-index:-1;background:linear-gradient(180deg,#A8FFFB 0,#0AFFF7 .5%,#0A9E9A 6%,#05383F 13%,#050A15 24%)}
+.end .fm{left:calc(50% + var(--x) - var(--s)/2);bottom:var(--b)}
+.fmeta{position:absolute;left:0;right:0;bottom:28px;display:flex;justify-content:center;z-index:2}
+.fmeta>div{width:min(993px,100% - 80px);display:flex;justify-content:space-between;align-items:center}
+.fmeta .wordmark{height:18px;width:auto}
+.fmeta small{display:block;margin-top:8px;font-size:14px;line-height:19.6px;letter-spacing:-.14px;color:rgba(255,255,255,.75)}
+.fmeta nav{display:flex;gap:22px;font-size:15px;line-height:21px;font-weight:500}
+.fmeta nav a:hover{opacity:.6}
+
+/* 등장 */
+.js .rv{opacity:0;translate:0 28px;transition:opacity .7s var(--ease) var(--d,0ms),translate .7s var(--ease) var(--d,0ms)}
+.js .rv.rv-in{opacity:1;translate:0 0}
+
+@media (max-width:1100px){.chr.hide-m{display:none}}
+@media (max-width:700px){
+  .topbar{height:68px}
+  .topbar-in{width:calc(100% - 32px)}
+  .nav a.l{display:none}
+  .dl{height:40px;font-size:15px;padding:0 14px}
+  .topbar .wordmark{height:19px}
+  .hero h1{font-size:36px;line-height:46.8px;letter-spacing:-1.08px}
+  .hero .sub{font-size:19px;line-height:25px}
+  .hero .sub .wordmark{height:22px;margin-top:16px}
+  .hero-copy{top:24%}
+  .nobr-m br{display:none}
+  .h2,.end h2{font-size:28px;line-height:39.2px;letter-spacing:-.28px}
+  .faqs h2{font-size:28px;line-height:36px;letter-spacing:-.56px}
+  .lead{font-size:17px;line-height:25px}
+  .wrap,.wrap-w{width:calc(100% - 40px)}
+  .hm.hide-s,.fm.hide-s,.chr.hide-s{display:none}
+  .hm-c{--l:-6%!important;--b:5%!important;--s:44vw!important}
+  .hm-e{--l:38%!important;--b:2%!important;--s:25vw!important}
+  .hm-f{--r:-7%!important;--b:15%!important;--s:38vw!important}
+  .orb:first-of-type{--s:44vw!important;--r:-16%!important;--b:66%!important}
+  .intro{padding:96px 0 72px}
+  .btn-dl{height:54px;font-size:18px;padding:0 26px 0 20px}
+  .stage{aspect-ratio:auto;display:flex;flex-direction:column;align-items:center;gap:20px;margin-top:96px}
+  .ring{display:none}
+  .winbox{position:relative;left:auto;top:auto;translate:none;width:calc(100% - 32px)}
+  .planets{position:static;pointer-events:auto;display:flex;gap:10px;width:100%;overflow-x:auto;padding:4px 16px;scrollbar-width:none}
+  .planets::-webkit-scrollbar{display:none}
+  .pl,.pl.l,.pl.r{position:static;translate:none;flex:none;flex-direction:row;padding:8px 14px 8px 10px;border:1px solid var(--line);border-radius:999px}
+  .pl.on{border-color:#CCBEB3;background:#EAE3DC}
+  .pl.on i{transform:none}
+  .cap{position:static;font-size:16px;padding:0 20px}
+  .chr.peek{left:auto;right:8px;top:-84px;width:120px;height:120px}
+  .ask{padding:64px 0 64px}
+  .qrow.r2{font-size:18px}
+  .features{padding:64px 0 80px}
+  .flow{--cy:43;aspect-ratio:390/690;border-radius:20px;margin-top:40px}
+  .fd{--px:calc(var(--y)*1.05 - 10);--py:calc(var(--x)*.72 + 2)}
+  .fd span{display:none}
+  .fmk{width:30cqw;height:30cqw}
+  .fc{left:50%;top:calc(54.5% + var(--i)*8.7%);translate:-50% 0;padding:8px 14px 9px}
+  .fc b{font-size:15px;line-height:21px}
+  .fc small{font-size:12px;line-height:16px}
+  .graph{padding:64px 0 72px}
+  .privacy{padding:96px 0 40px}
+  .items{grid-template-columns:1fr;margin-top:48px;gap:44px}
+  .it img{width:170px}
+  .faqs{padding:40px 0 80px}
+  .q button{font-size:17px;padding:18px 0}
+  .ans p{font-size:15px;padding-right:0}
+  .end{height:880px;padding-top:150px}
+  .planet{width:640px;height:640px;translate:-50% calc(100% - 200px)}
+  .end .fm{--s:130px!important}
+  .end .f3{--b:190px!important}
+  .end .f2{--x:-105px!important;--b:172px!important}
+  .end .f4{--x:105px!important;--b:172px!important}
+  .orb:not(:first-of-type){display:none}
+  .fmeta{bottom:20px}
+  .fmeta>div{flex-direction:column;align-items:center;gap:14px}
+  .fmeta small{text-align:center}
+  .fmeta nav{gap:16px}
+}
+@media (prefers-reduced-motion:reduce){
+  .topbar,.hero h1,.hero .sub,.chev,.chr,.hm .m3d,.fm .m3d,.orb,.stars::after,.it img,.qrow,.fd,.fc{animation:none}
+  .js .rv{opacity:1;translate:0 0;transition:none}
+  .ans,.q svg,.screen img,.gshow video{transition:none}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></symbol>
+    <symbol id="i-table" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 5v14"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h1M4 12h1M4 18h1"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4h10a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h10"/></symbol>
+    <symbol id="i-slides" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16zM14 7l3 3"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M17 3l3 3-3 3M4 11V9a3 3 0 0 1 3-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 0 1-3 3H4"/></symbol>
+  </defs>
+</svg>
+<div class="stars" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a href="#top" aria-label="SILLOG"><img decoding="async" class="wordmark" src="assets/wordmark.png" alt="SILLOG" width="131" height="22"></a>
+    <nav class="nav">
+      <a class="l" href="#features">기능</a>
+      <a class="l" href="#privacy">개인정보</a>
+      <a class="l" href="#faq">자주 묻는 질문</a>
+      <a class="l" href="https://github.com/sillog-admin/sillog" target="_blank" rel="noopener">GitHub</a>
+      <a class="mint dl" href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg" download>앱 다운로드</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="hero-scene">
+      <i class="orb" style="--r:-6%;--b:58%;--s:min(38vh,360px);--c1:#9FFFFB;--c2:#12B9B3;--c3:#06343C;--fd:13s;--fy:8px"></i>
+      <i class="orb" style="--l:24%;--b:30%;--s:min(5vh,46px);--c1:#EFFFFE;--c2:#8CE9E5;--c3:#2B6F74;--fd:9s;--bd:-3s"></i>
+      <i class="orb" style="--l:62%;--b:74%;--s:min(3vh,26px);--c1:#EFFFFE;--c2:#A9F3F0;--c3:#3B7F84;--fd:11s;--bd:-6s"></i>
+      <div class="hm hide-s" style="--l:14%;--b:64%;--s:min(13vh,130px);--bd:-2s;--fd:8s;--rt:5deg"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m3.webp" alt=""><canvas data-m3d="solo" data-color="#8CFFFB" data-yaw="20" data-pitch="-3" data-roll="-14" data-expr="idle" data-look="pointer"></canvas></div></div>
+      <div class="hm hide-s" style="--r:22%;--b:68%;--s:min(11vh,110px);--bd:-3.4s;--fd:9s;--rt:6deg"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m5.webp" alt=""><canvas data-m3d="solo" data-color="#C9FFFD" data-yaw="-22" data-pitch="-3" data-roll="16" data-expr="idle" data-look="pointer"></canvas></div></div>
+      <div class="hm hide-s" style="--l:35%;--b:9%;--s:min(14vh,140px);--bd:-.8s;--fd:7s;--rt:5deg"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m3.webp" alt=""><canvas data-m3d="solo" data-color="#8CFFFB" data-yaw="8" data-pitch="-3" data-roll="12" data-expr="idle" data-look="pointer"></canvas></div></div>
+      <div class="hm hm-e" style="--l:57%;--b:6%;--s:min(18vh,180px);--bd:-4.1s;--fd:8.5s;--rt:4deg"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m1.webp" alt=""><canvas data-m3d="solo" data-color="#00B8B2" data-yaw="-10" data-pitch="-3" data-roll="-7" data-expr="idle" data-look="pointer"></canvas></div></div>
+      <div class="hm hm-f" style="--r:7%;--b:15%;--s:min(30vh,300px);--bd:-1.6s;--fd:10s;--rt:3deg"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m4.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="-18" data-pitch="-3" data-roll="-10" data-expr="idle" data-look="pointer"></canvas></div></div>
+      <div class="hm hm-c" style="--l:4%;--b:5%;--s:min(40vh,400px);--bd:-2.7s;--fd:11s;--rt:3deg"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m2.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="14" data-pitch="-3" data-roll="8" data-expr="smile" data-look="pointer"></canvas></div></div>
+    </div>
+    <div class="hero-copy">
+      <h1>쌓아 온 기록으로<br>다음 일을 시작해요</h1>
+      <p class="sub">컴퓨터에서 한 일을 업무별로 정리하는 macOS 앱<img class="wordmark" src="assets/wordmark.png" alt="SILLOG" width="178" height="30"></p>
+    </div>
+    <a class="chev" href="#intro" aria-label="아래로"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></a>
+  </section>
+
+  <section class="intro center paper" id="intro">
+    <div class="wrap-w">
+      <h2 class="h2 rv">한 일을 업무별로 정리하고<br>AI가 그 기록으로 일하게 하는 SILLOG</h2>
+      <a class="mint btn-dl rv" href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>macOS용 다운로드</a>
+      <p class="req rv">macOS 14 이상, Apple 실리콘 Mac</p>
+    </div>
+    <div class="stage rv">
+      <i class="ring" style="--w:1200;--h:636;--r:-9deg"></i>
+      <i class="ring" style="--w:1080;--h:736;--r:11deg"></i>
+      <div class="m3d chr peek" style="--bd:-1s;--x:250;--y:-60;--s:260;--z:0"><img decoding="async" class="m3d-fb" src="assets/m2.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="-18" data-pitch="-4" data-roll="-8" data-expr="smile" data-look="pointer"></canvas></div>
+      <div class="winbox"><div class="screen" id="screens">
+        <img decoding="async" class="on" src="assets/screen-answer.webp" alt="문서 작성 스킬로 보고서를 만드는 SILLOG 화면" width="1800" height="1252">
+        <img decoding="async" src="assets/screen-result.webp" alt="만든 결과물을 저장하는 SILLOG 화면" width="1800" height="1252">
+        <img decoding="async" src="assets/screen-resume.webp" alt="세션을 다시 여는 SILLOG 화면" width="1800" height="1252">
+        <img decoding="async" src="assets/screen-schedule.webp" alt="예약 작업 예약안을 보여 주는 SILLOG 화면" width="1800" height="1252">
+        <img decoding="async" src="assets/screen-file.webp" alt="파일 위치를 추천하는 SILLOG 화면" width="1800" height="1252">
+        <img decoding="async" src="assets/screen-log.webp" alt="활동 로그를 보여 주는 SILLOG 화면" width="1800" height="1252">
+      </div></div>
+      <div class="planets" role="tablist">
+          <button class="pl l on" style="--x:-477;--y:150;--d:16px" data-i="0" role="tab"><i></i><span>보고서 작성</span></button>
+          <button class="pl l" style="--x:-572;--y:381;--d:14px" data-i="1" role="tab"><i></i><span>결과물 저장</span></button>
+          <button class="pl l" style="--x:-542;--y:598;--d:18px" data-i="2" role="tab"><i></i><span>다시 열기</span></button>
+          <button class="pl r" style="--x:542;--y:178;--d:15px" data-i="3" role="tab"><i></i><span>예약 작업</span></button>
+          <button class="pl r" style="--x:520;--y:372;--d:18px" data-i="4" role="tab"><i></i><span>파일 위치 추천</span></button>
+          <button class="pl r" style="--x:477;--y:626;--d:14px" data-i="5" role="tab"><i></i><span>보낸 내용 확인</span></button>
+      </div>
+      <p class="cap" id="cap"></p>
+      <div class="m3d chr hide-s" style="--bd:-2.4s;--x:-600;--y:650;--s:130;--z:2"><img decoding="async" class="m3d-fb" src="assets/m3.webp" alt=""><canvas data-m3d="solo" data-color="#8CFFFB" data-yaw="24" data-pitch="-4" data-roll="10" data-expr="idle" data-look="pointer"></canvas></div>
+    </div>
+  </section>
+
+  <section class="ask center paper" id="ask">
+    <div class="wrap-w">
+      <h2 class="h2 rv">이렇게 부탁하면 돼요</h2>
+      <p class="lead rv">스킬을 고르고 평소 말하듯 부탁하면, SILLOG이 기록에서 필요한 자료를 찾아요.</p>
+    </div>
+    <div class="qwall rv" id="qwall"></div>
+  </section>
+
+  <section class="features paper" id="features">
+    <div class="wrap-w">
+      <div class="center">
+        <h2 class="h2 rv">입력하지 않아도<br>업무별로 정리돼요</h2>
+        <p class="lead rv">처음 권한을 허용하면, 그 뒤로는 따로 입력하지 않아도 기록해요.</p>
+      </div>
+      <div class="flow rv" id="flow" role="img" aria-label="흩어진 기록이 SILLOG을 지나 업무별 카드로 정리되는 모습">
+        <div id="fdots"></div>
+        <div class="fmk"><div class="m3d"><img decoding="async" class="m3d-fb" src="assets/m1.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="0" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
+        <div class="fc" style="--x:63;--y:6;--i:0"><b><i style="background:#5B8FD0"></i>신제품 출시 준비</b><small>산출물작성 › 기획서작성</small></div>
+        <div class="fc" style="--x:70;--y:24.5;--i:1"><b><i style="background:#E7B645"></i>경쟁사 가격 비교</b><small>정보수집 › 경쟁사조사</small></div>
+        <div class="fc" style="--x:61;--y:43;--i:2"><b><i style="background:#8E5A93"></i>출시 일정 점검</b><small>행정처리 › 일정관리</small></div>
+        <div class="fc" style="--x:69;--y:61.5;--i:3"><b><i style="background:#57A377"></i>공지 메일 작성</b><small>커뮤니케이션 › 메일처리</small></div>
+        <div class="fc" style="--x:63;--y:80;--i:4"><b><i style="background:#5B8FD0"></i>발표 자료 구성</b><small>산출물작성 › 발표자료</small></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="graph center paper" id="graph">
+    <div class="wrap-w">
+      <h2 class="h2 rv">업무와 자료가 그래프로 이어져요</h2>
+      <p class="lead rv">업무, 세션, 자료, 주제를 서로 연결해 저장해요.<br>2D와 3D 연결망, 원형 차트, 생키 다이어그램으로 바꿔 볼 수 있어요.</p>
+      <div class="tabs rv" id="tabs" role="tablist">
+        <button class="tab on" role="tab">2D 연결망</button>
+        <button class="tab" role="tab">3D 연결망</button>
+        <button class="tab" role="tab">원형 차트</button>
+        <button class="tab" role="tab">생키 다이어그램</button>
+      </div>
+    </div>
+    <div class="gwin rv"><div class="gshow" id="gshow">
+      <video class="on" muted loop playsinline preload="none" poster="assets/graph-solar.webp" src="assets/graph-solar.mp4" width="1800" height="1252" aria-label="업무와 자료를 잇는 2D 연결망"></video>
+      <video muted loop playsinline preload="none" poster="assets/graph-3d.webp" src="assets/graph-3d.mp4" width="1800" height="1252" aria-label="업무와 자료를 입체로 보는 3D 연결망"></video>
+      <video muted loop playsinline preload="none" poster="assets/graph-sunburst.webp" src="assets/graph-sunburst.mp4" width="1800" height="1252" aria-label="원형 차트"></video>
+      <video muted loop playsinline preload="none" poster="assets/graph-branch.webp" src="assets/graph-branch.mp4" width="1800" height="1252" aria-label="생키 다이어그램"></video>
+    </div></div>
+  </section>
+
+  <section class="privacy center paper" id="privacy">
+    <div class="wrap-w">
+      <h2 class="h2 nobr-m rv">기록 원본은 내 Mac에 저장하고 <br>보낸 내용은 직접 확인해요</h2>
+      <p class="lead rv">SILLOG은 자체 서버를 두지 않아요.<br>업무 정리와 채팅은 내가 연결한 AI 계정으로 해요.</p>
+    </div>
+    <div class="wrap">
+      <div class="items">
+        <div class="it rv"><img decoding="async" src="assets/icon3d-mac.webp" alt="노트북" width="1040" height="1000" style="--fd:7s"><p class="lb">저장</p><h3>기록은 내 Mac에<br>저장해요</h3></div>
+        <div class="it rv"><img decoding="async" src="assets/icon3d-lens.webp" alt="기록 위의 돋보기" width="1040" height="1000" style="--fd:9s;--bd:-3s"><p class="lb">확인</p><h3>보낸 내용과 받은 결과를<br>활동 로그에서 봐요</h3></div>
+        <div class="it rv"><img decoding="async" src="assets/icon3d-toggle.webp" alt="켜고 끄는 스위치" width="1040" height="1000" style="--fd:8s;--bd:-5s"><p class="lb">제어</p><h3>기능별로 전송을<br>끌 수 있어요</h3></div>
+      </div>
+      <p class="note rv">비밀번호 입력칸은 기록하지 않아요. 비밀번호 관리자와 키체인 같은 앱은 이름과 시간만 남겨요.</p>
+    </div>
+  </section>
+
+  <section class="faqs paper" id="faq">
+    <div class="wrap">
+      <h2 class="rv">자주 묻는 질문</h2>
+          <div class="q open rv"><button aria-expanded="true">SILLOG은 무엇을 기록하나요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>앱, 창 제목, 주소, 파일 경로, 화면 글자, 스크린샷, 다운로드한 파일, AI 코딩 도구(Claude Code, Codex CLI)에 입력한 메시지를 기록해요. 2분 넘게 입력이 없으면 자리 비움으로 기록해요. 녹음은 직접 시작했을 때만 하고 Mac 안에서 글로 받아써요.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">기록은 어디에 저장되나요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>내 Mac에 저장해요. SILLOG은 자체 서버를 두지 않아요.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">밖으로 나가는 내용은 무엇인가요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>업무를 정리하고 채팅에 답하려고 기록 내용을 내가 연결한 AI 계정으로 보내요. 대표 화면의 스크린샷도 함께 보내요. 채팅에서 찾아본 자료, 허용한 웹 검색과 커넥터 통신도 밖으로 나가요. 보낸 내용은 활동 로그에서 확인하고 기능별로 전송을 끌 수 있어요.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">어떤 AI 계정이 필요한가요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>ChatGPT 구독과 API(OpenAI 호환) 가운데 하나를 연결해요. ChatGPT 구독으로 채팅하려면 Codex CLI나 Codex 앱이 설치되어 있어야 해요. API로 연결하면 호출 요금이 나와요.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">기록하고 싶지 않은 앱이 있어요.<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>기록하지 않을 앱을 추가하면 그 앱은 이름과 시간만 남겨요. 비밀번호 관리자와 키체인은 처음부터 제외되어 있고 비밀번호 입력칸은 기록하지 않아요.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">스크린샷은 얼마나 보관하나요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>기본 7일이고 1일에서 90일 사이로 바꿀 수 있어요.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">어떤 컴퓨터에서 쓸 수 있나요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>지금은 macOS 14 이상의 Apple 실리콘 Mac에서 쓸 수 있어요. Windows와 모바일은 아직 준비 중이에요.</p></div></div></div>
+    </div>
+  </section>
+
+  <section class="end center" id="end">
+    <div class="planet" aria-hidden="true"></div>
+    <div class="wrap-w">
+      <h2 class="rv">지금 SILLOG을<br>만나 보세요</h2>
+      <a class="mint btn-end rv" href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg" download>macOS용 다운로드</a>
+    </div>
+    <div class="fm hide-s" style="--x:-560px;--s:230px;--b:150px;--bd:-1s"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m2.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="14" data-pitch="-3" data-roll="0" data-expr="smile" data-look="pointer"></canvas></div></div>
+    <div class="fm f2" style="--x:-280px;--s:260px;--b:260px;--bd:-2.4s"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m3.webp" alt=""><canvas data-m3d="solo" data-color="#8CFFFB" data-yaw="7" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
+    <div class="fm f3" style="--x:0px;--s:280px;--b:290px;--bd:-3.3s"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m1.webp" alt=""><canvas data-m3d="solo" data-color="#00B8B2" data-yaw="0" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
+    <div class="fm f4" style="--x:280px;--s:260px;--b:260px;--bd:-.8s"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m5.webp" alt=""><canvas data-m3d="solo" data-color="#C9FFFD" data-yaw="-7" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
+    <div class="fm hide-s" style="--x:560px;--s:230px;--b:150px;--bd:-4.2s"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m4.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="-14" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
+    <div class="fmeta"><div>
+      <div><img decoding="async" class="wordmark" src="assets/wordmark.png" alt="SILLOG" width="107" height="18"><small>© 2026 SILLOG</small></div>
+      <nav><a href="#features">기능</a><a href="#privacy">개인정보</a><a href="#faq">자주 묻는 질문</a><a href="https://github.com/sillog-admin/sillog" target="_blank" rel="noopener">GitHub</a></nav>
+    </div></div>
+  </section>
+</main>
+
+<script>
+(function(){
+  var d=document, $=function(s,r){return (r||d).querySelector(s)}, $$=function(s,r){return [].slice.call((r||d).querySelectorAll(s))};
+  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  d.documentElement.classList.add('js');
+
+  // 주소 없는 단추는 페이지가 튀지 않게, 안쪽 링크는 부드럽게 이동
+  d.addEventListener('click',function(e){var a=e.target.closest('a[href="#"]');if(a)e.preventDefault()});
+  d.addEventListener('click',function(e){
+    var a=e.target.closest('a[href^="#"]:not([href="#"])');if(!a)return;
+    var t=$(a.getAttribute('href'));if(!t)return;e.preventDefault();
+    scrollTo({top:t.getBoundingClientRect().top+scrollY-(t.id==='top'?0:60),behavior:reduce?'auto':'smooth'});
+  });
+
+  // 머리: 80px 넘게 내려가면 바탕이 생기고, 종이 구역 위에서는 밝은 바탕 (값이 바뀔 때만)
+  var bar=$('.topbar'), sc=false, op=false, p0=$('#intro'), p1=$('#end');
+  function onScroll(){
+    var y=scrollY, s=y>80, o=y>p0.offsetTop-40&&y<p1.offsetTop+20;
+    if(s!==sc){sc=s;bar.classList.toggle('scrolled',s)}
+    if(o!==op){op=o;bar.classList.toggle('onpaper',o)}
+  }
+  addEventListener('scroll',onScroll,{passive:true});onScroll();
+
+  // 정리 효과: 흩어진 기록 점이 마스코트로 모이고 업무 카드로 나온다 (구역이 보일 때만 움직인다)
+  var flow=$('#flow'), FC=['#5B8FD0','#E7B645','#57A377','#8E5A93','#DD6A54'];
+  $('#fdots').innerHTML=[[8,22,22,1],[14,34,26,1],[10,50,22,2],[20,28,16,3,'시장 조사 보고서.pdf'],[23,39,22,0],[21.5,41,14,4],[26,30,14,2],[30,44,18,0,'example.com'],[33,56,22,0],[25,58,12,2,'Word'],[32,36,12,4,'회의 메모'],[36,64,22,0],[38,67,14,3],[29,70,12,4,'Keynote'],[30,73.5,16,4],[8,76,24,4],[36,80,20,1],[38.5,84,18,0,'Excel'],[13,86,12,1],[21,84,14,0],[18,91,12,2],[4,94,10,0]].map(function(p,k){
+    return '<i class="fd" style="--x:'+p[0]+';--y:'+p[1]+';--s:'+p[2]+'px;--c:'+FC[p[3]]+';--dl:'+(-k*.36).toFixed(2)+'s">'+(p[4]?'<span>'+p[4]+'</span>':'')+'</i>';
+  }).join('');
+  new IntersectionObserver(function(es){flow.classList.toggle('run',es[0].isIntersecting)},{threshold:.1}).observe(flow);
+
+  // 부탁 예시 마퀴
+  var rows=[
+    [['doc','이번 주 업무 보고서 써 줘'],['doc','이 프로젝트로 포트폴리오 항목 써 줘'],['table','어제 보던 자료를 비교표로 정리해 줘'],['list','남은 일 우선순위 정해 줘'],['book','최근 읽은 자료 개념 설명해 줘']],
+    [['slides','발표자료 초안 만들어 줘'],['repeat','주간 보고서를 매주 만들어 줘'],['doc','경력기술서 항목 정리해 줘'],['search','이 주제 자료 더 찾아서 출처 붙여 줘'],['cal','다음 주 계획표 만들어 줘']],
+    [['book','복습 자료 만들어 줘'],['pen','이번 작업으로 글 초안 써 줘'],['doc','분기 보고서 써 줘'],['search','지난주에 찾은 자료 다시 보여 줘'],['repeat','매일 아침 어제 한 일 정리해 줘']]
+  ];
+  $('#qwall').innerHTML=rows.map(function(r,i){
+    var set=r.map(function(p){return '<div class="qp"><i><svg viewBox="0 0 24 24"><use href="#i-'+p[0]+'"/></svg></i>'+p[1]+'</div>'}).join('');
+    return '<div class="qrow '+(i==1?'r2':i==2?'r3':'')+'">'+set+set+set+set+'</div>';
+  }).join('');
+
+  // 소개: 궤도 행성으로 장면 고르기 (5초마다 다음, 화면이 보일 때만)
+  var caps=['문서 작성 스킬로 부탁하면 업무 기록을 읽어 보고서를 만들어요.','만든 결과물은 파일로 저장하거나 PDF로 내보내요.','세션을 고르면 그때 쓰던 파일, 웹페이지, 앱을 다시 열어요.','반복할 일은 예약안을 먼저 보여 주고 승인하면 등록해요.','새로 받은 파일을 옮길 폴더를 추천하고 승인하면 옮겨요.','AI 계정으로 보낸 내용과 받은 결과를 활동 로그에서 확인해요.'];
+  var pls=$$('.pl'), shots=$$('#screens img'), cap=$('#cap'), cur=0, tm, seen=false, warm=false;
+  function arm(){clearTimeout(tm);if(!reduce)tm=setTimeout(function(){seen&&!d.hidden?show((cur+1)%pls.length):arm()},5000)}
+  function show(i){
+    cur=i;
+    pls.forEach(function(p,j){p.classList.toggle('on',j===i);p.setAttribute('aria-selected',j===i)});
+    shots.forEach(function(s,j){s.classList.toggle('on',j===i)});
+    cap.style.opacity=0;setTimeout(function(){cap.innerHTML=caps[cur];cap.style.opacity=1},reduce?0:150);
+    arm();
+  }
+  pls.forEach(function(p,i){p.addEventListener('click',function(){show(i)});p.addEventListener('mouseenter',function(){if(i!==cur)show(i)})});
+  // 처음 보일 때 여섯 장을 미리 풀어 둔다 (장면을 바꿀 때 멈칫하지 않게)
+  new IntersectionObserver(function(es){seen=es[0].isIntersecting;if(seen&&!warm){warm=true;shots.forEach(function(s){if(s.decode)s.decode().catch(function(){})})}},{threshold:.2}).observe($('#screens'));
+  cap.innerHTML=caps[0];arm();
+
+  // 그래프 탭: 활성 탭의 영상만, 구역이 보일 때만 재생
+  var tabs=$$('#tabs .tab'), vids=$$('#gshow video'), gi=0, gin=false;
+  function gplay(){vids.forEach(function(v,j){if(j===gi&&gin&&!reduce){var p=v.play();if(p&&p.catch)p.catch(function(){})}else v.pause()})}
+  tabs.forEach(function(t,i){t.addEventListener('click',function(){
+    gi=i;
+    tabs.forEach(function(x,j){x.classList.toggle('on',j===i);x.setAttribute('aria-selected',j===i)});
+    vids.forEach(function(x,j){x.classList.toggle('on',j===i)});
+    try{vids[i].currentTime=0}catch(e){}
+    gplay();
+  })});
+  new IntersectionObserver(function(es){gin=es[0].isIntersecting;gplay()},{threshold:.15}).observe($('#gshow'));
+
+  // 질문 펼치기
+  $$('.q button').forEach(function(b){b.addEventListener('click',function(){
+    var o=b.parentNode.classList.toggle('open');b.setAttribute('aria-expanded',o);
+  })});
+
+  // 등장 (형제마다 90ms, 최대 450ms)
+  var groups=new Map();
+  $$('.rv').forEach(function(el){
+    var p=el.parentNode,n=groups.get(p)||0;groups.set(p,n+1);
+    el.style.setProperty('--d',Math.min(n,5)*90+'ms');
+  });
+  if(reduce){$$('.rv').forEach(function(e){e.classList.add('rv-in')})}
+  else{
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){
+      if(!e.isIntersecting)return;io.unobserve(e.target);e.target.classList.add('rv-in');
+      setTimeout(function(){e.target.classList.remove('rv');e.target.style.removeProperty('--d')},1300);
+    })},{threshold:.12,rootMargin:'0px 0px -6% 0px'});
+    $$('.rv').forEach(function(e){io.observe(e)});
+  }
+})();
+</script>
+<script src="assets/mascot3d.js" defer></script>
+</body>
+</html>

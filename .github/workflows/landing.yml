@@ -1,0 +1,26 @@
+name: Landing
+
+on:
+  push:
+    branches: [main]
+    paths: ['landing/**', '.github/workflows/landing.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: landing-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Cloudflare (sillog.app)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: landing
+          wranglerVersion: "4.78.0"
+          command: deploy

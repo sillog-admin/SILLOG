@@ -2,17 +2,23 @@ name: CI
 
 on:
   pull_request:
+    paths-ignore: ['landing/**', '.github/workflows/landing.yml']
   push:
     branches: [main]
+    paths-ignore: ['landing/**', '.github/workflows/landing.yml']
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # main runs publish a release, so never cancel them midway.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-test:
     runs-on: macos-15
     timeout-minutes: 60
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -38,4 +44,29 @@ jobs:
       - name: Build app bundle
         env:
           SIGN_IDENTITY: "-"
+          SILLOG_GOOGLE_CLIENT_SECRET: ${{ secrets.SILLOG_GOOGLE_CLIENT_SECRET }}
         run: ./scripts/make-app.sh
+
+      # On main, publish the dmg as this repo's latest release; the landing links to releases/latest/download/SILLOG.dmg.
+      - name: Package dmg
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          stage="$RUNNER_TEMP/dmg"
+          rm -rf "$stage" && mkdir -p "$stage"
+          ditto "$HOME/Applications/SILLOG.app" "$stage/SILLOG.app"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create -volname SILLOG -srcfolder "$stage" -ov -format UDZO "$RUNNER_TEMP/SILLOG.dmg"
+
+      - name: Publish release
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(plutil -extract CFBundleShortVersionString raw "$HOME/Applications/SILLOG.app/Contents/Info.plist")"
+          tag="v${version}-build.${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" "$RUNNER_TEMP/SILLOG.dmg" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "SILLOG ${version} (build ${GITHUB_RUN_NUMBER})" \
+            --notes "main ${GITHUB_SHA::7} 에서 빌드" \
+            --latest

@@ -1,0 +1,16 @@
+{
+  "name": "sillog-landing",
+  "account_id": "ce52c827c37e7107dfaee3b41326cd52",
+  "compatibility_date": "2025-10-01",
+  "build": {
+    "command": "rm -rf dist && mkdir dist && cp -R index.html _headers assets dist/"
+  },
+  "assets": {
+    "directory": "./dist"
+  },
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "sillog.app", "custom_domain": true },
+    { "pattern": "www.sillog.app", "custom_domain": true }
+  ]
+}

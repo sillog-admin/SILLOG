@@ -164,6 +164,15 @@ swift run sillogctl consolidate --dry-run # 보관 기간이 지나 지울 원�
 - [채팅 시스템 프롬프트](Sources/SillogCore/Chat/Prompts/chat-system-prompt.md): 채팅 답변 규칙. 끝의 `{{…}}` 칸은 요청마다 채운다
 - [스킬 지침](Sources/SillogCore/Chat/Skills): 여섯 스킬의 작업 절차
 
+### 배포
+
+`main`에 올라오면 GitHub Actions가 알아서 배포합니다.
+
+- 앱 (`.github/workflows/ci.yml`): 빌드·테스트 뒤 dmg를 만들어 이 저장소 [Releases](https://github.com/sillog-admin/sillog/releases)에 올립니다.
+- 랜딩 (`landing/`, `.github/workflows/landing.yml`): `landing/`이 바뀌면 Cloudflare Workers로 `sillog.app`에 배포합니다.
+- 랜딩의 다운로드 버튼은 항상 최신 릴리스의 `SILLOG.dmg`를 받습니다.
+- 필요한 secret: `SILLOG_GOOGLE_CLIENT_SECRET`, `CLOUDFLARE_API_TOKEN`
+
 변경은 작업 단위로 커밋하고, 기존 Swift 스타일을 따릅니다. 새 함수는 `Args`, `Returns`, `Raises`를 포함해 문서화하며 불필요한 검증·재시도·리팩터링을 추가하지 않습니다.
 
 ## 현재 제한사항

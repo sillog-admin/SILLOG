@@ -24,3 +24,7 @@ DerivedData/
 .cursor/
 .gstack/
 .work/
+
+# Landing (Cloudflare)
+landing/dist/
+landing/.wrangler/
