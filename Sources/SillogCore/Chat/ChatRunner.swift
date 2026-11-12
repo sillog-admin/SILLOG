@@ -278,6 +278,7 @@ public struct ChatRunner: Sendable {
                 }
             } catch {
                 if Task.isCancelled || error is CancellationError { throw CancellationError() }
+                AppLog.write("chat tool \(call.name) failed: \(error) args(\(call.arguments.utf8.count)B)=\(PIIMasker.mask(String(call.arguments.prefix(120))))")
                 output = "도구 실행 실패: \(error.localizedDescription). 같은 인자로 자동 재시도하지 말고 원인을 설명하거나 다른 자료를 사용하세요."
                 await onEvent(.step("\(label) · \(Self.toolTitle(call.name)) 실패"))
             }
