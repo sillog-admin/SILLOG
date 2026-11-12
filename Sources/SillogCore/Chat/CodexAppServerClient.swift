@@ -66,7 +66,8 @@ public struct CodexAppServerClient: Sendable {
             // 새 런타임에는 완료된 대화만 전달한다. 서버의 별도 대화 저장은 사용하지 않는다.
             let input = messages.map { "<message role=\"\($0.role)\">\n\($0.text)\n</message>" }.joined(separator: "\n")
             _ = try await connection.request("turn/start", [
-                "threadId": .string(threadID), "input": .array([.object(["type": "text", "text": .string(input)])]),
+                "threadId": .string(threadID), "input": .array([.object(["type": "text", "text": .string(input)])]
+                    + messages.flatMap(\.images).map { .object(["type": "localImage", "path": .string($0.path)]) }),
                 "effort": "medium", "approvalPolicy": "never",
                 "environments": .array([]),
                 "sandboxPolicy": .object(["type": "readOnly", "networkAccess": false]),

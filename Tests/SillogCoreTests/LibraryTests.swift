@@ -32,6 +32,40 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(decoded.memoryMode, .allRecords)
     }
 
+    func testAttachedImagesGoToTheModelAsPictures() async throws {
+        let db = try SillogDatabase.inMemory(), library = LibraryStore(db)
+        defer { try? FileManager.default.removeItem(at: library.directory) }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let png = folder.appendingPathComponent("shot.png"), note = folder.appendingPathComponent("note.txt")
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(to: png); try "메모".write(to: note, atomically: true, encoding: .utf8)
+        let image = try library.importFile(png), text = try library.importFile(note), other = try library.importFile(png)
+        let chat = try conversation(db)
+        try library.attach(image.id, conversationID: chat.id); try library.attach(text.id, conversationID: chat.id)
+        var scope = try ProjectStore(db).scope(for: chat); scope.conversationID = chat.id
+        let tools = ChatTools(db: db, scope: scope)
+        XCTAssertEqual(try tools.newImages(since: 0), [library.url(for: image)])
+        XCTAssertEqual(try tools.newImages(since: image.createdAt + 1), [], "images from an earlier turn are not resent")
+        XCTAssertEqual(try tools.newImages(since: 0, maxBytes: 3), [], "over the size cap")
+        XCTAssertFalse(try tools.newImages(since: 0).contains(library.url(for: other)), "not attached to this conversation")
+
+        StubURLProtocol.reset([.init(status: 200, body: "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\n")])
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [StubURLProtocol.self]
+        let client = OpenAICompatClient(baseURL: URL(string: "https://example.invalid/v1")!, model: "test", session: URLSession(configuration: config))
+        _ = try await client.respond(system: "s", messages: [.init(role: "user", text: "이 그림 봐줘", images: [library.url(for: image)])], tools: []) { _ in }
+        let content = (StubURLProtocol.requests.first?.body["messages"] as? [[String: Any]])?.last?["content"] as? [[String: Any]]
+        XCTAssertEqual(content?.first?["text"] as? String, "이 그림 봐줘")
+        XCTAssertEqual(((content?.last?["image_url"] as? [String: Any])?["url"] as? String), "data:image/png;base64,iVBORw==")
+
+        // A text-only model rejects the image; the same question goes again as plain text.
+        StubURLProtocol.reset([.init(status: 400, body: "{\"error\":\"image input not supported\"}"),
+                               .init(status: 200, body: "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\n")])
+        let reply = try await client.respond(system: "s", messages: [.init(role: "user", text: "이 그림 봐줘", images: [library.url(for: image)])], tools: []) { _ in }
+        XCTAssertEqual(reply.text, "ok")
+        XCTAssertEqual((StubURLProtocol.requests.last?.body["messages"] as? [[String: Any]])?.last?["content"] as? String, "이 그림 봐줘")
+    }
+
     func testUploadSurvivesOriginalDeletionAndExplicitSharing() throws {
         let db = try SillogDatabase.inMemory(), projects = ProjectStore(db), library = LibraryStore(db)
         defer { try? FileManager.default.removeItem(at: library.directory) }

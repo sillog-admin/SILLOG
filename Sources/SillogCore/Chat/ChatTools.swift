@@ -227,6 +227,25 @@ public struct ChatTools: Sendable {
             .filter { seen.insert($0.id).inserted }.prefix(12))
     }
 
+    /// Args: since is the previous question's time; only images added to this conversation after it count, so text-only models
+    ///   and old turns don't carry pictures. limit and maxBytes cap one request.
+    /// Returns: image files, newest first. Larger or other formats stay on the OCR path through read_library.
+    /// Raises: DB 오류.
+    public func newImages(since: Double, limit: Int = 4, maxBytes: Int = 20_000_000) throws -> [URL] {
+        guard let conversationID = scope.conversationID else { return [] }
+        let ids = Set(try library.sourceIDs(conversationID: conversationID)).intersection(scope.libraryIDs)
+        var total = 0
+        return try library.items()
+            .filter { ids.contains($0.id) && $0.createdAt > since && ChatModelMessage.imageTypes[URL(fileURLWithPath: $0.filename).pathExtension.lowercased()] != nil }
+            .sorted { $0.createdAt > $1.createdAt }
+            .map { library.url(for: $0) }
+            .filter { url in
+                guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= maxBytes - total else { return false }
+                total += size; return true
+            }
+            .prefix(limit).map { $0 }
+    }
+
     private func currentLibraryIDs() throws -> [String] {
         var ids = Set(scope.libraryIDs)
         if let conversationID = scope.conversationID {

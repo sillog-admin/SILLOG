@@ -30,6 +30,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/SillogApp" "$APP/Contents/MacOS/Sillog"
 cp -R "$ROOT/Sources/SillogApp/Resources/graph" "$APP/Contents/Resources/graph"
 cp -R "$ROOT/Sources/SillogApp/Resources/calendar" "$APP/Contents/Resources/calendar"   # 캘린더 화면 (FullCalendar 6, MIT)
+cp -R "$ROOT/Sources/SillogApp/Resources/mermaid" "$APP/Contents/Resources/mermaid"     # 채팅 다이어그램 (mermaid 11.4.1, MIT)
 cp -R "$ROOT/Sources/SillogApp/Resources/ConnectorIcons" "$APP/Contents/Resources/ConnectorIcons"
 cp -R "$ROOT/Sources/SillogApp/Resources/Brand" "$APP/Contents/Resources/Brand"
 cp -R "$BIN_DIR/Sillog_SillogCore.bundle" "$APP/Contents/Resources/"

@@ -161,6 +161,24 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(sent?.last?["tool_call_id"] as? String, "c1")
     }
 
+    func testEditAndRegenerateReplaceFromTheQuestion() throws {
+        let store = ChatStore(try .inMemory()), conversation = ChatConversation()
+        let q1 = ConversationMessage(conversationID: conversation.id, role: "user", text: "첫 질문")
+        let a1 = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "첫 답")
+        let q2 = ConversationMessage(conversationID: conversation.id, role: "user", text: "둘째 질문")
+        let a2 = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "둘째 답")
+        try store.startTurn(conversation: conversation, user: q1, answer: a1)
+        try store.startTurn(conversation: conversation, user: q2, answer: a2)
+        let all = try store.messages(conversation.id)
+        XCTAssertEqual(ConversationMessage.replaced(from: a2, in: all).map(\.id), [q2.id, a2.id])
+        XCTAssertEqual(ConversationMessage.replaced(from: q1, in: all).map(\.id), [q1.id, a1.id, q2.id, a2.id])
+        XCTAssertEqual(ConversationMessage.replaced(from: a1, in: all).map(\.id), [q1.id, a1.id, q2.id, a2.id])
+        let q3 = ConversationMessage(conversationID: conversation.id, role: "user", text: "둘째 질문")
+        let a3 = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "", status: "running")
+        try store.startTurn(conversation: conversation, user: q3, answer: a3, replacing: ConversationMessage.replaced(from: a2, in: all))
+        XCTAssertEqual(try store.messages(conversation.id).map(\.id), [q1.id, a1.id, q3.id, a3.id])
+    }
+
     /// Args: 없음.
     /// Returns: 없음. 예약 승인 저장과 문서 출력의 스크립트 차단을 확인한다.
     /// Raises: 테스트 DB 오류.
@@ -215,7 +233,7 @@ final class ChatTests: XCTestCase {
         let systems = await model.systems
         let main = try XCTUnwrap(systems.first), sub = try XCTUnwrap(systems.first { $0.contains("agent_role: context") })
         XCTAssertTrue(main.hasPrefix("You are the chat assistant inside Sillog"))
-        XCTAssertTrue(main.contains("<skill_instructions>\n## 문서 작성\n# 문서 작성\n\n## 목표"))
+        XCTAssertTrue(main.contains("<skill_instructions>\n## 문서 작성\n# Writing\n\n## Purpose"))
         XCTAssertTrue(main.contains("chat_model: scripted\nrun_mode: interactive\nagent_role: main\nraw_records_since: all"))
         XCTAssertFalse(main.contains("{{"))
         XCTAssertFalse(sub.contains("<skill_instructions>\n"))
