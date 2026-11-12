@@ -56,13 +56,13 @@ struct ExcludedAppsView: View {
                             Button(candidate.name) { add(candidate.bundle) }
                         }
                     } label: {
-                        Label(tr("실행 중인 앱에서 추가"), systemImage: "plus").font(Brand.suit(12)).foregroundStyle(Brand.tabText)
+                        Label(tr("실행 중인 앱에서 추가"), systemImage: "plus").font(Brand.font(.body)).foregroundStyle(Brand.tabText)
                     }
                     .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-                    Button(tr("앱 파일 선택…")) { pickApp() }.buttonStyle(.plain).font(Brand.suit(12)).foregroundStyle(Brand.tabText)
+                    Button(tr("앱 파일 선택…")) { pickApp() }.buttonStyle(.plain).font(Brand.font(.body)).foregroundStyle(Brand.tabText)
                     Spacer()
                     Button(tr("기본값으로")) { state.settings.excludedBundles = PrivacyFilter.defaultExcludedBundles.sorted() }
-                        .buttonStyle(.plain).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                        .buttonStyle(.plain).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 }
                 .frame(height: 44)
             }

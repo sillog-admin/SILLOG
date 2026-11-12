@@ -11,8 +11,8 @@ struct StorageSettingsView: View {
             SectionLabel(tr("저장 공간"))
             summary
             SettingTiles {
-                SettingTile(tr("보관 기간"), detail: tr("지나면 요약만 남겨요")) {
-                    BrandMenu(selection: presetBinding, options: presetOptions, width: 230)
+                SettingTile(tr("보관 기간"), detail: retentionDetail) {
+                    PillPicker(selection: presetBinding, options: presetOptions)
                 }
                 SettingTile(tr("오래된 기록 지우기"), detail: tr("지울 목록을 먼저 보여 줘요")) {
                     if state.consolidating { ProgressView().controlSize(.small) }
@@ -36,37 +36,56 @@ struct StorageSettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 if let usage = state.storageUsage {
-                    Text(Self.size(usage.total)).font(Brand.jost(20)).foregroundStyle(Brand.ink)
-                    Text(shares(usage).map { "\($0.title) \($0.percent)%" }.joined(separator: " · ")).font(Brand.suit(11)).foregroundStyle(Brand.gray).lineLimit(1)
+                    Text(Self.size(usage.total)).font(Brand.jost(22)).foregroundStyle(Brand.ink)
                 } else {
-                    Text(tr("사용량을 계산하고 있어요")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                    Text(tr("사용량을 계산하고 있어요")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
                 }
                 Spacer(minLength: 8)
                 Button(tr("자세히")) { showingDetail = true }.buttonStyle(BrandButtonStyle(kind: .primary))
                 Button(tr("폴더 열기")) { state.revealDataFolder() }.buttonStyle(BrandButtonStyle(kind: .primary)).help(state.databasePath)
             }
             if let usage = state.storageUsage {
+                let parts = segments(usage)
+                // Thick bar split into blocks with small gaps, like the Mac's storage view, and a legend under it.
                 GeometryReader { proxy in
-                    HStack(spacing: 0) {
-                        ForEach(Array(shares(usage).dropLast().enumerated()), id: \.offset) { index, share in
-                            Rectangle().fill(Self.barColor.opacity(index == 0 ? 1 : 0.45)).frame(width: proxy.size.width * CGFloat(share.percent) / 100)
+                    let gaps = CGFloat(max(parts.count - 1, 0)) * 3
+                    HStack(spacing: 3) {
+                        ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
+                            RoundedRectangle(cornerRadius: 4).fill(Self.segmentColor(index))
+                                .frame(width: max(4, (proxy.size.width - gaps) * part.fraction))
                         }
                         Spacer(minLength: 0)
                     }
                 }
-                .frame(height: 8).background(Brand.line.opacity(0.7)).clipShape(Capsule())
+                .frame(height: 24)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+                HStack(spacing: 18) {
+                    ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
+                        HStack(spacing: 6) {
+                            RoundedRectangle(cornerRadius: 2.5).fill(Self.segmentColor(index)).frame(width: 10, height: 10)
+                            Text(part.title).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink)
+                            Text("\(Self.size(part.bytes)), \(Int((part.fraction * 100).rounded()))%").font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
             }
         }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Brand.line))
+        .padding(.horizontal, 4).padding(.vertical, 10)
     }
 
-    /// The two largest categories, then everything else as the last entry.
-    private func shares(_ usage: StorageUsage) -> [(title: String, percent: Int)] {
-        let total = Double(max(usage.total, 1))
+    /// Blocks of the bar: the two largest categories, then everything else.
+    private func segments(_ usage: StorageUsage) -> [(title: String, bytes: Int64, fraction: CGFloat)] {
+        let total = max(usage.total, 1)
         let top = StorageUsage.Category.allCases.sorted { (usage.bytes[$0] ?? 0) > (usage.bytes[$1] ?? 0) }.prefix(2)
-            .map { (title: $0.title, percent: Int((Double(usage.bytes[$0] ?? 0) / total * 100).rounded())) }
-        return top + [(title: tr("그 밖"), percent: max(0, 100 - top.reduce(0) { $0 + $1.percent }))]
+            .map { (title: $0.title, bytes: usage.bytes[$0] ?? 0) }
+        let rest = max(0, usage.total - top.reduce(0) { $0 + $1.bytes })
+        return (top + [(title: tr("그 밖"), bytes: rest)]).filter { $0.bytes > 0 }
+            .map { (title: $0.title, bytes: $0.bytes, fraction: CGFloat($0.bytes) / CGFloat(total)) }
+    }
+
+    private static func segmentColor(_ index: Int) -> Color {
+        [barColor, barColor.opacity(0.5), Color(hex: 0xC9C2BC)][min(index, 2)]
     }
 
     private var presetBinding: Binding<String> {
@@ -79,11 +98,15 @@ struct StorageSettingsView: View {
                 })
     }
 
+    private func days(_ value: Int?) -> String { value.map { tr("\($0)일") } ?? tr("무기한") }
+
     private var presetOptions: [(String, String)] {
-        func days(_ value: Int?) -> String { value.map { tr("\($0)일") } ?? tr("무기한") }
-        var options = RetentionPolicy.Preset.allCases.map { ($0.rawValue, tr("\($0.title), 화면 텍스트 \(days($0.screenTextDays))")) }
-        if state.retention.preset == nil { options.append(("custom", tr("사용자 지정, 화면 텍스트 \(days(state.retention.screenTextDays))"))) }
-        return options
+        RetentionPolicy.Preset.allCases.map { ($0.rawValue, days($0.screenTextDays)) }
+    }
+
+    private var retentionDetail: String {
+        let custom = state.retention.preset == nil ? tr("사용자 지정, ") : ""
+        return tr("\(custom)화면 텍스트를 이만큼 두고, 지나면 요약만 남겨요")
     }
 }
 
@@ -112,9 +135,9 @@ struct StorageDetailView: View {
                 VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(StorageSettingsView.size(usage.total)).font(.custom("Jost-ExtraLight", size: 38)).foregroundStyle(Brand.ink)
-                    Text(tr("사용 중")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                    Text(tr("사용 중")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
                     Spacer()
-                    Text(tr("기록 DB 최근 30일 하루 평균 +\(StorageSettingsView.size(usage.totalDailyGrowth))")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                    Text(tr("기록 DB 최근 30일 하루 평균 +\(StorageSettingsView.size(usage.totalDailyGrowth))")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 }
                 .padding(.top, 12).padding(.bottom, 8)
                 let total = max(usage.total, 1)
@@ -123,7 +146,7 @@ struct StorageDetailView: View {
                     let share = Double(bytes) / Double(total)
                     let percent = share >= 0.01 ? "\(Int((share * 100).rounded()))%" : tr("1% 미만")
                     HStack(spacing: 14) {
-                        Text(category.title).font(Brand.suit(12)).foregroundStyle(Brand.text).frame(width: 190, alignment: .leading)
+                        Text(category.title).font(Brand.font(.body)).foregroundStyle(Brand.text).frame(width: 190, alignment: .leading)
                         GeometryReader { proxy in                // 회색 바탕 = 전체, 파란 막대 = 이 항목의 몫
                             ZStack(alignment: .leading) {
                                 Capsule().fill(Brand.line.opacity(0.7))
@@ -132,7 +155,7 @@ struct StorageDetailView: View {
                             .frame(height: 8).frame(maxHeight: .infinity)
                         }
                         .frame(height: 16)
-                        Text(percent).font(Brand.suit(11)).foregroundStyle(Brand.gray).frame(width: 52, alignment: .trailing)
+                        Text(percent).font(Brand.font(.caption)).foregroundStyle(Brand.gray).frame(width: 52, alignment: .trailing)
                         Text(StorageSettingsView.size(bytes)).font(Brand.jost(12)).foregroundStyle(Brand.text).frame(width: 74, alignment: .trailing)
                     }
                     .padding(.vertical, 6)
@@ -145,7 +168,7 @@ struct StorageDetailView: View {
             } else {
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
-                    Text(tr("사용량을 계산하고 있어요")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                    Text(tr("사용량을 계산하고 있어요")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
                 }
                 .padding(.vertical, 18)
             }
@@ -172,7 +195,7 @@ struct StorageDetailView: View {
             Button { withAnimation(.easeOut(duration: 0.15)) { advanced.toggle() } } label: {
                 HStack(spacing: 7) {
                     Image(systemName: advanced ? "chevron.down" : "chevron.right").font(.system(size: 10, weight: .medium))
-                    Text(tr("항목별 보관일")).font(Brand.suit(12, .medium))
+                    Text(tr("항목별 보관일")).font(Brand.font(.body, .medium))
                 }
                 .foregroundStyle(Brand.tabText).padding(.horizontal, 4).padding(.vertical, 14).contentShape(Rectangle())
             }
@@ -190,10 +213,10 @@ struct StorageDetailView: View {
                 if let days = state.retention.days(item) {
                     daysField(Binding(get: { days }, set: { value in update { $0.setDays(item, value) } }), range: item.range)
                 } else {
-                    Text(tr("지우지 않음")).font(Brand.suit(11)).foregroundStyle(Brand.text).frame(width: 88 + 10 + 62, alignment: .leading)
+                    Text(tr("지우지 않음")).font(Brand.font(.caption)).foregroundStyle(Brand.text).frame(width: 88 + 10 + 62, alignment: .leading)
                 }
                 HStack(spacing: 6) {
-                    Text(tr("무기한")).font(Brand.suit(11)).foregroundStyle(Brand.tabText)
+                    Text(tr("무기한")).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
                     Toggle("", isOn: Binding(get: { state.retention.days(item) == nil }, set: { forever in
                         update { $0.setDays(item, forever ? nil : RetentionPolicy.standard.days(item) ?? item.range.lowerBound) }
                     }))
@@ -213,13 +236,13 @@ struct StorageDetailView: View {
         HStack(spacing: 10) {
             HStack(spacing: 0) {
                 TextField("", value: value, format: .number.grouping(.never))
-                    .textFieldStyle(.plain).font(Brand.suit(11)).foregroundStyle(Brand.text)
+                    .textFieldStyle(.plain).font(Brand.font(.caption)).foregroundStyle(Brand.text)
                     .frame(width: 40)
-                Text(tr("일")).font(Brand.suit(11)).foregroundStyle(Brand.text).padding(.leading, 6)
+                Text(tr("일")).font(Brand.font(.caption)).foregroundStyle(Brand.text).padding(.leading, 6)
             }
             .settingField()
             .frame(width: 88)
-            Text(verbatim: tr("\(range.lowerBound)~\(range.upperBound)일")).font(Brand.suit(10)).foregroundStyle(Brand.gray)
+            Text(verbatim: tr("\(range.lowerBound)~\(range.upperBound)일")).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
                 .lineLimit(1).fixedSize().frame(width: 62, alignment: .leading)
         }
     }
@@ -236,12 +259,12 @@ struct StorageDetailView: View {
                 NoteBox(tr("처음 정리할 때 지울 것을 보여 드리고 동의를 받아요. 동의 전에는 요약만 만들어요."))
             }
             if let notes = state.consolidationReport?.notes, !notes.isEmpty {
-                Text(notes.joined(separator: "\n")).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 12)
+                Text(notes.joined(separator: "\n")).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.top, 12)
             }
             SectionLabel(tr("보존한 기록"))
             if state.retentionPins.isEmpty {
                 Text(tr("업무 화면의 '원문 보존'이나 활동 로그의 '이 날 원문 보존'으로 지우지 않을 기록을 고를 수 있어요."))
-                    .font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.horizontal, 4).padding(.vertical, 6)
+                    .font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.horizontal, 4).padding(.vertical, 6)
             } else {
                 SettingCard {
                     ForEach(state.retentionPins) { pin in
@@ -281,7 +304,7 @@ struct CleanupPreviewSheet: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Eyebrow(tr("정리"))
                     Text(preview.consentNeeded && !preview.plan.isEmpty ? tr("처음 정리하기 전에 확인해 주세요") : tr("정리 미리보기"))
-                        .font(Brand.suit(22, .bold)).foregroundStyle(Brand.ink).padding(.top, 8)
+                        .font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink).padding(.top, 8)
                 }
                 Spacer()
                 Button { state.cleanupPreview = nil } label: {
@@ -295,30 +318,30 @@ struct CleanupPreviewSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     if preview.plan.isEmpty {
-                        Text(tr("지금 지울 원문이 없어요. 요약은 최신으로 만들었어요.")).font(Brand.suit(13)).foregroundStyle(Brand.text)
-                        ForEach(preview.plan.keptReasons, id: \.self) { Text($0).font(Brand.suit(12)).foregroundStyle(Brand.gray) }
-                        if let reason = preview.plan.blockedReason { Text(reason).font(Brand.suit(12)).foregroundStyle(Brand.gray) }
+                        Text(tr("지금 지울 원문이 없어요. 요약은 최신으로 만들었어요.")).font(Brand.font(.body)).foregroundStyle(Brand.text)
+                        ForEach(preview.plan.keptReasons, id: \.self) { Text($0).font(Brand.font(.body)).foregroundStyle(Brand.gray) }
+                        if let reason = preview.plan.blockedReason { Text(reason).font(Brand.font(.body)).foregroundStyle(Brand.gray) }
                     } else {
                         Text(tr("\(preview.plan.firstDay ?? "") ~ \(preview.plan.lastDay ?? "") · \(preview.plan.days.count)일"))
-                            .font(Brand.suit(15, .medium)).foregroundStyle(Brand.ink)
+                            .font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink)
                         ForEach(preview.plan.counts.sorted { $0.key.rawValue < $1.key.rawValue }, id: \.key) { entry in
                             HStack {
-                                Text(entry.key.item.title).font(Brand.suit(12)).foregroundStyle(Brand.text)
+                                Text(entry.key.item.title).font(Brand.font(.body)).foregroundStyle(Brand.text)
                                 Spacer()
                                 Text(tr("\(entry.value.formatted())건")).font(Brand.jost(12)).foregroundStyle(Brand.tabText)
                             }
                         }
-                        Text(tr("돌려받을 공간 약 \(StorageSettingsView.size(preview.plan.estimatedBytes))")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink).padding(.top, 4)
-                        ForEach(preview.plan.keptReasons, id: \.self) { Text($0).font(Brand.suit(11)).foregroundStyle(Brand.gray) }
+                        Text(tr("돌려받을 공간 약 \(StorageSettingsView.size(preview.plan.estimatedBytes))")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).padding(.top, 4)
+                        ForEach(preview.plan.keptReasons, id: \.self) { Text($0).font(Brand.font(.caption)).foregroundStyle(Brand.gray) }
                         if let reason = preview.plan.blockedReason {
-                            Text(tr("그 뒤 기간은 아직이에요: \(reason)")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                            Text(tr("그 뒤 기간은 아직이에요: \(reason)")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                         }
                         if !preview.digests.isEmpty {
-                            Text(tr("이 기간을 대신할 요약")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.gray).padding(.top, 12)
+                            Text(tr("이 기간을 대신할 요약")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.gray).padding(.top, 12)
                             ForEach(preview.digests) { digest in
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(digest.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
-                                    Text(digest.content.summary).font(Brand.suit(11)).foregroundStyle(Brand.tabText).lineLimit(3)
+                                    Text(digest.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
+                                    Text(digest.content.summary).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(3)
                                 }
                                 .padding(.vertical, 6)
                             }
@@ -327,7 +350,7 @@ struct CleanupPreviewSheet: View {
                             NoteBox(tr("동의하면 앞으로 하루 한 번 보관 기간이 지난 원문을 자동으로 지워요. 지운 원문은 되돌릴 수 없어요."))
                                 .padding(.top, 12)
                             Text(tr("업무별 사용 시간, 세션, 주간·월간 요약은 계속 남아요. 남기고 싶은 업무나 날은 보존 핀을 걸어 두세요."))
-                                .font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                                .font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                         }
                     }
                 }

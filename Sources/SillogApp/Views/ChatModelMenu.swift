@@ -36,7 +36,7 @@ struct ChatModelMenu: View {
         } label: {
             // borderlessButton 메뉴는 라벨을 시스템 버튼(화살표 왼쪽, 시스템 색)으로 바꿔 그린다. plain 버튼 메뉴로 이 모양 그대로 그린다
             HStack(spacing: 4) {
-                Text(name).font(Brand.suit(fontSize)).foregroundStyle(Brand.tabText).lineLimit(1)
+                Text(name).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
                 Image(systemName: "chevron.down").font(.system(size: 8)).foregroundStyle(Brand.tabText)
             }
             .contentShape(Rectangle())

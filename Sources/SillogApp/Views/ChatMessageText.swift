@@ -60,7 +60,7 @@ struct ChatMessageText: View {
     }
 
     private func bodyText(_ text: Text, color: Color = Brand.tabText, lineSpacing: CGFloat = 9) -> some View {
-        text.font(Brand.suit(13)).foregroundStyle(color).lineSpacing(lineSpacing)
+        text.font(Brand.font(.body)).foregroundStyle(color).lineSpacing(lineSpacing)
     }
 
     /// 빈 줄 사이 덩어리 안의 블록을 차례로: 제목은 그 줄만, 목록은 글머리·번호에 매달린 들여쓰기, 인용은 왼쪽 세로줄, 구분선은 가는 가로줄
@@ -73,7 +73,7 @@ struct ChatMessageText: View {
                 ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                     switch block {
                     case .heading(let level, let text):
-                        Self.inlineText(text).font(Brand.suit(level == 1 ? 18 : level == 2 ? 15 : 13.5, .semibold)).foregroundStyle(Brand.ink)
+                        Self.inlineText(text).font((level == 1 ? Brand.font(.sectionTitle, .semibold) : level == 2 ? Brand.font(.sectionTitle, .semibold) : Brand.font(.rowTitle, .semibold))).foregroundStyle(Brand.ink)
                             .padding(.top, 4)
                     case .paragraph(let text): paragraphView(text)
                     case .list(let items): listView(items)
@@ -98,7 +98,7 @@ struct ChatMessageText: View {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(item.marker == "•" ? ["•", "◦", "▪︎", "▪︎"][min(item.level, 3)] : item.marker)
-                        .font(Brand.suit(13)).foregroundStyle(Brand.gray).monospacedDigit()
+                        .font(Brand.font(.body)).foregroundStyle(Brand.gray).monospacedDigit()
                         .frame(width: numbered ? 20 : 10, alignment: .trailing)
                     paragraphView(item.text, lineSpacing: 5)
                 }
@@ -137,14 +137,14 @@ struct ChatMessageText: View {
                                     blocksView(value)
                                 }
                                 if !cited.isEmpty { ChatCitationButton(sources: cited, onSource: onSource) }
-                                if missing { Text(tr("확인되지 않은 근거")).font(Brand.suit(10)).foregroundStyle(Brand.gray) }
+                                if missing { Text(tr("확인되지 않은 근거")).font(Brand.font(.tag)).foregroundStyle(Brand.gray) }
                             }
                         }
                     }
                 } else {
                     let lines = part.components(separatedBy: "\n")
                     VStack(alignment: .leading, spacing: 10) {
-                        if let language = lines.first, !language.isEmpty { Text(language).font(Brand.suit(10)).foregroundStyle(Brand.gray) }
+                        if let language = lines.first, !language.isEmpty { Text(language).font(Brand.font(.tag)).foregroundStyle(Brand.gray) }
                         ScrollView(.horizontal) {
                             Text(lines.dropFirst().joined(separator: "\n").trimmingCharacters(in: .newlines))
                                 .font(.system(size: 12, design: .monospaced)).foregroundStyle(Brand.tabText)
@@ -169,7 +169,7 @@ private struct ChatMarkdownTableView: View {
                     HStack(alignment: .top, spacing: 0) {
                         ForEach(rows[row].indices, id: \.self) { column in
                             Text(ChatMessageText.inlineMarkdown(rows[row][column]))
-                                .font(Brand.suit(12, row == 0 ? .semibold : .regular)).foregroundStyle(row == 0 ? Brand.ink : Brand.tabText)
+                                .font(Brand.font(.body, row == 0 ? .semibold : .regular)).foregroundStyle(row == 0 ? Brand.ink : Brand.tabText)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(width: columnWidth, alignment: .topLeading)
                                 .padding(.horizontal, cellPadding).padding(.vertical, 9)
@@ -196,9 +196,9 @@ private struct ChatCitationButton: View {
             HStack(spacing: 5) {
                 Image(systemName: "text.book.closed").font(.system(size: 9))
                 Text(sources[0].title).lineLimit(1).frame(maxWidth: 220)
-                if sources.count > 1 { Text("+\(sources.count - 1)").font(Brand.jost(9)) }
+                if sources.count > 1 { Text("+\(sources.count - 1)").font(Brand.jost(10)) }
             }
-            .font(Brand.suit(9))
+            .font(Brand.font(.tag))
             .foregroundStyle(Brand.tabText)
             .padding(.horizontal, 7).frame(height: 26)
             .background(.white, in: RoundedRectangle(cornerRadius: 4))
@@ -216,11 +216,11 @@ private struct ChatCitationButton: View {
                                 onSource(source)
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(source.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
+                                    Text(source.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
                                     if !source.location.isEmpty {
-                                        Text(source.location).font(Brand.suit(10)).foregroundStyle(Brand.gray).lineLimit(1)
+                                        Text(source.location).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
                                     }
-                                    Text(source.excerpt).font(Brand.suit(11)).foregroundStyle(Brand.tabText).lineLimit(4)
+                                    Text(source.excerpt).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(4)
                                 }.frame(maxWidth: .infinity, alignment: .leading)
                             }.buttonStyle(.plain)
                         }

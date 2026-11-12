@@ -23,13 +23,13 @@ struct ReviewSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(tr("정리 제안")).font(Brand.suit(20, .bold)).foregroundStyle(Brand.ink)
-                Text(tr("고른 것만 반영해요. 안 고른 것은 다시 묻지 않아요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                Text(tr("정리 제안")).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink)
+                Text(tr("고른 것만 반영해요. 안 고른 것은 다시 묻지 않아요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
             }
             .padding(.horizontal, 28).padding(.top, 26).padding(.bottom, 16)
             Divider()
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 30) {
                     ForEach(groups, id: \.kind) { group in section(group.kind, group.items) }
                 }
                 .padding(.horizontal, 28).padding(.vertical, 20)
@@ -60,18 +60,18 @@ struct ReviewSheet: View {
         let ids = Set(items.compactMap(\.id))
         let all = ids.isSubset(of: selected)
         let shown = opened.contains(kind) ? items : Array(items.prefix(Self.folded))
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
-                Text(AppState.reviewKindName(kind)).font(Brand.suit(13.5, .bold)).foregroundStyle(Brand.ink)
-                Text("\(items.count)").font(Brand.suit(12, .medium)).foregroundStyle(Brand.gray)
+                Text(AppState.reviewKindName(kind)).font(Brand.font(.rowTitle, .semibold)).foregroundStyle(Brand.ink)
+                Text("\(items.count)").font(Brand.font(.body, .medium)).foregroundStyle(Brand.gray)
                 Spacer()
                 Button(all ? tr("모두 빼기") : tr("모두 고르기")) { if all { selected.subtract(ids) } else { selected.formUnion(ids) } }
-                    .buttonStyle(.plain).font(Brand.suit(11.5)).foregroundStyle(Brand.tabText)
+                    .buttonStyle(.plain).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
             }
             ForEach(shown) { proposal in row(proposal) }
             if items.count > shown.count {
                 Button(tr("\(items.count - shown.count)개 더 보기")) { opened.insert(kind) }
-                    .buttonStyle(.plain).font(Brand.suit(11.5)).foregroundStyle(Brand.tabText)
+                    .buttonStyle(.plain).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
             }
         }
     }
@@ -84,7 +84,8 @@ struct ReviewSheet: View {
         } label: {
             HStack(alignment: .top, spacing: 9) {
                 Image(systemName: on ? "checkmark.square.fill" : "square").font(.system(size: 13)).foregroundStyle(on ? Brand.ink : Brand.sub).padding(.top, 1)
-                Text(proposal.summary).font(Brand.suit(12.5)).foregroundStyle(on ? Brand.text : Brand.gray).lineLimit(3)
+                Text(proposal.summary).font(Brand.font(.body)).foregroundStyle(on ? Brand.text : Brand.gray).lineLimit(3)
+                    .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
@@ -103,9 +104,9 @@ struct ReviewBanner: View {
             Button { state.reviewSheetOpen = true } label: {
                 HStack(spacing: 7) {
                     Image(systemName: "sparkles").font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(hex: 0x8A7566))
-                    Text(tr("정리 제안 \(state.reviewProposals.count)개")).font(Brand.suit(12.5, .semibold)).foregroundStyle(Brand.ink)
+                    Text(tr("정리 제안 \(state.reviewProposals.count)개")).font(Brand.font(.body, .semibold)).foregroundStyle(Brand.ink)
                     Spacer(minLength: 4)
-                    Text(tr("보기 ›")).font(Brand.suit(11.5)).foregroundStyle(Brand.gray)
+                    Text(tr("보기 ›")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 }
                 .padding(.horizontal, 12).frame(height: 34)
                 .background(RoundedRectangle(cornerRadius: 9).fill(Color(hex: 0xF4EFEA)))

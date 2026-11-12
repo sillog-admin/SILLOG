@@ -45,7 +45,7 @@ struct ChatComposer: View {
             }
             if showsNotice {
                 Text(tr("질문과 조회한 자료는 연결한 AI로 전송돼요. 웹 검색과 커넥터는 허용한 범위만 사용해요."))
-                    .font(Brand.suit(9)).foregroundStyle(Brand.gray).lineLimit(1)
+                    .font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
                     .frame(maxWidth: .infinity).padding(.top, 8)
             }
         }
@@ -84,7 +84,7 @@ struct ChatComposer: View {
             ZStack(alignment: .topLeading) {
                 if chat.draft.isEmpty {
                     Text(Self.placeholder(chat.current.scope))
-                        .font(Brand.suit(12)).foregroundStyle(Brand.text.opacity(0.5)).lineLimit(1)
+                        .font(Brand.font(.body)).foregroundStyle(Brand.text.opacity(0.5)).lineLimit(1)
                         .padding(.top, 8).padding(.leading, 5).allowsHitTesting(false)
                 }
                 ChatInput(text: $chat.draft, height: $inputHeight, minimumHeight: 38, focusRequest: chat.inputFocusRequest,
@@ -186,7 +186,7 @@ struct ChatComposer: View {
         let choices = shortcutChoices
         return VStack(alignment: .leading, spacing: 2) {
             Text(shortcut?.kind == .skill ? tr("스킬 선택") : tr("이번 요청의 커넥터"))
-                .font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.horizontal, 8).padding(.vertical, 4)
+                .font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.horizontal, 8).padding(.vertical, 4)
             if !choices.isEmpty {
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -200,9 +200,9 @@ struct ChatComposer: View {
                                             Image(systemName: item.icon).font(.system(size: 12))
                                                 .frame(width: 14, height: 14).accessibilityHidden(true)
                                         }
-                                        Text(item.name).font(Brand.suit(11)).lineLimit(1)
+                                        Text(item.name).font(Brand.font(.caption)).lineLimit(1)
                                         Spacer(minLength: 4)
-                                        if !item.connected { Text(tr("연결 필요")).font(Brand.suit(9)).foregroundStyle(Brand.gray) }
+                                        if !item.connected { Text(tr("연결 필요")).font(Brand.font(.tag)).foregroundStyle(Brand.gray) }
                                     }
                                     .padding(.horizontal, 8).frame(height: 26)
                                     .background(index == shortcutIndex ? Brand.chipSelectedFill : .clear, in: RoundedRectangle(cornerRadius: 5))
@@ -216,7 +216,7 @@ struct ChatComposer: View {
                     }
                 }
             } else {
-                Text(tr("일치하는 항목이 없어요")).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(8)
+                Text(tr("일치하는 항목이 없어요")).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(8)
             }
         }
         .padding(6).frame(width: 210)
@@ -256,7 +256,7 @@ struct ChatComposer: View {
     private func attachmentChip(icon: String, text: String, help: String, remove: (() -> Void)? = nil) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon).font(.system(size: 10))
-            Text(text).font(Brand.suit(10)).lineLimit(1)
+            Text(text).font(Brand.font(.tag)).lineLimit(1)
             if let remove {
                 Button(action: remove) { Image(systemName: "xmark").font(.system(size: 8, weight: .semibold)) }
                     .buttonStyle(.plain).disabled(busy).help(tr("빼기")).accessibilityLabel(tr("\(text) 빼기"))
@@ -272,7 +272,7 @@ struct ChatComposer: View {
     private func chip(icon: String, text: String, help: String, remove: (() -> Void)? = nil) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon).font(.system(size: 10))
-            Text(text).font(Brand.suit(11)).lineLimit(1)
+            Text(text).font(Brand.font(.caption)).lineLimit(1)
             if let remove {
                 Button(action: remove) { Image(systemName: "xmark").font(.system(size: 8, weight: .semibold)) }
                     .buttonStyle(.plain).disabled(busy).help(tr("빼기")).accessibilityLabel(tr("\(text) 빼기"))
@@ -312,7 +312,7 @@ struct ChatComposer: View {
                 }
                 if library.busy {
                     ProgressView().controlSize(.small)
-                    Text(tr("소스를 추가하고 있어요")).font(Brand.suit(10)).foregroundStyle(Brand.gray)
+                    Text(tr("소스를 추가하고 있어요")).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
                 }
             }
         }
@@ -371,7 +371,7 @@ struct ChatComposer: View {
                     Button {
                         if on { chat.current.skillIDs.removeAll { $0 == skill.id } } else { chat.current.skillIDs.append(skill.id) }
                     } label: {
-                        Text(skill.displayTitle).font(Brand.suit(10)).lineLimit(1)
+                        Text(skill.displayTitle).font(Brand.font(.tag)).lineLimit(1)
                             .foregroundStyle(on ? Brand.chipSelectedText : Brand.tabText)
                             .padding(.horizontal, 9).frame(height: 22)
                             .background(on ? Brand.chipSelectedFill : ChatPalette.soft, in: Capsule())
@@ -430,9 +430,9 @@ struct ChatComposer: View {
         Button { showConnect = true } label: {
             HStack(spacing: 6) {
                 providerLogo(state.settings.effectiveChatProvider, claude: connectHost.contains("anthropic")).frame(width: 13, height: 13)
-                Text(connectLabel).font(Brand.suit(11, .medium)).foregroundStyle(Color(hex: 0x4A3E37))
+                Text(connectLabel).font(Brand.font(.caption, .medium)).foregroundStyle(Color(hex: 0x4A3E37))
                 Rectangle().fill(Color(hex: 0xCFC8C1)).frame(width: 1, height: 10)
-                Text(modelName).font(Brand.suit(11)).foregroundStyle(Color(hex: 0x7A716B)).lineLimit(1)
+                Text(modelName).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x7A716B)).lineLimit(1)
                 Image(systemName: "chevron.up.chevron.down").font(.system(size: 8)).foregroundStyle(Brand.tabText)
             }
             .contentShape(Rectangle())
@@ -478,7 +478,7 @@ struct ChatComposer: View {
             Button(action: action) {
                 HStack(spacing: 10) {
                     if let icon { Image(systemName: icon).font(.system(size: 12)).foregroundStyle(Brand.tabText).frame(width: 14) }
-                    Text(title).font(Brand.suit(12)).foregroundStyle(Brand.text).lineLimit(1)
+                    Text(title).font(Brand.font(.body)).foregroundStyle(Brand.text).lineLimit(1)
                     Spacer(minLength: 6)
                     trailing
                 }
@@ -509,7 +509,7 @@ struct ChatComposer: View {
             Text(tr("정리 전 최근 기록 \(pendingRecords)건은 아직 빠져요"))
             Button(action: tidyNow) { Text(tr("지금 정리")).underline().foregroundStyle(Brand.ink) }.buttonStyle(.plain)
         }
-        .font(Brand.suit(10)).foregroundStyle(Brand.gray)
+        .font(Brand.font(.tag)).foregroundStyle(Brand.gray)
     }
 
     /// Args: id는 대화에서 켜거나 끌 커넥터이다.

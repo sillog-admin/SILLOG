@@ -18,8 +18,8 @@ struct NodeDetailView: View {
                 content(detail)
             } else {
                 VStack(spacing: 8) {
-                    Text(tr("이 노드를 찾지 못했어요")).font(Brand.suit(17, .medium)).foregroundStyle(Brand.ink)
-                    Text(tr("지웠거나 그래프를 다시 만들었을 수 있어요.")).font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                    Text(tr("이 노드를 찾지 못했어요")).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink)
+                    Text(tr("지웠거나 그래프를 다시 만들었을 수 있어요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -43,7 +43,7 @@ struct NodeDetailView: View {
                         sectionTitle(tr("한 일"), count: nil)
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(Array(d.notes.enumerated()), id: \.offset) { _, note in
-                                Text("· " + note).font(Brand.suit(12.5)).foregroundStyle(Brand.text).fixedSize(horizontal: false, vertical: true)
+                                Text("· " + note).font(Brand.font(.body)).foregroundStyle(Brand.text).fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         .padding(.bottom, 22)
@@ -52,7 +52,7 @@ struct NodeDetailView: View {
                         sectionTitle(section.title, count: section.total)
                         VStack(spacing: 0) { ForEach(section.links) { row($0) } }
                         if section.total > section.links.count {
-                            Text(tr("외 \(section.total - section.links.count)개")).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 6)
+                            Text(tr("외 \(section.total - section.links.count)개")).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.top, 6)
                         }
                         Spacer().frame(height: 22)
                     }
@@ -69,17 +69,17 @@ struct NodeDetailView: View {
                 Button { state.backNode() } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left").font(.system(size: 10, weight: .semibold))
-                        Text(tr("뒤로")).font(Brand.suit(12))
+                        Text(tr("뒤로")).font(Brand.font(.body))
                     }
                     .foregroundStyle(Brand.tabText).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).padding(.bottom, 12)
             }
             BrandBadge(d.kindName)
-            Text(d.title).font(Brand.suit(24, .semibold)).tracking(-1).foregroundStyle(Brand.ink).lineLimit(3).padding(.top, 12)
+            Text(d.title).font(Brand.font(.screenTitle)).tracking(-1).foregroundStyle(Brand.ink).lineLimit(3).padding(.top, 12)
                 .fixedSize(horizontal: false, vertical: true)
             if let address = d.address, address != d.title {
-                Text(address).font(Brand.suit(11.5)).foregroundStyle(Brand.gray).lineLimit(2).truncationMode(.middle).textSelection(.enabled).padding(.top, 6)
+                Text(address).font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(2).truncationMode(.middle).textSelection(.enabled).padding(.top, 6)
             }
             if d.openable || d.resumable {
                 HStack(spacing: 8) {
@@ -110,8 +110,8 @@ struct NodeDetailView: View {
         Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
             ForEach(Array(facts.enumerated()), id: \.offset) { _, fact in
                 GridRow {
-                    Text(fact.name).font(Brand.suit(12)).foregroundStyle(Brand.gray)
-                    Text(Self.text(fact.value)).font(Brand.suit(12.5, .medium)).foregroundStyle(Brand.text)
+                    Text(fact.name).font(Brand.font(.body)).foregroundStyle(Brand.gray)
+                    Text(Self.text(fact.value)).font(Brand.font(.body, .medium)).foregroundStyle(Brand.text)
                 }
             }
         }
@@ -129,8 +129,8 @@ struct NodeDetailView: View {
 
     private func sectionTitle(_ title: String, count: Int?) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(title).font(Brand.suit(13, .bold)).foregroundStyle(Brand.ink)
-            if let count { Text("\(count)").font(Brand.suit(11.5, .medium)).foregroundStyle(Brand.gray) }
+            Text(title).font(Brand.font(.rowTitle, .semibold)).foregroundStyle(Brand.ink)
+            if let count { Text("\(count)").font(Brand.font(.caption, .medium)).foregroundStyle(Brand.gray) }
         }
         .padding(.bottom, 8)
     }
@@ -139,9 +139,9 @@ struct NodeDetailView: View {
     private func row(_ link: NodeDetail.Link) -> some View {
         Button { state.openNodeDetail(NodeRef(label: link.label, key: link.key), fromDetail: true) } label: {
             HStack(spacing: 8) {
-                Text(link.title).font(Brand.suit(12.5)).foregroundStyle(Brand.text).lineLimit(1).truncationMode(.tail)
+                Text(link.title).font(Brand.font(.body)).foregroundStyle(Brand.text).lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 8)
-                if let meta = Self.meta(link) { Text(meta).font(Brand.suit(11)).foregroundStyle(Brand.gray).fixedSize() }
+                if let meta = Self.meta(link) { Text(meta).font(Brand.font(.caption)).foregroundStyle(Brand.gray).fixedSize() }
             }
             .padding(.vertical, 7).padding(.horizontal, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -162,7 +162,7 @@ struct NodeDetailView: View {
         Button { state.askErase(ref) } label: {
             HStack(spacing: 6) {
                 Image(systemName: "trash").font(.system(size: 11))
-                Text(tr("이 노드 지우기")).font(Brand.suit(12))
+                Text(tr("이 노드 지우기")).font(Brand.font(.body))
             }
             .foregroundStyle(Color(hex: 0xC0573F))
             .contentShape(Rectangle())

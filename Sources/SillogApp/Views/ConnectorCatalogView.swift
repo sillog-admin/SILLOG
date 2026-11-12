@@ -112,7 +112,7 @@ struct ConnectorCatalogView: View {
                 }
                 if filtered.isEmpty {
                     Text(searching ? tr("맞는 커넥터가 없어요.") : tr("연결한 커넥터가 없어요."))
-                        .font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                        .font(Brand.font(.body)).foregroundStyle(Brand.gray)
                 } else if searching {
                     section(tr("검색 결과"), filtered)
                 } else {
@@ -130,7 +130,7 @@ struct ConnectorCatalogView: View {
     private func filterPill(_ title: String, onlyConnected: Bool) -> some View {
         let on = connectedOnly == onlyConnected
         return Button { connectedOnly = onlyConnected } label: {
-            Text(title).font(Brand.suit(11, .medium)).foregroundStyle(on ? Brand.ink : Brand.gray)
+            Text(title).font(Brand.font(.caption, .medium)).foregroundStyle(on ? Brand.ink : Brand.gray)
                 .padding(.horizontal, 12).frame(height: 27)
                 .background(on ? Brand.badgeFill : .clear, in: Capsule())
                 .overlay(Capsule().strokeBorder(on ? .clear : Brand.line))
@@ -138,10 +138,10 @@ struct ConnectorCatalogView: View {
     }
 
     private func section(_ title: String, _ items: [ConnectorEntry]) -> some View {
-        CatalogSection(title: title) {
+        CatalogSection(title: title, columns: 2) {
             ForEach(items) { connector in
-                CatalogRow(title: connector.name, subtitle: connector.summary, open: { selectedID = connector.id }) {
-                    ConnectorLogo(connector: connector)
+                CatalogRow(title: connector.name, subtitle: connector.summary, large: true, open: { selectedID = connector.id }) {
+                    ConnectorLogo(connector: connector, size: 44)
                 } actions: {
                     if connected.contains(connector.id) {
                         moreMenu(connector, showsChatAction: true)
@@ -168,31 +168,31 @@ struct ConnectorCatalogView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
-                    Button { selectedID = nil } label: { Text(tr("커넥터")).font(Brand.suit(12)).foregroundStyle(Brand.gray) }.buttonStyle(.plain)
-                    Text("›").font(Brand.suit(13)).foregroundStyle(Brand.gray)
-                    Text(connector.name).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
+                    Button { selectedID = nil } label: { Text(tr("커넥터")).font(Brand.font(.body)).foregroundStyle(Brand.gray) }.buttonStyle(.plain)
+                    Text("›").font(Brand.font(.body)).foregroundStyle(Brand.gray)
+                    Text(connector.name).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
                 }
                 .padding(.horizontal, 32).padding(.top, 19)
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 12) {
                         ConnectorLogo(connector: connector, size: 52)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(connector.name).font(Brand.suit(21, .bold)).foregroundStyle(Brand.ink)
-                            Text(connector.summary).font(Brand.suit(12)).foregroundStyle(Brand.gray)
+                            Text(connector.name).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink)
+                            Text(connector.summary).font(Brand.font(.body)).foregroundStyle(Brand.gray)
                         }
                         Spacer(minLength: 6)
                         if on { moreMenu(connector) }
                         mainButton(connector, on: on)
                     }.padding(.top, 22)
                     examplePanel(connector, on: on).padding(.top, 15)
-                    Text(connector.description).font(Brand.suit(13)).foregroundStyle(Brand.tabText).padding(.top, 18)
+                    Text(connector.description).font(Brand.font(.body)).foregroundStyle(Brand.tabText).padding(.top, 18)
                     if ["gmail", "drive", "slack", "notion", "higgsfield", "lovable"].contains(connector.id) {
                         Text(tr("연결을 누르면 브라우저에서 로그인하고 권한을 승인해요. 키를 직접 발급할 필요가 없어요."))
-                            .font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 10)
+                            .font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 10)
                     }
                     if connector.id == "notion" || connector.id == "higgsfield" {
                         Text(tr("서비스의 승인 화면에는 편집·생성 권한이 함께 포함될 수 있어요. SILLOG은 검색·읽기 도구만 허용해요. 승인할 권한은 브라우저에서 확인해 주세요."))
-                            .font(Brand.suit(12)).foregroundStyle(Brand.gray).padding(.top, 10)
+                            .font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 10)
                     }
                     if on {
                         Button(tr("검색·읽기 확인")) { checkConnection(connector) }
@@ -204,14 +204,14 @@ struct ConnectorCatalogView: View {
                             .padding(.horizontal, 16).frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
                             .background(Self.soft, in: RoundedRectangle(cornerRadius: 10)).padding(.top, 16)
                     }
-                    Text(tr("정보")).font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink).padding(.top, 24).padding(.bottom, 8)
+                    Text(tr("정보")).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink).padding(.top, 24).padding(.bottom, 8)
                     Rectangle().fill(Brand.line).frame(height: 1)
                     VStack(alignment: .leading, spacing: 10) {
                         infoRow(tr("SILLOG에서 실행"), tr("검색·읽기만 해요"))
                         infoRow(tr("연결 정보"), tr("이 Mac의 키체인에 보관해요"))
                         infoRow(tr("제공"), ["gmail", "drive"].contains(connector.id) ? "Google" : connector.name)
                     }.padding(.top, 11)
-                    Text(tr("질문과 조회한 자료는 연결한 AI로 전송돼요.")).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 22)
+                    Text(tr("질문과 조회한 자료는 연결한 AI로 전송돼요.")).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.top, 22)
                 }
                 .padding(.horizontal, 32).padding(.bottom, 32)
                 .frame(maxWidth: 732, alignment: .leading).frame(maxWidth: .infinity)
@@ -221,8 +221,8 @@ struct ConnectorCatalogView: View {
 
     private func infoRow(_ label: String, _ value: String) -> some View {
         HStack(alignment: .top, spacing: 0) {
-            Text(label).font(Brand.suit(12)).foregroundStyle(Brand.gray).frame(width: 110, alignment: .leading)
-            Text(value).font(Brand.suit(12)).foregroundStyle(Brand.ink)
+            Text(label).font(Brand.font(.body)).foregroundStyle(Brand.gray).frame(width: 110, alignment: .leading)
+            Text(value).font(Brand.font(.body)).foregroundStyle(Brand.ink)
         }
     }
 
@@ -230,7 +230,7 @@ struct ConnectorCatalogView: View {
     private func mainButton(_ connector: ConnectorEntry, on: Bool) -> some View {
         Button { if on { onUseInChat(connector.id, connector.examples[0]) } else { install(connector) } } label: {
             Text(on ? tr("채팅에서 사용해 보기") : connecting ? tr("연결 중…") : tr("커넥터 연결"))
-                .font(Brand.suit(12, .medium)).foregroundStyle(.white).fixedSize()
+                .font(Brand.font(.body, .medium)).foregroundStyle(.white).fixedSize()
                 .padding(.horizontal, 14).frame(height: 32)
                 .background(Capsule().fill(Brand.accent))
                 .contentShape(Capsule())
@@ -260,8 +260,8 @@ struct ConnectorCatalogView: View {
                 Button { if on { onUseInChat(connector.id, example) } else { install(connector) } } label: {
                     HStack(spacing: 12) {
                         ConnectorLogo(connector: connector, size: 16, boxed: false)
-                        Text(connector.name).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
-                        Text(example).font(Brand.suit(12)).foregroundStyle(Brand.ink).lineLimit(1)
+                        Text(connector.name).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
+                        Text(example).font(Brand.font(.body)).foregroundStyle(Brand.ink).lineLimit(1)
                         Spacer(minLength: 8)
                         Image(systemName: "arrow.right").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
                             .frame(width: 24, height: 24).background(Circle().fill(Brand.pillFill))
@@ -291,12 +291,12 @@ struct ConnectorCatalogView: View {
             (resourceLabel, instructions) = (nil, tr("이 서비스는 브라우저 로그인으로 연결해 주세요."))
         }
         return VStack(alignment: .leading, spacing: 12) {
-            Text(tr("\(connector.name) 연결")).font(Brand.suit(20, .bold))
-            Text(instructions).font(Brand.suit(12)).foregroundStyle(Brand.tabText)
+            Text(tr("\(connector.name) 연결")).font(Brand.font(.screenTitle))
+            Text(instructions).font(Brand.font(.body)).foregroundStyle(Brand.tabText)
             if let resourceLabel { TextField(resourceLabel, text: $externalResource) }
             SecureField(connector.id == "canva" ? tr("클라이언트 비밀키") : tr("토큰 또는 API 키"), text: $externalCredential)
-            Text(tr("연결을 확인한 뒤 이 Mac의 키체인에 저장해요.")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
-            if let externalError { Text(externalError).font(Brand.suit(12)).foregroundStyle(.red) }
+            Text(tr("연결을 확인한 뒤 이 Mac의 키체인에 저장해요.")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+            if let externalError { Text(externalError).font(Brand.font(.body)).foregroundStyle(.red) }
             HStack {
                 Spacer()
                 Button(tr("취소")) { externalConnector = nil; externalCredential = "" }.keyboardShortcut(.cancelAction).disabled(connecting)
@@ -342,8 +342,8 @@ struct ConnectorCatalogView: View {
                     HStack(spacing: 12) {
                         ConnectorLogo(connector: connector, size: 44)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(connector.name).font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink)
-                            Text(connector.summary).font(Brand.suit(10)).foregroundStyle(Brand.gray)
+                            Text(connector.name).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
+                            Text(connector.summary).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
                         }
                         Spacer()
                         Toggle("", isOn: googleBinding(connector.id)).toggleStyle(.switch).labelsHidden().controlSize(.small).tint(Brand.accentDark)

@@ -158,7 +158,7 @@ struct OnboardingSheet: View {
     private func heading(_ title: String, _ sub: String) -> some View {
         VStack(spacing: 10) {
             Text(title).font(Brand.suit(34, .bold)).tracking(-0.8).foregroundStyle(Brand.ink)
-            Text(sub).font(Brand.suit(16)).foregroundStyle(Brand.gray)
+            Text(sub).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.gray)
         }
         .multilineTextAlignment(.center)
     }
@@ -197,10 +197,10 @@ struct OnboardingSheet: View {
             .frame(maxWidth: 700)
             VStack(spacing: 10) {
                 Text(tr("기록 원본은 이 Mac에만 있어요. 정리할 때만 필요한 내용을 고른 AI로 보내요."))
-                    .font(Brand.suit(13)).foregroundStyle(Brand.gray)
+                    .font(Brand.font(.body)).foregroundStyle(Brand.gray)
                 if connected {
                     Text(tr("이미 연결돼 있어요. 바꾸지 않으면 오른쪽 아래 다음으로 넘어가요."))
-                        .font(Brand.suit(13, .medium)).foregroundStyle(OB.ok)
+                        .font(Brand.font(.rowTitle)).foregroundStyle(OB.ok)
                 }
             }
         }
@@ -219,7 +219,7 @@ struct OnboardingSheet: View {
         VStack(spacing: 32) {
             heading(tr("ChatGPT 계정으로 연결해요"), tr("Plus, Pro 등 쓰고 있는 구독 그대로 써요. 아래 코드만 넣으면 돼요."))
             VStack(spacing: 0) {
-                Text(tr("기기 코드")).font(Brand.suit(13)).foregroundStyle(Brand.gray)
+                Text(tr("기기 코드")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
                 if let code = state.deviceCode {
                     // 코드 칸 폭(346pt)에 10~11글자(XXXX-XXXXX)가 한 줄로 들어가는 크기. 더 길면 줄바꿈 대신 조금 줄인다
                     Text(code.userCode).font(Brand.suit(38, .bold)).tracking(3).foregroundStyle(OB.brown)
@@ -233,7 +233,7 @@ struct OnboardingSheet: View {
                         Image(systemName: "square.on.square").font(.system(size: 12))
                         Text(tr("복사"))
                     }
-                    .font(Brand.suit(13, .medium)).foregroundStyle(Brand.ink)
+                    .font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
                     .padding(.horizontal, 14).frame(height: 30)
                     .background(Capsule().fill(OB.chip))
                     .contentShape(Capsule())
@@ -252,7 +252,7 @@ struct OnboardingSheet: View {
                 stepChip(3, tr("연결 확인"))
             }
             if let line = notice ?? (connected ? nil : state.codexMessage) {
-                Text(line).font(Brand.suit(13)).foregroundStyle(OB.warn).multilineTextAlignment(.center)
+                Text(line).font(Brand.font(.body)).foregroundStyle(OB.warn).multilineTextAlignment(.center)
                     .textSelection(.enabled).frame(maxWidth: 560)
             }
         }
@@ -261,7 +261,7 @@ struct OnboardingSheet: View {
     private func stepChip(_ n: Int, _ text: String) -> some View {
         HStack(spacing: 8) {
             numberDot(n, size: 22)
-            Text(text).font(Brand.suit(15, .medium)).foregroundStyle(Brand.ink)
+            Text(text).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink)
         }
     }
 
@@ -290,8 +290,8 @@ struct OnboardingSheet: View {
 
     private func keyField(_ text: Binding<String>, placeholder: String, fill: Color, height: CGFloat, radius: CGFloat) -> some View {
         ZStack(alignment: .leading) {
-            if text.wrappedValue.isEmpty { Text(placeholder).font(Brand.suit(15)).foregroundStyle(Color(hex: 0xB3ABA4)).allowsHitTesting(false) }
-            SecureField("", text: text).textFieldStyle(.plain).font(Brand.suit(15)).foregroundStyle(Brand.text)
+            if text.wrappedValue.isEmpty { Text(placeholder).font(Brand.font(.sectionTitle)).foregroundStyle(Color(hex: 0xB3ABA4)).allowsHitTesting(false) }
+            SecureField("", text: text).textFieldStyle(.plain).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.text)
         }
         .padding(.horizontal, 16).frame(height: height)
         .background(RoundedRectangle(cornerRadius: radius).fill(fill))
@@ -300,9 +300,9 @@ struct OnboardingSheet: View {
     /// 연결 확인 결과 한 줄 (확인 중이면 진행 표시)
     @ViewBuilder private var resultLine: some View {
         if testing {
-            HStack(spacing: 8) { ProgressView().controlSize(.small); Text(tr("연결을 확인하고 있어요")).font(Brand.suit(13)).foregroundStyle(Brand.gray) }
+            HStack(spacing: 8) { ProgressView().controlSize(.small); Text(tr("연결을 확인하고 있어요")).font(Brand.font(.body)).foregroundStyle(Brand.gray) }
         } else if let notice {
-            Text(notice).font(Brand.suit(13)).foregroundStyle(OB.warn).multilineTextAlignment(.center)
+            Text(notice).font(Brand.font(.body)).foregroundStyle(OB.warn).multilineTextAlignment(.center)
                 .textSelection(.enabled).frame(maxWidth: 640)
         }
     }
@@ -324,15 +324,15 @@ struct OnboardingSheet: View {
 
     private func labeled<Field: View>(_ label: String, @ViewBuilder _ field: () -> Field) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(label).font(Brand.suit(14, .medium)).foregroundStyle(Brand.gray)
+            Text(label).font(Brand.font(.body, .medium)).foregroundStyle(Brand.gray)
             field()
         }
     }
 
     private func plainField(_ text: Binding<String>, _ placeholder: String) -> some View {
         ZStack(alignment: .leading) {
-            if text.wrappedValue.isEmpty { Text(placeholder).font(Brand.suit(15)).foregroundStyle(Color(hex: 0xB3ABA4)).allowsHitTesting(false) }
-            TextField("", text: text).textFieldStyle(.plain).font(Brand.suit(15)).foregroundStyle(Brand.text)
+            if text.wrappedValue.isEmpty { Text(placeholder).font(Brand.font(.sectionTitle)).foregroundStyle(Color(hex: 0xB3ABA4)).allowsHitTesting(false) }
+            TextField("", text: text).textFieldStyle(.plain).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.text)
         }
         .padding(.horizontal, 16).frame(height: 56)
         .background(RoundedRectangle(cornerRadius: 18).fill(.white))
@@ -379,7 +379,7 @@ struct OnboardingSheet: View {
                 } action: { go(.judgeDecisions) }
             }
             .frame(maxWidth: 700)
-            Text(tr("판단 모델은 나중에 설정에서 켜고 끌 수 있어요.")).font(Brand.suit(13)).foregroundStyle(Brand.gray)
+            Text(tr("판단 모델은 나중에 설정에서 켜고 끌 수 있어요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
         }
     }
 
@@ -448,7 +448,7 @@ struct OnboardingSheet: View {
                               icon: "perm_screen", granted: grants.screenRecording) { requestScreenRecording() }
             }
             .padding(.top, 26)
-            Text(tr("쓰는 기능에 맞춰 켜요")).font(Brand.suit(13, .medium)).foregroundStyle(Brand.gray)
+            Text(tr("쓰는 기능에 맞춰 켜요")).font(Brand.font(.rowTitle)).foregroundStyle(Brand.gray)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 18).padding(.bottom, 8)
             HStack(spacing: 12) {
                 smallPermission(.notifications, icon: "perm_bell", title: tr("알림"), detail: tr("정리가 끝나면\n알려요"))
@@ -460,7 +460,7 @@ struct OnboardingSheet: View {
                 smallPermission(.loginItem, icon: "perm_login", title: tr("로그인할 때 열기"), detail: tr("켜 두면\n빠짐없이 기록해요"))
             }
             Text(tr("\(Permissions.accessibilityName)과 화면 기록은 시스템 설정에서 켜요. 화면 기록은 켠 뒤 앱을 다시 실행해야 해요."))
-                .font(Brand.suit(13)).foregroundStyle(Brand.gray).padding(.top, 26)
+                .font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 26)
         }
         .frame(maxWidth: 1068)
     }
@@ -469,8 +469,8 @@ struct OnboardingSheet: View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(title).font(Brand.suit(26, .bold)).tracking(-0.5).foregroundStyle(Brand.ink)
-                Text(reads).font(Brand.suit(16)).foregroundStyle(Brand.gray).padding(.top, 8)
-                Text(warn).font(Brand.suit(14, .medium)).foregroundStyle(OB.warn).padding(.top, 4)
+                Text(reads).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.gray).padding(.top, 8)
+                Text(warn).font(Brand.font(.rowTitle)).foregroundStyle(OB.warn).padding(.top, 4)
                     .fixedSize(horizontal: false, vertical: true)
                 Group {
                     if granted { grantedLabel(size: 15) } else { Button(tr("허용하기"), action: request).buttonStyle(OBPillStyle(height: 32, size: 14)) }
@@ -511,8 +511,8 @@ struct OnboardingSheet: View {
                     Button(tr("허용하기")) { Task { await perms.request(item) } }.buttonStyle(OBPillStyle(height: 28, size: 12))
                 }
             }
-            Text(title).font(Brand.suit(15, .bold)).foregroundStyle(Brand.ink).lineLimit(1).minimumScaleFactor(0.8).padding(.top, 14)
-            Text(detail).font(Brand.suit(12)).foregroundStyle(Brand.gray).lineSpacing(2).padding(.top, 6)
+            Text(title).font(Brand.font(.sectionTitle, .semibold)).foregroundStyle(Brand.ink).lineLimit(1).minimumScaleFactor(0.8).padding(.top, 14)
+            Text(detail).font(Brand.font(.body)).foregroundStyle(Brand.gray).lineSpacing(2).padding(.top, 6)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
@@ -547,7 +547,7 @@ struct OnboardingSheet: View {
                 Button { goBack() } label: {
                     HStack(spacing: 10) {
                         BackMark()
-                        Text(back).font(Brand.suit(14, .medium)).foregroundStyle(Brand.ink)
+                        Text(back).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
                     }
                     .contentShape(Rectangle())
                 }
@@ -645,8 +645,8 @@ private struct MethodTile<Icon: View>: View {
         Button(action: action) {
             VStack(spacing: 0) {
                 icon().frame(height: 76)
-                Text(title).font(Brand.suit(20, .bold)).foregroundStyle(Brand.ink).padding(.top, 22)
-                Text(detail).font(Brand.suit(14)).foregroundStyle(Brand.gray).padding(.top, 8)
+                Text(title).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink).padding(.top, 22)
+                Text(detail).font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 8)
             }
             .frame(maxWidth: .infinity, minHeight: 300)
             .background(RoundedRectangle(cornerRadius: 26).fill(.white))
@@ -688,7 +688,7 @@ private struct OBButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Brand.suit(15, .medium))
+            .font(Brand.font(.sectionTitle))
             .foregroundStyle(kind == .primary ? Color.white : Brand.ink)
             .padding(.horizontal, 28).frame(height: 50)
             .background(Capsule().fill(kind == .primary ? OB.accent : .white).overlay(Capsule().strokeBorder(kind == .primary ? Color.clear : OB.border)))
@@ -838,7 +838,7 @@ struct BrandLoadingView: View {
                 Spacer()
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small).scaleEffect(0.7).frame(width: 14, height: 14)
-                    Text(tr("실록 준비 중...")).font(Brand.suit(13)).foregroundStyle(Brand.ink)
+                    Text(tr("실록 준비 중...")).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
                 }
                 HStack(spacing: 6) {
                     Capsule().fill(Color(hex: 0xDDD9D4)).frame(height: 3)
@@ -859,8 +859,8 @@ struct BrandStartupErrorView: View {
     var body: some View {
         VStack(spacing: 0) {
             Image(systemName: "exclamationmark.triangle").font(.system(size: 30, weight: .light)).foregroundStyle(Brand.gray)
-            Text(tr("시작하지 못했어요")).font(Brand.suit(22, .bold)).foregroundStyle(Brand.ink).padding(.top, 30)
-            Text(message).font(Brand.suit(14)).foregroundStyle(Brand.gray).multilineTextAlignment(.center)
+            Text(tr("시작하지 못했어요")).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink).padding(.top, 30)
+            Text(message).font(Brand.font(.body)).foregroundStyle(Brand.gray).multilineTextAlignment(.center)
                 .textSelection(.enabled).padding(.top, 17)
         }
         .padding(40)

@@ -50,21 +50,21 @@ private struct SkillEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(draft.skillID == nil ? tr("새 스킬") : tr("스킬 수정")).font(Brand.suit(20, .bold))
+            Text(draft.skillID == nil ? tr("새 스킬") : tr("스킬 수정")).font(Brand.font(.screenTitle))
             VStack(alignment: .leading, spacing: 8) {
                 field(tr("이름"), placeholder: tr("스킬 이름"), text: $draft.title)
                 field(tr("설명"), placeholder: tr("어떤 작업에 쓰는지 한 줄로 적어 주세요"), text: $draft.summary)
             }
             VStack(alignment: .leading, spacing: 6) {
-                Text(tr("지침")).font(Brand.suit(12, .medium))
+                Text(tr("지침")).font(Brand.font(.body, .medium))
                 Text(tr("채팅에서 이 스킬을 선택했을 때 따를 지침을 적으세요."))
-                    .font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                    .font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 TextEditor(text: $draft.instructions)
-                    .font(Brand.suit(12)).frame(minHeight: 170)
+                    .font(Brand.font(.body)).frame(minHeight: 170)
                     .padding(6).overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Brand.line))
                     .accessibilityLabel(tr("스킬 지침"))
             }
-            if let error { Text(error).font(Brand.suit(11)).foregroundStyle(.red) }
+            if let error { Text(error).font(Brand.font(.caption)).foregroundStyle(.red) }
             HStack(spacing: 8) {
                 Spacer()
                 Button(tr("취소")) { dismiss() }.keyboardShortcut(.cancelAction)
@@ -78,8 +78,8 @@ private struct SkillEditor: View {
 
     private func field(_ label: String, placeholder: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(Brand.suit(12, .medium))
-            TextField(placeholder, text: text).font(Brand.suit(12)).accessibilityLabel(tr("스킬 \(label)"))
+            Text(label).font(Brand.font(.body, .medium))
+            TextField(placeholder, text: text).font(Brand.font(.body)).accessibilityLabel(tr("스킬 \(label)"))
         }
     }
 }

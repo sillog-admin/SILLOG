@@ -26,8 +26,8 @@ struct ChatSearchPanel: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").font(.system(size: 14)).foregroundStyle(Brand.gray)
-                TextField("", text: $query, prompt: Text(tr("대화 검색")).font(Brand.suit(13)).foregroundColor(Brand.gray))
-                    .textFieldStyle(.plain).font(Brand.suit(13)).foregroundStyle(Brand.text).focused($focused)
+                TextField("", text: $query, prompt: Text(tr("대화 검색")).font(Brand.font(.body)).foregroundColor(Brand.gray))
+                    .textFieldStyle(.plain).font(Brand.font(.body)).foregroundStyle(Brand.text).focused($focused)
                     .onSubmit(openSelected)
             }.padding(.horizontal, 20).frame(height: 48)
             if !rows.isEmpty || !trimmed.isEmpty {
@@ -57,11 +57,11 @@ struct ChatSearchPanel: View {
     @ViewBuilder private var results: some View {
         if rows.isEmpty {
             VStack(spacing: 4) {
-                Text(tr("‘\(trimmed)’\(Self.particle(trimmed)) 맞는 대화가 없어요.")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.ink)
-                Text(tr("대화 제목과 메시지 내용에서 찾아요.")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                Text(tr("‘\(trimmed)’\(Self.particle(trimmed)) 맞는 대화가 없어요.")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
+                Text(tr("대화 제목과 메시지 내용에서 찾아요.")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
             }.frame(maxWidth: .infinity).padding(.vertical, 36).opacity(searched == trimmed ? 1 : 0)
         } else {
-            Text(trimmed.isEmpty ? tr("최근") : tr("대화 \(rows.count)개")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+            Text(trimmed.isEmpty ? tr("최근") : tr("대화 \(rows.count)개")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 .padding(.top, 12).padding(.bottom, 6).padding(.horizontal, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
             ScrollView {
@@ -78,12 +78,12 @@ struct ChatSearchPanel: View {
                 Image(systemName: "bubble.left").font(.system(size: 14)).foregroundStyle(Brand.tabText).frame(width: 16, height: 18)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
-                        HoverScrollingText(text: hit.title).font(Brand.suit(12)).foregroundStyle(Brand.ink)
+                        HoverScrollingText(text: hit.title).font(Brand.font(.body)).foregroundStyle(Brand.ink)
                         Spacer(minLength: 8)
-                        Text(ChatDateText.day(hit.updatedAt)).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                        Text(ChatDateText.day(hit.updatedAt)).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                     }
                     if !hit.snippet.isEmpty {
-                        Text(highlighted(hit.snippet.replacingOccurrences(of: "\n", with: " "))).font(Brand.suit(11)).lineLimit(1)
+                        Text(highlighted(hit.snippet.replacingOccurrences(of: "\n", with: " "))).font(Brand.font(.caption)).lineLimit(1)
                     }
                 }
             }
@@ -102,7 +102,7 @@ struct ChatSearchPanel: View {
         while !trimmed.isEmpty, from < out.endIndex,
               let r = out[from...].range(of: trimmed, options: .caseInsensitive) {
             out[r].foregroundColor = Brand.ink
-            out[r].font = Brand.suit(11, .medium)
+            out[r].font = Brand.font(.caption, .medium)
             from = r.upperBound
         }
         return out

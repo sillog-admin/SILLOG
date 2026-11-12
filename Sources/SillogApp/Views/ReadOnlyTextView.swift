@@ -51,7 +51,7 @@ struct TextBlock: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(Brand.suit(12)).foregroundStyle(Brand.gray)
+            Text(title).font(Brand.font(.body)).foregroundStyle(Brand.gray)
             ReadOnlyTextView(text: text, monospaced: monospaced)
                 .frame(height: min(height, CGFloat(max(3, text.split(whereSeparator: \.isNewline).count + 1)) * 17 + 18))
                 .background(RoundedRectangle(cornerRadius: 6).fill(Brand.paper))

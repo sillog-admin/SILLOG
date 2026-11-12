@@ -34,7 +34,7 @@ struct NavRail: View {
                 SVGIcon(d: icon(tab))
                     .stroke(Brand.tabText, style: StrokeStyle(lineWidth: on ? 1.8 : 1.5, lineCap: .round, lineJoin: .round))
                     .frame(width: 18, height: 18)
-                Text(L10n.tr(key: tab.rawValue)).font(Brand.suit(10, on ? .semibold : .regular)).lineLimit(1)
+                Text(L10n.tr(key: tab.rawValue)).font(Brand.font(.tag, on ? .semibold : .regular)).lineLimit(1)
             }
             .foregroundStyle(on ? Brand.ink : Brand.tabText)
             .frame(width: 60, height: 56)
@@ -70,7 +70,7 @@ private struct AccountDot: View {
     var body: some View {
         let initials = String((email ?? "?").prefix(2)).uppercased()
         Button { open.toggle() } label: {
-            Text(initials).font(Brand.suit(11, .semibold)).foregroundStyle(Brand.badgeText)
+            Text(initials).font(Brand.font(.caption, .semibold)).foregroundStyle(Brand.badgeText)
                 .frame(width: 32, height: 32).background(Circle().fill(Brand.badgeFill))
                 .frame(width: 36, height: 36).contentShape(Circle())
         }
@@ -88,7 +88,7 @@ private struct RailLabel: ViewModifier {
             .onHover { hover = $0 }
             .overlay(alignment: .leading) {
                 if hover {
-                    Text(text).font(Brand.suit(11, .medium)).foregroundStyle(Brand.ink).fixedSize()
+                    Text(text).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink).fixedSize()
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(RoundedRectangle(cornerRadius: 6).fill(.white))
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.pillFill))
@@ -108,7 +108,7 @@ private struct TitleBarBrand: View {
             if let mark = Brand.wordmark {
                 Image(nsImage: mark).resizable().scaledToFit().frame(height: 13).accessibilityLabel("SILLOG")
             } else {
-                Text("SILLOG").font(Brand.suit(13, .semibold)).foregroundStyle(Brand.ink)
+                Text("SILLOG").font(Brand.font(.rowTitle, .semibold)).foregroundStyle(Brand.ink)
             }
             Rectangle().fill(Brand.line).frame(width: 1, height: 14)
             TitleConnection()
@@ -139,9 +139,9 @@ private struct TitleConnection: View {
     var body: some View {
         HStack(spacing: 6) {
             logo.frame(width: 13, height: 13)
-            Text(label).font(Brand.suit(12, .medium)).foregroundStyle(Color(hex: 0x4A3E37))
+            Text(label).font(Brand.font(.body, .medium)).foregroundStyle(Color(hex: 0x4A3E37))
             Rectangle().fill(Color(hex: 0xCFC8C1)).frame(width: 1, height: 10)
-            Text(Self.modelTitle(state.settings.chatModelName)).font(Brand.suit(11.5)).foregroundStyle(Color(hex: 0x7A716B)).lineLimit(1)
+            Text(Self.modelTitle(state.settings.chatModelName)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x7A716B)).lineLimit(1)
             Circle().fill(connected ? Brand.connected : Brand.sub).frame(width: 6, height: 6)
         }
         .padding(.horizontal, 10).frame(height: 24)
@@ -201,7 +201,7 @@ private struct TitlePill<Content: View>: View {
 
     var body: some View {
         content()
-            .font(primary ? Brand.suit(12, .bold) : Brand.suit(12))
+            .font(primary ? Brand.font(.body, .bold) : Brand.font(.body))
             .foregroundStyle(primary ? .white : Brand.tabText)
             .lineLimit(1).fixedSize()                              // 옆 문구에 밀려 두 줄로 꺾이지 않게
             .padding(.horizontal, primary ? 30 : 10).frame(height: primary ? 32 : 24)
@@ -237,7 +237,7 @@ private struct RecordingTitleControl: View {
                 if let work = state.recordingWork {
                     HStack(spacing: 6) {
                         ProgressView().controlSize(.mini)
-                        Text(work.menuText).font(Brand.suit(11)).foregroundStyle(Brand.tabText).lineLimit(1).truncationMode(.tail)
+                        Text(work.menuText).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1).truncationMode(.tail)
                     }
                     .layoutPriority(-1)                               // 칸이 모자라면 단추 대신 이 문구가 줄어든다
                 }
@@ -261,7 +261,7 @@ private struct RecordingTitleControl: View {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.circle").font(.system(size: 11))
-                    Text(problem.text).font(Brand.suit(11)).lineLimit(1)
+                    Text(problem.text).font(Brand.font(.caption)).lineLimit(1)
                 }
                 Image(systemName: "exclamationmark.circle").font(.system(size: 12))
             }
@@ -284,7 +284,7 @@ private struct TitleRefresh: View {
                     icon.frame(width: 13, height: 13)
                     if state.batchRunning { Text(tr("정리하는 중")) }
                     else {
-                        if state.pendingCount > 0 { Text(tr("\(state.pendingCount)개")).font(Brand.suit(12, .bold)).foregroundStyle(Color(hex: 0x4A3E37)) }
+                        if state.pendingCount > 0 { Text(tr("\(state.pendingCount)개")).font(Brand.font(.body, .bold)).foregroundStyle(Color(hex: 0x4A3E37)) }
                         Text(tr("지금 정리")).foregroundStyle(Color(hex: 0x6E6862))
                     }
                 }

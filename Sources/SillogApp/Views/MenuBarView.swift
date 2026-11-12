@@ -65,12 +65,12 @@ private struct MenuBarHeader: View {
             if let mark = Brand.wordmark {
                 Image(nsImage: mark).resizable().scaledToFit().frame(height: 10).accessibilityLabel("SILLOG")
             } else {
-                Text("SILLOG").font(Brand.suit(15, .semibold)).foregroundStyle(MenuColor.text)
+                Text("SILLOG").font(Brand.font(.sectionTitle, .semibold)).foregroundStyle(MenuColor.text)
             }
             Spacer()
             HStack(spacing: 6) {
                 Circle().fill(dot).frame(width: 6, height: 6)
-                Text(status).font(Brand.suit(11)).foregroundStyle(MenuColor.sub)
+                Text(status).font(Brand.font(.caption)).foregroundStyle(MenuColor.sub)
             }
         }
         .padding(.horizontal, 18)
@@ -93,7 +93,7 @@ private struct MenuTextButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon).font(.system(size: 11))
-                Text(title).font(Brand.suit(11.5))
+                Text(title).font(Brand.font(.caption))
             }
             .foregroundStyle(MenuColor.gray)
             .padding(.horizontal, 10).frame(height: 32)
@@ -114,7 +114,7 @@ private struct MenuFilledButton: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 if let icon { Image(systemName: icon).font(.system(size: 12, weight: .semibold)) }
-                Text(title).font(Brand.suit(13, .bold))
+                Text(title).font(Brand.font(.rowTitle, .semibold))
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity).frame(height: height)
@@ -142,7 +142,7 @@ private struct MenuBarSignedOut: View {
                     Image(systemName: needsLogin ? "link" : "info.circle").font(.system(size: 13)).foregroundStyle(MenuColor.sub)
                     Text(needsLogin ? tr("기록을 정리하려면 AI를 연결해요")
                          : MenuBarModel.notReadyMessage(phase: state.phase, startupFailed: state.startupError != nil))
-                        .font(Brand.suit(12.5, .medium)).foregroundStyle(MenuColor.text)
+                        .font(Brand.font(.body, .medium)).foregroundStyle(MenuColor.text)
                 }
                 MenuFilledButton(title: needsLogin ? tr("AI 연결하기") : tr("시작하기"), height: 34, action: openMain)
             }
@@ -240,7 +240,7 @@ private struct MenuBarDashboard: View {
                 Image(nsImage: mark).renderingMode(.template).resizable().scaledToFit().frame(width: 13, height: 13)
                     .foregroundStyle(MenuColor.sub)
             }
-            Text(label).font(Brand.suit(11.5, .medium)).foregroundStyle(MenuColor.sub)
+            Text(label).font(Brand.font(.caption, .medium)).foregroundStyle(MenuColor.sub)
             Circle().fill(connected ? MenuColor.green : MenuColor.idle).frame(width: 6, height: 6)
         }
         .padding(.horizontal, 10).frame(height: 24)
@@ -261,12 +261,12 @@ private struct MenuBarDashboard: View {
         let name = window.windowSeconds >= 48 * 3600 ? tr("주간") : window.label
         return VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(tr("\(name) 사용량")).font(Brand.suit(11.5, .medium)).foregroundStyle(MenuColor.text)
+                Text(tr("\(name) 사용량")).font(Brand.font(.caption, .medium)).foregroundStyle(MenuColor.text)
                 if let hint = Self.resetHint(window, now: Date()) {
-                    Text(hint).font(Brand.suit(10)).foregroundStyle(MenuColor.gray).lineLimit(1)
+                    Text(hint).font(Brand.font(.tag)).foregroundStyle(MenuColor.gray).lineLimit(1)
                 }
                 Spacer(minLength: 4)
-                Text("\(Int(window.usedPercent.rounded()))%").font(Brand.suit(11.5, .medium)).foregroundStyle(MenuColor.text)
+                Text("\(Int(window.usedPercent.rounded()))%").font(Brand.font(.caption, .medium)).foregroundStyle(MenuColor.text)
             }
             Capsule().fill(MenuColor.track).frame(height: 6)
                 .overlay(alignment: .leading) {
@@ -294,7 +294,7 @@ private struct MenuBarDashboard: View {
 
     private func number(_ caption: String, _ value: Int) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(caption).font(Brand.suit(10.5)).foregroundStyle(MenuColor.gray)
+            Text(caption).font(Brand.font(.tag)).foregroundStyle(MenuColor.gray)
             Text("\(max(0, value))").font(Brand.suit(30, .medium)).foregroundStyle(MenuColor.text)
                 .lineLimit(1).minimumScaleFactor(0.5)
         }
@@ -328,10 +328,10 @@ private struct MenuBarDashboard: View {
         Button(action: action) {
             HStack(spacing: 9) {
                 Image(systemName: icon).font(.system(size: 12)).foregroundStyle(warm ? MenuColor.warnText : MenuColor.sub)
-                Text(text).font(Brand.suit(11.5, warm ? .medium : .regular)).foregroundStyle(warm ? MenuColor.warnText : MenuColor.sub)
+                Text(text).font(Brand.font(.caption, warm ? .medium : .regular)).foregroundStyle(warm ? MenuColor.warnText : MenuColor.sub)
                     .lineLimit(1)
                 Spacer(minLength: 4)
-                if let count { Text("\(count)").font(Brand.suit(11.5, .semibold)).foregroundStyle(MenuColor.text) }
+                if let count { Text("\(count)").font(Brand.font(.caption, .semibold)).foregroundStyle(MenuColor.text) }
                 Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(warm ? MenuColor.warnText : MenuColor.gray)
             }
@@ -346,9 +346,9 @@ private struct MenuBarDashboard: View {
 
     private var rightColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(tr("최근 업무")).font(Brand.suit(10.5)).foregroundStyle(MenuColor.gray).padding(.top, 2)
+            Text(tr("최근 업무")).font(Brand.font(.tag)).foregroundStyle(MenuColor.gray).padding(.top, 2)
             if state.taskList.isEmpty {
-                Text(tr("아직 정리된 업무가 없어요")).font(Brand.suit(12)).foregroundStyle(MenuColor.gray).padding(.top, 14)
+                Text(tr("아직 정리된 업무가 없어요")).font(Brand.font(.body)).foregroundStyle(MenuColor.gray).padding(.top, 14)
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(state.taskList.prefix(3)) { task in recentTask(task) }
@@ -367,8 +367,8 @@ private struct MenuBarDashboard: View {
         Button { state.prepareResume(taskId: task.id) } label: {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(task.title).font(Brand.suit(13, .medium)).foregroundStyle(MenuColor.text).lineLimit(1).truncationMode(.tail)
-                    Text(Self.timeText(task.lastActive)).font(Brand.suit(10.5)).foregroundStyle(MenuColor.gray)
+                    Text(task.title).font(Brand.font(.rowTitle)).foregroundStyle(MenuColor.text).lineLimit(1).truncationMode(.tail)
+                    Text(Self.timeText(task.lastActive)).font(Brand.font(.tag)).foregroundStyle(MenuColor.gray)
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "arrow.clockwise").font(.system(size: 12)).foregroundStyle(MenuColor.gray)
@@ -433,7 +433,7 @@ private struct MenuBarRecordingRow: View {
         Button { Task { await state.startRecording() } } label: {
             HStack(spacing: 9) {
                 Waveform()
-                Text(tr("녹음 시작")).font(Brand.suit(13, .medium)).foregroundStyle(MenuColor.text)
+                Text(tr("녹음 시작")).font(Brand.font(.rowTitle)).foregroundStyle(MenuColor.text)
                 Spacer()
             }
             .frame(height: 34)
@@ -445,16 +445,16 @@ private struct MenuBarRecordingRow: View {
     private func activeRow(_ active: ActiveRecording) -> some View {
         HStack(spacing: 8) {
             Circle().fill(MenuColor.rec).frame(width: 8, height: 8)
-            Text(tr("녹음 중")).font(Brand.suit(13, .medium)).foregroundStyle(MenuColor.text)
+            Text(tr("녹음 중")).font(Brand.font(.rowTitle)).foregroundStyle(MenuColor.text)
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 Text(RecordingText.clock(context.date.timeIntervalSince1970 - active.startedAt))
-                    .font(Brand.suit(13)).foregroundStyle(MenuColor.gray).monospacedDigit()
+                    .font(Brand.font(.body)).foregroundStyle(MenuColor.gray).monospacedDigit()
             }
             Spacer(minLength: 8)
             Button { Task { await state.stopRecording() } } label: {
                 HStack(spacing: 6) {
                     RoundedRectangle(cornerRadius: 1.5).strokeBorder(MenuColor.sub, lineWidth: 1.2).frame(width: 7, height: 7)
-                    Text(tr("끝내기")).font(Brand.suit(11, .medium)).foregroundStyle(MenuColor.sub)
+                    Text(tr("끝내기")).font(Brand.font(.caption, .medium)).foregroundStyle(MenuColor.sub)
                 }
                 .padding(.horizontal, 12).frame(height: 28)
                 .background(Capsule().fill(MenuColor.chip))
@@ -471,11 +471,11 @@ private struct MenuBarRecordingRow: View {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small).scaleEffect(0.8).frame(width: 14, height: 14)
                 if case .transcribing(let progress) = work {
-                    Text(tr("받아쓰는 중")).font(Brand.suit(13, .medium)).foregroundStyle(MenuColor.text)
+                    Text(tr("받아쓰는 중")).font(Brand.font(.rowTitle)).foregroundStyle(MenuColor.text)
                     Spacer()
-                    Text("\(Int((progress * 100).rounded()))%").font(Brand.suit(11.5, .medium)).foregroundStyle(MenuColor.sub)
+                    Text("\(Int((progress * 100).rounded()))%").font(Brand.font(.caption, .medium)).foregroundStyle(MenuColor.sub)
                 } else {
-                    Text(work.menuText).font(Brand.suit(13, .medium)).foregroundStyle(MenuColor.text)
+                    Text(work.menuText).font(Brand.font(.rowTitle)).foregroundStyle(MenuColor.text)
                     Spacer()
                 }
             }
@@ -496,7 +496,7 @@ private struct MenuBarRecordingRow: View {
         Button { problem.openSettings() } label: {
             HStack(spacing: 8) {
                 Image(systemName: "exclamationmark.circle").font(.system(size: 12)).foregroundStyle(MenuColor.warnText)
-                Text(problem.text).font(Brand.suit(11.5, .medium)).foregroundStyle(MenuColor.warnText).lineLimit(2)
+                Text(problem.text).font(Brand.font(.caption, .medium)).foregroundStyle(MenuColor.warnText).lineLimit(2)
                 Spacer(minLength: 4)
                 if problem.settingsURL != nil {
                     Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(MenuColor.warnText)
@@ -557,8 +557,8 @@ private struct MenuBarCalendar: View {
             Button { withAnimation(.easeOut(duration: 0.15)) { expanded.toggle() } } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "calendar").font(.system(size: 13)).foregroundStyle(MenuColor.sub)
-                    Text(tr("캘린더")).font(Brand.suit(12.5, .medium)).foregroundStyle(MenuColor.text)
-                    Text(summary).font(Brand.suit(11)).foregroundStyle(MenuColor.gray).lineLimit(1)
+                    Text(tr("캘린더")).font(Brand.font(.body, .medium)).foregroundStyle(MenuColor.text)
+                    Text(summary).font(Brand.font(.caption)).foregroundStyle(MenuColor.gray).lineLimit(1)
                     Spacer(minLength: 4)
                     Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(MenuColor.gray)
                 }
@@ -580,34 +580,34 @@ private struct MenuBarCalendar: View {
 
     private var todayColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(Self.dateTitle(Date())).font(Brand.suit(13, .bold)).foregroundStyle(MenuColor.text)
-            Text(tr("오늘")).font(Brand.suit(10.5)).foregroundStyle(MenuColor.gray).padding(.top, 8)
+            Text(Self.dateTitle(Date())).font(Brand.font(.rowTitle, .semibold)).foregroundStyle(MenuColor.text)
+            Text(tr("오늘")).font(Brand.font(.tag)).foregroundStyle(MenuColor.gray).padding(.top, 8)
             if !calendar.granted {
-                Text(tr("캘린더 권한을 켜면 오늘 일정이 보여요")).font(Brand.suit(12)).foregroundStyle(MenuColor.gray).padding(.top, 8)
+                Text(tr("캘린더 권한을 켜면 오늘 일정이 보여요")).font(Brand.font(.body)).foregroundStyle(MenuColor.gray).padding(.top, 8)
                 Button { Task { await calendar.requestAccess() } } label: {
-                    Text(tr("허용하기")).font(Brand.suit(11.5, .medium)).foregroundStyle(MenuColor.primary)
+                    Text(tr("허용하기")).font(Brand.font(.caption, .medium)).foregroundStyle(MenuColor.primary)
                         .padding(.vertical, 6).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             } else if calendar.today.isEmpty {
-                Text(tr("오늘 일정이 없어요")).font(Brand.suit(12)).foregroundStyle(MenuColor.gray).padding(.top, 8)
+                Text(tr("오늘 일정이 없어요")).font(Brand.font(.body)).foregroundStyle(MenuColor.gray).padding(.top, 8)
             } else {
                 VStack(alignment: .leading, spacing: 7) {
                     ForEach(calendar.today.prefix(3)) { event in
                         HStack(spacing: 8) {
-                            Text(event.time).font(Brand.suit(12, .medium)).foregroundStyle(MenuColor.gray).frame(width: 40, alignment: .leading)
-                            Text(event.title).font(Brand.suit(13, .medium)).foregroundStyle(MenuColor.text).lineLimit(1).truncationMode(.tail)
+                            Text(event.time).font(Brand.font(.body, .medium)).foregroundStyle(MenuColor.gray).frame(width: 40, alignment: .leading)
+                            Text(event.title).font(Brand.font(.rowTitle)).foregroundStyle(MenuColor.text).lineLimit(1).truncationMode(.tail)
                         }
                     }
                     if calendar.today.count > 3 {
-                        Text(tr("외 \(calendar.today.count - 3)")).font(Brand.suit(11)).foregroundStyle(MenuColor.gray)
+                        Text(tr("외 \(calendar.today.count - 3)")).font(Brand.font(.caption)).foregroundStyle(MenuColor.gray)
                     }
                 }
                 .padding(.top, 8)
             }
             Spacer(minLength: 10)
             Button { NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Calendar.app")) } label: {
-                Text(tr("캘린더 앱 열기 ›")).font(Brand.suit(11.5)).foregroundStyle(MenuColor.gray).contentShape(Rectangle())
+                Text(tr("캘린더 앱 열기 ›")).font(Brand.font(.caption)).foregroundStyle(MenuColor.gray).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
@@ -616,14 +616,14 @@ private struct MenuBarCalendar: View {
 
     private var suggestionColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(tr("일정 제안 \(calendar.suggestions.count)")).font(Brand.suit(10.5)).foregroundStyle(MenuColor.gray)
+            Text(tr("일정 제안 \(calendar.suggestions.count)")).font(Brand.font(.tag)).foregroundStyle(MenuColor.gray)
             if calendar.suggestions.isEmpty {
-                Text(tr("기록에서 찾은 일정이 없어요")).font(Brand.suit(12)).foregroundStyle(MenuColor.gray).padding(.top, 8)
+                Text(tr("기록에서 찾은 일정이 없어요")).font(Brand.font(.body)).foregroundStyle(MenuColor.gray).padding(.top, 8)
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(calendar.suggestions.prefix(3)) { suggestion in card(suggestion) }
                     if calendar.suggestions.count > 3 {
-                        Text(tr("외 \(calendar.suggestions.count - 3)")).font(Brand.suit(11)).foregroundStyle(MenuColor.gray)
+                        Text(tr("외 \(calendar.suggestions.count - 3)")).font(Brand.font(.caption)).foregroundStyle(MenuColor.gray)
                     }
                 }
                 .padding(.top, 8)
@@ -634,17 +634,17 @@ private struct MenuBarCalendar: View {
 
     private func card(_ suggestion: EventSuggestion) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(suggestion.title).font(Brand.suit(12.5, .medium)).foregroundStyle(MenuColor.text).lineLimit(1).truncationMode(.tail)
+            Text(suggestion.title).font(Brand.font(.body, .medium)).foregroundStyle(MenuColor.text).lineLimit(1).truncationMode(.tail)
             HStack(spacing: 8) {
-                Text(CalendarService.dateText(suggestion)).font(Brand.suit(10.5)).foregroundStyle(MenuColor.gray).lineLimit(1)
+                Text(CalendarService.dateText(suggestion)).font(Brand.font(.tag)).foregroundStyle(MenuColor.gray).lineLimit(1)
                 Spacer(minLength: 4)
                 Button { Task { await calendar.register(suggestion) } } label: {
-                    Text(tr("등록")).font(Brand.suit(11, .medium)).foregroundStyle(.white)
+                    Text(tr("등록")).font(Brand.font(.caption, .medium)).foregroundStyle(.white)
                         .padding(.horizontal, 12).frame(height: 24).background(Capsule().fill(MenuColor.text)).contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 Button { calendar.dismiss(suggestion) } label: {
-                    Text(tr("무시")).font(Brand.suit(11)).foregroundStyle(MenuColor.gray).padding(.horizontal, 4).frame(height: 24).contentShape(Rectangle())
+                    Text(tr("무시")).font(Brand.font(.caption)).foregroundStyle(MenuColor.gray).padding(.horizontal, 4).frame(height: 24).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }

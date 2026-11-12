@@ -117,8 +117,8 @@ private struct KindHeader: View {
     let summary: String
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(title).font(Brand.suit(16, .medium)).foregroundStyle(Brand.ink)
-            Text(summary).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+            Text(title).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink)
+            Text(summary).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -152,7 +152,7 @@ private struct ColumnHeads: View {
             HStack(spacing: 0) {
                 Color.clear.frame(width: 28, height: 1)
                 ForEach(heads.indices, id: \.self) { i in
-                    Text(heads[i].0).font(Brand.suit(10)).foregroundStyle(Brand.gray)
+                    Text(heads[i].0).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
                         .frame(width: heads[i].1 > 0 ? heads[i].1 : nil, alignment: .leading)
                         .frame(maxWidth: heads[i].1 > 0 ? nil : .infinity, alignment: .leading)
                 }
@@ -163,7 +163,7 @@ private struct ColumnHeads: View {
 }
 
 private func cell(_ text: String, _ width: CGFloat, gray: Bool = false) -> some View {
-    Text(text).font(Brand.suit(11)).foregroundStyle(gray ? Brand.gray : Brand.tabText).lineLimit(1)
+    Text(text).font(Brand.font(.caption)).foregroundStyle(gray ? Brand.gray : Brand.tabText).lineLimit(1)
         .frame(width: width > 0 ? width : nil, alignment: .leading).frame(maxWidth: width > 0 ? nil : .infinity, alignment: .leading)
 }
 
@@ -172,7 +172,7 @@ private func lead(_ symbol: String) -> some View {
 }
 
 private func title(_ text: String, _ width: CGFloat) -> some View {
-    Text(text).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText).lineLimit(1)
+    Text(text).font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText).lineLimit(1)
         .frame(width: width, alignment: .leading)
 }
 
@@ -193,7 +193,7 @@ struct LibraryAllList: View {
                         title(entry.title, 248)
                         HStack(spacing: 6) {
                             Circle().fill(LibraryLook.color(entry.kind)).frame(width: 6, height: 6)
-                            Text(LibraryLook.name(entry.kind)).font(Brand.suit(11)).foregroundStyle(Brand.tabText)
+                            Text(LibraryLook.name(entry.kind)).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
                         }.frame(width: 112, alignment: .leading)
                         cell(LibraryLook.when(actions.modified(entry)), 0, gray: true)
                     }
@@ -225,14 +225,14 @@ struct LibraryRecordingList: View {
                         title(recording.displayTitle, 220)
                         cell(LibraryLook.when(recording.startedAt), 112, gray: true)
                         HStack(spacing: 8) {
-                            Text(RecordingText.duration(recording.duration)).font(Brand.suit(11)).foregroundStyle(Brand.tabText)
+                            Text(RecordingText.duration(recording.duration)).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
                                 .frame(width: 64, alignment: .leading)
                             if recording.duration > 0 {
                                 RoundedRectangle(cornerRadius: 2).fill(LibraryLook.recording)
                                     .frame(width: max(4, 42 * recording.duration / longest), height: 4)
                             }
                         }.frame(width: 116, alignment: .leading)
-                        Text(status.text).font(Brand.suit(11, recording.status == .failed ? .medium : .regular)).foregroundStyle(status.color)
+                        Text(status.text).font(Brand.font(.caption, recording.status == .failed ? .medium : .regular)).foregroundStyle(status.color)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -261,7 +261,7 @@ struct LibraryUploadList: View {
                     }
                 }
             }
-            Text(tr("올린 파일은 연결한 대화와 프로젝트에서 답변 근거로 써요.")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+            Text(tr("올린 파일은 연결한 대화와 프로젝트에서 답변 근거로 써요.")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 18)
         }
     }
@@ -288,9 +288,9 @@ struct LibraryGeneratedGrid: View {
                         VStack(alignment: .leading, spacing: 0) {
                             LibraryThumbnail(url: actions.url(item), size: CGSize(width: 228, height: 146))
                                 .frame(maxWidth: .infinity).background(Brand.paper)
-                            Text(item.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText).lineLimit(1).padding(.top, 14)
+                            Text(item.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText).lineLimit(1).padding(.top, 14)
                             Text("\(LibraryLook.format(LibraryLook.ext(item)))     \(LibraryLook.when(actions.modified(.item(item))))")
-                                .font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.top, 6)
+                                .font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.top, 6)
                         }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                     }.buttonStyle(.plain)
                         .contextMenu {
@@ -372,15 +372,15 @@ struct LibraryNoteList: View {
                     VStack(spacing: 8) {
                         HStack {
                             entryThumbnail(.item(item), actions: actions)
-                            Text(item.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText).lineLimit(1)
+                            Text(item.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText).lineLimit(1)
                             Spacer(minLength: 16)
-                            Text(LibraryLook.when(actions.modified(.item(item)))).font(Brand.suit(11)).foregroundStyle(Brand.tabText)
+                            Text(LibraryLook.when(actions.modified(.item(item)))).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
                         }
                         HStack {
-                            Text(info?.first ?? "").font(Brand.suit(11)).foregroundStyle(Brand.gray).lineLimit(1)
+                            Text(info?.first ?? "").font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
                             Spacer(minLength: 16)
                             Text("\(info.map { tr("\($0.count.formatted())자") } ?? "")     \(projects > 0 ? tr("프로젝트 \(projects)개") : tr("연결 없음"))")
-                                .font(Brand.suit(10)).foregroundStyle(Brand.gray).lineLimit(1).fixedSize()
+                                .font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1).fixedSize()
                         }
                     }
                 }
@@ -462,16 +462,16 @@ struct LibraryHome: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(hex: 0xF7F5F2))
                 AreaChart(rows: rows.map { ($0.date, $0.field) }, fields: fields, period: period.days).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(tr("보관함 전체")).font(Brand.suit(10)).foregroundStyle(Brand.gray)
-                    Text(tr("\(all.count.formatted())개")).font(Brand.suit(22, .medium)).foregroundStyle(Brand.ink).padding(.top, 2)
+                    Text(tr("보관함 전체")).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
+                    Text(tr("\(all.count.formatted())개")).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink).padding(.top, 2)
                     if let last = all.first {
-                        Text(tr("마지막으로 쌓인 때  \(LibraryLook.when(last.date))")).font(Brand.suit(11)).foregroundStyle(Brand.gray).padding(.top, 4)
+                        Text(tr("마지막으로 쌓인 때  \(LibraryLook.when(last.date))")).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.top, 4)
                     }
                 }.padding(.leading, 18).padding(.top, 14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 HStack(spacing: 2) {
                     ForEach(Period.allCases, id: \.self) { p in
                         Button { period = p } label: {
-                            Text(L10n.tr(key: p.rawValue)).font(Brand.suit(11)).foregroundStyle(period == p ? Color(hex: 0x3D2F27) : Brand.gray)
+                            Text(L10n.tr(key: p.rawValue)).font(Brand.font(.caption)).foregroundStyle(period == p ? Color(hex: 0x3D2F27) : Brand.gray)
                                 .padding(.horizontal, 11).frame(height: 21)
                                 .background(Capsule().fill(period == p ? Color(hex: 0xEAE3DC) : .clear))
                                 .overlay(Capsule().stroke(period == p ? Color(hex: 0xCCBEB3) : .clear, lineWidth: 1))
@@ -490,12 +490,12 @@ struct LibraryHome: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Circle().fill(f.color).frame(width: 8, height: 8)
-                        Text(f.title).font(Brand.suit(11)).foregroundStyle(Brand.tabText).lineLimit(1)
+                        Text(f.title).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
                     }
                     HStack(alignment: .firstTextBaseline, spacing: 3) {
-                        Text(f.count.formatted()).font(Brand.suit(18, .medium)).foregroundStyle(Brand.ink)
-                        Text(tr("개")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
-                        Text("\(total > 0 ? Int((Double(f.count) / Double(total) * 100).rounded()) : 0)%").font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.leading, 4)
+                        Text(f.count.formatted()).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink)
+                        Text(tr("개")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+                        Text("\(total > 0 ? Int((Double(f.count) / Double(total) * 100).rounded()) : 0)%").font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.leading, 4)
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -510,21 +510,21 @@ struct LibraryHome: View {
         let empty = recordings.filter { $0.status == .ready && !$0.hasTranscript }.count
         let failed = recordings.filter { $0.status == .failed }.count
         return VStack(alignment: .leading, spacing: 0) {
-            Text(tr("종류별 개수")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText)
+            Text(tr("종류별 개수")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText)
             HStack(alignment: .top, spacing: 0) {
                 ForEach(LibraryLook.order, id: \.self) { kind in
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(LibraryLook.name(kind)).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                        Text(LibraryLook.name(kind)).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                         HStack(alignment: .firstTextBaseline, spacing: 1) {
-                            Text((counts[kind] ?? 0).formatted()).font(Brand.suit(16, .medium)).foregroundStyle(Brand.ink)
-                            Text(tr("개")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                            Text((counts[kind] ?? 0).formatted()).font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink)
+                            Text(tr("개")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                         }
                     }.frame(width: 92, alignment: .leading)
                 }
             }.padding(.top, 8)
             if !recordings.isEmpty {
                 Text(tr("녹음 총 길이 \(RecordingText.duration(recordings.reduce(0) { $0 + $1.duration })), 받아쓰기 완료 \(ready), 내용 없음 \(empty), 실패 \(failed)"))
-                    .font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.top, 12)
+                    .font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.top, 12)
             }
         }
     }
@@ -552,22 +552,22 @@ struct LibraryHome: View {
         }
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text(tr("최근 6개월 추가")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText)
+                Text(tr("최근 6개월 추가")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText)
                 Spacer()
                 HStack(spacing: 2) {
-                    Text(tr("적음")).font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.trailing, 4)
+                    Text(tr("적음")).font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.trailing, 4)
                     ForEach([Color(hex: 0xF2EEEA), LibraryLook.note, LibraryLook.generated, LibraryLook.upload, LibraryLook.recording].indices, id: \.self) { i in
                         RoundedRectangle(cornerRadius: 2).fill([Color(hex: 0xF2EEEA), LibraryLook.note, LibraryLook.generated, LibraryLook.upload, LibraryLook.recording][i]).frame(width: 9, height: 9)
                     }
-                    Text(tr("많음")).font(Brand.suit(10)).foregroundStyle(Brand.gray).padding(.leading, 4)
+                    Text(tr("많음")).font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.leading, 4)
                 }
             }
             ZStack(alignment: .topLeading) {
                 ForEach(months, id: \.0) { m in
-                    Text(m.1).font(Brand.suit(10)).foregroundStyle(Brand.gray).fixedSize().offset(x: 19 + CGFloat(m.0) * 13, y: 0)
+                    Text(m.1).font(Brand.font(.tag)).foregroundStyle(Brand.gray).fixedSize().offset(x: 19 + CGFloat(m.0) * 13, y: 0)
                 }
                 ForEach([0, 2, 4], id: \.self) { row in
-                    Text([tr("월"), "", tr("수"), "", tr("금")][row]).font(Brand.suit(9)).foregroundStyle(Brand.gray).offset(x: 0, y: 14 + CGFloat(row) * 13)
+                    Text([tr("월"), "", tr("수"), "", tr("금")][row]).font(Brand.font(.tag)).foregroundStyle(Brand.gray).offset(x: 0, y: 14 + CGFloat(row) * 13)
                 }
                 HStack(alignment: .top, spacing: 2) {
                     ForEach(0..<weeks, id: \.self) { w in
@@ -590,12 +590,12 @@ struct LibraryHome: View {
 
     private func recent(_ all: [LibraryEntry]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(tr("최근 추가")).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText).padding(.bottom, 11)
+            Text(tr("최근 추가")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText).padding(.bottom, 11)
             ForEach(Array(all.prefix(5))) { entry in
                 KindRow(entry: entry, actions: actions, spacing: 7.5) {   // 행 피치 48pt (Figma)
                     VStack(alignment: .leading, spacing: 4.5) {
-                        Text(entry.title).font(Brand.suit(12, .medium)).foregroundStyle(Brand.tabText).lineLimit(1)
-                        Text(subtitle(entry)).font(Brand.suit(10)).foregroundStyle(Brand.gray).lineLimit(1)
+                        Text(entry.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText).lineLimit(1)
+                        Text(subtitle(entry)).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
                     }
                 }
             }
@@ -697,7 +697,7 @@ private struct AreaAxis: View {
                     // 폭 0 자리를 날짜 위치에 두고 글씨를 왼쪽 맞춤, 가운데, 오른쪽 맞춤으로 걸친다
                     Color.clear.frame(width: 0, height: 14)
                         .overlay(alignment: l.2 == .leading ? .leading : l.2 == .trailing ? .trailing : .center) {
-                            Text(l.1).font(Brand.suit(10)).foregroundStyle(Brand.gray).fixedSize()
+                            Text(l.1).font(Brand.font(.tag)).foregroundStyle(Brand.gray).fixedSize()
                         }
                         .offset(x: geo.size.width * l.0)
                 }

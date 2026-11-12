@@ -49,7 +49,7 @@ struct ChatSidebar: View {
                         if projectsOpen {
                             ForEach(projects.projects) { project in projectRow(project) }
                             if projects.projects.isEmpty {
-                                Text(tr("아직 프로젝트가 없어요")).font(Brand.suit(11)).foregroundStyle(Brand.gray)
+                                Text(tr("아직 프로젝트가 없어요")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                                     .padding(.horizontal, 10).padding(.vertical, 6)
                             }
                         }
@@ -88,7 +88,7 @@ struct ChatSidebar: View {
                 Image(systemName: "sidebar.left").font(.system(size: 15)).foregroundStyle(Brand.tabText)
                     .frame(width: 24, height: 24).contentShape(Rectangle())
             }.buttonStyle(.plain).help(tr("목록 접기")).accessibilityLabel(tr("목록 접기"))
-            Text(tr("채팅")).font(Brand.suit(20, .bold)).foregroundStyle(Brand.ink)
+            Text(tr("채팅")).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink)
             Spacer(minLength: 0)
             Button {
                 selecting.toggle(); selected = []; selectionError = nil
@@ -105,9 +105,9 @@ struct ChatSidebar: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: icon).font(.system(size: 14)).frame(width: 16)
-                Text(title).font(Brand.suit(13, selected ? .medium : .regular))
+                Text(title).font(Brand.font(.rowTitle, selected ? .medium : .regular))
                 Spacer(minLength: 0)
-                if let trailing { Text(trailing).font(Brand.suit(11)).foregroundStyle(Brand.gray) }
+                if let trailing { Text(trailing).font(Brand.font(.caption)).foregroundStyle(Brand.gray) }
             }
             .foregroundStyle(Brand.ink)
             .padding(.leading, 10).padding(.trailing, 12).frame(height: 32)
@@ -121,7 +121,7 @@ struct ChatSidebar: View {
         let key = title == tr("고정됨") ? "pinned" : title == tr("최근 항목") ? "recent" : title
         return Button { open.wrappedValue.toggle() } label: {
             HStack(spacing: 6) {
-                Text(title).font(Brand.suit(12))
+                Text(title).font(Brand.font(.body))
                 Image(systemName: "triangle.fill").font(.system(size: 5)).rotationEffect(.degrees(open.wrappedValue ? 180 : 90))
                     .opacity(hoverSection == key || !open.wrappedValue ? 1 : 0)
             }
@@ -140,7 +140,7 @@ struct ChatSidebar: View {
                         .foregroundStyle(selected.contains(item.id) ? Brand.accent : Brand.gray)
                     HoverScrollingText(text: item.title)
                     Spacer(minLength: 0)
-                }.font(Brand.suit(12)).foregroundStyle(Brand.tabText)
+                }.font(Brand.font(.body)).foregroundStyle(Brand.tabText)
                     .padding(.horizontal, 10).frame(height: 32).contentShape(Rectangle())
             }.buttonStyle(.plain).hoverHighlight(cornerRadius: 5)
                 .accessibilityLabel("\(selected.contains(item.id) ? tr("선택 해제") : tr("선택")): \(item.title)")
@@ -167,7 +167,7 @@ struct ChatSidebar: View {
                 Button {
                     chat.newConversation(projectID: project.id); pane = .project(project.id)
                 } label: {
-                    Label(project.title, systemImage: "folder").font(Brand.suit(13)).lineLimit(1)
+                    Label(project.title, systemImage: "folder").font(Brand.font(.body)).lineLimit(1)
                         .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading).contentShape(Rectangle())
                 }.buttonStyle(.plain)
             }.foregroundStyle(Brand.tabText).hoverHighlight(cornerRadius: 5)
@@ -182,13 +182,13 @@ struct ChatSidebar: View {
     private var selectionActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(tr("\(selected.count)개 선택")).font(Brand.suit(12, .medium))
+                Text(tr("\(selected.count)개 선택")).font(Brand.font(.body, .medium))
                 Spacer()
                 Button(tr("전체 선택")) {
                     selected = Set(chat.conversations.filter { $0.id != chat.activeMessage?.conversationID }.map(\.id))
-                }.buttonStyle(.plain).font(Brand.suit(11))
+                }.buttonStyle(.plain).font(Brand.font(.caption))
                 Button(tr("완료")) { selecting = false; selected = []; selectionError = nil }
-                    .buttonStyle(.plain).font(Brand.suit(11))
+                    .buttonStyle(.plain).font(Brand.font(.caption))
             }
             HStack {
                 Menu {
@@ -201,7 +201,7 @@ struct ChatSidebar: View {
                 Button { confirmDelete = true } label: { Label(tr("삭제"), systemImage: "trash") }
                     .foregroundStyle(PopRow.red)
             }.disabled(selected.isEmpty)
-            if let selectionError { Text(selectionError).font(Brand.suit(11)).foregroundStyle(.red) }
+            if let selectionError { Text(selectionError).font(Brand.font(.caption)).foregroundStyle(.red) }
         }.foregroundStyle(Brand.tabText).padding(12)
             .overlay(alignment: .top) { Rectangle().fill(Brand.line).frame(height: 1) }
     }
@@ -250,7 +250,7 @@ struct PopRow: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 if let icon { Image(systemName: icon).font(.system(size: 12)).frame(width: 14) }
-                Text(title).font(Brand.suit(12)).lineLimit(1)
+                Text(title).font(Brand.font(.body)).lineLimit(1)
                 Spacer(minLength: 6)
                 if chevron { Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(Brand.gray) }
             }
@@ -302,7 +302,7 @@ private struct ConversationRow<Context: View, Pop: View>: View {
         HStack(spacing: 0) {
             Button(action: open) {
                 HoverScrollingText(text: item.title, rowHovered: hovering)
-                    .font(Brand.suit(13)).foregroundStyle(isCurrent ? Brand.ink : Brand.tabText)
+                    .font(Brand.font(.rowTitle)).foregroundStyle(isCurrent ? Brand.ink : Brand.tabText)
                     .padding(.leading, 10)
                     .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain)

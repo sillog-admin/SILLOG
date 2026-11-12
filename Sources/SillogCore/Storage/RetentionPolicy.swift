@@ -40,10 +40,11 @@ public struct RetentionPolicy: Codable, Equatable, Sendable {
 
     /// 화면 텍스트 보관일을 고르는 프리셋. 나머지 항목은 고급에서 따로 고친다
     public enum Preset: String, CaseIterable, Codable, Sendable {
-        case light, standard, long, keepRaw
+        case week, light, standard, long, keepRaw
 
         public var title: String {
             switch self {
+            case .week: tr("짧게")
             case .light: tr("가볍게")
             case .standard: tr("기본")
             case .long: tr("길게")
@@ -53,6 +54,7 @@ public struct RetentionPolicy: Codable, Equatable, Sendable {
 
         public var screenTextDays: Int? {
             switch self {
+            case .week: 7
             case .light: 14
             case .standard: 30
             case .long: 90
