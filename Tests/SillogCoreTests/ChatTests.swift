@@ -379,11 +379,55 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(ChatArtifact.versions(of: result.artifacts[1], in: [old, answer]).count, 1)
     }
 
+    func testLongChatsSendASummaryOfWhatNoLongerFits() async throws {
+        let long = String(repeating: "가", count: 9_000)
+        var history: [ConversationMessage] = []
+        for i in 0..<14 {
+            history.append(.init(conversationID: "c", role: "user", text: "질문 \(i) " + long))
+            history.append(.init(conversationID: "c", role: "assistant", text: "답 \(i) " + long))
+        }
+        history.append(.init(conversationID: "c", role: "user", text: "마지막 질문"))
+        let model = MemoryModel()
+        let runner = ChatRunner(client: model, tools: ChatTools(db: try .inMemory(), scope: .init()))
+        let first = try await runner.run(history: history, skillIDs: []) { _ in }
+        let memory = try XCTUnwrap(first.memory)
+        XCTAssertEqual(memory.summary, "요약 1")
+        let sent = await model.sent
+        XCTAssertTrue(sent[0].contains("질문 0"), "the summary call gets the oldest messages")
+        XCTAssertTrue(sent[1].hasPrefix("<earlier_conversation_summary>\n요약 1"))
+        XCTAssertFalse(sent[1].contains("질문 0 "), "summarized messages aren't sent again")
+        XCTAssertTrue(sent[1].contains("마지막 질문"))
+        XCTAssertLessThanOrEqual(sent[1].count, ChatRunner.historyBudget + 200)
+
+        // The next turn fits after the stored summary, so it is reused without another call.
+        let next = history + [.init(conversationID: "c", role: "assistant", text: "짧은 답"), .init(conversationID: "c", role: "user", text: "또 질문")]
+        let second = try await runner.run(history: next, skillIDs: [], memory: memory) { _ in }
+        XCTAssertEqual(second.memory, memory)
+        let calls = await model.sent.count
+        XCTAssertEqual(calls, 3)
+
+        // A short chat sends everything and makes no summary.
+        let short = try await runner.run(history: [.init(conversationID: "s", role: "user", text: "안녕")], skillIDs: []) { _ in }
+        XCTAssertNil(short.memory)
+    }
+
     func testOfficeArtifactsPreviewAsHTML() {
         let deck = ChatArtifactHTML.render(.init(title: "d", format: "pptx", content: "# 하나\n- a\n## 둘\n- b"))
         XCTAssertEqual(deck.components(separatedBy: "<section>").count - 1, 2)
         XCTAssertTrue(ChatArtifactHTML.render(.init(title: "s", format: "xlsx", content: "A,<B>\n1,2")).contains("<td>&lt;B&gt;</td>"))
         XCTAssertTrue(ChatArtifactHTML.render(.init(title: "w", format: "docx", content: "# 제목")).contains("<h1>제목</h1>"))
+    }
+}
+
+/// Answers the memory prompt with numbered summaries and records what each call got.
+private actor MemoryModel: ChatModelClient {
+    nonisolated var modelName: String { "memory" }
+    var sent: [String] = []
+    var summaries = 0
+    func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec], onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply {
+        sent.append(messages.map(\.text).joined(separator: "\n"))
+        if system == ChatRunner.memoryPrompt { summaries += 1; return .init(text: "요약 \(summaries)") }
+        return .init(text: "답")
     }
 }
 

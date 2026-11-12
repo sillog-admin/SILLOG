@@ -434,7 +434,7 @@ final class ChatState: ObservableObject {
                 var succeeded = false
                 do {
                     let project = self.projects.projects.first(where: { $0.id == conversation.projectID })
-                    let result = try await runner.run(history: previous + [user], skillIDs: conversation.skillIDs, skillCatalog: selectedCatalog, scheduled: automationID != nil, project: project) { [weak self] event in
+                    let result = try await runner.run(history: previous + [user], skillIDs: conversation.skillIDs, skillCatalog: selectedCatalog, scheduled: automationID != nil, project: project, memory: conversation.memory) { [weak self] event in
                         await self?.receive(event)
                     }
                     try Task.checkCancellation()
@@ -444,6 +444,7 @@ final class ChatState: ObservableObject {
                     self.activeMessage?.automation = result.automation
                     self.activeMessage?.status = "complete"
                     succeeded = true
+                    if result.memory != conversation.memory { self.remember(result.memory, in: conversation.id) }
                 } catch {
                     let cancelled = Task.isCancelled || error is CancellationError
                     self.activeMessage?.status = cancelled ? "cancelled" : "failed"
@@ -472,6 +473,14 @@ final class ChatState: ObservableObject {
             }
             return true
         } catch { self.error = error.localizedDescription; return false }
+    }
+
+    /// Stores the summary of older messages on the conversation as it is now, so a rename or scope change made meanwhile is kept.
+    private func remember(_ memory: ChatMemory?, in conversationID: String) {
+        guard var stored = (current.id == conversationID ? current : conversations.first { $0.id == conversationID }) else { return }
+        stored.memory = memory
+        do { try store.save(stored) } catch { AppLog.write("chat memory save failed: \(error)") }
+        if current.id == conversationID { current.memory = memory }
     }
 
     /// Args: event는 실제 모델·도구 실행에서 발생한 이벤트이다.

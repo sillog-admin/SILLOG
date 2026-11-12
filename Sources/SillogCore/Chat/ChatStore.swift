@@ -85,12 +85,14 @@ public struct ChatConversation: Codable, Identifiable, Sendable {
     public var updatedAt = Date().timeIntervalSince1970
     /// nil이면 고정 안 됨. 원본은 app_conversations.pinned_at 칼럼이다.
     public var pinnedAt: Double?
+    /// Summary of the messages that no longer fit in what is sent to the model.
+    public var memory: ChatMemory?
     /// Args: 없음.
     /// Returns: 고유 ID를 가진 빈 대화.
     /// Raises: 없음.
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case id, title, skillIDs, skillID, scope, projectID, updatedAt, pinnedAt }
+    private enum CodingKeys: String, CodingKey { case id, title, skillIDs, skillID, scope, projectID, updatedAt, pinnedAt, memory }
 
     /// Args: decoder는 저장된 대화이다. skillIDs 가 없으면 예전 skillID 를 옮기고 "general" 은 빈 배열로 둔다.
     public init(from decoder: Decoder) throws {
@@ -103,6 +105,7 @@ public struct ChatConversation: Codable, Identifiable, Sendable {
         projectID = try v.decodeIfPresent(String.self, forKey: .projectID)
         updatedAt = try v.decodeIfPresent(Double.self, forKey: .updatedAt) ?? updatedAt
         pinnedAt = try v.decodeIfPresent(Double.self, forKey: .pinnedAt)
+        memory = try v.decodeIfPresent(ChatMemory.self, forKey: .memory)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -110,7 +113,15 @@ public struct ChatConversation: Codable, Identifiable, Sendable {
         try v.encode(id, forKey: .id); try v.encode(title, forKey: .title); try v.encode(skillIDs, forKey: .skillIDs)
         try v.encode(scope, forKey: .scope); try v.encodeIfPresent(projectID, forKey: .projectID)
         try v.encode(updatedAt, forKey: .updatedAt); try v.encodeIfPresent(pinnedAt, forKey: .pinnedAt)
+        try v.encodeIfPresent(memory, forKey: .memory)
     }
+}
+
+/// Running summary of a conversation's older messages; `through` is the last message it covers.
+public struct ChatMemory: Codable, Equatable, Sendable {
+    public var summary: String
+    public var through: String
+    public init(summary: String, through: String) { self.summary = summary; self.through = through }
 }
 
 public struct ChatSearchHit: Identifiable, Equatable, Sendable {

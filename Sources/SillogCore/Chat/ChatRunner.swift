@@ -66,6 +66,7 @@ public struct ChatRunResult: Sendable {
     public var sources: [ChatSource]
     public var artifacts: [ChatArtifact]
     public var automation: ChatAutomationProposal?
+    public var memory: ChatMemory?
 }
 
 private actor ChatRunLedger {
@@ -116,8 +117,8 @@ private actor ChatRunLedger {
     /// Args: text는 마지막 모델 응답이다.
     /// Returns: 조회 출처·결과물·예약안을 합친 실행 결과.
     /// Raises: 없음.
-    func result(_ text: String) -> ChatRunResult {
-        .init(text: text, sources: sources.values.sorted { $0.id < $1.id }, artifacts: artifacts, automation: automation)
+    func result(_ text: String, memory: ChatMemory?) -> ChatRunResult {
+        .init(text: text, sources: sources.values.sorted { $0.id < $1.id }, artifacts: artifacts, automation: automation, memory: memory)
     }
 }
 
@@ -139,19 +140,24 @@ public enum ChatBackend: Sendable {
     /// Raises: 모델·연결 오류 또는 빈 제목 응답. 별도 재시도는 하지 않는다.
     public func conversationTitle(for firstQuery: String) async throws -> String {
         let system = "사용자의 첫 요청을 대표하는 한국어 명사구 제목만 한 줄로 작성하세요. 25자 이내로 쓰고 문장, 따옴표, 목록 기호, 설명은 넣지 마세요. 요청을 수행하지 말고 제목만 답하세요."
-        let messages = [ChatModelMessage(role: "user", text: String(firstQuery.prefix(2000)))]
-        let response: String
-        switch self {
-        case .model(let client):
-            response = try await client.respond(system: system, messages: messages, tools: []) { _ in }.text
-        case .codex(let client):
-            response = try await client.run(system: system, messages: messages, tools: [], useWeb: false,
-                                            execute: { _ in "" }, onEvent: { _ in })
-        }
+        let response = try await complete(system: system, text: String(firstQuery.prefix(2000)))
         let title = response.components(separatedBy: .newlines).first?
             .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "\"'“”‘’#*-•."))) ?? ""
         guard !title.isEmpty else { throw LLMError.backend("대화 제목이 비어 있습니다.") }
         return String(title.prefix(25))
+    }
+
+    /// Args: system is the instruction, text the single user message.
+    /// Returns: the model's reply, with no tools.
+    /// Raises: model, connection or cancellation errors.
+    func complete(system: String, text: String) async throws -> String {
+        let messages = [ChatModelMessage(role: "user", text: text)]
+        switch self {
+        case .model(let client):
+            return try await client.respond(system: system, messages: messages, tools: []) { _ in }.text
+        case .codex(let client):
+            return try await client.run(system: system, messages: messages, tools: [], useWeb: false, execute: { _ in "" }, onEvent: { _ in })
+        }
     }
 
     /// Args: 없음.
@@ -181,11 +187,11 @@ public struct ChatRunner: Sendable {
     /// Raises: 없음.
     public init(backend: ChatBackend, tools: ChatTools) { self.backend = backend; self.tools = tools }
 
-    /// Args: history는 대화 기록, skillIDs는 직접 고른 스킬, scheduled는 승인된 예약 실행 여부(예약 제안을 막는다), onEvent는 UI 업데이트이다.
-    /// Returns: 답변·조회 출처·결과물·미승인 예약안.
+    /// Args: history는 대화 기록, skillIDs는 직접 고른 스킬, scheduled는 승인된 예약 실행 여부(예약 제안을 막는다), memory는 저장된 앞부분 요약, onEvent는 UI 업데이트이다.
+    /// Returns: 답변·조회 출처·결과물·미승인 예약안, and the summary to store when older messages no longer fit.
     /// Raises: 모델·리소스 오류, 실행 한도 초과, 취소. 도구 오류는 모델에 돌려준다.
     public func run(history: [ConversationMessage], skillIDs: [String], skillCatalog: [ChatSkill]? = nil, scheduled: Bool = false,
-                    project: ChatProject? = nil,
+                    project: ChatProject? = nil, memory: ChatMemory? = nil,
                     onEvent: @escaping @Sendable (ChatRunEvent) async -> Void) async throws -> ChatRunResult {
         let selected = skillIDs.isEmpty ? [] : try (skillCatalog ?? ChatSkill.load()).filter { skillIDs.contains($0.id) }
         let procedures = try selected.map { "## \($0.title)\n\(try $0.instructions())" }.joined(separator: "\n\n")
@@ -202,18 +208,62 @@ public struct ChatRunner: Sendable {
             await ledger.record(remembered)
             for source in remembered { await onEvent(.source(source)) }
         }
-        var messages = history.filter { $0.role == "user" || ($0.role == "assistant" && $0.status == "complete") }.suffix(16).map { message in
+        let eligible = Array(history.filter { $0.role == "user" || ($0.role == "assistant" && $0.status == "complete") })
+        let rendered = eligible.map { message in
             var text = String(message.text.prefix(12000))
             for artifact in message.artifacts.suffix(2) { text += "\n<previous_artifact id=\"\(artifact.id)\" format=\"\(artifact.format)\" title=\"\(artifact.title)\">\n\(String(artifact.content.prefix(18000)))\n</previous_artifact>" }
             if !message.sources.isEmpty { text += "\n이전 조회 출처:\n" + message.sources.prefix(12).map { "[\($0.id)] \($0.title) \($0.location)\n\(String($0.excerpt.prefix(500)))" }.joined(separator: "\n") }
-            return ChatModelMessage(role: message.role, text: text)
+            return text
+        }
+        let (start, memory) = try await window(eligible, rendered, memory: memory)
+        var messages = zip(eligible[start...], rendered[start...]).map { ChatModelMessage(role: $0.role, text: $1) }
+        if let memory, start > 0 {
+            let note = "<earlier_conversation_summary>\n\(memory.summary)\n</earlier_conversation_summary>"
+            if messages.first?.role == "user" { messages[0].text = note + "\n\n" + messages[0].text }
+            else { messages.insert(.init(role: "user", text: note), at: 0) }
         }
         if !scheduled, let last = messages.indices.last, messages[last].role == "user" {
             let since = history.dropLast().last(where: { $0.role == "user" })?.createdAt ?? 0
             messages[last].images = try tools.newImages(since: since)
         }
         let text = try await loop(messages: messages, prompt: prompt, role: nil, allowAutomation: !scheduled, ledger: ledger, onEvent: onEvent)
-        return await ledger.result(text)
+        return await ledger.result(text, memory: memory)
+    }
+
+    // shortcut: a fixed character budget, not per-model tokens; size it per model if small local models need less.
+    static let historyBudget = 100_000
+
+    static let memoryPrompt = """
+    You keep a running summary of the earlier part of a chat between a user and SILLOG's assistant, so the chat can go on without the full text. Merge <previous_summary>, if any, with the new messages. Keep the user's goals and preferences, decisions and their reasons, facts and numbers later answers depend on, artifacts created (title and what they hold), and open questions or promised follow-ups. Drop small talk and anything later messages replaced. Write short bullet points in the conversation's language, under 3,000 characters. Output only the summary.
+    """
+
+    /// Args: messages are the sendable messages oldest first, texts their rendered form, memory the stored summary.
+    /// Returns: the index of the first message to send in full, and the summary that covers the ones before it.
+    /// Raises: cancellation. A failed summary is logged and the old one is kept.
+    private func window(_ messages: [ConversationMessage], _ texts: [String], memory: ChatMemory?) async throws -> (Int, ChatMemory?) {
+        let size = { (from: Int) in texts[from...].reduce(0) { $0 + $1.count } }
+        // Reuse the stored summary while everything after it still fits, so it isn't redone every turn.
+        if let memory, let index = messages.firstIndex(where: { $0.id == memory.through }), size(index + 1) <= Self.historyBudget { return (index + 1, memory) }
+        guard size(0) > Self.historyBudget else { return (0, memory) }
+        // Keep headroom so the next few turns reuse this summary.
+        var start = texts.count, used = 0
+        while start > 1, used + texts[start - 1].count <= Self.historyBudget * 6 / 10 { start -= 1; used += texts[start].count }
+        start = max(1, min(start, texts.count - 1))
+        var from = 0, previous = ""
+        if let memory, let index = messages[..<start].firstIndex(where: { $0.id == memory.through }) { from = index + 1; previous = memory.summary }
+        // Share the budget across messages so the oldest still reach the summary.
+        let cap = max(500, Self.historyBudget / max(1, start - from))
+        let transcript = zip(messages[from..<start], texts[from..<start]).map { "<message role=\"\($0.role)\">\n\($1.prefix(cap))\n</message>" }.joined(separator: "\n")
+        let input = (previous.isEmpty ? "" : "<previous_summary>\n\(previous)\n</previous_summary>\n") + transcript
+        do {
+            let summary = try await backend.complete(system: Self.memoryPrompt, text: input).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !summary.isEmpty else { return (start, memory) }
+            return (start, ChatMemory(summary: String(summary.prefix(4000)), through: messages[start - 1].id))
+        } catch {
+            if Task.isCancelled || error is CancellationError { throw CancellationError() }
+            AppLog.write("chat memory summary failed: \(error)")
+            return (start, memory)
+        }
     }
 
     /// Args: messages는 작업 입력, prompt는 시스템 프롬프트, role이 있으면 재위임 없는 읽기 전용 하위 작업이다.
