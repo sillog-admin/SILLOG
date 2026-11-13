@@ -302,7 +302,7 @@ public struct ChatStore: Sendable {
     public func setPinnedSkills(_ ids: [String]) throws {
         let available = Set(try skills().map(\.id))
         guard ids.count <= 6, Set(ids).count == ids.count, ids.allSatisfy({ available.contains($0) }) else {
-            throw ChatToolError.unavailable("목록에 있는 스킬을 최대 6개까지 표시할 수 있어요.")
+            throw ChatToolError.unavailable(tr("목록에 있는 스킬을 최대 6개까지 표시할 수 있어요."))
         }
         try db.writer.write { conn in
             try conn.execute(sql: "DELETE FROM app_chat_skill_pins")
@@ -349,7 +349,7 @@ public struct ChatStore: Sendable {
         let body = instructions.trimmingCharacters(in: .whitespacesAndNewlines)
         let description = summary.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, name.count <= 80, !body.isEmpty, body.count <= 12_000, description.count <= 200 else {
-            throw ChatToolError.unavailable("스킬 이름은 80자, 설명은 200자, 지침은 12,000자까지 입력할 수 있어요.")
+            throw ChatToolError.unavailable(tr("스킬 이름은 80자, 설명은 200자, 지침은 12,000자까지 입력할 수 있어요."))
         }
         let saved = skill.edited(title: name, instructions: body, summary: description)
         let json = String(decoding: try JSONEncoder().encode(saved), as: UTF8.self)
@@ -358,7 +358,7 @@ public struct ChatStore: Sendable {
                 let deleted = try String.fetchOne(conn, sql: "SELECT id FROM app_deleted_skills WHERE id = ?", arguments: [skill.id])
                 let existing = try String.fetchOne(conn, sql: "SELECT id FROM app_chat_skills WHERE id = ?", arguments: [skill.id])
                 guard deleted == nil, !skill.isCustom || existing != nil else {
-                    throw ChatToolError.unavailable("이 스킬이 이미 삭제됐어요.")
+                    throw ChatToolError.unavailable(tr("이 스킬이 이미 삭제됐어요."))
                 }
             }
             try conn.execute(sql: """

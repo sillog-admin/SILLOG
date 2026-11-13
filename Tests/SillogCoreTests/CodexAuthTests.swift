@@ -188,6 +188,7 @@ final class CodexAuthTests: XCTestCase {
         let before = await manager.status()
         XCTAssertEqual(before, .loggedOut)
         do { _ = try await manager.credentials(); XCTFail("에러가 나야 함") } catch { XCTAssertEqual(error as? CodexAuthError, .notLoggedIn) }
+        XCTAssertEqual(CodexAuthError.notLoggedIn.localizedDescription, CodexAuthError.notLoggedIn.description)
         try store.save(TestJWT.tokens(exp: 10_000))
         let during = await manager.status()
         XCTAssertNotEqual(during, .loggedOut)

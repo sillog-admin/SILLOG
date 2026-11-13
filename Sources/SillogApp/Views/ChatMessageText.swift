@@ -255,7 +255,11 @@ private struct ChatCitationButton: View {
     let onSource: (ChatSource) -> Void
     @State private var showingSources = false
 
-    static func chipTitle(_ title: String) -> String { title.count > 28 ? String(title.prefix(28)) + "…" : title }
+    static func chipTitle(_ stored: String) -> String {
+        // Stored titles stay Korean for the model; only the chip follows the app language.
+        let title = ChatRunner.displayTitle(stored)
+        return title.count > 28 ? String(title.prefix(28)) + "…" : title
+    }
 
     var body: some View {
         Button { showingSources = true } label: {
@@ -283,7 +287,7 @@ private struct ChatCitationButton: View {
                                 onSource(source)
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(source.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
+                                    Text(ChatRunner.displayTitle(source.title)).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
                                     if !source.location.isEmpty {
                                         Text(source.location).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
                                     }

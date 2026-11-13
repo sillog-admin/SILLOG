@@ -80,7 +80,7 @@ struct ChatStreamParser {
     mutating func accept(_ payload: String) throws -> String {
         if payload == "[DONE]" { return "" }
         let root = try JSONDecoder().decode(JSONValue.self, from: Data(payload.utf8)).objectValue ?? [:]
-        if let error = root["error"], error != .null { throw LLMError.backend("채팅 응답 오류: \(error.objectValue?["message"]?.stringValue ?? "요청 실패")") }
+        if let error = root["error"], error != .null { throw LLMError.backend(tr("채팅 응답 오류: \(error.objectValue?["message"]?.stringValue ?? tr("요청 실패"))")) }
         switch format {
         case .responses:
             switch root["type"]?.stringValue {
@@ -94,7 +94,7 @@ struct ChatStreamParser {
                 }
             case "response.completed":
                 let response = root["response"]?.objectValue ?? [:]
-                guard response["status"]?.stringValue == "completed" else { throw LLMError.backend("응답이 완료되지 않았습니다.") }
+                guard response["status"]?.stringValue == "completed" else { throw LLMError.backend(tr("응답이 완료되지 않았습니다.")) }
                 // Codex는 개별 완료 이벤트에만 항목을 보내고 마지막 output은 비워 둘 수 있다.
                 let output = response["output"]?.arrayValue ?? []
                 for (index, item) in output.enumerated() { finishedItems[index] = item }
@@ -103,7 +103,7 @@ struct ChatStreamParser {
                     let value = item.objectValue ?? [:]
                     if value["type"]?.stringValue == "function_call" {
                         guard let id = value["call_id"]?.stringValue, let name = value["name"]?.stringValue,
-                              let arguments = value["arguments"]?.stringValue else { throw LLMError.backend("도구 호출 형식이 올바르지 않습니다.") }
+                              let arguments = value["arguments"]?.stringValue else { throw LLMError.backend(tr("도구 호출 형식이 올바르지 않습니다.")) }
                         calls[index] = .init(id: id, name: name, arguments: arguments)
                     }
                 }
@@ -116,8 +116,8 @@ struct ChatStreamParser {
                 let response = root["response"]?.objectValue ?? [:]
                 let detail = response["error"]?.objectValue?["message"]?.stringValue
                     ?? response["incomplete_details"]?.objectValue?["reason"]?.stringValue
-                    ?? root["message"]?.stringValue ?? "모델 설정이나 사용량을 확인하세요."
-                throw LLMError.backend("응답 생성 중단: \(detail)")
+                    ?? root["message"]?.stringValue ?? tr("모델 설정이나 사용량을 확인하세요.")
+                throw LLMError.backend(tr("응답 생성 중단: \(detail)"))
             default: break
             }
         case .completions:
@@ -136,7 +136,7 @@ struct ChatStreamParser {
                 calls[index] = current
             }
             if let finish = choice["finish_reason"]?.stringValue {
-                guard finish == "stop" || finish == "tool_calls" else { throw LLMError.backend("응답이 중단되었습니다: \(finish)") }
+                guard finish == "stop" || finish == "tool_calls" else { throw LLMError.backend(tr("응답이 중단되었습니다: \(finish)")) }
                 completed = true
             }
             return fragment
@@ -148,9 +148,9 @@ struct ChatStreamParser {
     /// Returns: 종료 이벤트까지 받은 응답.
     /// Raises: 중단된 스트림 또는 불완전한 도구 호출.
     func result() throws -> ChatModelReply {
-        guard completed else { throw LLMError.transport("채팅 스트림이 완료되기 전에 연결이 종료되었습니다.") }
+        guard completed else { throw LLMError.transport(tr("채팅 스트림이 완료되기 전에 연결이 종료되었습니다.")) }
         let ordered = calls.sorted { $0.key < $1.key }.map(\.value)
-        guard ordered.allSatisfy({ !$0.id.isEmpty && !$0.name.isEmpty }) else { throw LLMError.backend("도구 호출 식별자가 없습니다.") }
+        guard ordered.allSatisfy({ !$0.id.isEmpty && !$0.name.isEmpty }) else { throw LLMError.backend(tr("도구 호출 식별자가 없습니다.")) }
         return .init(text: text, calls: ordered, responseItems: items)
     }
 }
@@ -167,13 +167,13 @@ extension ChatModelClient {
         var messages = [ChatModelMessage(role: "user", text: "연결을 확인해주세요.")]
         let reply = try await respond(system: system, messages: messages, tools: [tool]) { _ in }
         guard !reply.calls.isEmpty, reply.calls.allSatisfy({ $0.name == tool.name }) else {
-            throw LLMError.backend("본문 연결은 되었지만 도구 호출을 확인하지 못했습니다. 도구 호출을 지원하는 채팅 모델을 선택하세요.")
+            throw LLMError.backend(tr("본문 연결은 되었지만 도구 호출을 확인하지 못했습니다. 도구 호출을 지원하는 채팅 모델을 선택하세요."))
         }
         messages.append(.init(role: "assistant", text: reply.text, calls: reply.calls, responseItems: reply.responseItems))
         messages += reply.calls.map { .init(role: "tool", text: "확인 성공", callID: $0.id) }
         let answer = try await respond(system: system, messages: messages, tools: [tool]) { _ in }
         guard answer.calls.isEmpty, !answer.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw LLMError.backend("도구 호출 후 최종 답변을 확인하지 못했습니다.")
+            throw LLMError.backend(tr("도구 호출 후 최종 답변을 확인하지 못했습니다."))
         }
     }
 }
@@ -251,7 +251,7 @@ extension CodexResponsesClient: ChatModelClient {
                 credentials = try await auth.refreshAfterRejection(of: credentials.accessToken)
             }
         }
-        throw LLMError.auth("다시 로그인해주세요.")
+        throw LLMError.auth(tr("다시 로그인해주세요."))
     }
 }
 
@@ -296,6 +296,45 @@ extension OpenAICompatClient: ChatModelClient {
             var reply = try await respond(system: system, messages: messages.map { var m = $0; m.images = []; m.imageData = []; return m }, tools: tools, onText: onText)
             reply.droppedImages = true
             return reply
+        }
+    }
+}
+
+/// Turns a failed chat run into the one sentence shown under the answer.
+public enum ChatFailure {
+    /// Korean keys of the sentences that a settings fix resolves; text after a `%@` is ignored when matching.
+    public static let settingsMessages = [
+        "API 키나 로그인이 거부됐어요. 설정에서 확인해 주세요.", "다시 로그인해주세요.", "ChatGPT 로그인이 필요합니다",
+        "로그인이 만료되어 다시 로그인해야 합니다 (%@)", "인증 서버 오류 HTTP %@: %@",
+        "인증 서버 응답을 해석하지 못했습니다: %@", "인증 서버에 연결하지 못했습니다: %@",
+    ]
+
+    /// Args: error is what the chat run threw.
+    /// Returns: the sentence to show, and whether the settings screen can fix it.
+    /// Raises: none.
+    public static func message(for error: Error) -> (text: String, needsSettings: Bool) {
+        if let error = error as? CodexAuthError { return (error.description, true) }
+        if case LLMError.auth(let text) = error { return (text, true) }
+        if case LLMError.http(let status, _) = error {
+            switch status {
+            case 401, 403: return (tr("API 키나 로그인이 거부됐어요. 설정에서 확인해 주세요."), true)
+            case 429: return (tr("요청 한도에 걸렸어요. 잠시 뒤 다시 시도해 주세요."), false)
+            case 500...599: return (tr("모델 서버에 문제가 있어요. 잠시 뒤 다시 시도해 주세요."), false)
+            default: break
+            }
+        }
+        if let error = error as? URLError, [.notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotConnectToHost].contains(error.code) {
+            return (tr("인터넷 연결이 끊겼어요. 받은 부분까지는 남겨 뒀어요."), false)
+        }
+        return (error.localizedDescription, false)
+    }
+
+    /// Args: text is a stored failure line, written in whichever language was active then.
+    /// Returns: true when it is one of the settings sentences.
+    /// Raises: none.
+    public static func needsSettings(_ text: String) -> Bool {
+        settingsMessages.contains { key in
+            [key, L10n.english[key] ?? key].contains { text.contains(String($0.components(separatedBy: "%@")[0])) }
         }
     }
 }

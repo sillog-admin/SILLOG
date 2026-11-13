@@ -541,7 +541,8 @@ final class ChatState: ObservableObject {
                     let cancelled = Task.isCancelled || error is CancellationError
                     self.activeMessage?.status = cancelled ? "cancelled" : "failed"
                     if !cancelled {
-                        let description = error.localizedDescription
+                        AppLog.write("chat failed: \(error)")
+                        let description = ChatFailure.message(for: error).text
                         self.activeMessage?.text += tr("\n\n응답을 완료하지 못했습니다: \(description)")
                     }
                 }

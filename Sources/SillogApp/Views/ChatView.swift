@@ -616,6 +616,9 @@ struct ChatView: View {
                     HStack(spacing: 2) {
                         if shown.status == "failed" {
                             ChatPillButton(title: tr("다시 시도"), systemName: "arrow.clockwise") { requestResend(message) }.disabled(chat.running)
+                            if ChatFailure.needsSettings(Self.failureParts(shown.text).error) {
+                                ChatPillButton(title: tr("설정 열기"), systemName: "gearshape") { openSettings() }
+                            }
                         }
                         if versions.count > 1 {
                             HStack(spacing: 2) {
@@ -672,11 +675,11 @@ struct ChatView: View {
                             Button { source = item } label: {
                                 HStack(spacing: 10) {
                                     Text("\(index + 1)").font(Brand.jost(10)).foregroundStyle(Brand.gray).frame(width: 14, alignment: .trailing)
-                                    Text(item.title).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
+                                    Text(ChatRunner.displayTitle(item.title)).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
                                     Spacer(minLength: 8)
                                     Image(systemName: "arrow.up.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
                                 }.frame(height: 28).contentShape(Rectangle())
-                            }.buttonStyle(.plain).help(item.title)
+                            }.buttonStyle(.plain).help(ChatRunner.displayTitle(item.title))
                             .overlay(alignment: .top) { if index > 0 { Rectangle().fill(Brand.line).frame(height: 1) } }
                         }
                     }

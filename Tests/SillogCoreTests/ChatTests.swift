@@ -518,6 +518,32 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(ChatRunner.displayTitle("웹 검색"), "Web search")
         XCTAssertEqual(ChatRunner.displayTitle("답변 작성 · 기록 검색 실패"), "Answer · Search records failed")
         XCTAssertEqual(ChatRunner.displayTitle("Slack 검색 실패"), "Search Slack failed")
+        XCTAssertEqual(ChatRunner.displayTitle("대화 · 주간 회의"), "Chat · 주간 회의")
+        XCTAssertEqual(ChatRunner.displayTitle("Claude Code 사용자 메시지"), "Claude Code user message")
+    }
+
+    func testChatFailureMapsCommonErrorsToOneSentence() {
+        let rejected = ChatFailure.message(for: LLMError.http(401, "bad key"))
+        XCTAssertEqual(rejected.text, "API 키나 로그인이 거부됐어요. 설정에서 확인해 주세요.")
+        XCTAssertTrue(rejected.needsSettings)
+        XCTAssertEqual(ChatFailure.message(for: LLMError.http(429, "")).text, "요청 한도에 걸렸어요. 잠시 뒤 다시 시도해 주세요.")
+        XCTAssertFalse(ChatFailure.message(for: LLMError.http(429, "")).needsSettings)
+        XCTAssertEqual(ChatFailure.message(for: LLMError.http(503, "")).text, "모델 서버에 문제가 있어요. 잠시 뒤 다시 시도해 주세요.")
+        XCTAssertEqual(ChatFailure.message(for: URLError(.timedOut)).text, "인터넷 연결이 끊겼어요. 받은 부분까지는 남겨 뒀어요.")
+        let auth = ChatFailure.message(for: LLMError.auth("다시 로그인해주세요."))
+        XCTAssertEqual(auth.text, "다시 로그인해주세요.")
+        XCTAssertTrue(auth.needsSettings)
+        let other = ChatFailure.message(for: LLMError.backend("x"))
+        XCTAssertEqual(other.text, LLMError.backend("x").localizedDescription)
+        XCTAssertFalse(other.needsSettings)
+
+        XCTAssertTrue(ChatFailure.needsSettings("응답을 완료하지 못했습니다: " + rejected.text))
+        XCTAssertTrue(ChatFailure.needsSettings(CodexAuthError.reloginRequired("revoked").description))
+        XCTAssertFalse(ChatFailure.needsSettings(other.text))
+        L10n.current = .en
+        defer { L10n.current = .ko }
+        XCTAssertTrue(ChatFailure.needsSettings(ChatFailure.message(for: LLMError.http(403, "")).text))
+        XCTAssertTrue(ChatFailure.needsSettings(CodexAuthError.notLoggedIn.description))
     }
 
     func testConversationMarkdownKeepsEachAnswersSources() {

@@ -454,7 +454,7 @@ public struct ChatRunner: Sendable {
     /// Raises: none.
     public static func displayTitle(_ title: String) -> String {
         title.components(separatedBy: " · ").map { part in
-            guard L10n.english[part] == nil, let suffix = [" 시작", " 완료", " 읽기", " 검색", " 실패"].first(where: { part.hasSuffix($0) }) else { return L10n.tr(key: part) }
+            guard L10n.english[part] == nil, let suffix = [" 시작", " 완료", " 읽기", " 검색", " 실패", " 사용자 메시지"].first(where: { part.hasSuffix($0) }) else { return L10n.tr(key: part) }
             var text = LocalizedText(stringLiteral: "%@" + suffix)
             text.args = [displayTitle(String(part.dropLast(suffix.count)))]
             return L10n.tr(text)
