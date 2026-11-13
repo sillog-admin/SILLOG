@@ -36,6 +36,8 @@ SILLOG(실록)는 Mac에서 쓰는 앱과 창, 웹페이지, 화면 글자, 파�
 
 ## 둘러보기
 
+정리된 기록은 채팅에서 바로 써요. 기록을 근거로 보고서를 쓰고, 결과물을 저장하고, 그때 쓰던 자료를 다시 열 수 있어요.
+
 | | |
 | :---: | :---: |
 | <img src="landing/assets/screen-answer.webp" alt="보고서 작성"><br>**보고서 작성**<br>문서 작성 스킬로 부탁하면 업무 기록을 읽어 보고서를 만들어요. | <img src="landing/assets/screen-result.webp" alt="결과물 저장"><br>**결과물 저장**<br>만든 결과물은 파일로 저장하거나 PDF로 내보내요. |
@@ -68,8 +70,13 @@ SILLOG(실록)는 Mac에서 쓰는 앱과 창, 웹페이지, 화면 글자, 파�
 
 SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 연결한 AI 계정으로 해요.
 
-| <img src="landing/assets/icon3d-mac.webp" width="120" alt=""><br>**저장**<br>기록은 내 Mac에 저장해요 | <img src="landing/assets/icon3d-lens.webp" width="120" alt=""><br>**확인**<br>보낸 내용과 받은 결과를 활동 로그에서 봐요 | <img src="landing/assets/icon3d-toggle.webp" width="120" alt=""><br>**제어**<br>기능별로 전송을 끌 수 있어요 |
-| :---: | :---: | :---: |
+<table align="center">
+  <tr>
+    <td align="center"><img src="landing/assets/icon3d-mac.webp" width="120" alt=""><br><b>저장</b><br>기록은 내 Mac에 저장해요</td>
+    <td align="center"><img src="landing/assets/icon3d-lens.webp" width="120" alt=""><br><b>확인</b><br>보낸 내용과 받은 결과를 활동 로그에서 봐요</td>
+    <td align="center"><img src="landing/assets/icon3d-toggle.webp" width="120" alt=""><br><b>제어</b><br>기능별로 전송을 끌 수 있어요</td>
+  </tr>
+</table>
 
 비밀번호 입력칸은 기록하지 않아요. 비밀번호 관리자와 키체인 같은 앱은 이름과 시간만 남겨요. 자세한 내용은 [개인정보와 데이터](#개인정보와-데이터)에 있습니다.
 
