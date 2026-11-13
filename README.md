@@ -6,9 +6,9 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![CI](https://github.com/sillog-admin/SILLOG/actions/workflows/ci.yml/badge.svg)](https://github.com/sillog-admin/SILLOG/actions/workflows/ci.yml)
 
-<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/btn-download-ko.png" height="40" alt="macOS용 다운로드"></a>&nbsp;
-<a href="https://sillog.app"><img src="docs/readme/btn-site.png" height="40" alt="sillog.app"></a>&nbsp;
-<a href="README.en.md"><img src="docs/readme/btn-lang-en.png" height="40" alt="English"></a>
+<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/btn-download-ko-v2.png" height="40" alt="macOS용 다운로드"></a>&nbsp;
+<a href="https://sillog.app"><img src="docs/readme/btn-site-v2.png" height="40" alt="sillog.app"></a>&nbsp;
+<a href="README.en.md"><img src="docs/readme/btn-lang-en-v2.png" height="40" alt="English"></a>
 
 <sub>macOS 14 이상, Apple 실리콘 Mac</sub>
 
@@ -86,7 +86,7 @@ SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 �
 
 ## 동작 방식
 
-<a href="https://sillog.app"><img src="docs/readme/how-it-works.webp" alt="내 Mac 안에서 수집, SQLite 저장, 5분마다 정리, 업무 그래프, 채팅과 결과물로 이어지고, 기록 요약과 질문만 ChatGPT(또는 설정한 API)로, 허용한 경우에만 웹 검색과 커넥터로 나갑니다."></a>
+<a href="https://sillog.app"><img src="docs/readme/how-it-works-v2.webp" alt="내 Mac 안에서 수집, SQLite 저장, 5분마다 정리, 업무 그래프, 채팅과 결과물로 이어지고, 기록 요약과 질문만 ChatGPT(또는 설정한 API)로, 허용한 경우에만 웹 검색과 커넥터로 나갑니다."></a>
 
 기록은 모두 Mac 안의 SQLite에 저장됩니다. 밖으로 나가는 것은 정리와 채팅을 위해 설정한 LLM에 보내는 내용, 그리고 허용한 웹 검색과 커넥터 요청뿐입니다.
 
@@ -261,7 +261,7 @@ SILLOG는 [GNU Affero General Public License v3.0](LICENSE)으로 배포합니�
 
 ### 지금 SILLOG을 만나 보세요
 
-<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/btn-download-ko.png" height="40" alt="macOS용 다운로드"></a>&nbsp;
-<a href="https://sillog.app"><img src="docs/readme/btn-site.png" height="40" alt="sillog.app"></a>
+<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/btn-download-ko-v2.png" height="40" alt="macOS용 다운로드"></a>&nbsp;
+<a href="https://sillog.app"><img src="docs/readme/btn-site-v2.png" height="40" alt="sillog.app"></a>
 
 </div>

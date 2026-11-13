@@ -6,9 +6,9 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![CI](https://github.com/sillog-admin/SILLOG/actions/workflows/ci.yml/badge.svg)](https://github.com/sillog-admin/SILLOG/actions/workflows/ci.yml)
 
-<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/btn-download-en.png" height="40" alt="Download for macOS"></a>&nbsp;
-<a href="https://sillog.app"><img src="docs/readme/btn-site.png" height="40" alt="sillog.app"></a>&nbsp;
-<a href="README.md"><img src="docs/readme/btn-lang-ko.png" height="40" alt="한국어"></a>
+<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/btn-download-en-v2.png" height="40" alt="Download for macOS"></a>&nbsp;
+<a href="https://sillog.app"><img src="docs/readme/btn-site-v2.png" height="40" alt="sillog.app"></a>&nbsp;
+<a href="README.md"><img src="docs/readme/btn-lang-ko-v2.png" height="40" alt="한국어"></a>
 
 <sub>macOS 14 or later, Apple silicon Mac</sub>
 
@@ -88,7 +88,7 @@ Password fields are never recorded. For apps like password managers and Keychain
 
 ## How it works
 
-<a href="https://sillog.app"><img src="docs/readme/how-it-works-en.webp" alt="On your Mac: collect, store in SQLite, organize every 5 minutes, task graph, then chat and artifacts. Only activity summaries and questions go to ChatGPT (or the API you set up), and web search and connectors run only when you allow them."></a>
+<a href="https://sillog.app"><img src="docs/readme/how-it-works-en-v2.webp" alt="On your Mac: collect, store in SQLite, organize every 5 minutes, task graph, then chat and artifacts. Only activity summaries and questions go to ChatGPT (or the API you set up), and web search and connectors run only when you allow them."></a>
 
 All records are stored in SQLite on your Mac. The only things that leave it are what's sent to the model you configure for organizing and chat, plus web searches and connector requests you allow.
 
@@ -263,7 +263,7 @@ Bundled libraries keep their own licenses. [GRDB.swift](https://github.com/groue
 
 ### Meet SILLOG
 
-<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/btn-download-en.png" height="40" alt="Download for macOS"></a>&nbsp;
-<a href="https://sillog.app"><img src="docs/readme/btn-site.png" height="40" alt="sillog.app"></a>
+<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/btn-download-en-v2.png" height="40" alt="Download for macOS"></a>&nbsp;
+<a href="https://sillog.app"><img src="docs/readme/btn-site-v2.png" height="40" alt="sillog.app"></a>
 
 </div>
