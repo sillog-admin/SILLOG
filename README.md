@@ -219,6 +219,8 @@ ChatGPT 구독과 API(OpenAI 호환) 가운데 하나를 연결해요. ChatGPT �
 
 Xcode 26(Swift 6.2)이 필요합니다. Command Line Tools만 있으면 빌드는 되지만 테스트는 돌릴 수 없습니다. 직접 빌드한 앱은 인터넷에서 받은 파일이 아니어서 위의 "열지 않음" 창이 뜨지 않습니다.
 
+예상 소요 시간: 약 2분
+
 ```bash
 git clone https://github.com/sillog-admin/SILLOG.git
 cd SILLOG
