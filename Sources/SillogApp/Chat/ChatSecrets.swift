@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import SillogCore
 
 // One item for every account, because each rebuild changes the cdhash and the keychain asks once per item.
 enum ChatSecrets {
@@ -13,6 +14,7 @@ enum ChatSecrets {
     // A denied or locked read is remembered, or every connector check would prompt again.
     // shortcut: failure kept until next save or relaunch, add a manual retry if users get stuck
     nonisolated(unsafe) private static var readFailure: Error?
+    nonisolated(unsafe) private static var legacyFailures: [String: Error] = [:]
     // Snapshot builds are unsigned, so reading the signed app's item would block on a Keychain prompt.
     nonisolated(unsafe) static var memoryOnly = false
     // Names of accounts that hold a secret, so launch skips the prompting read for empty ones. Never values.
@@ -41,6 +43,7 @@ enum ChatSecrets {
     static func save(_ value: String, account: String) throws {
         try lock.withLock {
             readFailure = nil
+            legacyFailures[account] = nil
             let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty && failedLoads.contains(account) { return }
             let known = knownAccounts
@@ -66,14 +69,19 @@ enum ChatSecrets {
         if known == nil { remember(listed(secrets)) }
         if let value = secrets[account] { return value }
         if legacyMisses.contains(account) { return "" }
-        guard let data = try read(account), let value = String(data: data, encoding: .utf8), !value.isEmpty else {
+        if let failure = legacyFailures[account] { throw failure }
+        let legacy: Data?
+        do { legacy = try read(account) } catch { legacyFailures[account] = error; logFailure("read \(account)", error); throw error }
+        guard let data = legacy, let value = String(data: data, encoding: .utf8), !value.isEmpty else {
             legacyMisses.insert(account)
             return ""
         }
         secrets[account] = value
         cache = secrets
         // Keep the old item if the move fails, so the secret is not lost.
-        if (try? write(secrets)) != nil, SecItemDelete(query(account) as CFDictionary) == errSecSuccess { legacyMisses.insert(account) }
+        do { try write(secrets) } catch { logFailure("write", error); return value }
+        let deleted = SecItemDelete(query(account) as CFDictionary)
+        if deleted == errSecSuccess { legacyMisses.insert(account) } else { AppLog.write("keychain delete \(account) failed: \(deleted)") }
         return value
     }
 
@@ -81,12 +89,16 @@ enum ChatSecrets {
         if let cache { return cache }
         if let readFailure { throw readFailure }
         let data: Data?
-        do { data = try read(combinedAccount) } catch { readFailure = error; throw error }
+        do { data = try read(combinedAccount) } catch { readFailure = error; logFailure("read combined", error); throw error }
         guard let data else { cache = [:]; return [:] }
         // Refuse to treat unreadable data as empty, or the next save would overwrite every secret.
         guard let secrets = try? JSONDecoder().decode([String: String].self, from: data) else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(errSecDecode)) }
         cache = secrets
         return secrets
+    }
+
+    private static func logFailure(_ step: String, _ error: Error) {
+        AppLog.write("keychain \(step) failed: \((error as NSError).code)")
     }
 
     private static var knownAccounts: Set<String>? { defaults?.stringArray(forKey: accountsKey).map(Set.init) }
@@ -109,7 +121,7 @@ enum ChatSecrets {
     }
 
     static func resetForTests() {
-        lock.withLock { cache = nil; legacyMisses = []; failedLoads = []; readFailure = nil }
+        lock.withLock { cache = nil; legacyMisses = []; failedLoads = []; readFailure = nil; legacyFailures = [:] }
     }
 
     private static func read(_ account: String) throws -> Data? {

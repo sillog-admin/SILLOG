@@ -79,6 +79,7 @@ enum ConnectorAuth {
     static func remoteIDs() -> Set<String> {
         if let stored = UserDefaults.standard.stringArray(forKey: remoteKey) { return Set(stored) }
         // shortcut: until the off-main Keychain read finishes, sends see no remote connectors; fine because it runs once per install.
+        // A failed fill is not retried this launch, or each send would prompt again.
         let start = remoteFill.withLock { () -> Bool in
             defer { remoteFilling = true }
             return !remoteFilling
@@ -88,7 +89,7 @@ enum ConnectorAuth {
                 guard let ids = try? RemoteReadConnector.allCases.filter({
                     let saved = try ChatSecrets.load("plugin-\($0.rawValue)")
                     return (try? JSONDecoder().decode(ConnectorToken.self, from: Data(saved.utf8)))?.remoteMCP == true
-                }).map(\.rawValue) else { remoteFill.withLock { remoteFilling = false }; return }
+                }).map(\.rawValue) else { return }
                 UserDefaults.standard.set(ids.sorted(), forKey: remoteKey)
             }
         }
