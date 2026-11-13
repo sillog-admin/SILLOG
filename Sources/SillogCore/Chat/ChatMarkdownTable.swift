@@ -2,9 +2,9 @@ import Foundation
 
 /// 채팅 본문에서 표로만 구성된 Markdown 블록을 해석한다.
 public enum ChatMarkdownTable {
-    /// Args: text는 빈 줄로 구분된 Markdown 블록이다.
-    /// Returns: 표이면 헤더를 포함한 행 목록, 아니면 nil.
-    /// Raises: 없음.
+    /// Args: text is one Markdown block between blank lines.
+    /// Returns: rows including the header, or nil when it is not a table. Body rows are padded or cut to the header width as in GFM, so a row still streaming in keeps the table.
+    /// Raises: none.
     public static func rows(in text: String) -> [[String]]? {
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         guard lines.count >= 2 else { return nil }
@@ -13,7 +13,7 @@ public enum ChatMarkdownTable {
         guard header.count >= 2, separator.count == header.count,
               separator.allSatisfy({ $0.range(of: #"^:?-{3,}:?$"#, options: .regularExpression) != nil }) else { return nil }
         let body = lines.dropFirst(2).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.map(cells)
-        guard body.allSatisfy({ $0.count == header.count }) else { return nil }
+            .map { Array(($0 + Array(repeating: "", count: header.count)).prefix(header.count)) }
         return [header] + body
     }
 

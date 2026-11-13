@@ -230,13 +230,13 @@ private struct ChatMarkdownTableView: View {
                 ForEach(rows.indices, id: \.self) { row in
                     GridRow {
                         ForEach(rows[row].indices, id: \.self) { column in
-                            Text(ChatMessageText.inlineMarkdown(rows[row][column]))
-                                .font(Brand.font(.sectionTitle, row == 0 ? .semibold : .regular)).foregroundStyle(row == 0 ? Brand.ink : Brand.tabText)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(maxWidth: 320 * Brand.scale, alignment: .leading)
-                                .padding(.horizontal, 12).padding(.vertical, 9)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                                .background(row == 0 ? ChatPalette.soft : .clear)
+                            CappedWidth(limit: 320 * Brand.scale) {
+                                Text(ChatMessageText.inlineMarkdown(rows[row][column]))
+                                    .font(Brand.font(.sectionTitle, row == 0 ? .semibold : .regular)).foregroundStyle(row == 0 ? Brand.ink : Brand.tabText)
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 9)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .background(row == 0 ? ChatPalette.soft : .clear)
                         }
                     }
                     if row < rows.count - 1 { Rectangle().fill(Brand.line).frame(height: 1).gridCellUnsizedAxes(.horizontal) }
@@ -247,6 +247,20 @@ private struct ChatMarkdownTableView: View {
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
         }
         .defaultScrollAnchor(.leading)
+    }
+}
+
+/// Wraps its child at min(ideal width, limit). A width-capped frame alone lets the horizontal ScrollView measure one line, so the Grid row stays one line tall while the text wraps over the next row.
+private struct CappedWidth: Layout {
+    let limit: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let ideal = subviews[0].sizeThatFits(.unspecified).width
+        return subviews[0].sizeThatFits(ProposedViewSize(width: min(ideal, limit, proposal.width ?? .infinity), height: nil))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(width: min(bounds.width, limit), height: nil))
     }
 }
 

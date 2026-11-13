@@ -323,7 +323,8 @@ final class ChatTests: XCTestCase {
     func testMarkdownTable() {
         XCTAssertEqual(ChatMarkdownTable.rows(in: "| 논문 | 결과 |\n|---|---|\n| A | 성공 |"), [["논문", "결과"], ["A", "성공"]])
         XCTAssertNil(ChatMarkdownTable.rows(in: "논문 | 결과\nA | 성공"))
-        XCTAssertNil(ChatMarkdownTable.rows(in: "| 논문 | 결과 |\n|---|---|\n| A |"))
+        XCTAssertEqual(ChatMarkdownTable.rows(in: "| 논문 | 결과 |\n|---|---|\n| A |"), [["논문", "결과"], ["A", ""]], "a row still streaming keeps the table")
+        XCTAssertEqual(ChatMarkdownTable.rows(in: "| 논문 | 결과 |\n|---|---|\n| A | B | C |"), [["논문", "결과"], ["A", "B"]])
     }
 
     /// Args: 없음.
