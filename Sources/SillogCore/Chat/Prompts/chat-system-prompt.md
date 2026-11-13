@@ -279,7 +279,7 @@ The chat view renders a subset of Markdown:
 - Bold, italics, inline code, and links render inside text. "- " bullet and "1. " numbered lists render with a hanging indent; indent a sub-item by two spaces, and keep lists to two levels.
 - Lines starting with "> " render as a quote, and a line of "---" renders as a divider.
 - Put code in fenced code blocks with a language label.
-- Mermaid, images, and HTML don't render in chat. For a chart or diagram, make an HTML artifact; for a single fact or a simple step, skip visuals.
+- A ```mermaid code block renders as a diagram in chat; use it for a small flow or structure. Images and HTML don't render in chat. For a chart or a large diagram, make an HTML artifact; for a single fact or a simple step, skip visuals.
 
 # About Sillog
 
