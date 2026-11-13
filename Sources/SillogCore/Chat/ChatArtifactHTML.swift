@@ -14,9 +14,8 @@ public enum ChatArtifactHTML {
         else if artifact.format == "pptx" { body = OfficeFile.slides(artifact.content).map { "<section>\(markdown($0))</section>" }.joined() }
         else if artifact.format == "xlsx" || artifact.format == "csv" {
             body = "<table>" + OfficeFile.csvRows(artifact.content).map { "<tr>" + $0.map { "<td>\(escape($0))</td>" }.joined() + "</tr>" }.joined() + "</table>"
-        } else if artifact.format == "json", let object = try? JSONSerialization.jsonObject(with: Data(artifact.content.utf8), options: .fragmentsAllowed),
-                  let data = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .withoutEscapingSlashes]) {
-            body = "<pre>\(escape(String(decoding: data, as: UTF8.self)))</pre>"
+        } else if artifact.format == "json", (try? JSONSerialization.jsonObject(with: Data(artifact.content.utf8), options: .fragmentsAllowed)) != nil {
+            body = "<pre>\(escape(reindent(artifact.content)))</pre>"
         } else { body = "<pre>\(escape(artifact.content))</pre>" }
         return """
         <!doctype html><html lang="ko"><head><meta charset="utf-8">
@@ -36,12 +35,47 @@ public enum ChatArtifactHTML {
             .replacingOccurrences(of: "'", with: "&#39;")
     }
 
+    /// Re-indents valid JSON without re-serializing, so key order, number text and duplicate keys stay as written.
+    private static func reindent(_ json: String) -> String {
+        var out = "", depth = 0, inString = false, escaped = false
+        let pad = { String(repeating: "  ", count: depth) }
+        for c in json {
+            if inString {
+                out.append(c)
+                if escaped { escaped = false } else if c == "\\" { escaped = true } else if c == "\"" { inString = false }
+                continue
+            }
+            switch c {
+            case "\"": inString = true; out.append(c)
+            case "{", "[": depth += 1; out += "\(c)\n\(pad())"
+            case "}", "]":
+                depth -= 1
+                if out.hasSuffix("{\n\(pad())  ") || out.hasSuffix("[\n\(pad())  ") { out.removeLast(pad().count + 3); out.append(c) }
+                else { out += "\n\(pad())\(c)" }
+            case ",": out += ",\n\(pad())"
+            case ":": out += ": "
+            case " ", "\n", "\r", "\r\n", "\t": break
+            default: out.append(c)
+            }
+        }
+        return out
+    }
+
     /// Args: text는 문단 안의 Markdown이다.
-    /// Returns: 기본 강조·코드·HTTPS 링크를 적용한 HTML.
+    /// Returns: 기본 강조·코드·HTTPS 링크를 적용한 HTML. 코드 안의 *는 그대로 둔다.
     /// Raises: 없음.
     private static func inline(_ text: String) -> String {
-        escape(text)
-            .replacingOccurrences(of: "`([^`]+)`", with: "<code>$1</code>", options: .regularExpression)
+        let escaped = escape(text)
+        var result = "", rest = escaped[...]
+        while let code = rest.range(of: "`[^`]+`", options: .regularExpression) {
+            result += emphasis(String(rest[..<code.lowerBound])) + "<code>\(rest[code].dropFirst().dropLast())</code>"
+            rest = rest[code.upperBound...]
+        }
+        return result + emphasis(String(rest))
+    }
+
+    private static func emphasis(_ text: String) -> String {
+        text
             .replacingOccurrences(of: "\\*\\*([^*]+)\\*\\*", with: "<strong>$1</strong>", options: .regularExpression)
             .replacingOccurrences(of: #"(?<![*\w])\*(?!\s)([^*\n]+?)(?<!\s)\*(?!\*)"#, with: "<em>$1</em>", options: .regularExpression)
             .replacingOccurrences(of: "\\[([^\\]]+)\\]\\((https?://[^\\s)]+)\\)", with: "<a href=\"$2\">$1</a>", options: .regularExpression)
@@ -74,7 +108,8 @@ public enum ChatArtifactHTML {
                 if !list { result += "<ul>"; list = true }
                 result += "<li>\(inline(String(line.dropFirst(2))))</li>"
             } else if let olMarker {
-                if !ol { result += "<ol>"; ol = true }
+                // Keep the written number, so a list split by a blank or indented line keeps counting.
+                if !ol { let n = line[olMarker].dropLast(2); result += n == "1" ? "<ol>" : "<ol start=\"\(n)\">"; ol = true }
                 result += "<li>\(inline(String(line[olMarker.upperBound...])))</li>"
             } else if isTable {
                 if !table { result += "<table>"; table = true }

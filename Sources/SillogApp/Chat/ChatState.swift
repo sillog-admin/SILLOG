@@ -479,8 +479,10 @@ final class ChatState: ObservableObject {
             let replacedIDs = Set(replacing.map(\.id))
             let previous = (current.id == conversation.id ? messages : try store.messages(conversation.id)).filter { !replacedIDs.contains($0.id) }
             let remoteConnectors = ConnectorAuth.remoteIDs()
+            let firstText = previous.first { $0.role == "user" }?.text ?? text
+            let fallbackTitle = String(firstText.prefix(48))
             // Retried on later turns too, so a stopped or failed first answer still gets a title.
-            let needsTitle = automationID == nil && conversation.title == ChatConversation.defaultTitle
+            let needsTitle = automationID == nil && (conversation.title == ChatConversation.defaultTitle || conversation.title == fallbackTitle)
             conversation.updatedAt = Date().timeIntervalSince1970
             let user = ConversationMessage(conversationID: conversation.id, role: "user", text: text)
             let backend = makeClient()
@@ -566,14 +568,13 @@ final class ChatState: ObservableObject {
                 self.activeMessage = nil; self.runTask = nil
                 do { try self.reload() } catch { self.error = error.localizedDescription }
                 if needsTitle, !Task.isCancelled {
-                    let firstText = previous.first { $0.role == "user" }?.text ?? text
                     do {
                         let title = try await backend.conversationTitle(for: firstText)
-                        self.applyTitle(title, to: conversation.id, replacing: ChatConversation.defaultTitle)
+                        self.applyTitle(title, to: conversation.id, replacing: conversation.title)
                     } catch {
                         AppLog.write("chat title failed: \(error.localizedDescription)")
                         // updateOldTitles retries chats titled with this prefix on a later launch.
-                        self.applyTitle(String(firstText.prefix(48)), to: conversation.id, replacing: ChatConversation.defaultTitle)
+                        self.applyTitle(fallbackTitle, to: conversation.id, replacing: conversation.title)
                     }
                 }
             }

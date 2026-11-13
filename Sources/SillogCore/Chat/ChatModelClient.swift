@@ -305,15 +305,14 @@ public enum ChatFailure {
     /// Korean keys of the sentences that a settings fix resolves; text after a `%@` is ignored when matching.
     public static let settingsMessages = [
         "API 키나 로그인이 거부됐어요. 설정에서 확인해 주세요.", "다시 로그인해주세요.", "ChatGPT 로그인이 필요합니다",
-        "로그인이 만료되어 다시 로그인해야 합니다 (%@)", "인증 서버 오류 HTTP %@: %@",
-        "인증 서버 응답을 해석하지 못했습니다: %@", "인증 서버에 연결하지 못했습니다: %@",
+        "로그인이 만료되어 다시 로그인해야 합니다 (%@)", "Codex 계정 정보가 없습니다. 설정에서 다시 로그인하세요.",
     ]
 
     /// Args: error is what the chat run threw.
     /// Returns: the sentence to show, and whether the settings screen can fix it.
     /// Raises: none.
     public static func message(for error: Error) -> (text: String, needsSettings: Bool) {
-        if let error = error as? CodexAuthError { return (error.description, true) }
+        if let error = error as? CodexAuthError { return (error.description, needsSettings(error.description)) }
         if case LLMError.auth(let text) = error { return (text, true) }
         if case LLMError.http(let status, _) = error {
             switch status {
@@ -323,8 +322,12 @@ public enum ChatFailure {
             default: break
             }
         }
-        if let error = error as? URLError, [.notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotConnectToHost].contains(error.code) {
-            return (tr("인터넷 연결이 끊겼어요. 받은 부분까지는 남겨 뒀어요."), false)
+        if let error = error as? URLError, [.notConnectedToInternet, .networkConnectionLost].contains(error.code) {
+            return (tr("인터넷 연결이 끊겼어요. 연결을 확인하고 다시 시도해 주세요."), false)
+        }
+        // A local model server that is down or slow fails this way too, so don't blame the internet.
+        if let error = error as? URLError, [.timedOut, .cannotConnectToHost].contains(error.code) {
+            return (tr("모델 서버가 응답하지 않았어요. 서버 주소와 실행 상태를 확인해 주세요."), false)
         }
         return (error.localizedDescription, false)
     }

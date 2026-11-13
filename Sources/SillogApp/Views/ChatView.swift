@@ -213,7 +213,7 @@ struct ChatView: View {
                 // CH-14: 본문 600 열 안, 머리에서 떨어진 47 높이 띠, 아래 줄 하나, '이동'은 글자 링크
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    if let job = chat.automations.first(where: { $0.lastConversationID == active.conversationID }) {
+                    if let job = chat.automations.first(where: { $0.lastConversationID == active.conversationID && $0.lastStatus == "실행 중" }) {
                         Text(tr("예약 작업 ‘\(job.title)’ 실행 중")).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
                     } else {
                         Text(tr("다른 대화에서 작업 중")).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
@@ -637,7 +637,7 @@ struct ChatView: View {
                         }
                         if !shown.sources.isEmpty {
                             Button {
-                                withAnimation(.easeOut(duration: 0.15)) {
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                                     if expandedSources.contains(message.id) { expandedSources.remove(message.id) } else { expandedSources.insert(message.id) }
                                 }
                             } label: {
