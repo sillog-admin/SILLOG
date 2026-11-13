@@ -24,6 +24,16 @@ SILLOG records what you do on your Mac: the apps and windows you use, the pages 
 
 It's an early prototype. The download isn't notarized by Apple yet, so the first launch takes one extra step (see [Install](#install)). It also collects a lot about your work, so please read [Privacy and data](#privacy-and-data) before you turn it on.
 
+## Tasks and sources, connected in a graph
+
+Tasks, sessions, sources, and topics are stored with their links. You can switch between a 2D network, a 3D network, a sunburst chart, and a Sankey diagram.
+
+| 2D network | 3D network |
+| :---: | :---: |
+| <img src="docs/readme/graph-solar.gif" alt="2D network"> | <img src="docs/readme/graph-3d.gif" alt="3D network"> |
+| **Sunburst chart** | **Sankey diagram** |
+| <img src="docs/readme/graph-sunburst.gif" alt="Sunburst chart"> | <img src="docs/readme/graph-branch.gif" alt="Sankey diagram"> |
+
 ## A quick tour
 
 The app is in Korean for now.
@@ -55,16 +65,6 @@ Once you grant permissions the first time, SILLOG records on its own. Scattered 
 | Check the launch schedule | Admin › Scheduling |
 | Write an announcement email | Communication › Email |
 | Build the presentation | Deliverables › Slides |
-
-## Tasks and sources, connected in a graph
-
-Tasks, sessions, sources, and topics are stored with their links. You can switch between a 2D network, a 3D network, a sunburst chart, and a Sankey diagram.
-
-| 2D network | 3D network |
-| :---: | :---: |
-| <img src="docs/readme/graph-solar.gif" alt="2D network"> | <img src="docs/readme/graph-3d.gif" alt="3D network"> |
-| **Sunburst chart** | **Sankey diagram** |
-| <img src="docs/readme/graph-sunburst.gif" alt="Sunburst chart"> | <img src="docs/readme/graph-branch.gif" alt="Sankey diagram"> |
 
 ## Your raw records stay on your Mac, and you can check what's sent
 

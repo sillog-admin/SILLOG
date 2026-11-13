@@ -24,6 +24,16 @@ SILLOG(실록)는 Mac에서 쓰는 앱과 창, 웹페이지, 화면 글자, 파�
 
 아직 초기 프로토타입입니다. 배포 파일이 Apple 공증을 받지 않아 처음 열 때 한 단계가 더 필요하고(아래 [설치](#설치) 참고), 업무 기록을 꽤 많이 모으니 쓰기 전에 [개인정보와 데이터](#개인정보와-데이터)를 먼저 읽어 주세요.
 
+## 업무와 자료가 그래프로 이어져요
+
+업무, 세션, 자료, 주제를 서로 연결해 저장해요. 2D와 3D 연결망, 원형 차트, 생키 다이어그램으로 바꿔 볼 수 있어요.
+
+| 2D 연결망 | 3D 연결망 |
+| :---: | :---: |
+| <img src="docs/readme/graph-solar.gif" alt="2D 연결망"> | <img src="docs/readme/graph-3d.gif" alt="3D 연결망"> |
+| **원형 차트** | **생키 다이어그램** |
+| <img src="docs/readme/graph-sunburst.gif" alt="원형 차트"> | <img src="docs/readme/graph-branch.gif" alt="생키 다이어그램"> |
+
 ## 둘러보기
 
 | | |
@@ -53,16 +63,6 @@ SILLOG(실록)는 Mac에서 쓰는 앱과 창, 웹페이지, 화면 글자, 파�
 | 출시 일정 점검 | 행정처리 › 일정관리 |
 | 공지 메일 작성 | 커뮤니케이션 › 메일처리 |
 | 발표 자료 구성 | 산출물작성 › 발표자료 |
-
-## 업무와 자료가 그래프로 이어져요
-
-업무, 세션, 자료, 주제를 서로 연결해 저장해요. 2D와 3D 연결망, 원형 차트, 생키 다이어그램으로 바꿔 볼 수 있어요.
-
-| 2D 연결망 | 3D 연결망 |
-| :---: | :---: |
-| <img src="docs/readme/graph-solar.gif" alt="2D 연결망"> | <img src="docs/readme/graph-3d.gif" alt="3D 연결망"> |
-| **원형 차트** | **생키 다이어그램** |
-| <img src="docs/readme/graph-sunburst.gif" alt="원형 차트"> | <img src="docs/readme/graph-branch.gif" alt="생키 다이어그램"> |
 
 ## 기록 원본은 내 Mac에 저장하고 보낸 내용은 직접 확인해요
 
