@@ -66,17 +66,13 @@ The app is in Korean for now.
 
 SILLOG has no server of its own. Organizing and chat go through the AI account you connect.
 
-<table align="center">
-  <tr>
-    <td align="center"><img src="landing/assets/icon3d-mac.webp" width="120" alt=""><br><b>Store</b><br>Records stay on your Mac</td>
-    <td align="center"><img src="landing/assets/icon3d-lens.webp" width="120" alt=""><br><b>Check</b><br>See what was sent and what came back in the activity log</td>
-    <td align="center"><img src="landing/assets/icon3d-toggle.webp" width="120" alt=""><br><b>Control</b><br>Turn off sending for each feature</td>
-  </tr>
-</table>
+<img src="docs/readme/privacy-icons-en.webp" alt="Store: records stay on your Mac. Check: see what was sent and what came back in the activity log. Control: turn off sending for each feature.">
 
 Password fields are never recorded. For apps like password managers and Keychain, only the app name and time are kept. Details are in [Privacy and data](#privacy-and-data).
 
 ## What it does
+
+<img src="docs/readme/section-features-en.webp" alt="">
 
 - Records the active app, window title, URL, on-screen text, screenshots, downloaded files, and what you ask Claude Code and Codex. For apps you exclude, it keeps only the name and time.
 - Every five minutes, sorts new activity into tasks, sessions, resources, problems, and topics, and shows them as a graph. You can reopen the files and pages behind a task, or delete a node along with its raw records.
@@ -89,6 +85,8 @@ Password fields are never recorded. For apps like password managers and Keychain
 - Deletes old raw records after a period you set and keeps weekly and monthly digests in their place.
 
 ## How it works
+
+<img src="docs/readme/section-how-en.webp" alt="">
 
 ```mermaid
 flowchart LR
@@ -106,6 +104,8 @@ flowchart LR
 All records are stored in SQLite on your Mac. The only things that leave it are what's sent to the model you configure for organizing and chat, plus web searches and connector requests you allow.
 
 ## Install
+
+<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/section-install-en.webp" alt=""></a>
 
 ### Requirements
 
@@ -132,6 +132,8 @@ You can pause recording or run organizing right away from the menu bar.
 
 ## AI connections
 
+<img src="docs/readme/section-ai-en.webp" alt="">
+
 | Connection | Used for | Notes |
 | --- | --- | --- |
 | ChatGPT subscription | Organizing, chat, judging | Uses an app-only ChatGPT sign-in to reach the Codex backend. It counts against your plan's usage, with no separate bill. It isn't a public API, so it may change. Chat runs through a local `codex app-server` with shell and file writes turned off. |
@@ -153,6 +155,8 @@ Connectors only read. SILLOG never sends mail, edits files, or changes repositor
 If you build SILLOG yourself, connector setup is in [docs/connectors.md](docs/connectors.md).
 
 ## Privacy and data
+
+<img src="docs/readme/section-privacy-en.webp" alt="">
 
 Your records are stored on your Mac, but whatever is used for organizing and chat is sent to the model you pick. With a cloud model, that text leaves your Mac.
 
@@ -225,6 +229,8 @@ For now, Apple silicon Macs on macOS 14 or later. Windows and mobile aren't read
 - Gmail and Drive are limited to test accounts until Google finishes its review.
 
 ## Build from source
+
+<img src="docs/readme/section-source-en.webp" alt="">
 
 You need Xcode 26 (Swift 6.2). Command Line Tools can build the app but can't run the tests. An app you build yourself wasn't downloaded from the internet, so you won't see the "Not Opened" dialog.
 
