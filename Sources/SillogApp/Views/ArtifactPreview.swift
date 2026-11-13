@@ -24,7 +24,7 @@ struct ArtifactPreview: View {
                 if let error { Text(error).font(Brand.font(.body)).foregroundStyle(Brand.ink).padding(12) }
             }
         } footer: {
-            Text(artifact.format.uppercased()).font(Brand.font(.tag)).foregroundStyle(Brand.gray).fixedSize()
+            Text(artifact.format.uppercased()).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
             if versions.count > 1, let index = versions.firstIndex(where: { $0.id == artifact.id }) {
                 // Tight groups keep the 480pt footer on one line.
                 HStack(spacing: 2) {
@@ -109,10 +109,12 @@ extension ArtifactPreview {
     /// Raises: folder, file write or Office packaging errors.
     static func writeTemporary(_ artifact: ChatArtifact) throws -> URL {
         // shortcut: left for macOS to clear from the temp dir, delete on close if the files pile up.
+        // Read-only so the app opening it can't save edits into a folder macOS will purge.
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let url = folder.appendingPathComponent(fileName(artifact, ext: artifact.fileExtension))
         try fileData(artifact).write(to: url, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o444], ofItemAtPath: url.path)
         return url
     }
 }

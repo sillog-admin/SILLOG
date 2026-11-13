@@ -164,7 +164,8 @@ final class ChatTextView: NSTextView {
     /// Raises: 없음.
     override func keyDown(with event: NSEvent) {
         if !hasMarkedText(), !event.modifierFlags.contains(.shift), shortcutKey?(event.keyCode) == true { return }
-        if event.keyCode == 126, string.isEmpty, !hasMarkedText(), let onEditLast { onEditLast(); return }
+        // Arrow keys always carry numericPad and function, so only those may be set for a plain Up.
+        if event.keyCode == 126, string.isEmpty, event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.numericPad, .function]).isEmpty, !hasMarkedText(), let onEditLast { onEditLast(); return }
         // Esc would otherwise open NSTextView's word completion list.
         if event.keyCode == 53, !hasMarkedText() { onEscape?(); return }
         if [36, 76].contains(event.keyCode), !hasMarkedText() {

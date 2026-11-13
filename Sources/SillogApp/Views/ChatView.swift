@@ -45,6 +45,7 @@ struct ChatView: View {
     /// Which earlier answer a regenerated answer shows, by message id; missing means the latest.
     @State private var shownVersions: [String: Int] = [:]
     @FocusState private var focusedActions: String?
+    @FocusState private var editFocused: Bool
     @State private var artifactExpanded = false
 
     private struct PendingResend: Identifiable {
@@ -151,7 +152,7 @@ struct ChatView: View {
             Group {
                 Button("") { chat.newConversation(); pane = .chat }.keyboardShortcut("n").disabled(editingMessageID != nil)
                 Button("") { showSearch = true }.keyboardShortcut("k")
-                Button("") { chat.cancel() }.keyboardShortcut(".").disabled(!chat.running)
+                Button("") { chat.cancel() }.keyboardShortcut(".").disabled(!(pane == .chat && chat.activeMessage?.conversationID == chat.current.id))
                 Button("") { sidebarVisible.toggle(); if sidebarVisible { chat.openArtifactID = nil } }.keyboardShortcut("\\")
                 Button("") { copyLastAnswer() }.keyboardShortcut("c", modifiers: [.command, .shift])
                     .disabled(!chat.messages.contains { $0.role == "assistant" })
@@ -320,8 +321,8 @@ struct ChatView: View {
             if !sidebarVisible {
                 // CH-30: 아이콘 중심 35, 64, 제목 시작 87 (아이콘 28 폭, 간격 1)
                 HStack(spacing: 1) {
-                    ChatIconButton(systemName: "sidebar.left", help: tr("대화 목록 표시 전환 (⌘\\)")) { sidebarVisible = true; chat.openArtifactID = nil }
-                    ChatIconButton(systemName: "square.and.pencil", help: tr("새 대화 (⌘N)")) { chat.newConversation(); pane = .chat }
+                    ChatIconButton(systemName: "sidebar.left", help: tr("대화 목록 표시 전환 (⌘\\)"), label: tr("대화 목록 표시 전환")) { sidebarVisible = true; chat.openArtifactID = nil }
+                    ChatIconButton(systemName: "square.and.pencil", help: tr("새 대화 (⌘N)"), label: tr("새 대화")) { chat.newConversation(); pane = .chat }
                 }
             }
             if !chat.messages.isEmpty {
@@ -502,12 +503,13 @@ struct ChatView: View {
             VStack(alignment: .trailing, spacing: 8) {
                 TextEditor(text: $editText)
                     .font(Brand.font(.body)).foregroundStyle(Brand.text).scrollContentBackground(.hidden)
+                    .focused($editFocused).onAppear { editFocused = true }
                     .frame(minHeight: 60, maxHeight: 240).fixedSize(horizontal: false, vertical: true)
                     .padding(10)
                     .background(.white, in: RoundedRectangle(cornerRadius: 16))
                     .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Brand.line))
                 HStack(spacing: 8) {
-                    Button(tr("취소")) { editingMessageID = nil }.keyboardShortcut(.cancelAction)
+                    Button(tr("취소")) { editingMessageID = nil; chat.inputFocusRequest += 1 }.keyboardShortcut(.cancelAction)
                     Button(tr("보내기")) { requestResend(message, text: editText) }
                         .keyboardShortcut(.return, modifiers: .command).help(tr("보내기 (⌘↩)"))
                         .buttonStyle(BrandButtonStyle())
@@ -636,7 +638,7 @@ struct ChatView: View {
                         }
                         HStack(spacing: 2) {
                             ChatIconButton(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc",
-                                           help: chat.messages.last(where: { $0.role == "assistant" })?.id == message.id ? tr("답변 복사 (⌘⇧C)") : tr("답변 복사"), color: Brand.gray) {
+                                           help: chat.messages.last(where: { $0.role == "assistant" })?.id == message.id ? tr("답변 복사 (⌘⇧C)") : tr("답변 복사"), label: tr("답변 복사"), color: Brand.gray) {
                                 copy(shown.markdown, id: message.id,
                                      html: ChatArtifactHTML.render(ChatArtifact(title: "", format: "markdown", content: shown.markdown)))
                             }
@@ -832,6 +834,7 @@ struct ChatTag: View {
 struct ChatIconButton: View {
     let systemName: String
     let help: String
+    var label: String? = nil
     var color: Color = Brand.tabText
     let action: () -> Void
     @State private var hovering = false
@@ -843,7 +846,7 @@ struct ChatIconButton: View {
                 .background(hovering && enabled ? ChatPalette.soft : .clear, in: RoundedRectangle(cornerRadius: 5))
                 .opacity(enabled ? 1 : 0.4)
                 .contentShape(Rectangle())
-        }.buttonStyle(.plain).onHover { hovering = $0 }.help(help).accessibilityLabel(help)
+        }.buttonStyle(.plain).onHover { hovering = $0 }.help(help).accessibilityLabel(label ?? help)
     }
 }
 

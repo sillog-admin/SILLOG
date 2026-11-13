@@ -94,7 +94,7 @@ struct ChatComposer: View {
                 }
                 ChatInput(text: $chat.draft, height: $inputHeight, minimumHeight: 38, focusRequest: chat.inputFocusRequest,
                           selectionOnFocus: shortcutCaret, onShortcut: updateShortcut, shortcutKey: handleShortcutKey,
-                          onFiles: { chat.attach($0) }, onEscape: { if busy { chat.cancel() } }, onEditLast: onEditLast, onSend: send)
+                          onFiles: { chat.attach($0) }, onEscape: { if busy { chat.cancel() } else { chat.openArtifactID = nil } }, onEditLast: onEditLast, onSend: send)
                     .frame(height: inputHeight)
             }
             .padding(.top, 18).padding(.horizontal, 13)

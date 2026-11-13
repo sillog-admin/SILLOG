@@ -173,6 +173,14 @@ final class ChatStateTests: XCTestCase {
         XCTAssertNil(chat.messages[1].previous, "an edited question starts over")
     }
 
+    func testResendingTheSameQuestionKeepsEarlierAnswers() async throws {
+        let chat = try chatState()
+        _ = try await finishedChat(chat, "q")
+        XCTAssertTrue(chat.resend(from: chat.messages[0], text: " q\n"))
+        try await waitUntil { !chat.running }
+        XCTAssertEqual(chat.messages[1].previous?.count, 1, "an unchanged edit is a regenerate")
+    }
+
     func testRegeneratingSendsTheStoredHistory() async throws {
         let model = ScriptedChatModel(), db = try SillogDatabase.inMemory()
         let chat = try chatState(model: model, db: db)

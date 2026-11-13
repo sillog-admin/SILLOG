@@ -322,11 +322,14 @@ final class ChatState: ObservableObject {
         guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
         let request = (text ?? question.text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !request.isEmpty else { return false }
-        // Only a regenerate keeps the old answer; an edited question makes it answer something else.
+        // Only a regenerate or an unchanged resend keeps the old answer; an edited question makes it answer something else.
         // Failed runs are dropped and only the last 9 kept so the payload and the version picker stay small.
-        let kept = text == nil && replaced.count > 1 && replaced[1].role == "assistant" ? Array(replaced[1].versions.filter { $0.status != "failed" }.suffix(9)) : []
+        let edited = text.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) != question.text.trimmingCharacters(in: .whitespacesAndNewlines) } ?? false
+        let kept = !edited && replaced.count > 1 && replaced[1].role == "assistant" ? Array(replaced[1].versions.filter { $0.status != "failed" }.suffix(9)) : []
         let earlier = kept.isEmpty ? nil : kept
-        return begin(request, conversation: current, automationID: nil, replacing: replaced, earlierAnswers: earlier)
+        guard begin(request, conversation: current, automationID: nil, replacing: replaced, earlierAnswers: earlier) else { return false }
+        inputFocusRequest += 1     // an inline edit had the focus
+        return true
     }
 
     /// Asks for the rest of a stopped answer; ChatRunner keeps the partial text in the history.
@@ -372,6 +375,8 @@ final class ChatState: ObservableObject {
     /// 제목과 본문에서 찾는다. 빈 글이면 [].
     func search(_ query: String) async -> [ChatSearchHit] {
         do { return try await store.searchConversations(query) }
+        // The panel cancels a query when the text changes or it closes; that is not an error.
+        catch is CancellationError { return [] }
         catch { self.error = error.localizedDescription; return [] }
     }
 

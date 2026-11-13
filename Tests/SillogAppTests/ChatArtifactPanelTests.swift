@@ -101,6 +101,39 @@ final class ChatArtifactPanelTests: XCTestCase {
         XCTAssertNil(chat.openArtifactID)
     }
 
+    private func composer(in view: NSView) -> ChatTextView? {
+        view as? ChatTextView ?? view.subviews.lazy.compactMap { self.composer(in: $0) }.first
+    }
+
+    private func orderedIn(_ open: (ChatArtifact, ChatArtifact) -> String?) throws -> (NSWindow, NSHostingView<AnyView>, ChatState, ChatTextView) {
+        let (window, host, chat, _, _) = try window(open: open)
+        window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
+        window.orderFrontRegardless()
+        addTeardownBlock { window.orderOut(nil) }
+        settle(host)
+        let input = try XCTUnwrap(composer(in: host))
+        window.makeFirstResponder(input)
+        return (window, host, chat, input)
+    }
+
+    func testEscInTheComposerClosesThePanel() throws {
+        let (window, host, chat, _) = try orderedIn { _, v2 in v2.id }
+        key("\u{1b}", code: 53, in: window)
+        settle(host)
+        XCTAssertNil(chat.openArtifactID)
+    }
+
+    func testUpMovesTheFocusIntoTheQuestionEditor() throws {
+        let (window, host, _, input) = try orderedIn { _, _ in nil }
+        key("\u{f700}", code: 126, modifiers: [.command, .numericPad, .function], in: window)
+        settle(host)
+        XCTAssertTrue(window.firstResponder === input, "Cmd+Up does not open the edit")
+        key("\u{f700}", code: 126, modifiers: [.numericPad, .function], in: window)
+        settle(host)
+        XCTAssertTrue(window.firstResponder is NSTextView)
+        XCTAssertFalse(window.firstResponder === input, "typing goes into the edit, not the composer")
+    }
+
     func testCopyPutsTheTextAndRichTextOnThePasteboard() {
         let board = NSPasteboard(name: .init("sillog-test-\(UUID().uuidString)"))
         defer { board.releaseGlobally() }
@@ -117,5 +150,6 @@ final class ChatArtifactPanelTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
         XCTAssertEqual(url.lastPathComponent, "발표-초안.pptx")
         XCTAssertEqual(try Data(contentsOf: url).prefix(2), Data([0x50, 0x4B]))
+        XCTAssertFalse(FileManager.default.isWritableFile(atPath: url.path), "edits can't land in the temp folder")
     }
 }
