@@ -247,7 +247,7 @@ swift run sillogctl --help
 
 이슈와 PR 모두 환영합니다. PR을 올리기 전에 로컬에서 `swift build`와 `swift test`를 돌려 주세요. CI에서는 OCR로 확인하는 UI 테스트 몇 개를 건너뛰기 때문입니다. 커밋 메시지는 `fix: 로그인 오류 수정`처럼 `태그: 요약` 한 줄로 씁니다. `.env`나 API 키, 내 기록을 덤프한 파일은 올리지 마세요. 보내 주신 코드는 AGPL-3.0으로 배포됩니다.
 
-보안 문제는 공개 이슈 대신 [비공개 취약점 신고](https://github.com/sillog-admin/SILLOG/security/advisories/new)로 알려 주세요.
+자세한 내용은 [CONTRIBUTING.md](CONTRIBUTING.md)에 있습니다. 보안 문제는 공개 이슈 대신 [보안 정책](SECURITY.md)을 따라 알려 주세요.
 
 ## 라이선스
 
