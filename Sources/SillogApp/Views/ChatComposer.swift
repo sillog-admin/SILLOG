@@ -97,11 +97,11 @@ struct ChatComposer: View {
                 if chat.draft.isEmpty {
                     Text(Self.placeholder(chat.current.scope))
                         .font(Brand.font(.body)).foregroundStyle(Brand.text.opacity(0.5)).lineLimit(1)
-                        .padding(.top, 8).padding(.leading, 5).allowsHitTesting(false)
+                        .padding(.top, 8).padding(.leading, 5).allowsHitTesting(false).accessibilityHidden(true)
                 }
                 ChatInput(text: $chat.draft, height: $inputHeight, minimumHeight: 38, focusRequest: chat.inputFocusRequest,
                           selectionOnFocus: shortcutCaret, onShortcut: updateShortcut, shortcutKey: handleShortcutKey,
-                          onFiles: { chat.attach($0) }, onEscape: { if busy { chat.cancel() } else { chat.openArtifactID = nil } }, onEditLast: onEditLast, onSend: send)
+                          onFiles: { chat.attach($0) }, onEscape: { if busy { chat.cancel() } else { chat.openArtifactID = nil } }, onEditLast: onEditLast, placeholder: Self.placeholder(chat.current.scope), onSend: send)
                     .frame(height: inputHeight)
             }
             .padding(.top, 18).padding(.horizontal, 13)
@@ -426,7 +426,7 @@ struct ChatComposer: View {
                         .overlay(Capsule().strokeBorder(on ? Brand.chipSelectedBorder : Brand.line))
                         .contentShape(Capsule())
                 }
-                .buttonStyle(.plain).disabled(busy).accessibilityLabel("\(skill.displayTitle) \(on ? tr("끄기") : tr("켜기"))")
+                .buttonStyle(.plain).disabled(busy).accessibilityLabel(skill.displayTitle).accessibilityAddTraits(on ? .isSelected : [])
             }
         }
     }

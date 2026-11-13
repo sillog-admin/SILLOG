@@ -39,6 +39,7 @@ struct ChatInput: NSViewRepresentable {
     var onFiles: ([URL]) -> Void = { _ in }
     var onEscape: () -> Void = {}
     var onEditLast: (() -> Void)? = nil
+    var placeholder = ""
     var onSend: () -> Void
 
     /// Args: context는 SwiftUI 연결 상태이다.
@@ -70,6 +71,7 @@ struct ChatInput: NSViewRepresentable {
         guard let editor = view.documentView as? ChatTextView else { return }
         context.coordinator.parent = self; editor.onSend = onSend
         editor.shortcutKey = shortcutKey; editor.onFiles = onFiles; editor.onEscape = onEscape; editor.onEditLast = onEditLast
+        editor.setAccessibilityPlaceholderValue(placeholder)
         if editor.string != text, !editor.hasMarkedText() { editor.string = text }
         context.coordinator.resize(editor)
         if context.coordinator.focusRequest != focusRequest {
@@ -175,4 +177,7 @@ final class ChatTextView: NSTextView {
         }
         super.keyDown(with: event)
     }
+    // Tab moves focus instead of typing a tab; the @ and / menus take Tab first in keyDown.
+    override func insertTab(_ sender: Any?) { window?.selectNextKeyView(self) }
+    override func insertBacktab(_ sender: Any?) { window?.selectPreviousKeyView(self) }
 }

@@ -276,6 +276,8 @@ private struct ChatCitationButton: View {
             .fixedSize()
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(sources.count > 1 ? ChatRunner.displayTitle(sources[0].title) + tr(" 외 \(sources.count - 1)개") : ChatRunner.displayTitle(sources[0].title))
+        .accessibilityHint(tr("출처 보기"))
         .popover(isPresented: $showingSources) {
             VStack(alignment: .leading, spacing: 12) {
                 Eyebrow(tr("출처"))

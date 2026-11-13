@@ -107,7 +107,7 @@ struct ChatFocusTree: View {
                             .padding(.horizontal, 8).frame(height: 31).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain).hoverHighlight(cornerRadius: 5)
-                        .accessibilityLabel("\(task.focus.title) \(on ? tr("고름") : tr("안 고름"))")
+                        .accessibilityLabel(task.focus.title).accessibilityAddTraits(on ? .isSelected : [])
                     }
                     if needle.isEmpty {
                         Rectangle().fill(Brand.line).frame(height: 1).padding(.vertical, 6).padding(.horizontal, 6)
@@ -139,7 +139,7 @@ struct ChatFocusTree: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(tr("\(field.name) 분야 \(on ? tr("골라짐") : tr("안 골라짐"))"))
+        .accessibilityLabel(tr("\(field.name) 분야")).accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private enum Mark { case none, check }
@@ -157,7 +157,7 @@ struct ChatFocusTree: View {
             .padding(.horizontal, 8).frame(height: 31).contentShape(Rectangle())
         }
         .buttonStyle(.plain).hoverHighlight(cornerRadius: 5)
-        .accessibilityLabel("\(title) \(mark == .check ? tr("고름") : tr("안 고름"))")
+        .accessibilityLabel(title).accessibilityAddTraits(mark == .check ? .isSelected : [])
     }
 
     // MARK: 고르기 규칙 (화면 없이 시험한다)

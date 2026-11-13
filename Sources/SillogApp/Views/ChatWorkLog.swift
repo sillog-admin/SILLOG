@@ -7,13 +7,14 @@ struct ChatWorkLog: View {
     let message: ConversationMessage
     @Binding var isExpanded: Bool
     @State var openResults: Set<String> = []
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var running: Bool { message.status == "running" }
     private var steps: [ChatStep] { message.trace ?? message.steps.map { ChatStep(title: $0, status: .done) } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Button { withAnimation(.easeOut(duration: 0.15)) { isExpanded.toggle() } } label: {
+            Button { withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isExpanded.toggle() } } label: {
                 HStack(spacing: 8) {
                     if running { ProgressView().controlSize(.small) }
                     Text(summary).font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)

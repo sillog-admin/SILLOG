@@ -45,6 +45,7 @@ struct ChatView: View {
     /// Which earlier answer a regenerated answer shows, by message id; missing means the latest.
     @State private var shownVersions: [String: Int] = [:]
     @FocusState private var focusedActions: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var editFocused: Bool
     @State private var artifactExpanded = false
 
@@ -365,7 +366,7 @@ struct ChatView: View {
                             ForEach(Array(turns.enumerated()), id: \.element.id) { index, turn in
                                 Button {
                                     selectedQuestionID = turn.id
-                                    withAnimation(.easeInOut(duration: 0.25)) {
+                                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
                                         proxy.scrollTo(turn.id, anchor: .top)
                                     }
                                 } label: {
@@ -379,22 +380,22 @@ struct ChatView: View {
                                 .buttonStyle(.plain)
                                 .offset(y: 18 + CGFloat(index) * step)
                                 .onHover { hovering in
-                                    withAnimation(.easeOut(duration: 0.18)) {
+                                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
                                         if hovering { hoveredQuestionID = turn.id }
                                         else if hoveredQuestionID == turn.id { hoveredQuestionID = nil }
                                     }
                                 }
-                                .accessibilityLabel(tr("질문 \(index + 1): \(turn.question.text)"))
+                                .accessibilityLabel(tr("질문 \(index + 1): \(String(turn.question.text.prefix(80)))"))
                             }
                             if let index = turns.firstIndex(where: { $0.id == hoveredQuestionID }) {
                                 turnPreview(turns[index])
                                     .offset(x: 48, y: min(max(18 + CGFloat(index) * step - 24, 8),
                                                           max(8, geometry.size.height - 160)))
-                                    .transition(.opacity.combined(with: .move(edge: .leading)))
+                                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .leading)))
                                     .allowsHitTesting(false)
                             }
                         }
-                        .animation(.easeOut(duration: 0.18), value: hoveredQuestionID)
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: hoveredQuestionID)
                     }
                     .frame(width: 44)
                     .zIndex(1)
@@ -454,11 +455,11 @@ struct ChatView: View {
                 }
                 .overlay(alignment: .bottom) {
                     Group { if !atBottom {
-                        Button { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) } } label: {
+                        Button { withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) } } label: {
                             Image(systemName: "arrow.down").font(.system(size: 11)).foregroundStyle(Brand.tabText).frame(width: 30, height: 30).background(.white, in: Circle()).overlay(Circle().strokeBorder(Brand.line))
                                 .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
                         }.buttonStyle(.plain).help(tr("최근 응답으로")).accessibilityLabel(tr("최근 응답으로")).padding(16)
-                            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                            .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
                     } }
                     .animation(.easeOut(duration: 0.15), value: atBottom)
                 }
@@ -630,6 +631,7 @@ struct ChatView: View {
                             HStack(spacing: 2) {
                                 versionButton("chevron.left", tr("이전 답변"), message: message, to: shownIndex - 1, count: versions.count)
                                 Text("\(shownIndex + 1)/\(versions.count)").font(Brand.font(.caption)).foregroundStyle(Brand.tabText).monospacedDigit()
+                                    .accessibilityLabel(tr("버전 \(shownIndex + 1)/\(versions.count)"))
                                 versionButton("chevron.right", tr("다음 답변"), message: message, to: shownIndex + 1, count: versions.count)
                             }
                         }
@@ -644,6 +646,7 @@ struct ChatView: View {
                                     Image(systemName: expandedSources.contains(message.id) ? "chevron.down" : "chevron.right").font(.system(size: 8))
                                 }.foregroundStyle(Brand.gray)
                             }
+                            .accessibilityValue(expandedSources.contains(message.id) ? tr("펼침") : tr("접힘"))
                         }
                         HStack(spacing: 2) {
                             ChatIconButton(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc",
@@ -734,6 +737,7 @@ struct ChatView: View {
 
     private func copy(_ text: String, id: String, html: String? = nil) {
         Self.write(text, html: html)
+        AccessibilityNotification.Announcement(tr("복사됨")).post()
         copiedID = id
         Task { try? await Task.sleep(for: .seconds(1.5)); if copiedID == id { copiedID = nil } }
     }

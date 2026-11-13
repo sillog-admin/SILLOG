@@ -35,6 +35,7 @@ struct ArtifactPreview: View {
             HStack(spacing: 0) {
                 ChatIconButton(systemName: copied ? "checkmark" : "doc.on.doc", help: tr("복사")) {
                     Self.copy(artifact)
+                    AccessibilityNotification.Announcement(tr("복사됨")).post()
                     copied = true
                     Task { try? await Task.sleep(for: .seconds(1.5)); copied = false }
                 }

@@ -139,7 +139,7 @@ struct ChatSidebar: View {
                 }.font(Brand.font(.body)).foregroundStyle(Brand.tabText)
                     .padding(.horizontal, 10).frame(height: 32).contentShape(Rectangle())
             }.buttonStyle(.plain).hoverHighlight(cornerRadius: 5)
-                .accessibilityLabel("\(selected.contains(item.id) ? tr("선택 해제") : tr("선택")): \(item.title)")
+                .accessibilityLabel(ChatConversation.display(item.title)).accessibilityAddTraits(selected.contains(item.id) ? .isSelected : [])
                 .disabled(chat.activeMessage?.conversationID == item.id)
         } else {
             ConversationRow(item: item, isCurrent: pane == .chat && chat.current.id == item.id,
@@ -159,7 +159,7 @@ struct ChatSidebar: View {
                 } label: {
                     Image(systemName: open ? "chevron.down" : "chevron.right")
                         .font(.system(size: 9)).frame(width: 20, height: 32).contentShape(Rectangle())
-                }.buttonStyle(.plain).accessibilityLabel("\(project.title) \(open ? tr("접기") : tr("펼치기"))")
+                }.buttonStyle(.plain).accessibilityLabel(project.title).accessibilityValue(open ? tr("펼침") : tr("접힘"))
                 Button {
                     chat.newConversation(projectID: project.id); pane = .project(project.id)
                 } label: {
@@ -297,6 +297,7 @@ private struct ConversationRow<Context: View, Pop: View>: View {
     @ViewBuilder var pop: (@escaping () -> Void) -> Pop
     @State private var hovering = false
     @State private var menuOpen = false
+    @FocusState private var menuFocused: Bool
 
     var body: some View {
         HStack(spacing: 0) {
@@ -314,7 +315,8 @@ private struct ConversationRow<Context: View, Pop: View>: View {
                     Image(systemName: "ellipsis").font(.system(size: 12)).foregroundStyle(Brand.tabText)
                         .frame(width: 28, height: 32).contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityLabel(tr("대화 메뉴"))
-                    .opacity(hovering || menuOpen ? 1 : 0)
+                    .focused($menuFocused)
+                    .opacity(hovering || menuOpen || menuFocused ? 1 : 0)
                     .popover(isPresented: $menuOpen, arrowEdge: .bottom) { pop { menuOpen = false } }
             }
         }

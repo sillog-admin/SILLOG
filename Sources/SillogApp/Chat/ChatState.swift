@@ -524,6 +524,7 @@ final class ChatState: ObservableObject {
             runTask = Task { [weak self] in
                 guard let self else { return }
                 var succeeded = false
+                var failure: String?
                 do {
                     let project = self.projects.projects.first(where: { $0.id == conversation.projectID })
                     let result = try await runner.run(history: previous + [user], skillIDs: conversation.skillIDs, skillCatalog: selectedCatalog, scheduled: automationID != nil, project: project, memory: conversation.memory) { [weak self] event in
@@ -545,13 +546,18 @@ final class ChatState: ObservableObject {
                     if !cancelled {
                         AppLog.write("chat failed: \(error)")
                         let description = ChatFailure.message(for: error).text
+                        failure = description
                         self.activeMessage?.text += tr("\n\n응답을 완료하지 못했습니다: \(description)")
                     }
                 }
                 if let message = self.activeMessage {
                     self.replaceVisible(message)
-                    do { try self.store.save(message) } catch { self.error = tr("응답 저장 실패: \(error.localizedDescription)"); succeeded = false }
+                    do { try self.store.save(message) } catch { self.error = tr("응답 저장 실패: \(error.localizedDescription)"); failure = self.error; succeeded = false }
                     if succeeded { self.library.collect(message) }
+                }
+                // Scheduled runs finish unattended, and a stopped run needs no news.
+                if automationID == nil, let spoken = succeeded ? tr("답변 완료") : failure {
+                    AccessibilityNotification.Announcement(spoken).post()
                 }
                 if let automationID, var job = self.automations.first(where: { $0.id == automationID }) {
                     job.lastStatus = succeeded ? "완료" : "실패 또는 중단 — 다음 예약에 실행"
