@@ -433,32 +433,33 @@ public struct ChatStore: Sendable {
         }
     }
 
-    /// Args: query는 찾을 글, limit는 최대 대화 수이다.
-    /// Returns: 제목이나 완료 메시지 본문에 query가 든 대화(대화당 한 줄, 최신순). 빈 검색어는 [].
-    /// Raises: DB 조회 오류.
-    public func searchConversations(_ query: String, limit: Int = 30) throws -> [ChatSearchHit] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return [] }
-        let like = "%" + q.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "%", with: "\\%").replacingOccurrences(of: "_", with: "\\_") + "%"
-        return try db.writer.read { conn in
+    /// Args: query는 찾을 글(공백으로 나눈 낱말 모두), limit는 최대 대화 수이다.
+    /// Returns: 낱말마다 제목이나 완료 메시지 본문에 든 대화(대화당 한 줄, 최신순). 빈 검색어는 [].
+    /// Raises: DB 조회 오류, 또는 Task가 취소되면 GRDB가 중단한 조회 오류.
+    public func searchConversations(_ query: String, limit: Int = 30) async throws -> [ChatSearchHit] {
+        let terms = query.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard let first = terms.first else { return [] }
+        let likes = terms.map { "%" + $0.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "%", with: "\\%").replacingOccurrences(of: "_", with: "\\_") + "%" }
+        let messageText = "json_extract(m.payload, '$.status') = 'complete' AND json_extract(m.payload, '$.text') LIKE ? ESCAPE '\\'"
+        let conversationWhere = Array(repeating: "(json_extract(c.payload, '$.title') LIKE ? ESCAPE '\\' OR EXISTS (SELECT 1 FROM app_messages m WHERE m.conversation_id = c.id AND \(messageText)))", count: terms.count).joined(separator: " AND ")
+        let matchWhere = Array(repeating: "json_extract(m.payload, '$.text') LIKE ? ESCAPE '\\'", count: terms.count).joined(separator: " AND ")
+        return try await db.writer.read { conn in
             let rows = try Row.fetchAll(conn, sql: """
                 SELECT c.id, json_extract(c.payload, '$.title') AS title, c.updated_at FROM app_conversations c
-                WHERE json_extract(c.payload, '$.title') LIKE ?1 ESCAPE '\\'
-                   OR EXISTS (SELECT 1 FROM app_messages m WHERE m.conversation_id = c.id
-                      AND json_extract(m.payload, '$.status') = 'complete' AND json_extract(m.payload, '$.text') LIKE ?1 ESCAPE '\\')
-                ORDER BY c.updated_at DESC LIMIT ?2
-                """, arguments: [like, limit])
+                WHERE \(conversationWhere)
+                ORDER BY c.updated_at DESC LIMIT ?
+                """, arguments: StatementArguments(likes.flatMap { [$0, $0] } + [limit]))
             return try rows.map { row in
                 let id: String = row["id"]
                 let match = try Row.fetchOne(conn, sql: """
-                    SELECT id, json_extract(payload, '$.text') AS text FROM app_messages WHERE conversation_id = ?1
-                      AND json_extract(payload, '$.status') = 'complete' AND json_extract(payload, '$.text') LIKE ?2 ESCAPE '\\'
-                    ORDER BY created_at DESC, rowid DESC LIMIT 1
-                    """, arguments: [id, like])
+                    SELECT m.id, json_extract(m.payload, '$.text') AS text FROM app_messages m WHERE m.conversation_id = ?
+                      AND json_extract(m.payload, '$.status') = 'complete' AND \(matchWhere)
+                    ORDER BY m.created_at DESC, m.rowid DESC LIMIT 1
+                    """, arguments: StatementArguments([id] + likes))
                 let hit: String? = match?["text"]
                 var snippet: String
                 if let hit {
-                    let start = hit.range(of: q, options: .caseInsensitive)?.lowerBound ?? hit.startIndex
+                    let start = hit.range(of: first, options: .caseInsensitive)?.lowerBound ?? hit.startIndex
                     let from = hit.index(start, offsetBy: -20, limitedBy: hit.startIndex) ?? hit.startIndex
                     snippet = String(hit[from...].prefix(120))
                 } else {

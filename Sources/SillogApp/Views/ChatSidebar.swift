@@ -33,27 +33,23 @@ struct ChatSidebar: View {
                 navRow(tr("검색"), "magnifyingglass", selected: isSearching, help: tr("검색 (⌘K)"), action: onSearch)
                 navRow(tr("프로젝트"), "folder", selected: isProjectPane) { pane = .projects }
                 navRow(tr("결과물"), "square.on.square", selected: pane == .results) { pane = .results }
-                navRow(tr("예약 작업"), "clock", selected: false, trailing: "\(chat.automations.count)", action: onSchedules)
+                navRow(tr("예약 작업"), "clock", selected: false, trailing: chat.automations.isEmpty ? nil : "\(chat.automations.count)", action: onSchedules)
             }
             .padding(.leading, 12).padding(.trailing, 12).padding(.top, 8)
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     if !chat.pinnedConversations.isEmpty {
                         VStack(alignment: .leading, spacing: 0) {
                             sectionHeader(tr("고정됨"), open: $pinnedOpen)
                             if pinnedOpen { ForEach(chat.pinnedConversations) { conversationRow($0) } }
                         }.onHover { hoverSection = $0 ? "pinned" : (hoverSection == "pinned" ? nil : hoverSection) }
                     }
-                    VStack(alignment: .leading, spacing: 0) {
-                        sectionHeader(tr("프로젝트"), open: $projectsOpen)
-                        if projectsOpen {
-                            ForEach(projects.projects) { project in projectRow(project) }
-                            if projects.projects.isEmpty {
-                                Text(tr("아직 프로젝트가 없어요")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
-                                    .padding(.horizontal, 10).padding(.vertical, 6)
-                            }
-                        }
-                    }.onHover { hoverSection = $0 ? tr("프로젝트") : nil }
+                    if !projects.projects.isEmpty {
+                        VStack(alignment: .leading, spacing: 0) {
+                            sectionHeader(tr("프로젝트"), open: $projectsOpen)
+                            if projectsOpen { ForEach(projects.projects) { project in projectRow(project) } }
+                        }.onHover { hoverSection = $0 ? tr("프로젝트") : nil }
+                    }
                     VStack(alignment: .leading, spacing: 0) {
                         sectionHeader(tr("최근 항목"), open: $recentOpen)
                         if recentOpen {

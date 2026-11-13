@@ -158,7 +158,7 @@ struct ChatView: View {
             case .chat:
                 HStack(spacing: 0) {
                     chatContent
-                    if let open = chat.messages.flatMap({ $0.versions.flatMap(\.artifacts) }).first(where: { $0.id == chat.openArtifactID }) {
+                    if let id = chat.openArtifactID, let open = chat.messages.flatMap({ $0.versions.flatMap(\.artifacts) }).first(where: { $0.id == id }) {
                         Rectangle().fill(Brand.line).frame(width: 1)
                         ArtifactPreview(artifact: open, versions: ChatArtifact.versions(of: open, in: chat.messages),
                                         onSelect: { chat.openArtifactID = $0.id }, onClose: { chat.openArtifactID = nil })

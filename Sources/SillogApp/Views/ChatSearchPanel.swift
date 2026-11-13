@@ -99,16 +99,17 @@ struct ChatSearchPanel: View {
         .onHover { if $0, let i = rows.firstIndex(where: { $0.id == hit.id }) { index = i } }
     }
 
-    /// 맞은 글자만 진하게 보인다.
+    /// 검색어 낱말마다 맞은 글자만 진하게 보인다.
     private func highlighted(_ text: String) -> AttributedString {
         var out = AttributedString(text)
         out.foregroundColor = Brand.gray
-        var from = out.startIndex
-        while !trimmed.isEmpty, from < out.endIndex,
-              let r = out[from...].range(of: trimmed, options: .caseInsensitive) {
-            out[r].foregroundColor = Brand.ink
-            out[r].font = Brand.font(.caption, .medium)
-            from = r.upperBound
+        for term in trimmed.split(whereSeparator: \.isWhitespace).map(String.init) {
+            var from = out.startIndex
+            while from < out.endIndex, let r = out[from...].range(of: term, options: .caseInsensitive) {
+                out[r].foregroundColor = Brand.ink
+                out[r].font = Brand.font(.caption, .medium)
+                from = r.upperBound
+            }
         }
         return out
     }

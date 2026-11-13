@@ -51,18 +51,60 @@ struct ChatMessageText: View, Equatable {
         return text
     }
 
+    /// 한 줄 글: 마크다운과 글줄 수식 (제목 줄에 쓴다)
+    static func inlineText(_ value: String) -> Text {
+        ChatMath.segments(value).reduce(Text("")) { $0 + piece($1) }
+    }
+
+    /// 글줄 조각: 글자는 마크다운, 글줄 수식은 기준선에 맞춘 이미지 (그리지 못하면 $원문$)
+    static func piece(_ segment: ChatMath.Segment) -> Text {
+        switch segment {
+        case .text(let text): return Text(inlineMarkdown(text))
+        case .inline(let latex):
+            guard let rendered = ChatMath.render(latex, display: false, fontSize: 14.5) else { return Text(verbatim: "$\(latex)$") }
+            return Text(Image(nsImage: rendered.image)).baselineOffset(-rendered.descent)
+        case .block(let latex): return Text(verbatim: latex)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(Array(ChatBlocks.parts(text).enumerated()), id: \.offset) { _, part in
+                switch part {
+                case .prose(let prose):
+                    ForEach(Array(prose.components(separatedBy: "\n\n").enumerated()), id: \.offset) { _, paragraph in
+                        ChatParagraph(text: paragraph, sources: sources, onSource: onSource).equatable()
+                    }
+                case .code(let language, let body, let closed):
+                    ChatCodeBlock(language: language, code: body, closed: closed)
+                }
+            }
+        }.textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// One prose paragraph; equatable so streaming re-parses only the paragraph that changed.
+private struct ChatParagraph: View, Equatable {
+    let text: String
+    let sources: [ChatSource]
+    let onSource: (ChatSource) -> Void
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.text == rhs.text && lhs.sources.map(\.id) == rhs.sources.map(\.id)
+    }
+
     /// 문단: 수식이 없으면 그대로, 있으면 글줄(글자 + 글줄 수식 이미지)과 블록 수식을 차례로.
     /// 수식은 마크다운보다 먼저 떼어 낸다 (마크다운이 \[ 의 \ 와 행렬 줄바꿈 \\ 를 지워 LaTeX 가 깨진다)
     @ViewBuilder private func paragraphView(_ value: String, color: Color = Brand.tabText, lineSpacing: CGFloat = 9) -> some View {
         let segments = ChatMath.segments(value)
         if segments == [.text(value)] {
-            bodyText(Text(Self.inlineMarkdown(value)), color: color, lineSpacing: lineSpacing)
+            bodyText(Text(ChatMessageText.inlineMarkdown(value)), color: color, lineSpacing: lineSpacing)
         } else {
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(Array(ChatMath.lines(segments).enumerated()), id: \.offset) { _, line in
                     switch line {
                     case .block(let latex): ChatMathBlock(latex: latex)
-                    case .run(let run): bodyText(run.reduce(Text("")) { $0 + Self.piece($1) }, color: color, lineSpacing: lineSpacing)
+                    case .run(let run): bodyText(run.reduce(Text("")) { $0 + ChatMessageText.piece($1) }, color: color, lineSpacing: lineSpacing)
                     }
                 }
             }
@@ -83,7 +125,7 @@ struct ChatMessageText: View, Equatable {
                 ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                     switch block {
                     case .heading(let level, let text):
-                        Self.inlineText(text).font((level == 1 ? Brand.font(.sectionTitle, .semibold) : level == 2 ? Brand.font(.sectionTitle, .semibold) : Brand.font(.rowTitle, .semibold))).foregroundStyle(Brand.ink)
+                        ChatMessageText.inlineText(text).font((level == 1 ? Brand.font(.sectionTitle, .semibold) : level == 2 ? Brand.font(.sectionTitle, .semibold) : Brand.font(.rowTitle, .semibold))).foregroundStyle(Brand.ink)
                             .padding(.top, 4)
                     case .paragraph(let text): paragraphView(text)
                     case .list(let items): listView(items)
@@ -117,46 +159,19 @@ struct ChatMessageText: View, Equatable {
         }
     }
 
-    /// 한 줄 글: 마크다운과 글줄 수식 (제목 줄에 쓴다)
-    static func inlineText(_ value: String) -> Text {
-        ChatMath.segments(value).reduce(Text("")) { $0 + piece($1) }
-    }
-
-    /// 글줄 조각: 글자는 마크다운, 글줄 수식은 기준선에 맞춘 이미지 (그리지 못하면 $원문$)
-    static func piece(_ segment: ChatMath.Segment) -> Text {
-        switch segment {
-        case .text(let text): return Text(inlineMarkdown(text))
-        case .inline(let latex):
-            guard let rendered = ChatMath.render(latex, display: false, fontSize: 14.5) else { return Text(verbatim: "$\(latex)$") }
-            return Text(Image(nsImage: rendered.image)).baselineOffset(-rendered.descent)
-        case .block(let latex): return Text(verbatim: latex)
-        }
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ForEach(Array(ChatBlocks.parts(text).enumerated()), id: \.offset) { _, part in
-                switch part {
-                case .prose(let prose):
-                    ForEach(Array(prose.components(separatedBy: "\n\n").enumerated()), id: \.offset) { _, paragraph in
-                        let (value, cited, missing) = Self.citations(in: paragraph, sources: sources)
-                        if !value.isEmpty || !cited.isEmpty || missing {
-                            VStack(alignment: .leading, spacing: 6) {
-                                if let rows = ChatMarkdownTable.rows(in: value) {
-                                    ChatMarkdownTableView(rows: rows)
-                                } else if !value.isEmpty {
-                                    blocksView(value)
-                                }
-                                if !cited.isEmpty { ChatCitationButton(sources: cited, onSource: onSource) }
-                                if missing { Text(tr("확인되지 않은 근거")).font(Brand.font(.tag)).foregroundStyle(Brand.gray) }
-                            }
-                        }
-                    }
-                case .code(let language, let body, let closed):
-                    ChatCodeBlock(language: language, code: body, closed: closed)
+        let (value, cited, missing) = ChatMessageText.citations(in: text, sources: sources)
+        if !value.isEmpty || !cited.isEmpty || missing {
+            VStack(alignment: .leading, spacing: 6) {
+                if let rows = ChatMarkdownTable.rows(in: value) {
+                    ChatMarkdownTableView(rows: rows)
+                } else if !value.isEmpty {
+                    blocksView(value)
                 }
+                if !cited.isEmpty { ChatCitationButton(sources: cited, onSource: onSource) }
+                if missing { Text(tr("확인되지 않은 근거")).font(Brand.font(.tag)).foregroundStyle(Brand.gray) }
             }
-        }.textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 

@@ -19,6 +19,26 @@ private struct StubChatModel: ChatModelClient {
     }
 }
 
+/// Records what the last answer was sent, fails run number `failRun`, and answers "read <id>" by reading that library item.
+private final class ScriptedChatModel: ChatModelClient, @unchecked Sendable {
+    var modelName: String { "scripted" }
+    var failRun = 0
+    private let lock = NSLock()
+    private var runs = 0, lastSent: [ChatModelMessage] = []
+    var sent: [ChatModelMessage] { lock.withLock { lastSent } }
+    func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec],
+                 onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply {
+        if system.hasPrefix("Write only a short") { return .init(text: "제목") }
+        if messages.last?.role == "tool" { return .init(text: "답") }
+        let run: Int = lock.withLock { runs += 1; lastSent = messages; return runs }
+        if run == failRun { throw LLMError.backend("down") }
+        if let question = messages.last?.text, question.hasPrefix("read ") {
+            return .init(text: "", calls: [.init(id: "c1", name: "read_library", arguments: #"{"id":"\#(question.dropFirst(5))"}"#)])
+        }
+        return .init(text: "답")
+    }
+}
+
 @MainActor
 final class ChatStateTests: XCTestCase {
     override func setUp() {
@@ -27,10 +47,10 @@ final class ChatStateTests: XCTestCase {
     }
     override func tearDown() { L10n.current = .ko }
 
-    private func chatState(title: String? = "제목") throws -> ChatState {
-        let model = StubChatModel(title: title)
+    private func chatState(title: String? = "제목", model: (any ChatModelClient)? = nil, db: SillogDatabase? = nil) throws -> ChatState {
+        let model = model ?? StubChatModel(title: title)
         let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
-        return ChatState(db: try SillogDatabase.inMemory(), makeClient: { .model(model) }, makeProjectClient: { offline })
+        return ChatState(db: try db ?? SillogDatabase.inMemory(), makeClient: { .model(model) }, makeProjectClient: { offline })
     }
 
     private func waitUntil(_ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
@@ -151,6 +171,55 @@ final class ChatStateTests: XCTestCase {
         XCTAssertTrue(chat.resend(from: chat.messages[0], text: "edited"))
         try await waitUntil { !chat.running }
         XCTAssertNil(chat.messages[1].previous, "an edited question starts over")
+    }
+
+    func testRegeneratingSendsTheStoredHistory() async throws {
+        let model = ScriptedChatModel(), db = try SillogDatabase.inMemory()
+        let chat = try chatState(model: model, db: db)
+        _ = try await finishedChat(chat, "q1")
+        chat.draft = "q2"; XCTAssertTrue(chat.send())
+        try await waitUntil { !chat.running }
+        XCTAssertTrue(chat.resend(from: chat.messages[3]))
+        try await waitUntil { !chat.running }
+        let stored = try ChatStore(db).messages(chat.current.id).dropLast()
+        XCTAssertEqual(model.sent.map(\.text), stored.map(\.text))
+        XCTAssertEqual(model.sent.map(\.role), stored.map(\.role))
+    }
+
+    func testRegeneratingKeepsAtMostTenVersionsAndNoFailedOnes() async throws {
+        let model = ScriptedChatModel(), db = try SillogDatabase.inMemory(); model.failRun = 4
+        let chat = try chatState(model: model, db: db)
+        _ = try await finishedChat(chat, "q")
+        for _ in 0..<12 {
+            XCTAssertTrue(chat.resend(from: chat.messages.last!))
+            try await waitUntil { !chat.running }
+        }
+        let versions = chat.messages.last!.versions
+        XCTAssertEqual(versions.count, 10)
+        XCTAssertFalse(versions.contains { $0.status == "failed" })
+        XCTAssertEqual(try ChatStore(db).messages(chat.current.id).last?.versions.count, 10)
+    }
+
+    func testToolSourcesAreSavedWithTheAnswer() async throws {
+        let db = try SillogDatabase.inMemory()
+        let chat = try chatState(model: ScriptedChatModel(), db: db)
+        _ = try await finishedChat(chat, "a")
+        let item = try chat.library.store.saveResponse(chat.messages[1], title: "note")
+        chat.attachLibraryItem(item)
+        chat.draft = "read \(item.id)"; XCTAssertTrue(chat.send())
+        try await waitUntil { !chat.running }
+        let saved = try XCTUnwrap(ChatStore(db).messages(chat.current.id).last)
+        XCTAssertEqual(saved.status, "complete")
+        XCTAssertTrue(saved.sources.contains { $0.id == "library:\(item.id):1" }, "the tool source survives without its own save")
+    }
+
+    func testCollectingOldArtifactsDoesNotBlockSending() async throws {
+        let chat = try chatState()
+        chat.library.collectExisting()
+        XCTAssertFalse(chat.library.busy)
+        chat.draft = "a"
+        XCTAssertTrue(chat.send())
+        try await waitUntil { !chat.running }
     }
 
     func testAttachmentsFollowTheChatOnScreen() async throws {

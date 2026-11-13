@@ -319,7 +319,9 @@ final class ChatState: ObservableObject {
         let request = (text ?? question.text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !request.isEmpty else { return false }
         // Only a regenerate keeps the old answer; an edited question makes it answer something else.
-        let earlier = text == nil && replaced.count > 1 && replaced[1].role == "assistant" ? replaced[1].versions : nil
+        // Failed runs are dropped and only the last 9 kept so the payload and the version picker stay small.
+        let kept = text == nil && replaced.count > 1 && replaced[1].role == "assistant" ? Array(replaced[1].versions.filter { $0.status != "failed" }.suffix(9)) : []
+        let earlier = kept.isEmpty ? nil : kept
         return begin(request, conversation: current, automationID: nil, replacing: replaced, earlierAnswers: earlier)
     }
 
@@ -364,10 +366,8 @@ final class ChatState: ObservableObject {
     }
 
     /// 제목과 본문에서 찾는다. 빈 글이면 [].
-    /// DB 조회는 메인 스레드 밖에서 돈다.
     func search(_ query: String) async -> [ChatSearchHit] {
-        let store = store
-        do { return try await Task.detached { try store.searchConversations(query) }.value }
+        do { return try await store.searchConversations(query) }
         catch { self.error = error.localizedDescription; return [] }
     }
 
@@ -469,7 +469,7 @@ final class ChatState: ObservableObject {
             }
             conversation.projectID = scope.projectID
             let replacedIDs = Set(replacing.map(\.id))
-            let previous = try store.messages(conversation.id).filter { !replacedIDs.contains($0.id) }
+            let previous = (current.id == conversation.id ? messages : try store.messages(conversation.id)).filter { !replacedIDs.contains($0.id) }
             let remoteConnectors = ConnectorAuth.remoteIDs()
             // Retried on later turns too, so a stopped or failed first answer still gets a title.
             let needsTitle = automationID == nil && conversation.title == ChatConversation.defaultTitle
@@ -589,7 +589,8 @@ final class ChatState: ObservableObject {
                 message.trace?[index].endedAt = Date().timeIntervalSince1970
             }
         case .source(let source):
-            message.sources.removeAll { $0.id == source.id }; message.sources.append(source)
+            // The following stepFinished, textReset or final save writes it; saving here rewrote the row per source.
+            message.sources.removeAll { $0.id == source.id }; message.sources.append(source); checkpoint = false
         case .artifact(let artifact):
             message.artifacts.append(artifact)
             if message.conversationID == current.id { openArtifactID = artifact.id }

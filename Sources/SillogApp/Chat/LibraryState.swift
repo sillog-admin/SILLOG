@@ -43,9 +43,12 @@ final class LibraryState: ObservableObject {
         return limit.map { Array(all.prefix($0)) } ?? all
     }
 
+    // Separate from busy so the startup sweep doesn't refuse sending a chat.
+    private var collecting = false
+
     func collectExisting() {
-        guard !busy else { return }
-        busy = true
+        guard !collecting else { return }
+        collecting = true
         let db = db, store = store
         Task {
             do {
@@ -54,7 +57,7 @@ final class LibraryState: ObservableObject {
                 }.value
                 changed()
             } catch { self.error = tr("기존 결과물 보관 실패: \(error.localizedDescription)") }
-            busy = false
+            collecting = false
         }
     }
 
@@ -124,7 +127,11 @@ final class LibraryState: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
     func collect(_ message: ConversationMessage) {
-        do { try store.collectArtifacts([message]); changed() } catch { self.error = tr("결과물 보관 실패: \(error.localizedDescription)") }
+        let store = store
+        Task {
+            do { try await Task.detached { try store.collectArtifacts([message]) }.value; changed() }
+            catch { self.error = tr("결과물 보관 실패: \(error.localizedDescription)") }
+        }
     }
     func export(_ item: ChatLibraryItem) {
         let panel = NSSavePanel(); panel.nameFieldStringValue = item.filename
