@@ -360,7 +360,26 @@ enum SnapshotCatalog {
         return [Snapshot(name: "CH-01", size: window, view: AnyView(MainWindow().environmentObject(state))),
                 Snapshot(name: "CH-SKILL-PINS", size: nil, view: AnyView(PinnedSkillPicker(chat: state.chat!, onManage: {}).background(.white))),
                 Snapshot(name: "CH-13", size: window, view: AnyView(MainWindow().environmentObject(tab(.connectors)))),
-                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus + artifactPanel + longQuestion + failedAnswer + regenerated + attachedImage
+                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus + artifactPanel + longQuestion + failedAnswer + regenerated + attachedImage + scheduledRun
+    }
+
+    /// A scheduled run answering in another chat: its name in the banner, with Move and Stop
+    private static var scheduledRun: [Snapshot] {
+        // The proposal's memberwise init is internal to SillogCore.
+        guard let database = try? SillogDatabase.inMemory(),
+              let proposal = try? JSONDecoder().decode(ChatAutomationProposal.self, from: Data(#"{"title":"주간 업무 정리","prompt":"p","intervalHours":24}"#.utf8))
+        else { return [] }
+        let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
+        let chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        let id = chat.current.id, other = ChatConversation()
+        var job = ChatAutomation(proposal: proposal, conversation: other)
+        job.lastConversationID = other.id
+        chat.automations = [job]
+        chat.activeMessage = ConversationMessage(conversationID: other.id, role: "assistant", text: "", status: "running")
+        chat.messages = [.init(conversationID: id, role: "user", text: "이번 주에 한 일을 정리해줘"),
+                         .init(conversationID: id, role: "assistant", text: "## 이번 주\n\n- `ChatView` 정리")]
+        let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })
+        return [Snapshot(name: "CH-scheduled-running", size: window, view: AnyView(MainWindow().environmentObject(state)))]
     }
 
     /// A regenerated answer: earlier answers behind a 2/2 stepper, the model that wrote it, and the model menu next to regenerate

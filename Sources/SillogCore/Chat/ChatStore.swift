@@ -604,7 +604,8 @@ public struct ChatStore: Sendable {
                 WHERE json_extract(payload, '$.status') = 'running'
                 """)
         }
-        for var job in try automations() where job.lastStatus == "실행 중" {
+        // Rows saved before statuses were stored as keys hold the English text.
+        for var job in try automations() where ["실행 중", L10n.english["실행 중"]].contains(job.lastStatus) {
             job.lastStatus = "앱 종료로 중단됨"; try save(job)
         }
     }

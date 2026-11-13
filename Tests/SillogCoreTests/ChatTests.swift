@@ -43,6 +43,15 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(try EventStore(db).chatMessages(from: 0, to: Date().timeIntervalSince1970).count, 0)
     }
 
+    func testARunStoredInEnglishIsMarkedInterrupted() throws {
+        let db = try SillogDatabase.inMemory(), store = ChatStore(db)
+        var job = ChatAutomation(proposal: .init(title: "t", prompt: "p", intervalHours: 1), conversation: ChatConversation(), now: 0)
+        job.lastStatus = "Running"
+        try store.save(job)
+        try store.recoverInterruptedRuns()
+        XCTAssertEqual(try store.automations().first?.lastStatus, "앱 종료로 중단됨")
+    }
+
     /// Args: 없음.
     /// Returns: 없음. 짧은 한국어·FTS 검색·연결 노드 조회를 확인한다.
     /// Raises: 테스트 DB 오류.

@@ -215,9 +215,8 @@ final class ChatState: ObservableObject {
         try store.deleteConversations(Array(ids))
         try reload()
         projects.reload()
-        if ids.contains(current.id) {
-            if let next = conversations.first { select(next) } else { newConversation() }
-        }
+        if ids.contains(current.id) { newConversation() }
+        for id in ids { drafts[id] = nil }
     }
 
     func moveConversations(_ ids: Set<String>, to projectID: String?) throws {
@@ -507,10 +506,13 @@ final class ChatState: ObservableObject {
                                   remoteConnectors: remoteConnectors)
             let runner = ChatRunner(backend: backend, tools: tools)
             let selectedCatalog = skills
-            activeMessage = answer; error = nil; library.chatImportError = nil
+            activeMessage = answer
+            // A scheduled run starts in the background and must not clear an error the user is reading.
+            if automationID == nil { error = nil; library.chatImportError = nil }
             // The turn is saved; a list refresh failure must not leave it running without a task.
             do { try reload() } catch { self.error = error.localizedDescription }
             if current.id == conversation.id { current = conversation; messages = previous + [user, answer] }
+            if let id = openArtifactID, !messages.contains(where: { $0.versions.contains { $0.artifacts.contains { $0.id == id } } }) { openArtifactID = nil }
             if !replacing.isEmpty { library.reload() }    // startTurn unlinked the replaced answers' artifacts
             if automationID != nil {
                 // Nobody is watching a scheduled run to stop it, and a hung one would block every later job.
@@ -552,16 +554,21 @@ final class ChatState: ObservableObject {
                     if succeeded { self.library.collect(message) }
                 }
                 if let automationID, var job = self.automations.first(where: { $0.id == automationID }) {
-                    job.lastStatus = succeeded ? tr("완료") : tr("실패 또는 중단 — 다음 예약에 실행")
+                    job.lastStatus = succeeded ? "완료" : "실패 또는 중단 — 다음 예약에 실행"
                     do { try self.store.save(job) } catch { self.error = error.localizedDescription }
                 }
                 self.activeMessage = nil; self.runTask = nil
                 do { try self.reload() } catch { self.error = error.localizedDescription }
                 if needsTitle, !Task.isCancelled {
+                    let firstText = previous.first { $0.role == "user" }?.text ?? text
                     do {
-                        let title = try await backend.conversationTitle(for: previous.first { $0.role == "user" }?.text ?? text)
+                        let title = try await backend.conversationTitle(for: firstText)
                         self.applyTitle(title, to: conversation.id, replacing: ChatConversation.defaultTitle)
-                    } catch { AppLog.write("chat title failed: \(error.localizedDescription)") }
+                    } catch {
+                        AppLog.write("chat title failed: \(error.localizedDescription)")
+                        // updateOldTitles retries chats titled with this prefix on a later launch.
+                        self.applyTitle(String(firstText.prefix(48)), to: conversation.id, replacing: ChatConversation.defaultTitle)
+                    }
                 }
             }
             return true
@@ -684,11 +691,11 @@ final class ChatState: ObservableObject {
         conversation.title = tr("예약 · \(job.title)"); conversation.scope = job.scope; conversation.skillIDs = job.skillIDs
         conversation.projectID = job.scope.projectID
         job.nextRun = now + Double(job.intervalHours) * 3600
-        job.lastStatus = tr("실행 중"); job.lastConversationID = conversation.id
+        job.lastStatus = "실행 중"; job.lastConversationID = conversation.id
         do {
             try store.save(job); try reload()
             if !begin(job.prompt, conversation: conversation, automationID: job.id) {
-                job.lastStatus = tr("시작 실패 — 설정을 확인하세요"); try store.save(job); try reload()
+                job.lastStatus = "시작 실패 — 설정을 확인하세요"; try store.save(job); try reload()
             }
         } catch { self.error = error.localizedDescription }
     }

@@ -101,11 +101,33 @@ final class ChatStateTests: XCTestCase {
         try await waitUntil { chat.current.title == "X" }
     }
 
-    func testAFailedTitleLeavesNoError() async throws {
+    func testAFailedTitleLeavesNoErrorAndTitlesFromTheQuestion() async throws {
         let chat = try chatState(title: nil)
-        _ = try await finishedChat(chat, "hello")
-        try await Task.sleep(nanoseconds: 300_000_000)
+        let question = String(repeating: "질문", count: 30)
+        let conversation = try await finishedChat(chat, question)
+        try await waitUntil { chat.conversations.first { $0.id == conversation.id }?.title == String(question.prefix(48)) }
         XCTAssertNil(chat.error)
+    }
+
+    func testDeletingTheOpenChatOpensANewOne() async throws {
+        let chat = try chatState()
+        let other = try await finishedChat(chat, "a")
+        let open = try await finishedChat(chat, "b")
+        try chat.deleteConversations([open.id])
+        XCTAssertTrue(chat.messages.isEmpty)
+        XCTAssertNotEqual(chat.current.id, other.id)
+        XCTAssertEqual(chat.conversations.map(\.id), [other.id])
+    }
+
+    func testEditingTheQuestionClosesItsAnswersArtifact() async throws {
+        let chat = try chatState()
+        _ = try await finishedChat(chat, "q")
+        let artifact = ChatArtifact(title: "t", format: "markdown", content: "x")
+        chat.messages[1].artifacts = [artifact]
+        chat.openArtifactID = artifact.id
+        XCTAssertTrue(chat.resend(from: chat.messages[0], text: "edited"))
+        XCTAssertNil(chat.openArtifactID)
+        try await waitUntil { !chat.running }
     }
 
     func testDraftsStayWithTheirChat() async throws {

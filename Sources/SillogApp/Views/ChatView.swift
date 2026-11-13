@@ -212,10 +212,16 @@ struct ChatView: View {
                 // CH-14: 본문 600 열 안, 머리에서 떨어진 47 높이 띠, 아래 줄 하나, '이동'은 글자 링크
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text(tr("다른 대화에서 작업 중")).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
+                    if let job = chat.automations.first(where: { $0.lastConversationID == active.conversationID }) {
+                        Text(tr("예약 작업 ‘\(job.title)’ 실행 중")).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
+                    } else {
+                        Text(tr("다른 대화에서 작업 중")).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
+                    }
                     Button {
                         if let item = chat.conversations.first(where: { $0.id == active.conversationID }) { chat.select(item) }
                     } label: { Text(tr("이동")).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink) }
+                        .buttonStyle(.plain)
+                    Button { chat.cancel() } label: { Text(tr("중단")).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink) }
                         .buttonStyle(.plain)
                     Spacer()
                 }.padding(.horizontal, 28).frame(height: 47)
@@ -1049,7 +1055,7 @@ private struct ChatSchedulesView: View {
                                     Button { selectedID = job.id } label: {
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(job.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
-                                            Text(tr("\(job.intervalHours)시간마다, \(job.lastStatus)"))
+                                            Text(tr("\(job.intervalHours)시간마다, \(L10n.tr(key: job.lastStatus))"))
                                                 .font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
                                         }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                                     }.buttonStyle(.plain)
@@ -1079,7 +1085,7 @@ private struct ChatSchedulesView: View {
                                 ChatInfoRow(label: tr("커넥터"), value: (job.scope.connectors + (job.scope.useGitHub ? ["GitHub"] : [])).joined(separator: ", "))
                                 if !job.scope.paths.isEmpty { ChatInfoRow(label: tr("연결한 파일"), value: job.scope.paths.joined(separator: "\n")) }
                                 ForEach(chat.library.items.filter { job.scope.libraryIDs.contains($0.id) }) { ChatInfoRow(label: tr("보관 자료"), value: $0.title) }
-                                ChatInfoRow(label: tr("최근 상태"), value: job.lastStatus)
+                                ChatInfoRow(label: tr("최근 상태"), value: L10n.tr(key: job.lastStatus))
                                 if job.enabled { ChatInfoRow(label: tr("다음 실행"), value: Date(timeIntervalSince1970: job.nextRun).formatted()) }
                                 if let id = job.lastConversationID, let conversation = chat.conversations.first(where: { $0.id == id }) {
                                     Button(tr("최근 실행 보기")) { chat.select(conversation); dismiss() }.buttonStyle(ChatDialogButtonStyle()).padding(.top, 6)
