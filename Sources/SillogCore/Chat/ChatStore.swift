@@ -62,6 +62,14 @@ public struct ChatScope: Codable, Equatable, Sendable {
         for file in files where !driveFiles.contains(where: { $0.id == file.id }) { driveFiles.append(file) }
         if !driveFiles.isEmpty && !connectors.contains("drive") { connectors.append("drive") }
     }
+
+    /// Args: shouldRemove picks the Drive files to drop from this chat.
+    /// Returns: nothing. Turns the Drive connector off once no picks are left, since chat Drive tools only reach picks.
+    /// Raises: none.
+    public mutating func removeDriveFiles(where shouldRemove: (ChatDriveFile) -> Bool) {
+        driveFiles.removeAll(where: shouldRemove)
+        if driveFiles.isEmpty { connectors.removeAll { $0 == "drive" } }
+    }
 }
 
 public struct ChatSource: Codable, Identifiable, Equatable, Sendable {

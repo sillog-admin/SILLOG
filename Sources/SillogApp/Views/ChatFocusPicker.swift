@@ -10,7 +10,7 @@ struct ChatFocusButton: View {
         let scope = chat.current.scope
         Button { picking = true } label: {
             HStack(spacing: 4) {
-                Image(systemName: "clock.arrow.circlepath").font(.system(size: 10))
+                Image(systemName: "text.book.closed").font(.system(size: 10))
                 Text(Self.label(scope, choices: chat.focusChoices)).font(Brand.font(.caption)).lineLimit(1)
                 Image(systemName: "chevron.down").font(.system(size: 8))
             }

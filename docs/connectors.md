@@ -22,7 +22,7 @@ Gmail 커넥터는 없습니다. `gmail.readonly`는 제한 권한이라 매년 
 - Drive·Calendar·Google Picker API를 사용할 수 있도록 프로젝트를 설정합니다. Drive는 `drive.file`(사용자가 고른 파일만 읽음, 비민감 권한), 캘린더(캘린더 탭의 [구글 계정 연결])는 캘린더 목록 읽기(`calendar.calendarlist.readonly`)와 일정 읽기·쓰기(`calendar.events`)를 요청합니다. 캘린더 권한은 구글이 민감한 권한으로 분류해 따로 심사를 받아야 합니다.
 - 빌드할 때 `SILLOG_GOOGLE_CLIENT_ID`를 설정합니다. 데스크톱 앱 클라이언트는 토큰 교환에 클라이언트 시크릿도 요구하므로 `SILLOG_GOOGLE_CLIENT_SECRET`도 함께 넣습니다(설치형 앱의 시크릿은 비밀로 취급되지 않습니다).
 - 캘린더 탭에서 연결하면 맥 캘린더에 이미 같은 구글 계정이 있을 때 같은 이름의 캘린더는 맥 쪽만 보여 줍니다. [등록할 캘린더]에서 구글 캘린더를 고르면 [등록]이 구글 API로 바로 넣습니다.
-- Drive는 커넥터 화면에서 Google 계정만 연결합니다. 파일은 채팅의 + 메뉴 **Google Drive에서 선택**으로 대화마다 고르고, 기본 브라우저에 Google Picker가 열립니다. Google Picker는 앱 안 웹뷰에서 열 수 없습니다. 고른 파일은 그 대화에 칩으로 붙고, 채팅의 Drive 검색은 그 대화에 고른 파일 안에서만 찾습니다. Picker에는 브라우저용 API 키가 필요하므로 Cloud Console에서 API 키를 만들고(사용 API를 Google Picker API로 제한, 웹사이트 제한을 쓰면 `http://127.0.0.1:8765/*` 허용) 빌드할 때 `SILLOG_GOOGLE_API_KEY`로 넣습니다. Picker의 앱 ID(프로젝트 번호)는 클라이언트 ID 앞부분에서 읽습니다.
+- Drive는 커넥터 화면에서 Google 계정만 연결합니다. 파일은 채팅의 + 메뉴 **Google Drive에서 선택**으로 대화마다 고르고, 기본 브라우저에 Google Picker가 열립니다. Google Picker는 앱 안 웹뷰에서 열 수 없습니다. 고른 파일은 그 대화에 칩으로 붙고, 채팅의 Drive 검색과 읽기는 그 대화에 고른 파일만 다룹니다. 마지막 칩을 빼거나 + 메뉴의 커넥터에서 Drive를 끄면 고른 파일도 함께 빠집니다. Picker에는 브라우저용 API 키가 필요하므로 Cloud Console에서 API 키를 만들고(사용 API를 Google Picker API로 제한, 웹사이트 제한을 쓰면 `http://127.0.0.1:8765/*` 허용) 빌드할 때 `SILLOG_GOOGLE_API_KEY`로 넣습니다. Picker의 앱 ID(프로젝트 번호)는 클라이언트 ID 앞부분에서 읽습니다.
 - 로컬 콜백은 `http://127.0.0.1:8765/callback`입니다. 승인 중 앱이 실행되고 포트를 사용할 수 있어야 합니다.
 
 게시 상태 (2026-11-14):

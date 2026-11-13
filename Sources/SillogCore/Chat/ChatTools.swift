@@ -76,7 +76,7 @@ public struct ChatTools: Sendable {
         }
         if scope.connectors.contains("drive") {
             tools.append(Self.spec("drive_search", "Google Drive 커넥터에서 사용자가 이 대화에 고른 파일을 이름으로 검색한다. 찾는 파일이 없으면 + 메뉴의 'Google Drive에서 선택'으로 추가하라고 안내한다.", ["query": "파일 이름 검색어. 고른 파일 전체면 빈 문자열"]))
-            tools.append(Self.spec("drive_read", "Google Drive 커넥터에서 텍스트 또는 Google 문서의 내용을 읽는다.", ["id": "파일 ID"]))
+            tools.append(Self.spec("drive_read", "Google Drive 커넥터에서 이 대화에 고른 텍스트 파일 또는 Google 문서의 내용을 읽는다.", ["id": "파일 ID"]))
         }
         if scope.connectors.contains("notion") && !remoteConnectors.contains("notion") {
             tools.append(Self.spec("notion_search", "Notion 커넥터에서 페이지 제목을 검색한다.", ["query": "페이지 제목 검색어"]))
@@ -181,8 +181,9 @@ public struct ChatTools: Sendable {
             guard let repository = try await githubSearch("").sources.first else { return false }
             sources = try await github(repository: repository.title, path: "", pull: "").sources
         case "drive":
-            guard let file = try await driveSearch("", onlyReadable: true).sources.first else { return false }
-            sources = try await driveRead(file.id).sources
+            // drive.file sees nothing until a file is picked in a chat, so a successful empty list still proves the connection.
+            guard let file = try await driveSearch("", onlyReadable: true).sources.first else { return true }
+            sources = try await driveRead(file.id, anyPicked: true).sources
         case "notion":
             guard let page = try await notionSearch("", onlyPages: true).sources.first else { return false }
             sources = try await notionRead(page.id).sources

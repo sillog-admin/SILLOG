@@ -21,7 +21,7 @@ public enum DrivePicker {
         gapi.load('picker', () => {
           const view = new google.picker.DocsView().setIncludeFolders(true).setMimeTypes(\(js(readableTypes.joined(separator: ","))));
           new google.picker.PickerBuilder().addView(view)
-            .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+            .enableFeature(google.picker.Feature.MULTISELECT_ENABLED).setMaxItems(50)
             .setOAuthToken(\(js(token))).setDeveloperKey(\(js(apiKey))).setAppId(\(js(appID))).setOrigin(location.origin)
             .setCallback(d => {
               if (d.action === google.picker.Action.PICKED) location.href = \(js(done)) + encodeURIComponent(d.docs.map(x => x.id).join(','));
@@ -33,21 +33,24 @@ public enum DrivePicker {
     }
 
     /// Args: ids are picked Drive file IDs, token a Drive access token, session the HTTP session.
-    /// Returns: each file's name, type and link; malformed IDs are skipped.
-    /// Raises: HTTP or network errors from the Drive API.
+    /// Returns: each file's name, type and link; malformed IDs and files whose details fail are skipped.
+    /// Raises: the last HTTP error when no file's details could be read, or network errors from the Drive API.
     public static func files(ids: [String], token: String, session: URLSession = ConnectorHTTP.session) async throws -> [ChatDriveFile] {
         var files: [ChatDriveFile] = []
+        var failedStatus: Int?
         for id in ids where id.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil {
             var request = URLRequest(url: URL(string: "https://www.googleapis.com/drive/v3/files/\(id)?fields=id,name,mimeType,webViewLink")!)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             let (data, response) = try await session.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-                throw ChatToolError.unavailable(tr("Drive 파일 정보를 읽지 못했습니다 (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0))."))
+                failedStatus = (response as? HTTPURLResponse)?.statusCode ?? 0
+                continue
             }
             let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
             files.append(ChatDriveFile(id: id, name: json["name"] as? String ?? id, mimeType: json["mimeType"] as? String ?? "",
                                        url: json["webViewLink"] as? String ?? "https://drive.google.com/open?id=\(id)"))
         }
+        if files.isEmpty, let failedStatus { throw ChatToolError.unavailable(tr("Drive 파일 정보를 읽지 못했습니다 (HTTP \(failedStatus)).")) }
         return files
     }
 
