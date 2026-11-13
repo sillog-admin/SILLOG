@@ -618,6 +618,9 @@ struct ChatView: View {
                     }.padding(14).background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 6))
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
                 }
+                if message.status == "running" && versions.count > 1 {
+                    versionStepper(message, shownIndex: shownIndex, count: versions.count)
+                }
                 if message.status != "running" {
                     let showsActions = hoveredMessageID == message.id || focusedActions == message.id || chat.messages.last?.id == message.id
                     HStack(spacing: 2) {
@@ -627,14 +630,7 @@ struct ChatView: View {
                                 ChatPillButton(title: tr("설정 열기"), systemName: "gearshape") { openSettings() }
                             }
                         }
-                        if versions.count > 1 {
-                            HStack(spacing: 2) {
-                                versionButton("chevron.left", tr("이전 답변"), message: message, to: shownIndex - 1, count: versions.count)
-                                Text("\(shownIndex + 1)/\(versions.count)").font(Brand.font(.caption)).foregroundStyle(Brand.tabText).monospacedDigit()
-                                    .accessibilityLabel(tr("버전 \(shownIndex + 1)/\(versions.count)"))
-                                versionButton("chevron.right", tr("다음 답변"), message: message, to: shownIndex + 1, count: versions.count)
-                            }
-                        }
+                        if versions.count > 1 { versionStepper(message, shownIndex: shownIndex, count: versions.count) }
                         if !shown.sources.isEmpty {
                             Button {
                                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
@@ -684,7 +680,21 @@ struct ChatView: View {
                             Button { source = item } label: {
                                 HStack(spacing: 10) {
                                     Text("\(index + 1)").font(Brand.jost(10)).foregroundStyle(Brand.gray).frame(width: 14, alignment: .trailing)
-                                    Text(ChatRunner.displayTitle(item.title)).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
+                                    let title = Text(ChatRunner.displayTitle(item.title)).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
+                                    // Same-titled sources, like several records of one chat, differ only by their excerpt.
+                                    if let line = item.excerpt.split(whereSeparator: \.isNewline).lazy.map({ $0.trimmingCharacters(in: .whitespaces) }).first(where: { !$0.isEmpty }) {
+                                        // Drop the excerpt when the title leaves it too little room to read.
+                                        ViewThatFits(in: .horizontal) {
+                                            HStack(spacing: 10) {
+                                                title.layoutPriority(1)
+                                                Text(line).font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
+                                                    .frame(minWidth: 60, idealWidth: 60, alignment: .leading)
+                                            }
+                                            title
+                                        }.layoutPriority(1)
+                                    } else {
+                                        title
+                                    }
                                     Spacer(minLength: 8)
                                     Image(systemName: "arrow.up.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
                                 }.frame(height: 28).contentShape(Rectangle())
@@ -745,6 +755,15 @@ struct ChatView: View {
     static func write(_ text: String, html: String? = nil, to board: NSPasteboard = .general) {
         board.clearContents(); board.setString(text, forType: .string)
         if let html { board.setString(html, forType: .html) }
+    }
+
+    private func versionStepper(_ message: ConversationMessage, shownIndex: Int, count: Int) -> some View {
+        HStack(spacing: 2) {
+            versionButton("chevron.left", tr("이전 답변"), message: message, to: shownIndex - 1, count: count)
+            Text("\(shownIndex + 1)/\(count)").font(Brand.font(.caption)).foregroundStyle(Brand.tabText).monospacedDigit()
+                .accessibilityLabel(tr("버전 \(shownIndex + 1)/\(count)"))
+            versionButton("chevron.right", tr("다음 답변"), message: message, to: shownIndex + 1, count: count)
+        }
     }
 
     private func versionButton(_ symbol: String, _ label: String, message: ConversationMessage, to index: Int, count: Int) -> some View {

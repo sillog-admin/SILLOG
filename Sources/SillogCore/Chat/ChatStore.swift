@@ -179,6 +179,8 @@ public struct ConversationMessage: Codable, Identifiable, Sendable {
     public var approvedAutomationID: String?
     /// The chat model that wrote this answer; nil in messages saved before it existed.
     public var model: String?
+    /// When the run ended; nil while running and in messages saved before it existed.
+    public var completedAt: Double?
     /// Earlier answers to the same question, oldest first, kept when the answer was regenerated.
     public var previous: [ConversationMessage]?
 

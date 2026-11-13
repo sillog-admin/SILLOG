@@ -28,7 +28,7 @@ struct ChatComposer: View {
     @State private var shortcutIndex = 0
     @State private var shortcutMenuHeight: CGFloat = 0
     @State private var shortcutCaret: NSRange?
-    @State private var connectedConnectors: Set<String> = []
+    @State private var connectedConnectors: Set<String>?
     @State private var dropTargeted = false
     @State private var plusHover = false
     @State private var previewItem: ChatLibraryItem?
@@ -152,9 +152,12 @@ struct ChatComposer: View {
         let choices: [ShortcutChoice]
         switch shortcut.kind {
         case .skill: choices = chat.skills.map { .init(id: $0.id, name: $0.title, icon: $0.icon) }
-        case .connector: choices = ConnectorEntry.all.map {
-            .init(id: $0.id, name: $0.name, icon: $0.icon, connected: connectedConnectors.contains($0.id))
-        }
+        case .connector:
+            // Wait for the Keychain read, or connected rows act unconnected and reorder under the cursor.
+            guard let connectedConnectors else { return [] }
+            choices = ConnectorEntry.all.map {
+                .init(id: $0.id, name: $0.name, icon: $0.icon, connected: connectedConnectors.contains($0.id))
+            }
         }
         let matching = choices.filter {
             shortcut.query.isEmpty || $0.name.localizedCaseInsensitiveContains(shortcut.query) || $0.id.localizedCaseInsensitiveContains(shortcut.query)
@@ -167,9 +170,10 @@ struct ChatComposer: View {
         if value != dismissedShortcut { dismissedShortcut = nil }
         guard value != dismissedShortcut || value == nil else { return }
         if value?.kind == .connector && shortcut?.kind != .connector {
-            connectedConnectors = Set(ConnectorEntry.all.compactMap { entry in
-                (try? ConnectorAuth.isConnected(entry.id)) == true ? entry.id : nil
-            })
+            let ids = ConnectorEntry.all.map(\.id)
+            connectedConnectors = nil
+            // Off the main thread: a Keychain prompt would freeze typing while it waits.
+            Task { connectedConnectors = await Task.detached { Set(ids.filter { (try? ConnectorAuth.isConnected($0)) == true }) }.value }
         }
         shortcutCaret = nil
         shortcut = value; shortcutIndex = 0
@@ -240,6 +244,8 @@ struct ChatComposer: View {
                         if choices.indices.contains(index) { proxy.scrollTo(choices[index].id) }
                     }
                 }
+            } else if shortcut?.kind == .connector && connectedConnectors == nil {
+                ProgressView().controlSize(.small).padding(8)
             } else {
                 Text(tr("일치하는 항목이 없어요")).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(8)
             }

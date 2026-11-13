@@ -550,6 +550,8 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(ChatRunner.displayTitle("Slack 검색 실패"), "Search Slack failed")
         XCTAssertEqual(ChatRunner.displayTitle("대화 · 주간 회의"), "Chat · 주간 회의")
         XCTAssertEqual(ChatRunner.displayTitle("Claude Code 사용자 메시지"), "Claude Code user message")
+        XCTAssertEqual(ChatRunner.displayTitle("Claude · Claude"), "Claude")
+        XCTAssertEqual(ChatRunner.displayTitle("Claude · 주간 회의 · Claude"), "Claude · 주간 회의 · Claude")
     }
 
     func testChatFailureMapsCommonErrorsToOneSentence() {

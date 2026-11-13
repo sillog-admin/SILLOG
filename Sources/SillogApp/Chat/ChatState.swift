@@ -552,6 +552,7 @@ final class ChatState: ObservableObject {
                         self.activeMessage?.text += tr("\n\n응답을 완료하지 못했습니다: \(description)")
                     }
                 }
+                self.activeMessage?.completedAt = Date().timeIntervalSince1970
                 if let message = self.activeMessage {
                     self.replaceVisible(message)
                     do { try self.store.save(message) } catch { self.error = tr("응답 저장 실패: \(error.localizedDescription)"); failure = self.error; succeeded = false }

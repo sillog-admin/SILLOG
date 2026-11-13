@@ -450,7 +450,7 @@ public struct ChatRunner: Sendable {
     static let toolTitles = ["search_context": "기록 검색", "read_context": "기록 상세 확인", "summarize_period": "기간 집계", "search_library": "보관 자료 검색", "read_library": "보관 자료 읽기", "list_files": "파일 찾기", "read_file": "파일 읽기", "inspect_repository": "Git 이력 확인", "read_revision": "커밋 파일 확인", "github_search": "GitHub 저장소 검색", "github_read": "GitHub 확인", "github_list": "GitHub 파일 목록", "gmail_search": "메일 검색", "gmail_read": "메일 읽기", "drive_search": "Drive 검색", "drive_read": "Drive 읽기", "notion_search": "Notion 검색", "notion_read": "Notion 읽기", "web_search": "웹 검색", "web_read": "웹 원문 확인", "delegate": "작업 분담", "create_artifact": "결과물 생성", "propose_automation": "예약안 작성"]
 
     /// Args: title is a stored step title such as "활동 조사 · 기록 검색" or "Slack 읽기".
-    /// Returns: the title in the app language. Titles are saved in Korean, so old answers follow a language change too.
+    /// Returns: the title in the app language, a part repeating the one before it dropped. Titles are saved in Korean, so old answers follow a language change too.
     /// Raises: none.
     public static func displayTitle(_ title: String) -> String {
         title.components(separatedBy: " · ").map { part in
@@ -458,7 +458,7 @@ public struct ChatRunner: Sendable {
             var text = LocalizedText(stringLiteral: "%@" + suffix)
             text.args = [displayTitle(String(part.dropLast(suffix.count)))]
             return L10n.tr(text)
-        }.joined(separator: " · ")
+        }.reduce(into: [String]()) { if $0.last != $1 { $0.append($1) } }.joined(separator: " · ")
     }
 
     /// Args: tool은 내부 도구 이름이다.

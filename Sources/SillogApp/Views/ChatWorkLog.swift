@@ -38,6 +38,8 @@ struct ChatWorkLog: View {
 
     private var summary: String {
         if running { return steps.last.map { ChatRunner.displayTitle($0.title) } ?? tr("답변을 준비하고 있습니다") }
+        // Whole answer time, so writing after the last tool counts too.
+        if let end = message.completedAt { return tr("작업 \(steps.count)단계 · \(Self.duration(end - message.createdAt))") }
         guard message.trace != nil, let first = steps.first?.startedAt else { return tr("작업 \(steps.count)단계") }
         let end = steps.compactMap(\.endedAt).max() ?? first
         return tr("작업 \(steps.count)단계 · \(Self.duration(end - first))")
