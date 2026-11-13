@@ -1,12 +1,6 @@
 <div align="center">
 
-<img src="landing/assets/icon-256.png" width="96" alt="SILLOG icon">
-
-# SILLOG
-
-### Start your next task from the records you've built
-
-A macOS app that sorts what you've done by task and lets AI work from those records
+<a href="https://sillog.app"><img src="docs/readme/banner-en.png" alt="SILLOG, start your next task from the records you've built. Visit sillog.app"></a>
 
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)](#requirements)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
