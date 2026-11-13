@@ -18,7 +18,7 @@
 
 SILLOG records what you do on your Mac: the apps and windows you use, the pages you visit, the text on screen, your files, your prompts to AI coding tools, and voice recordings. An LLM groups that activity into tasks and draws them as a graph. In chat, you can then ask for a report, a piece of research, or a plan built from those records, and every answer links back to the records it used.
 
-It's an early prototype. The download isn't notarized by Apple yet, so the first launch takes one extra step (see [Install](#install)). It also collects a lot about your work, so please read [Privacy and data](#privacy-and-data) before you turn it on.
+It's an early prototype. It collects a lot about your work, so please read [Privacy and data](#privacy-and-data) before you turn it on.
 
 ## Tasks and sources, connected in a graph
 
@@ -106,9 +106,9 @@ All records are stored in SQLite on your Mac. The only things that leave it are 
 
 1. On [sillog.app](https://sillog.app), click **Download for macOS**. This downloads `SILLOG.dmg` from the [latest GitHub release](https://github.com/sillog-admin/SILLOG/releases/latest).
 2. Open the dmg and drag SILLOG to Applications.
-3. The first time you open SILLOG, macOS says *"SILLOG" Not Opened*, because the app isn't notarized. Click **Done**, go to System Settings → Privacy & Security, click **Open Anyway** near the bottom, and then click **Open**. Since macOS 15, Control-click → Open no longer works for this.
+3. Open SILLOG. macOS asks once whether to open an app downloaded from the internet. Click **Open**.
 
-Releases are signed with the same certificate every time, so updates keep your keychain access and permissions. If you installed a build from before that change, the first update asks once more: allow keychain access, then grant Accessibility and Screen Recording again.
+Releases are signed with Developer ID and notarized by Apple. They use the same certificate every time, so updates keep your keychain access and permissions. If you installed a build from before that change, the first update asks once more: allow keychain access, then grant Accessibility and Screen Recording again.
 
 ### First launch
 
@@ -211,7 +211,7 @@ For now, Apple silicon Macs on macOS 14 or later. Windows and mobile aren't read
 
 ## Known limitations
 
-- It runs only on macOS, and the download isn't notarized yet.
+- It runs only on macOS.
 - Artifacts are text formats plus PDF export. SILLOG can read DOCX, PPTX, and XLSX but can't create them.
 - Scheduled tasks repeat every few hours and only run while SILLOG is open. You can't pick a weekday or time of day.
 - Scanned PDFs aren't OCR'd, and images are read only for the text in them.

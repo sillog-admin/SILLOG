@@ -11,13 +11,13 @@ open build/Sillog.app
 
 빌드 스크립트는 소스를 임시 경로에 복사해 컴파일하고 앱 번들을 서명합니다. 완성된 앱은 `~/Applications/Sillog.app`에 설치하며, `build/Sillog.app`은 설치된 앱으로 연결되는 심볼릭 링크입니다. 컴파일과 서명은 Documents 동기화의 영향을 피하면서, 실행과 권한 등록에는 일정한 설치 경로를 사용합니다.
 
-서명 인증서는 `SIGN_IDENTITY` 지정값 → `SILLOG Release` → `Apple Development` → ad-hoc 순서로 선택합니다. 직접 지정한 인증서로 서명하지 못하면 ad-hoc으로 넘어가지 않고 멈춥니다.
+서명 인증서는 `SIGN_IDENTITY` 지정값 → `Developer ID Application` → `SILLOG Release` → `Apple Development` → ad-hoc 순서로 선택합니다. 직접 지정한 인증서로 서명하지 못하면 ad-hoc으로 넘어가지 않고 멈춥니다. 인증서로 서명할 때는 공증에 필요한 하드닝 런타임과 타임스탬프를 붙이고, 권한(entitlements)은 `scripts/SILLOG.entitlements`에서 읽습니다.
 
 ```bash
-SIGN_IDENTITY="SILLOG Release" ./scripts/make-app.sh
+SIGN_IDENTITY="Developer ID Application" ./scripts/make-app.sh
 ```
 
-`SILLOG Release`는 main 릴리스를 서명하는 자체 서명 인증서입니다. CI는 GitHub Secrets의 `SILLOG_SIGN_P12`(base64로 인코딩한 .p12)와 `SILLOG_SIGN_P12_PASSWORD`로 이 인증서를 가져옵니다. 같은 인증서로 서명하므로 업데이트해도 키체인 접근과 macOS 권한이 유지됩니다. 인증서 파일과 암호는 GitHub Secrets와 팀 비밀번호 관리자에만 두고, 저장소에는 커밋하지 않습니다. PR 빌드는 Secrets를 쓰지 않도록 ad-hoc으로 서명합니다.
+main 릴리스는 Developer ID 인증서로 서명하고, dmg를 Apple에 공증받은 뒤 릴리스로 올립니다. CI는 GitHub Secrets의 `SILLOG_SIGN_P12`(base64로 인코딩한 Developer ID .p12)와 `SILLOG_SIGN_P12_PASSWORD`로 인증서를 가져오고, `SILLOG_NOTARY_KEY`(App Store Connect API `.p8` 내용), `SILLOG_NOTARY_KEY_ID`, `SILLOG_NOTARY_ISSUER_ID`로 공증합니다. 같은 인증서로 서명하므로 업데이트해도 키체인 접근과 macOS 권한이 유지됩니다. `SILLOG Release`는 예전 릴리스에 쓰던 자체 서명 인증서입니다. 인증서 파일과 암호는 GitHub Secrets와 팀 비밀번호 관리자에만 두고, 저장소에는 커밋하지 않습니다. PR 빌드는 Secrets를 쓰지 않도록 ad-hoc으로 서명합니다.
 
 번들 ID는 `com.sillog.app`입니다. 같은 번들 ID만으로 권한 유지가 보장되는 것은 아니며, **동일한 서명 인증서도 필요합니다.** ad-hoc 서명에서는 재빌드 후 권한을 다시 허용해야 할 수 있습니다.
 
