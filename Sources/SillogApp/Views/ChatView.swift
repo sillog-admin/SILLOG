@@ -40,6 +40,7 @@ struct ChatView: View {
     @State private var copiedID: String?
     @State private var hoveredArtifactID: String?
     @State private var showResults = false
+    @State private var showActivity = false
     @State private var hoveredResultID: String?
     @State private var atBottom = true
     /// A search hit to land on once its conversation is on screen.
@@ -366,6 +367,12 @@ struct ChatView: View {
             }
             Spacer(minLength: 0)
             let results = ChatArtifact.latestPerSeries(chat.messages.flatMap { $0.versions.flatMap(\.artifacts) })
+            let tools = ConversationMessage.toolUses(in: chat.messages)
+            if !tools.isEmpty {
+                ChatPillButton(title: tr("활동"), systemName: "wrench.and.screwdriver") { showActivity.toggle() }
+                    .help(tr("이 대화의 활동"))
+                    .popover(isPresented: $showActivity, arrowEdge: .bottom) { activityMenu(tools, results) }
+            }
             if !results.isEmpty {
                 ChatPillButton(title: tr("결과물 \(results.count)"), systemName: "archivebox") { showResults.toggle() }
                     .help(tr("이 대화의 결과물"))
@@ -376,29 +383,61 @@ struct ChatView: View {
             .frame(height: 65, alignment: .topLeading)
     }
 
-    private func resultsMenu(_ results: [ChatArtifact]) -> some View {
+    private func activityMenu(_ tools: [ChatToolUse], _ results: [ChatArtifact]) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(results) { item in
-                    let version = ChatArtifact.versions(of: item, in: chat.messages).count
-                    Button { showResults = false; chat.openArtifactID = item.id } label: {
+                activityHeading(tr("이 대화에서 사용됨"))
+                ForEach(tools) { tool in
+                    Button { showActivity = false; pendingScrollID = tool.lastMessageID } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: Self.artifactIcon(item.format)).font(.system(size: 14, weight: .light)).foregroundStyle(Brand.ink).frame(width: 18)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
-                                Text(item.format.uppercased() + " · " + tr("버전 \(version)")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
-                            }
+                            Text(ChatRunner.displayTitle(tool.title)).font(Brand.font(.body)).foregroundStyle(Brand.ink).lineLimit(1)
                             Spacer(minLength: 0)
+                            Text(tr("\(tool.count)회")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                         }.padding(.horizontal, 8).padding(.vertical, 6).frame(maxWidth: .infinity)
-                            .background(hoveredResultID == item.id ? ChatPalette.rowHover : .clear, in: RoundedRectangle(cornerRadius: 6))
+                            .background(hoveredResultID == tool.id ? ChatPalette.rowHover : .clear, in: RoundedRectangle(cornerRadius: 6))
                             .contentShape(Rectangle())
-                    }.buttonStyle(.plain).help(item.title)
+                    }.buttonStyle(.plain)
                     .onHover { hovering in
-                        if hovering { hoveredResultID = item.id } else if hoveredResultID == item.id { hoveredResultID = nil }
+                        if hovering { hoveredResultID = tool.id } else if hoveredResultID == tool.id { hoveredResultID = nil }
                     }
+                }
+                if !results.isEmpty {
+                    activityHeading(tr("결과물")).padding(.top, 6)
+                    ForEach(results) { resultRow($0) { showActivity = false } }
                 }
             }.padding(6)
         }.frame(width: 280).frame(maxHeight: 360).fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func activityHeading(_ title: String) -> some View {
+        Text(title).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.gray).padding(.horizontal, 8).padding(.vertical, 4)
+    }
+
+    private func resultsMenu(_ results: [ChatArtifact]) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(results) { resultRow($0) { showResults = false } }
+            }.padding(6)
+        }.frame(width: 280).frame(maxHeight: 360).fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func resultRow(_ item: ChatArtifact, dismiss: @escaping () -> Void) -> some View {
+        let version = ChatArtifact.versions(of: item, in: chat.messages).count
+        return Button { dismiss(); chat.openArtifactID = item.id } label: {
+            HStack(spacing: 10) {
+                Image(systemName: Self.artifactIcon(item.format)).font(.system(size: 14, weight: .light)).foregroundStyle(Brand.ink).frame(width: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
+                    Text(item.format.uppercased() + " · " + tr("버전 \(version)")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+                }
+                Spacer(minLength: 0)
+            }.padding(.horizontal, 8).padding(.vertical, 6).frame(maxWidth: .infinity)
+                .background(hoveredResultID == item.id ? ChatPalette.rowHover : .clear, in: RoundedRectangle(cornerRadius: 6))
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain).help(item.title)
+        .onHover { hovering in
+            if hovering { hoveredResultID = item.id } else if hoveredResultID == item.id { hoveredResultID = nil }
+        }
     }
 
     private var conversation: some View {
