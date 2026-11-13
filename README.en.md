@@ -68,13 +68,13 @@ The app is in Korean for now.
 
 SILLOG has no server of its own. Organizing and chat go through the AI account you connect.
 
-<img src="docs/readme/privacy-icons-en.webp" alt="Store: records stay on your Mac. Check: see what was sent and what came back in the activity log. Control: turn off sending for each feature.">
+<a href="https://sillog.app"><img src="docs/readme/privacy-icons-en.webp" alt="Store: records stay on your Mac. Check: see what was sent and what came back in the activity log. Control: turn off sending for each feature."></a>
 
 Password fields are never recorded. For apps like password managers and Keychain, only the app name and time are kept. Details are in [Privacy and data](#privacy-and-data).
 
 ## What it does
 
-<img src="docs/readme/section-features-en.webp" alt="">
+<a href="https://sillog.app"><img src="docs/readme/section-features-en.webp" alt=""></a>
 
 - Records the active app, window title, URL, on-screen text, screenshots, downloaded files, and what you ask Claude Code and Codex. For apps you exclude, it keeps only the name and time.
 - Every five minutes, sorts new activity into tasks, sessions, resources, problems, and topics, and shows them as a graph. You can reopen the files and pages behind a task, or delete a node along with its raw records.
@@ -88,13 +88,13 @@ Password fields are never recorded. For apps like password managers and Keychain
 
 ## How it works
 
-<img src="docs/readme/how-it-works-en.webp" alt="On your Mac: collect, store in SQLite, organize every 5 minutes, task graph, then chat and artifacts. Only activity summaries and questions go to your chosen LLM, and web search and connectors run only when you allow them.">
+<a href="https://sillog.app"><img src="docs/readme/how-it-works-en.webp" alt="On your Mac: collect, store in SQLite, organize every 5 minutes, task graph, then chat and artifacts. Only activity summaries and questions go to ChatGPT (or the API you set up), and web search and connectors run only when you allow them."></a>
 
 All records are stored in SQLite on your Mac. The only things that leave it are what's sent to the model you configure for organizing and chat, plus web searches and connector requests you allow.
 
 ## Install
 
-<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/section-install-en.webp" alt=""></a>
+<a href="https://sillog.app"><img src="docs/readme/section-install-en.webp" alt=""></a>
 
 ### Requirements
 
@@ -121,7 +121,7 @@ You can pause recording or run organizing right away from the menu bar.
 
 ## AI connections
 
-<img src="docs/readme/section-ai-en.webp" alt="">
+<a href="https://sillog.app"><img src="docs/readme/section-ai-en.webp" alt=""></a>
 
 | Connection | Used for | Notes |
 | --- | --- | --- |
@@ -145,7 +145,7 @@ If you build SILLOG yourself, connector setup is in [docs/connectors.md](docs/co
 
 ## Privacy and data
 
-<img src="docs/readme/section-privacy-en.webp" alt="">
+<a href="https://sillog.app"><img src="docs/readme/section-privacy-en.webp" alt=""></a>
 
 Your records are stored on your Mac, but whatever is used for organizing and chat is sent to the model you pick. With a cloud model, that text leaves your Mac.
 
