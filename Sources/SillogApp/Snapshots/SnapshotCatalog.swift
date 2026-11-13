@@ -442,6 +442,10 @@ enum SnapshotCatalog {
         chat.messages = [.init(conversationID: id, role: "user", text: "이번 주 업무 보고서를 Word로 만들어줘"), a1,
                          .init(conversationID: id, role: "user", text: "버전 전환도 끝났어"), a2]
         chat.openArtifactID = v2.id
+        // Collected like the app does at launch, so the composer must still show no chips for them.
+        try? ChatStore(database).save(chat.current)
+        try? chat.library.store.collectArtifacts(chat.messages)
+        chat.library.reload()
         let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })
         return [Snapshot(name: "CH-artifact", size: window, view: AnyView(MainWindow().environmentObject(state)))]
     }

@@ -590,7 +590,7 @@ struct ChatView: View {
                         HStack(spacing: 14) {
                             Image(systemName: Self.artifactIcon(item.format)).font(.system(size: 22, weight: .light)).foregroundStyle(Brand.ink)
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(item.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
+                                Text(item.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).lineLimit(2).help(item.title)
                                 Text(item.format.uppercased() + " · " + tr("버전 \(version)")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                             }
                             Spacer(minLength: 24); Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(Brand.ink)

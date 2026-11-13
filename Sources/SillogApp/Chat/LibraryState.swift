@@ -15,6 +15,8 @@ final class LibraryState: ObservableObject {
     @Published var chatImportError: String?
     /// Items attached to the chat on screen, cached so the composer doesn't query the DB on every keystroke.
     @Published private(set) var attached: [ChatLibraryItem] = []
+    /// Project-wide items; detaching them from one chat does nothing, so they get no remove button.
+    @Published private(set) var projectAttached: Set<String> = []
     private var attachedTo: (conversationID: String, projectID: String?) = ("", nil)
     var onChange: (() -> Void)?
     /// Pasted screenshots are written here first and removed once imported.
@@ -36,6 +38,8 @@ final class LibraryState: ObservableObject {
     private func refreshAttached() {
         let fresh = sources(conversationID: attachedTo.conversationID, projectID: attachedTo.projectID)
         if fresh != attached { attached = fresh }
+        let project = attachedTo.projectID.map { pid in Set((try? store.sourceIDs(conversationID: nil, projectID: pid)) ?? []) } ?? []
+        if project != projectAttached { projectAttached = project }
     }
 
     func results(limit: Int? = nil) -> [ChatLibraryItem] {

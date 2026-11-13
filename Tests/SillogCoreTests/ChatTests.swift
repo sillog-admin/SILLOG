@@ -221,9 +221,23 @@ final class ChatTests: XCTestCase {
         XCTAssertFalse(html.contains("http-equiv='refresh'"))
         XCTAssertTrue(html.contains("script-src 'none'"))
         let csv = ChatArtifactHTML.render(.init(title: "표", format: "csv", content: "항목,값\nA,<B>"))
-        XCTAssertTrue(csv.contains("<pre>항목,값\nA,&lt;B&gt;</pre>"))
+        XCTAssertTrue(csv.contains("<td>항목</td><td>값</td>"))
+        XCTAssertTrue(csv.contains("<td>&lt;B&gt;</td>"))
         let json = ChatArtifactHTML.render(.init(title: "데이터", format: "json", content: #"{"value":"<B>"}"#))
-        XCTAssertTrue(json.contains("{&quot;value&quot;:&quot;&lt;B&gt;&quot;}"))
+        XCTAssertTrue(json.contains("&quot;value&quot; : &quot;&lt;B&gt;&quot;"))
+        let pretty = ChatArtifactHTML.render(.init(title: "d", format: "json", content: #"{"a":1,"b":[2]}"#))
+        let pre = pretty.components(separatedBy: "<pre>").last?.components(separatedBy: "</pre>").first ?? ""
+        XCTAssertTrue(pre.contains("\n"))
+        let broken = ChatArtifactHTML.render(.init(title: "d", format: "json", content: "{oops"))
+        XCTAssertTrue(broken.contains("<pre>{oops</pre>"))
+        let md = { (text: String) in ChatArtifactHTML.render(.init(title: "m", format: "markdown", content: text)) }
+        XCTAssertTrue(md("1. a\n2. b").contains("<ol><li>a</li><li>b</li></ol>"))
+        XCTAssertTrue(md("---").contains("<hr>"))
+        XCTAssertTrue(md("* * *").contains("<hr>"))
+        XCTAssertTrue(md("*x*").contains("<em>x</em>"))
+        XCTAssertFalse(md("5 * 3 * 2").contains("<em>"))
+        XCTAssertTrue(md("**b**").contains("<strong>b</strong>"))
+        XCTAssertFalse(md("**b**").contains("<em>"))
     }
 
     /// Args: 없음.

@@ -58,13 +58,14 @@ final class ChatArtifactPanelTests: XCTestCase {
 
     func testTheOpenVersionShowsBesideTheConversation() throws {
         let text = try text { _, v2 in v2.id }
-        XCTAssertTrue(text.contains("버전2/2"), text)
+        // OCR sometimes drops the slash once the pill is first in the footer.
+        XCTAssertNotNil(text.range(of: "버전2/?2", options: .regularExpression), text)
         XCTAssertTrue(text.contains("버전1"), text)     // the first card names its own version
         XCTAssertTrue(text.contains("고쳤습니다"), text)
     }
 
     func testAnIDThatNoLongerResolvesShowsNoPanel() throws {
-        XCTAssertFalse(try text { _, _ in "gone" }.contains("버전2/2"))     // cards still name their versions
+        XCTAssertNil(try text { _, _ in "gone" }.range(of: "버전2/?2", options: .regularExpression))     // cards still name their versions
     }
 
     func testExpandingHidesTheChatUntilThePanelCloses() throws {

@@ -67,17 +67,24 @@ struct ChatComposer: View {
         return tr("\(ChatFocusButton.summary(scope.focus))에 대해 물어보세요")
     }
 
+    /// The chat's own artifacts stay attached for the model but are not shown as chips.
+    static func shownAttachments(_ attached: [ChatLibraryItem], messages: [ConversationMessage]) -> [ChatLibraryItem] {
+        let own = Set(messages.flatMap { $0.versions.flatMap(\.artifacts) }.map(\.id))
+        return attached.filter { !($0.kind == "generated" && own.contains($0.originID ?? "")) }
+    }
+
     // MARK: 입력 상자
 
     private var box: some View {
-        let attachments = library.attached
+        let attachments = Self.shownAttachments(library.attached, messages: chat.messages)
         let paths = chat.current.scope.paths
         return VStack(alignment: .leading, spacing: 0) {
             if !attachments.isEmpty || !paths.isEmpty {
                 // CH-18: 첨부 칩은 입력 줄 위에 줄바꿈으로 놓이고 상자가 위로 커진다. 모두 x 로 연결 해제
                 ChatChipFlow(spacing: 6) {
                     ForEach(attachments) { item in
-                        attachmentChip(icon: "doc", text: item.title, help: item.title, item: item) { library.detach(item, conversationID: chat.current.id) }
+                        attachmentChip(icon: "doc", text: item.title, help: item.title, item: item,
+                                       remove: library.projectAttached.contains(item.id) ? nil : { library.detach(item, conversationID: chat.current.id) })
                     }
                     ForEach(paths, id: \.self) { path in
                         attachmentChip(icon: "folder", text: URL(fileURLWithPath: path).lastPathComponent, help: path) {
@@ -397,37 +404,46 @@ struct ChatComposer: View {
     // MARK: 스킬 칩 (CH-01, CH-33)
 
     private var skillChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(chat.pinnedSkills) { skill in
-                    let on = chat.current.skillIDs.contains(skill.id)
-                    Button {
-                        if on { chat.current.skillIDs.removeAll { $0 == skill.id } } else { chat.current.skillIDs.append(skill.id) }
-                    } label: {
-                        Text(skill.displayTitle).font(Brand.font(.tag)).lineLimit(1)
-                            .foregroundStyle(on ? Brand.chipSelectedText : Brand.tabText)
-                            .padding(.horizontal, 9).frame(height: 22)
-                            .background(on ? Brand.chipSelectedFill : ChatPalette.soft, in: Capsule())
-                            .overlay(Capsule().strokeBorder(on ? Brand.chipSelectedBorder : Brand.line))
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain).disabled(busy).accessibilityLabel("\(skill.displayTitle) \(on ? tr("끄기") : tr("켜기"))")
-                }
-                Button { showSkillPins = true } label: {
-                    Image(systemName: "pencil").font(.system(size: 10, weight: .medium))
-                        .frame(width: 22, height: 22).background(ChatPalette.soft, in: Circle())
-                }
-                .buttonStyle(.plain).disabled(busy).help(tr("표시할 스킬 편집")).accessibilityLabel(tr("표시할 스킬 편집"))
-                .popover(isPresented: $showSkillPins, arrowEdge: .top) {
-                    PinnedSkillPicker(chat: chat) {
-                        showSkillPins = false
-                        state.customizeSection = .skills
-                        state.selectedTab = .connectors
-                    }
-                }
-            }
+        // Pencil sits outside the scroll so overflowing chips never hide it.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) { skillRow; skillPencil }
+            HStack(spacing: 6) { ScrollView(.horizontal, showsIndicators: false) { skillRow }; skillPencil }
         }
         .frame(height: 22)
+    }
+
+    private var skillRow: some View {
+        HStack(spacing: 6) {
+            ForEach(chat.pinnedSkills) { skill in
+                let on = chat.current.skillIDs.contains(skill.id)
+                Button {
+                    if on { chat.current.skillIDs.removeAll { $0 == skill.id } } else { chat.current.skillIDs.append(skill.id) }
+                } label: {
+                    Text(skill.displayTitle).font(Brand.font(.tag)).lineLimit(1)
+                        .foregroundStyle(on ? Brand.chipSelectedText : Brand.tabText)
+                        .padding(.horizontal, 9).frame(height: 22)
+                        .background(on ? Brand.chipSelectedFill : ChatPalette.soft, in: Capsule())
+                        .overlay(Capsule().strokeBorder(on ? Brand.chipSelectedBorder : Brand.line))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain).disabled(busy).accessibilityLabel("\(skill.displayTitle) \(on ? tr("끄기") : tr("켜기"))")
+            }
+        }
+    }
+
+    private var skillPencil: some View {
+        Button { showSkillPins = true } label: {
+            Image(systemName: "pencil").font(.system(size: 10, weight: .medium))
+                .frame(width: 22, height: 22).background(ChatPalette.soft, in: Circle())
+        }
+        .buttonStyle(.plain).disabled(busy).help(tr("표시할 스킬 편집")).accessibilityLabel(tr("표시할 스킬 편집"))
+        .popover(isPresented: $showSkillPins, arrowEdge: .top) {
+            PinnedSkillPicker(chat: chat) {
+                showSkillPins = false
+                state.customizeSection = .skills
+                state.selectedTab = .connectors
+            }
+        }
     }
 
     // MARK: 연결과 모델 (CH-08)

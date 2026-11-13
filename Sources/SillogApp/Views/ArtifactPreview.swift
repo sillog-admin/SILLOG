@@ -24,7 +24,6 @@ struct ArtifactPreview: View {
                 if let error { Text(error).font(Brand.font(.body)).foregroundStyle(Brand.ink).padding(12) }
             }
         } footer: {
-            Text(artifact.format.uppercased()).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
             if versions.count > 1, let index = versions.firstIndex(where: { $0.id == artifact.id }) {
                 // Tight groups keep the 480pt footer on one line.
                 HStack(spacing: 2) {
