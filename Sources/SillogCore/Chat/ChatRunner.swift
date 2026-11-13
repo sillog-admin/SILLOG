@@ -425,7 +425,7 @@ public struct ChatRunner: Sendable {
             var names: Set<String>
             switch role {
             case "context": names = ["search_context", "read_context", "summarize_period"]
-            case "repository": names = ["search_library", "read_library", "list_files", "read_file", "inspect_repository", "read_revision", "github_search", "github_read", "github_list", "drive_search", "drive_read", "notion_search", "notion_read"]
+            case "repository": names = ["search_library", "read_library", "list_files", "read_file", "inspect_repository", "read_revision", "github_search", "github_read", "github_list", "drive_search", "drive_read", "notion_search", "notion_read", "notion_tools"]
             case "research": names = ["search_context", "read_context", "summarize_period", "search_library", "read_library", "list_files", "read_file", "web_search", "web_read", "gmail_search", "gmail_read", "drive_search", "drive_read", "notion_search", "notion_read"]
             default: return specs
             }
