@@ -44,6 +44,7 @@ struct ChatSystemPrompt: Sendable {
             "project_memory_mode": project?.memoryMode.title ?? "", "project_instructions": project?.instructions ?? "",
             "use_activity": scope.useActivity ? "on" : "off", "connected_paths": scope.paths.joined(separator: ", "),
             "use_web": scope.useWeb ? "on" : "off", "connectors": connectors,
+            "drive_files": scope.driveFiles.map { "\($0.name) (id \($0.id))" }.joined(separator: ", "),
             "remembered_sources": rememberedSources, "focus_outline": focus ?? "",
             "current_time": formatter.string(from: now), "timezone": timeZone.identifier,
             "chat_model": chatModel, "run_mode": scheduled ? "scheduled" : "interactive", "agent_role": role ?? "main",

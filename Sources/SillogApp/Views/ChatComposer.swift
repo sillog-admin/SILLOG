@@ -23,6 +23,8 @@ struct ChatComposer: View {
     @State private var showPlus = false
     @State private var showFocus = false
     @State private var showConnectors = false
+    @State private var showSkills = false
+    @State private var drivePicking = false
     @State private var showConnect = false
     @State private var showSkillPins = false
     @State private var showLibraryPicker = false
@@ -114,8 +116,9 @@ struct ChatComposer: View {
     private var box: some View {
         let attachments = Self.shownAttachments(library.attached, messages: chat.messages)
         let paths = chat.current.scope.paths
+        let driveFiles = chat.current.scope.driveFiles
         return VStack(alignment: .leading, spacing: 0) {
-            if !attachments.isEmpty || !paths.isEmpty {
+            if !attachments.isEmpty || !paths.isEmpty || !driveFiles.isEmpty {
                 // CH-18: 첨부 칩은 입력 줄 위에 줄바꿈으로 놓이고 상자가 위로 커진다. 모두 x 로 연결 해제
                 ChatChipFlow(spacing: 6) {
                     ForEach(attachments) { item in
@@ -125,6 +128,12 @@ struct ChatComposer: View {
                     ForEach(paths, id: \.self) { path in
                         attachmentChip(icon: "folder", text: URL(fileURLWithPath: path).lastPathComponent, help: path) {
                             chat.current.scope.paths.removeAll { $0 == path }
+                        }
+                    }
+                    ForEach(driveFiles, id: \.id) { file in
+                        attachmentChip(icon: "externaldrive", text: file.name, help: file.url) {
+                            chat.current.scope.removeDriveFiles { $0.id == file.id }
+                            chat.saveScope()
                         }
                     }
                 }.padding(.top, 12).padding(.horizontal, 13)
@@ -215,10 +224,7 @@ struct ChatComposer: View {
         if value != dismissedShortcut { dismissedShortcut = nil }
         guard value != dismissedShortcut || value == nil else { return }
         if value?.kind == .connector && shortcut?.kind != .connector {
-            let ids = ConnectorEntry.all.map(\.id)
-            connectedConnectors = nil
-            // Off the main thread: a Keychain prompt would freeze typing while it waits.
-            Task { connectedConnectors = await Task.detached { Set(ids.filter { (try? ConnectorAuth.isConnected($0)) == true }) }.value }
+            loadConnectedConnectors()
         }
         shortcutCaret = nil
         shortcut = value; shortcutIndex = 0
@@ -424,9 +430,9 @@ struct ChatComposer: View {
                     }
                 }
                 if !chat.current.scope.useActivity {
-                    chip(icon: "diamond", text: tr("기록 안 씀"), help: tr("참고할 기록 메뉴에서 범위를 바꿀 수 있어요"))
+                    chip(icon: "text.book.closed", text: tr("기록 안 씀"), help: tr("참고할 기록 메뉴에서 범위를 바꿀 수 있어요"))
                 } else if !chat.current.scope.focus.isEmpty {
-                    chip(icon: "diamond", text: ChatFocusButton.label(chat.current.scope, choices: chat.focusChoices), help: tr("범위 빼기")) {
+                    chip(icon: "text.book.closed", text: ChatFocusButton.label(chat.current.scope, choices: chat.focusChoices), help: tr("범위 빼기")) {
                         chat.current.scope.focus = []
                     }
                 }
@@ -451,44 +457,117 @@ struct ChatComposer: View {
     // MARK: + 메뉴
 
     private var plusMenu: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            MenuRow(icon: "square.and.arrow.up", title: tr("파일 업로드")) { showPlus = false; chat.uploadFiles() }
+        let scope = chat.current.scope
+        let connectorCount = Set(scope.connectors).union(scope.useGitHub ? ["github"] : []).count
+        return VStack(alignment: .leading, spacing: 0) {
+            MenuRow(icon: "paperclip", title: tr("파일 또는 사진 추가")) { showPlus = false; chat.uploadFiles() } trailing: {
+                Text("⌘U").font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+            }
+            MenuRow(icon: "folder.badge.plus", title: tr("폴더 연결")) { showPlus = false; chat.connectFiles() }
             MenuRow(icon: "archivebox", title: tr("결과물에서 선택")) { showPlus = false; DispatchQueue.main.async { showLibraryPicker = true } }
-            MenuRow(icon: "folder.badge.plus", title: tr("원본 파일과 폴더 연결")) { showPlus = false; chat.connectFiles() }
-            Rectangle().fill(Brand.line).frame(height: 1).padding(.vertical, 4)
-            MenuRow(icon: "diamond", title: tr("참고할 기록")) { showPlus = false; DispatchQueue.main.async { showFocus = true } } trailing: {
-                Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
+            if let drive = ConnectorEntry.all.first(where: { $0.id == "drive" }) {
+                MenuRow(icon: .logo(drive), title: tr("Google Drive에서 선택")) { showPlus = false; openDrivePicker() } trailing: {
+                    if drivePicking { ProgressView().controlSize(.mini) }
+                }
+                .disabled(drivePicking)
             }
+            menuDivider
+            MenuRow(icon: "text.book.closed", title: tr("참고할 기록")) { showPlus = false; DispatchQueue.main.async { showFocus = true } } trailing: {
+                submenuDetail(ChatFocusButton.label(scope, choices: chat.focusChoices))
+            }
+            MenuRow(icon: .svg(RailIcon.skill), title: tr("스킬")) { showSkills = true } trailing: {
+                submenuDetail(chat.current.skillIDs.isEmpty ? "" : tr("\(chat.current.skillIDs.count)개 켬"))
+            }
+            MenuRow(icon: .svg(RailIcon.connectors), title: tr("커넥터")) { loadConnectedConnectors(); showConnectors = true } trailing: {
+                submenuDetail(connectorCount == 0 ? "" : tr("\(connectorCount)개 켬"))
+            }
+            menuDivider
             MenuRow(icon: "globe", title: tr("웹 검색")) { chat.current.scope.useWeb.toggle() } trailing: {
-                WebSwitch(on: chat.current.scope.useWeb)
+                WebSwitch(on: scope.useWeb)
             }
-            MenuRow(icon: "puzzlepiece.extension", title: tr("커넥터")) { showConnectors = true } trailing: {
-                Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
-            }
-            .popover(isPresented: $showConnectors, arrowEdge: .trailing) { connectorMenu }
         }
-        .padding(6).frame(width: 190)
+        .padding(6).frame(width: 250)
+        // Anchored to the whole menu, not its row, so a submenu stays within the menu's height instead of running off screen.
+        .popover(isPresented: $showSkills, arrowEdge: .trailing) { skillMenu }
+        .background { Color.clear.popover(isPresented: $showConnectors, arrowEdge: .trailing) { connectorMenu } }
     }
 
-    /// CH-31, CH-71: 커넥터 선택과 둘러보기
+    private var menuDivider: some View {
+        Rectangle().fill(Brand.line).frame(height: 1).padding(.vertical, 4).padding(.horizontal, 8)
+    }
+
+    private func submenuDetail(_ text: String) -> some View {
+        HStack(spacing: 6) {
+            if !text.isEmpty { Text(text).font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1) }
+            Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(Brand.gray)
+        }
+    }
+
+    /// Off the main thread: a Keychain prompt would freeze the UI while it waits.
+    private func loadConnectedConnectors() {
+        let ids = ConnectorEntry.all.map(\.id)
+        connectedConnectors = nil
+        Task { connectedConnectors = await Task.detached { Set(ids.filter { (try? ConnectorAuth.isConnected($0)) == true }) }.value }
+    }
+
+    /// CH-31, CH-71: 켤 커넥터와 커넥터 관리
     private var connectorMenu: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let connected = connectedConnectors {
+                // Connected first, so the switches sit together above the ones that still need setup.
+                let entries = ConnectorEntry.all.filter { connected.contains($0.id) } + ConnectorEntry.all.filter { !connected.contains($0.id) }
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(entries) { connector in
+                            let on = connector.id == "github" ? githubBinding() : connector.id == "drive" ? driveBinding() : connectorBinding(connector.id)
+                            // A connector left on after it was disconnected keeps its switch so it can still be turned off.
+                            if connected.contains(connector.id) || on.wrappedValue {
+                                MenuRow(icon: .logo(connector), title: connector.name) { on.wrappedValue.toggle() } trailing: { WebSwitch(on: on.wrappedValue) }
+                            } else {
+                                MenuRow(icon: .logo(connector), title: connector.name) { closeMenus(); onOpenConnectors() } trailing: {
+                                    Text(tr("연결 필요")).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(height: CGFloat(min(entries.count, submenuRows)) * MenuRowHeight)
+            } else {
+                ProgressView().controlSize(.small).frame(maxWidth: .infinity).padding(12)
+            }
+            menuDivider
+            MenuRow(icon: "slider.horizontal.3", title: tr("커넥터 관리")) { closeMenus(); onOpenConnectors() }
+        }
+        .padding(6).frame(width: 250)
+    }
+
+    /// 이 대화에 켤 스킬과 스킬 관리
+    private var skillMenu: some View {
         VStack(alignment: .leading, spacing: 0) {
             ScrollView {
                 VStack(spacing: 0) {
-                    ForEach(ConnectorEntry.all) { connector in
-                        connectorRow(connector.name, connector.icon, connector.id == "github" ? githubBinding() : connectorBinding(connector.id))
+                    ForEach(chat.skills) { skill in
+                        let on = chat.current.skillIDs.contains(skill.id)
+                        MenuRow(icon: .symbol(skill.icon), title: skill.displayTitle) {
+                            if on { chat.current.skillIDs.removeAll { $0 == skill.id } } else { chat.current.skillIDs.append(skill.id) }
+                        } trailing: {
+                            if on { Image(systemName: "checkmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(Brand.tabText) }
+                        }
                     }
                 }
-            }.frame(height: 260)
-            Rectangle().fill(Brand.line).frame(height: 1).padding(.vertical, 4)
-            MenuRow(icon: "square.grid.2x2", title: tr("커넥터 둘러보기")) { showConnectors = false; showPlus = false; onOpenConnectors() }
+            }
+            .frame(height: CGFloat(min(chat.skills.count, submenuRows)) * MenuRowHeight)
+            menuDivider
+            MenuRow(icon: "slider.horizontal.3", title: tr("스킬 관리")) {
+                closeMenus()
+                state.customizeSection = .skills
+                state.selectedTab = .connectors
+            }
         }
-        .padding(6).frame(width: 190)
+        .padding(6).frame(width: 250)
     }
 
-    private func connectorRow(_ title: String, _ icon: String, _ on: Binding<Bool>) -> some View {
-        MenuRow(icon: icon, title: title) { on.wrappedValue.toggle() } trailing: { WebSwitch(on: on.wrappedValue) }
-    }
+    private func closeMenus() { showConnectors = false; showSkills = false; showPlus = false }
 
     // MARK: 스킬 칩 (CH-01, CH-33)
 
@@ -619,27 +698,38 @@ struct ChatComposer: View {
         }
     }
 
-    /// + 메뉴 한 줄: 24 높이, 둥글기 6, 마우스를 올리면 rowHover
+    fileprivate enum MenuIcon: ExpressibleByStringLiteral {
+        case symbol(String), svg(String), logo(ConnectorEntry)
+        init(stringLiteral value: String) { self = .symbol(value) }
+    }
+
+    /// + 메뉴 한 줄: 32 높이, 둥글기 6, 마우스를 올리면 rowHover
     fileprivate struct MenuRow<Trailing: View>: View {
-        let icon: String?
+        let icon: MenuIcon?
         let title: String
         let action: () -> Void
         @ViewBuilder var trailing: Trailing
         @State private var hover = false
 
-        init(icon: String?, title: String, action: @escaping () -> Void, @ViewBuilder trailing: () -> Trailing) {
+        init(icon: MenuIcon?, title: String, action: @escaping () -> Void, @ViewBuilder trailing: () -> Trailing) {
             self.icon = icon; self.title = title; self.action = action; self.trailing = trailing()
         }
 
         var body: some View {
             Button(action: action) {
                 HStack(spacing: 10) {
-                    if let icon { Image(systemName: icon).font(.system(size: 12)).foregroundStyle(Brand.tabText).frame(width: 14) }
-                    Text(title).font(Brand.font(.body)).foregroundStyle(Brand.text).lineLimit(1)
+                    switch icon {
+                    case .symbol(let name): Image(systemName: name).font(.system(size: 13)).foregroundStyle(Brand.tabText).frame(width: 16)
+                    case .svg(let path):
+                        SVGIcon(d: path).stroke(Brand.tabText, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round)).frame(width: 14, height: 14).frame(width: 16)
+                    case .logo(let connector): ConnectorLogo(connector: connector, size: 16, boxed: false)
+                    case nil: EmptyView()
+                    }
+                    Text(title).font(Brand.font(.rowTitle, .regular)).foregroundStyle(Brand.text).lineLimit(1)
                     Spacer(minLength: 6)
                     trailing
                 }
-                .padding(.horizontal, 8).frame(height: 24).frame(maxWidth: .infinity)
+                .padding(.horizontal, 8).frame(height: MenuRowHeight).frame(maxWidth: .infinity)
                 .background(hover ? ChatPalette.rowHover : .clear, in: RoundedRectangle(cornerRadius: 6))
                 .contentShape(Rectangle())
             }
@@ -669,15 +759,47 @@ struct ChatComposer: View {
         .font(Brand.font(.tag)).foregroundStyle(Brand.gray)
     }
 
+    /// Args: none.
+    /// Returns: nothing. Opens Google Picker in the browser and attaches the picks to this chat, or opens the connectors screen when Drive isn't connected.
+    /// Raises: none. Errors show in the chat.
+    private func openDrivePicker() {
+        // One Picker at a time: a second run can't take the loopback port while the first waits.
+        guard !drivePicking else { return }
+        let conversationID = chat.current.id
+        drivePicking = true
+        Task {
+            defer { drivePicking = false }
+            // Off the main thread: a Keychain read can wait on a macOS prompt.
+            let connected = await Task.detached { (try? ConnectorAuth.isConnected("drive")) == true }.value
+            guard connected else { onOpenConnectors(); return }
+            do {
+                let files = try await ConnectorAuth.pickDriveFiles()
+                guard !files.isEmpty else { return }
+                guard chat.current.id == conversationID else { chat.error = tr("다른 대화로 옮겨서 고른 Drive 파일을 붙이지 않았어요."); return }
+                chat.current.scope.addDriveFiles(files)
+                chat.saveScope()
+            } catch { chat.error = error.localizedDescription }
+        }
+    }
+
     /// Args: id는 대화에서 켜거나 끌 커넥터이다.
     /// Returns: 대화별 커넥터 선택 바인딩. 연결 안 된 커넥터를 켜면 커넥터 화면으로 간다.
     /// Raises: 없음.
     private func connectorBinding(_ id: String) -> Binding<Bool> {
         Binding(get: { chat.current.scope.connectors.contains(id) }, set: { enabled in
             if enabled {
-                guard (try? ConnectorAuth.isConnected(id)) == true else { showConnectors = false; showPlus = false; onOpenConnectors(); return }
+                guard (try? ConnectorAuth.isConnected(id)) == true else { closeMenus(); onOpenConnectors(); return }
                 if !chat.current.scope.connectors.contains(id) { chat.current.scope.connectors.append(id) }
             } else { chat.current.scope.connectors.removeAll { $0 == id } }
+        })
+    }
+
+    /// Args: none.
+    /// Returns: the chat's Drive switch. Turning it on opens the Picker, since chat Drive tools only reach picked files; turning it off drops the picks.
+    /// Raises: none.
+    private func driveBinding() -> Binding<Bool> {
+        Binding(get: { chat.current.scope.connectors.contains("drive") }, set: { enabled in
+            if enabled { closeMenus(); openDrivePicker() } else { chat.current.scope.removeDriveFiles { _ in true } }
         })
     }
 
@@ -686,14 +808,14 @@ struct ChatComposer: View {
     /// Raises: 없음. 미연결 상태에서는 커넥터 화면으로 간다.
     private func githubBinding() -> Binding<Bool> {
         Binding(get: { chat.current.scope.useGitHub }, set: { enabled in
-            if enabled && (try? ConnectorAuth.isConnected("github")) != true { showConnectors = false; showPlus = false; onOpenConnectors(); return }
+            if enabled && (try? ConnectorAuth.isConnected("github")) != true { closeMenus(); onOpenConnectors(); return }
             chat.current.scope.useGitHub = enabled
         })
     }
 }
 
 extension ChatComposer.MenuRow where Trailing == EmptyView {
-    init(icon: String?, title: String, action: @escaping () -> Void) {
+    init(icon: ChatComposer.MenuIcon?, title: String, action: @escaping () -> Void) {
         self.init(icon: icon, title: title, action: action) { EmptyView() }
     }
 }
@@ -734,3 +856,7 @@ struct ChatChipFlow: Layout {
         return rows
     }
 }
+
+private let MenuRowHeight: CGFloat = 32
+// Keeps a submenu shorter than the + menu it is centered on, so it never runs off screen.
+private let submenuRows = 7

@@ -51,6 +51,12 @@ extension ChatTools {
     /// Returns: 관련 파일의 제목·링크·설명.
     /// Raises: 연결·Drive API 오류.
     func driveSearch(_ query: String, onlyReadable: Bool = false) async throws -> ChatToolOutput {
+        // drive.file reaches every file picked in any chat, so the chat tool lists only this chat's picks; the connector check lists any.
+        if !onlyReadable {
+            let term = query.trimmingCharacters(in: .whitespaces)
+            return try Self.output(scope.driveFiles.filter { term.isEmpty || $0.name.localizedCaseInsensitiveContains(term) }
+                .map { ChatSource(id: "drive:\($0.id)", title: $0.name, location: $0.url, excerpt: $0.mimeType) })
+        }
         var url = URLComponents(string: "https://www.googleapis.com/drive/v3/files")!
         let escaped = String(query.prefix(200)).replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
         var filters = ["trashed = false"]
@@ -75,12 +81,15 @@ extension ChatTools {
         return try Self.output(sources)
     }
 
-    /// Args: reference는 Drive 검색 결과의 파일 ID 또는 출처 ID이다.
-    /// Returns: Google 문서·시트·슬라이드, PDF 또는 텍스트 파일 원문.
-    /// Raises: 연결·형식·Drive API 오류.
-    func driveRead(_ reference: String) async throws -> ChatToolOutput {
+    /// Args: reference is a Drive file ID or source ID; anyPicked lets the connector check read a file outside this chat's picks.
+    /// Returns: the text of a Google Doc, Sheet or Slides file, a PDF or a text file.
+    /// Raises: a file not picked for this chat, connection, format or Drive API errors.
+    func driveRead(_ reference: String, anyPicked: Bool = false) async throws -> ChatToolOutput {
         let id = reference.hasPrefix("drive:") ? String(reference.dropFirst(6)) : reference
         guard id.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil else { throw ChatToolError.unavailable("Drive 파일 ID가 올바르지 않습니다.") }
+        guard anyPicked || scope.driveFiles.contains(where: { $0.id == id }) else {
+            throw ChatToolError.unavailable("이 대화에서 고른 Drive 파일만 읽을 수 있습니다. + 메뉴의 'Google Drive에서 선택'으로 추가하라고 안내하세요.")
+        }
         let metadataURL = URL(string: "https://www.googleapis.com/drive/v3/files/\(id)?fields=id,name,mimeType,webViewLink")!
         let file = try await Self.json(connectorRequest("drive", metadataURL)).objectValue ?? [:]
         let mime = file["mimeType"]?.stringValue ?? ""

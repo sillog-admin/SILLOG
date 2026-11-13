@@ -1,6 +1,18 @@
 import Foundation
 import GRDB
 
+/// A Google Drive file the user picked for one chat.
+public struct ChatDriveFile: Codable, Equatable, Hashable, Sendable {
+    public var id: String
+    public var name: String
+    public var mimeType: String
+    public var url: String
+
+    public init(id: String, name: String, mimeType: String, url: String) {
+        self.id = id; self.name = name; self.mimeType = mimeType; self.url = url
+    }
+}
+
 public struct ChatScope: Codable, Equatable, Sendable {
     public var projectID: String?
     public var conversationID: String?
@@ -12,8 +24,9 @@ public struct ChatScope: Codable, Equatable, Sendable {
     public var connectors: [String] = []
     /// 활동 기록을 고른 업무·분야로 좁힌다 (여럿이면 합친 범위). 비어 있으면 모든 기록
     public var focus: [ChatFocus] = []
+    public var driveFiles: [ChatDriveFile] = []
     // 기존 대화와 예약 작업의 자료 선택을 유지하기 위한 저장 키.
-    private enum CodingKeys: String, CodingKey { case paths, libraryIDs, useActivity, useWeb, useGitHub, connectors = "plugins", projectID, focus = "focuses" }
+    private enum CodingKeys: String, CodingKey { case paths, libraryIDs, useActivity, useWeb, useGitHub, connectors = "plugins", projectID, focus = "focuses", driveFiles }
     /// 하나만 고르던 때 저장한 대화: "focus" 에 항목 하나
     private enum LegacyKeys: String, CodingKey { case focus }
 
@@ -34,11 +47,28 @@ public struct ChatScope: Codable, Equatable, Sendable {
         useWeb = try values.decodeIfPresent(Bool.self, forKey: .useWeb) ?? false
         useGitHub = try values.decodeIfPresent(Bool.self, forKey: .useGitHub) ?? useWeb
         connectors = try values.decodeIfPresent([String].self, forKey: .connectors) ?? []
+        driveFiles = try values.decodeIfPresent([ChatDriveFile].self, forKey: .driveFiles) ?? []
         if let saved = try values.decodeIfPresent([ChatFocus].self, forKey: .focus) {
             focus = saved
         } else if let single = try decoder.container(keyedBy: LegacyKeys.self).decodeIfPresent(ChatFocus.self, forKey: .focus) {
             focus = [single]
         }
+    }
+
+    /// Args: files are Drive files just picked for this chat.
+    /// Returns: nothing. Adds new files and turns the Drive connector on so the tools can read them.
+    /// Raises: none.
+    public mutating func addDriveFiles(_ files: [ChatDriveFile]) {
+        for file in files where !driveFiles.contains(where: { $0.id == file.id }) { driveFiles.append(file) }
+        if !driveFiles.isEmpty && !connectors.contains("drive") { connectors.append("drive") }
+    }
+
+    /// Args: shouldRemove picks the Drive files to drop from this chat.
+    /// Returns: nothing. Turns the Drive connector off once no picks are left, since chat Drive tools only reach picks.
+    /// Raises: none.
+    public mutating func removeDriveFiles(where shouldRemove: (ChatDriveFile) -> Bool) {
+        driveFiles.removeAll(where: shouldRemove)
+        if driveFiles.isEmpty { connectors.removeAll { $0 == "drive" } }
     }
 }
 

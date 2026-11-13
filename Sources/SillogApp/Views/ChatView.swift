@@ -158,6 +158,8 @@ struct ChatView: View {
             Group {
                 Button("") { chat.newConversation(); pane = .chat }.keyboardShortcut("n").disabled(editingMessageID != nil)
                 Button("") { showSearch = true }.keyboardShortcut("k")
+                Button("") { chat.uploadFiles() }.keyboardShortcut("u")
+                    .disabled(pane == .projects || pane == .results || library.busy || chat.activeMessage?.conversationID == chat.current.id)
                 Button("") { chat.cancel() }.keyboardShortcut(".").disabled(!(pane == .chat && chat.activeMessage?.conversationID == chat.current.id))
                 Button("") { sidebarVisible.toggle(); if sidebarVisible { chat.openArtifactID = nil } }.keyboardShortcut("\\")
                 Button("") { copyLastAnswer() }.keyboardShortcut("c", modifiers: [.command, .shift])

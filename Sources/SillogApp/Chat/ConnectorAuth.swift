@@ -273,9 +273,9 @@ enum ConnectorAuth {
     }
 
     /// Args: none.
-    /// Returns: how many files the user picked in Google Picker; 0 if they cancelled.
-    /// Raises: missing Picker key, Drive not connected, port busy or timeout.
-    static func pickDriveFiles() async throws -> Int {
+    /// Returns: the files the user picked in Google Picker in the browser; empty if they cancelled.
+    /// Raises: missing Picker key, Drive not connected or refresh rejected, port busy, timeout or Drive API errors.
+    static func pickDriveFiles() async throws -> [ChatDriveFile] {
         let apiKey = try configuration("google-api-key", environment: "GOOGLE_API_KEY")
         guard !apiKey.isEmpty else {
             throw ChatToolError.unavailable(tr("이 빌드에는 Google Picker 키가 없습니다. 앱 제공자가 SILLOG_GOOGLE_API_KEY를 넣어야 파일을 고를 수 있습니다."))
@@ -283,13 +283,15 @@ enum ConnectorAuth {
         let state = randomURLSafe(16)
         let page = DrivePicker.page(token: try await accessToken("drive"), apiKey: apiKey,
                                     clientID: try configuration("google-client", environment: "GOOGLE_CLIENT_ID"), state: state)
-        return try await LoopbackOAuth.serve(open: URL(string: "http://127.0.0.1:8765\(DrivePicker.pagePath)?state=\(state)")!) { path in
+        let ids: [String] = try await LoopbackOAuth.serve(open: URL(string: "http://127.0.0.1:8765\(DrivePicker.pagePath)?state=\(state)")!) { path in
             if path == "\(DrivePicker.pagePath)?state=\(state)" { return (200, page, nil) }
             let values = URLComponents(string: "http://127.0.0.1\(path)")?.queryItems ?? []
             guard path.hasPrefix("\(DrivePicker.donePath)?"), values.first(where: { $0.name == "state" })?.value == state,
-                  let count = values.first(where: { $0.name == "count" })?.value.flatMap(Int.init) else { return (404, "", nil) }
-            return (200, tr("<h2>파일을 골랐습니다. SILLOG 앱으로 돌아가세요.</h2>"), .success(count))
+                  let ids = values.first(where: { $0.name == "ids" })?.value else { return (404, "", nil) }
+            return (200, tr("<h2>파일을 골랐습니다. SILLOG 앱으로 돌아가세요.</h2>"), .success(ids.split(separator: ",").map(String.init)))
         }
+        guard !ids.isEmpty else { return [] }
+        return try await DrivePicker.files(ids: ids, token: try await accessToken("drive"))
     }
 
     /// Google sign-in connectors: Drive for chat, gcal for the calendar tab.
@@ -528,6 +530,8 @@ private final class LoopbackOAuth {
                 let count = recv(connection, &buffer, buffer.count, 0)
                 let line = String(decoding: buffer.prefix(max(0, count)), as: UTF8.self).components(separatedBy: "\r\n").first ?? ""
                 let path = line.hasPrefix("GET ") ? line.split(separator: " ").dropFirst().first.map(String.init) ?? "" : ""
+                // Chrome preconnects sockets that stay silent; a reply on one is shown as the answer to the next navigation.
+                guard !path.isEmpty else { continue }
                 let (status, html, result) = handle(path)
                 let body = Data(html.utf8)
                 let reason = [200: "OK", 400: "Bad Request"][status] ?? "Not Found"
