@@ -560,6 +560,8 @@ struct ChatView: View {
             let versions = message.versions
             let shownIndex = min(shownVersions[message.id] ?? versions.count - 1, versions.count - 1)
             let shown = versions[shownIndex]
+            // Older answers keep their work log and footer out of the way until hovered or focused.
+            let revealed = hoveredMessageID == message.id || focusedActions == message.id || chat.messages.last?.id == message.id || message.status == "running"
             VStack(alignment: .leading, spacing: 12) {
                 let picked = chat.skills.filter { chat.current.skillIDs.contains($0.id) }
                 if !picked.isEmpty { HStack(spacing: 4) { ForEach(picked, id: \.id) { BrandBadge($0.title) } } }
@@ -571,6 +573,8 @@ struct ChatView: View {
                                 if open { collapsedSteps.remove(message.id) } else { collapsedSteps.insert(message.id) }
                             } else if open { expandedSteps.insert(message.id) } else { expandedSteps.remove(message.id) }
                         }))
+                    .opacity(revealed || expandedSteps.contains(message.id) ? 1 : 0)
+                    .animation(.easeOut(duration: 0.12), value: revealed)
                 }
                 if shown.status == "failed" {
                     let parts = Self.failureParts(shown.text)
@@ -619,7 +623,7 @@ struct ChatView: View {
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
                 }
                 if message.status != "running" || versions.count > 1 {
-                    let showsActions = hoveredMessageID == message.id || focusedActions == message.id || chat.messages.last?.id == message.id
+                    let showsActions = revealed
                     let showsMeta = hoveredMessageID == message.id || focusedActions == message.id
                     HStack(spacing: 2) {
                         if message.status != "running" {
@@ -673,6 +677,8 @@ struct ChatView: View {
                         Spacer(minLength: 8)
                         if versions.count > 1 { versionStepper(message, shownIndex: shownIndex, count: versions.count).fixedSize() }
                     }.buttonStyle(.plain).foregroundStyle(Brand.gray).font(Brand.font(.caption))
+                    .opacity(revealed || expandedSources.contains(message.id) ? 1 : 0)
+                    .animation(.easeOut(duration: 0.12), value: revealed)
                     .focused($focusedActions, equals: message.id)
                 }
                 if expandedSources.contains(message.id) {
