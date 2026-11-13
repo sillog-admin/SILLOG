@@ -33,7 +33,7 @@ public struct ChatSkill: Codable, Identifiable, Sendable {
     /// Returns: 앱에 포함된 여섯 스킬 정의.
     /// Raises: 번들 리소스 누락, JSON 읽기·디코딩 오류.
     public static func load() throws -> [ChatSkill] {
-        guard let url = resourceBundle.url(forResource: "catalog", withExtension: "json", subdirectory: "Skills") else { throw ChatToolError.unavailable("스킬 목록을 찾을 수 없습니다.") }
+        guard let url = resourceBundle.url(forResource: "catalog", withExtension: "json", subdirectory: "Skills") else { throw ChatToolError.unavailable(tr("스킬 목록을 찾을 수 없습니다.")) }
         return try JSONDecoder().decode([ChatSkill].self, from: Data(contentsOf: url))
     }
 
@@ -42,7 +42,7 @@ public struct ChatSkill: Codable, Identifiable, Sendable {
     /// Raises: 지침 리소스 누락·읽기 오류.
     public func instructions() throws -> String {
         if let customInstructions { return customInstructions }
-        guard let instructionFile, let url = Self.resourceBundle.url(forResource: instructionFile, withExtension: nil, subdirectory: "Skills") else { throw ChatToolError.unavailable("스킬 지침을 찾을 수 없습니다: \(title)") }
+        guard let instructionFile, let url = Self.resourceBundle.url(forResource: instructionFile, withExtension: nil, subdirectory: "Skills") else { throw ChatToolError.unavailable(tr("스킬 지침을 찾을 수 없습니다: \(title)")) }
         return try String(contentsOf: url, encoding: .utf8)
     }
 
@@ -324,18 +324,19 @@ public struct ChatRunner: Sendable {
         /// Raises: 취소 또는 허용되지 않은 도구 호출.
         @Sendable func execute(_ call: ChatToolCall) async throws -> String {
             try Task.checkCancellation()
-            guard available.contains(where: { $0.name == call.name }) else { throw ChatToolError.unavailable("허용되지 않은 도구 호출입니다.") }
+            guard available.contains(where: { $0.name == call.name }) else { throw ChatToolError.unavailable(tr("허용되지 않은 도구 호출입니다.")) }
             let step = ChatStep(title: label + Self.toolTitle(call.name), detail: Self.stepDetail(call))
             await onEvent(.stepStarted(step))
             var failed = false
             let output: String
+            var shown: String?   // the work log's text when output is an instruction to the model
             do {
                 switch call.name {
                 case "delegate":
                     struct Assignment: Decodable { var role: String; var task: String }
                     struct Arguments: Decodable { var tasks: [Assignment] }
                     let args = try JSONDecoder().decode(Arguments.self, from: Data(call.arguments.utf8))
-                    guard (1...3).contains(args.tasks.count), args.tasks.allSatisfy({ ["context", "repository", "research", "review"].contains($0.role) && !$0.task.isEmpty }) else { throw ChatToolError.unavailable("1~3개의 독립적인 조사·검토 작업을 지정하세요.") }
+                    guard (1...3).contains(args.tasks.count), args.tasks.allSatisfy({ ["context", "repository", "research", "review"].contains($0.role) && !$0.task.isEmpty }) else { throw ChatToolError.unavailable(tr("1~3개의 독립적인 조사·검토 작업을 지정하세요.")) }
                     output = try await withThrowingTaskGroup(of: (Int, String).self) { group in
                         for (index, assignment) in args.tasks.enumerated() {
                             group.addTask {
@@ -352,20 +353,22 @@ public struct ChatRunner: Sendable {
                 case "create_artifact":
                     struct Arguments: Decodable { var title: String; var format: String; var content: String; var revises: String? }
                     let args = try JSONDecoder().decode(Arguments.self, from: Data(call.arguments.utf8))
-                    guard Self.artifactFormats.contains(args.format), !args.content.isEmpty, args.content.utf8.count <= 200000 else { throw ChatToolError.unavailable("결과물은 내용이 있는 200KB 이하 Markdown, HTML, CSV, JSON, TXT, DOCX, PPTX 또는 XLSX여야 합니다.") }
+                    guard Self.artifactFormats.contains(args.format), !args.content.isEmpty, args.content.utf8.count <= 200000 else { throw ChatToolError.unavailable(tr("결과물은 내용이 있는 200KB 이하 Markdown, HTML, CSV, JSON, TXT, DOCX, PPTX 또는 XLSX여야 합니다.")) }
                     let artifact = await ledger.record(ChatArtifact(title: String(args.title.prefix(160)), format: args.format, content: args.content), revises: args.revises)
                     await onEvent(.artifact(artifact))
                     output = "결과물 생성됨: \(artifact.title) (id: \(artifact.id)). 사용자가 미리보기·파일 저장·PDF 내보내기를 할 수 있다."
+                    shown = tr("결과물 생성됨: \(artifact.title)")
                 case "propose_automation":
                     let args = try JSONDecoder().decode(ChatAutomationProposal.self, from: Data(call.arguments.utf8))
-                    guard (1...8760).contains(args.intervalHours), !args.prompt.isEmpty, !args.title.isEmpty else { throw ChatToolError.unavailable("예약 이름·실행 요청과 1~8760시간 간격이 필요합니다.") }
+                    guard (1...8760).contains(args.intervalHours), !args.prompt.isEmpty, !args.title.isEmpty else { throw ChatToolError.unavailable(tr("예약 이름·실행 요청과 1~8760시간 간격이 필요합니다.")) }
                     await ledger.record(args); await onEvent(.automation(args))
                     output = "예약안이 표시됨. 아직 등록되지 않았으며 사용자의 버튼 승인이 필요하다."
+                    shown = tr("예약안을 표시했어요. 등록하려면 승인이 필요해요.")
                 default:
                     if call.name == "web_read" {
                         struct Arguments: Decodable { var url: String }
                         let url = (try? JSONDecoder().decode(Arguments.self, from: Data(call.arguments.utf8)).url) ?? ""
-                        guard await ledger.knows(url) else { throw ChatToolError.unavailable("검색 결과나 사용자가 준 주소만 읽을 수 있습니다.") }
+                        guard await ledger.knows(url) else { throw ChatToolError.unavailable(tr("검색 결과나 사용자가 준 주소만 읽을 수 있습니다.")) }
                     }
                     let result = try await tools.execute(call)
                     await ledger.record(result.sources)
@@ -376,11 +379,12 @@ public struct ChatRunner: Sendable {
                 if Task.isCancelled || error is CancellationError { throw CancellationError() }
                 AppLog.write("chat tool \(call.name) failed: \(error) args(\(call.arguments.utf8.count)B)=\(PIIMasker.mask(String(call.arguments.prefix(120))))")
                 output = "도구 실행 실패: \(error.localizedDescription). 같은 인자로 자동 재시도하지 말고 원인을 설명하거나 다른 자료를 사용하세요."
+                shown = tr("도구 실행 실패: \(error.localizedDescription)")
                 failed = true
             }
             // Tool results carry records and connector data. The user's own messages are sent as typed.
             let masked = PIIMasker.mask(String(output.prefix(28000)))
-            await onEvent(.stepFinished(id: step.id, result: String(masked.prefix(800)), failed: failed))
+            await onEvent(.stepFinished(id: step.id, result: String((shown.map { PIIMasker.mask($0) } ?? masked).prefix(800)), failed: failed))
             return masked
         }
         if case .codex(let client) = backend {
@@ -487,7 +491,7 @@ public struct ChatRunner: Sendable {
     /// Raises: none.
     public static func displayTitle(_ title: String) -> String {
         title.components(separatedBy: " · ").map { part in
-            guard L10n.english[part] == nil, let suffix = [" 시작", " 완료", " 읽기", " 검색", " 실패", " 사용자 메시지"].first(where: { part.hasSuffix($0) }) else { return L10n.tr(key: part) }
+            guard L10n.english[part] == nil, let suffix = [" 시작", " 완료", " 읽기", " 검색", " 실패", " 사용자 메시지", "부터"].first(where: { part.hasSuffix($0) }) else { return L10n.tr(key: part) }
             var text = LocalizedText(stringLiteral: "%@" + suffix)
             text.args = [displayTitle(String(part.dropLast(suffix.count)))]
             return L10n.tr(text)

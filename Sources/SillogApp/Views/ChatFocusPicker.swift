@@ -28,8 +28,8 @@ struct ChatFocusButton: View {
         guard scope.useActivity else { return tr("기록 안 씀") }
         guard let first = scope.focus.first else { return tr("모든 기록") }
         guard scope.focus.count == 1, first.kind == .theme else { return summary(scope.focus) }
-        if let count = choices.themes.first(where: { $0.focus.key == first.key })?.taskCount { return tr("\(short(first.title)) · 업무 \(count)") }
-        return tr("\(short(first.title)) 분야")
+        if let count = choices.themes.first(where: { $0.focus.key == first.key })?.taskCount { return tr("\(short(L10n.tr(key: first.title))) · 업무 \(count)") }
+        return tr("\(short(L10n.tr(key: first.title))) 분야")
     }
 
     /// 고른 것을 짧게: 하나면 그 이름, 여럿이면 '첫 이름 외 n' (대화 목록·입력칸 안내도 같은 말)
@@ -139,7 +139,7 @@ struct ChatFocusTree: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(tr("\(field.name) 분야")).accessibilityAddTraits(on ? .isSelected : [])
+        .accessibilityLabel(tr("\(field.title) 분야")).accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private enum Mark { case none, check }
@@ -176,7 +176,7 @@ struct ChatFocusTree: View {
     static func visible(_ tasks: [ChatFocusChoices.TaskItem], filter: Set<String>, query: String) -> [ChatFocusChoices.TaskItem] {
         tasks.filter { task in
             (filter.isEmpty || filter.contains(task.field ?? TasksView.noField))
-                && (query.isEmpty || task.focus.title.localizedCaseInsensitiveContains(query) || (task.field ?? "").localizedCaseInsensitiveContains(query))
+                && (query.isEmpty || task.focus.title.localizedCaseInsensitiveContains(query) || (task.field ?? "").localizedCaseInsensitiveContains(query) || L10n.tr(key: task.field ?? "").localizedCaseInsensitiveContains(query))
         }
     }
 

@@ -51,8 +51,8 @@
     return element
   }
 
-  const dayFormat = new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
-  const timeFormat = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+  const dayFormat = new Intl.DateTimeFormat(window.SILLOG_LANG || 'ko', { month: 'long', day: 'numeric', weekday: 'short' })
+  const timeFormat = new Intl.DateTimeFormat(window.SILLOG_LANG || 'ko', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
   // "11월 5일 (목) 15:00–16:00", 종일이면 "11월 5일 (목) 종일" (여러 날이면 끝 날까지)
   function when(event) {

@@ -107,15 +107,15 @@ public struct LibraryStore: Sendable {
     /// Raises: 크기·인증 경로·파일 복사·DB 오류. 추출 실패는 원본과 안내를 보관한다.
     @discardableResult public func importFile(_ source: URL) throws -> ChatLibraryItem {
         let source = source.resolvingSymlinksInPath()
-        guard !source.pathComponents.contains(where: ChatTools.isPrivate) else { throw ChatToolError.unavailable("인증 정보가 포함된 파일은 보관함에 추가할 수 없습니다.") }
+        guard !source.pathComponents.contains(where: ChatTools.isPrivate) else { throw ChatToolError.unavailable(tr("인증 정보가 포함된 파일은 보관함에 추가할 수 없습니다.")) }
         let values = try source.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey])
         guard values.isRegularFile == true, (values.fileSize ?? 0) <= 50_000_000 else {
-            throw ChatToolError.unavailable("50MB 이하의 파일을 선택하세요. 폴더는 원본 연결로 추가할 수 있습니다.")
+            throw ChatToolError.unavailable(tr("50MB 이하의 파일을 선택하세요. 폴더는 원본 연결로 추가할 수 있습니다."))
         }
         let item = ChatLibraryItem(title: source.lastPathComponent, filename: source.lastPathComponent, kind: "upload")
         return try write(item, data: Data(contentsOf: source), modifiedAt: values.contentModificationDate) { url in
             do { return try FileTextExtractor.read(url) }
-            catch { return ("", "원본은 보관했습니다. 본문 추출 실패: \(error.localizedDescription)") }
+            catch { return ("", tr("원본은 보관했습니다. 본문 추출 실패: \(error.localizedDescription)")) }
         }
     }
 
@@ -143,7 +143,7 @@ public struct LibraryStore: Sendable {
     /// Raises: 미완료 답변·파일·DB 오류.
     @discardableResult public func saveResponse(_ message: ConversationMessage, title: String) throws -> ChatLibraryItem {
         guard message.status == "complete", message.role == "assistant", !message.text.isEmpty else {
-            throw ChatToolError.unavailable("완료된 답변만 자료로 저장할 수 있습니다.")
+            throw ChatToolError.unavailable(tr("완료된 답변만 자료로 저장할 수 있습니다."))
         }
         let origin = "message:\(message.id)"
         if let existing = try find(originID: origin) { return existing }
@@ -290,9 +290,9 @@ public struct LibraryStore: Sendable {
     public func read(_ itemID: String, ids: [String], start: Int = 1) throws -> ChatSource {
         let pieces = itemID.split(separator: ":", omittingEmptySubsequences: false)
         let id = itemID.hasPrefix("library:") && pieces.count >= 2 ? String(pieces[1]) : itemID
-        guard ids.contains(id) else { throw ChatToolError.unavailable("이 대화에 연결되지 않은 자료입니다.") }
+        guard ids.contains(id) else { throw ChatToolError.unavailable(tr("이 대화에 연결되지 않은 자료입니다.")) }
         return try db.writer.read { conn in
-            guard let row = try Row.fetchOne(conn, sql: "SELECT payload, text FROM app_library WHERE id = ?", arguments: [id]) else { throw ChatToolError.unavailable("자료가 삭제되었습니다.") }
+            guard let row = try Row.fetchOne(conn, sql: "SELECT payload, text FROM app_library WHERE id = ?", arguments: [id]) else { throw ChatToolError.unavailable(tr("자료가 삭제되었습니다.")) }
             let item = try JSONDecoder().decode(ChatLibraryItem.self, from: Data((row["payload"] as String).utf8))
             let text: String = row["text"], offset = max(1, start)
             let page = String(text.dropFirst(offset - 1).prefix(18000))

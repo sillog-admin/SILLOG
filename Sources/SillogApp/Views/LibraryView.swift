@@ -286,7 +286,7 @@ struct LibraryPreview: View {
             }.padding(.horizontal, 24).frame(height: 56)
             Rectangle().fill(Brand.line).frame(height: 1)
             LibraryQuickLook(url: library.store.url(for: item))
-            if !item.extractionNote.isEmpty { Text(item.extractionNote).font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(12) }
+            if !item.extractionNote.isEmpty { Text(L10n.tr(key: item.extractionNote)).font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(12) }
         }.frame(width: 800, height: 600).background(.white)
         }
         }

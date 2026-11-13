@@ -38,7 +38,7 @@ public struct ReviewProposal: Equatable, Sendable, Identifiable {
             return p.merge.isEmpty ? head : "\(head) ← \(p.merge.map(name).joined(separator: ", "))"
         case .mergeTopics, .mergeProblems: return "\(name(p.keep)) ← \(p.merge.map(name).joined(separator: ", "))"
         case .retireTask, .laterDone, .laterDrop: return name(p.key)
-        case .joinSessions: return "1분 미만 세션 \(p.moves.count)개를 같은 날 세션에 붙이기"
+        case .joinSessions: return tr("1분 미만 세션 \(p.moves.count)개를 같은 날 세션에 붙이기")
         }
     }
 

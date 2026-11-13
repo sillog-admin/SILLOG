@@ -59,9 +59,9 @@ public struct Recording: Codable, Equatable, Sendable, FetchableRecord, MutableP
     public var displayTitle: String {
         if let title, !title.isEmpty { return title }
         switch status {
-        case .recording: return "녹음 중"
-        case .transcribing: return "받아쓰는 중인 녹음"
-        case .ready, .failed: return "제목 없는 녹음"
+        case .recording: return tr("녹음 중")
+        case .transcribing: return tr("받아쓰는 중인 녹음")
+        case .ready, .failed: return tr("제목 없는 녹음")
         }
     }
 }

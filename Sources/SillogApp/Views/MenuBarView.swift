@@ -288,7 +288,7 @@ private struct MenuBarDashboard: View {
             return minutes % 60 == 0 ? tr("\(minutes / 60)시간 뒤 초기화") : tr("\(minutes / 60)시간 \(minutes % 60)분 뒤 초기화")
         }
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.locale = Locale(identifier: L10n.current.rawValue)
         formatter.dateFormat = "EEEE"
         return tr("\(formatter.string(from: reset)) 초기화")
     }
@@ -655,9 +655,9 @@ private struct MenuBarCalendar: View {
         .background(RoundedRectangle(cornerRadius: 8).fill(MenuColor.row))
     }
 
-    /// "11월 3일 화요일"
+    /// e.g. "11월 3일 화요일" or "Tuesday, Nov 3".
     static func dateTitle(_ date: Date) -> String {
-        let f = DateFormatter(); f.locale = Locale(identifier: "ko_KR"); f.dateFormat = tr("M월 d일 EEEE")
+        let f = DateFormatter(); f.locale = Locale(identifier: L10n.current.rawValue); f.dateFormat = tr("M월 d일 EEEE")
         return f.string(from: date)
     }
 }

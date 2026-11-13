@@ -13,8 +13,8 @@ struct SkillDraft: Identifiable {
 
     init(skill: ChatSkill) throws {
         skillID = skill.id
-        title = skill.title
-        summary = skill.summary
+        title = skill.displayTitle
+        summary = skill.displaySummary
         instructions = try skill.instructions()
     }
 

@@ -103,7 +103,7 @@ public struct DigestBuilder {
         var lines: [String] = []
         for line in input.sessions.flatMap(\.summaries) + input.weeks.map(\.summary) where !line.isEmpty && !lines.contains(line) { lines.append(line) }
         let short = input.metrics.activeSeconds < minNarratedSeconds
-        var summary = "\(input.task.title) 업무 기록이 \(input.time) 있습니다."
+        var summary = tr("\(input.task.title) 업무 기록이 \(TimePhrase.approx(input.metrics.activeSeconds)) 있습니다.")
         if let first = lines.first { summary += " " + first }
         let progress = lines.prefix(short ? 3 : 8).map { DigestContent.Item(text: String($0.prefix(300)), status: "in_progress", anchors: [input.task.key]) }
         let problems = input.problems.prefix(8).map { DigestContent.Item(text: $0.text, state: $0.state, anchors: [$0.key]) }

@@ -3,7 +3,7 @@ import Foundation
 /// 자료가 아닌 페이지: 검색 결과, 빈 탭, 로그인·리다이렉트, 목록만 스친 것. 세션의 자료로 잇지 않고 다시 열지도 않는다.
 /// 의미 판단이 아니라 데이터 정리다 (검색 결과 페이지는 누가 봐도 "다시 볼 자료"가 아니다).
 public enum TransientPages {
-    static let blankTitles: Set<String> = ["", "제목 없음", "untitled", "새 탭", "new tab", "빈 페이지", "about:blank", "loading…", "loading..."]
+    static let blankTitles: Set<String> = ["", "제목 없음", "untitled", "새 탭", "new tab", "빈 페이지", "blank page", "about:blank", "loading…", "loading..."]
 
     public static func isTransient(url: String?, title: String?) -> Bool {
         if let title, blankTitles.contains(title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) { return true }

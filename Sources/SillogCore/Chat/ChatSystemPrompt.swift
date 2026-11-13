@@ -19,7 +19,7 @@ struct ChatSystemPrompt: Sendable {
     /// Returns: 앱에 포함된 채팅 시스템 프롬프트 원문.
     /// Raises: 번들 리소스 누락·읽기 오류.
     static func template() throws -> String {
-        guard let url = ChatSkill.resourceBundle.url(forResource: "chat-system-prompt", withExtension: "md", subdirectory: "Prompts") else { throw ChatToolError.unavailable("채팅 지침을 찾을 수 없습니다.") }
+        guard let url = ChatSkill.resourceBundle.url(forResource: "chat-system-prompt", withExtension: "md", subdirectory: "Prompts") else { throw ChatToolError.unavailable(tr("채팅 지침을 찾을 수 없습니다.")) }
         return try String(contentsOf: url, encoding: .utf8)
     }
 

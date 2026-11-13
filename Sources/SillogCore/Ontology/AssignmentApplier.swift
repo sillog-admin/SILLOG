@@ -19,13 +19,14 @@ public struct ApplyStats: Codable, Equatable, Sendable {
 
     public init() {}
 
-    /// 활동 로그 '반영 결과' 줄: 배치에 저장된 JSON 을 "세션 1개, 새 업무 0개, 자료 2개" 로 (세션 = 새로 만든 것 + 이어 붙인 것).
-    /// 예전 배치처럼 키가 빠져 있으면 0, 통계 JSON 이 아니면 nil.
+    /// Args: json is the stats saved on a batch.
+    /// Returns: the activity log result line, e.g. "세션 1개, 새 업무 0개, 자료 2개", counting new and extended sessions
+    /// and 0 for keys older batches lack; nil when the JSON is not batch stats.
     public static func summary(json: String) -> String? {
         guard let data = json.data(using: .utf8), let dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               ["sessions", "tasksCreated", "resources"].contains(where: { dict[$0] != nil }) else { return nil }
         let n = { (key: String) in (dict[key] as? NSNumber)?.intValue ?? 0 }
-        return "세션 \(n("sessions") + n("sessionsExtended"))개, 새 업무 \(n("tasksCreated"))개, 자료 \(n("resources"))개"
+        return tr("세션 \(n("sessions") + n("sessionsExtended"))개, 새 업무 \(n("tasksCreated"))개, 자료 \(n("resources"))개")
     }
 }
 
@@ -196,8 +197,9 @@ public struct AssignmentApplier: Sendable {
         title.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }
 
-    /// 제목이 업무 종류 이름 그대로면 목표가 아니라 분류다
+    /// A title that is just a task type name, in either language, is a category, not a goal.
     public static func isCategory(_ title: String?) -> Bool {
-        TBox.leafTaskTypes.contains(normalizeTitle(title ?? ""))
+        let clean = normalizeTitle(title ?? "").lowercased()
+        return TBox.leafTaskTypes.contains { $0 == clean || L10n.english[$0]?.lowercased() == clean }
     }
 }

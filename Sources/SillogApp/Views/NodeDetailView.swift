@@ -8,9 +8,15 @@ struct NodeDetailView: View {
     let ref: NodeRef
     @State private var detail: NodeDetail?
 
-    private static let when: DateFormatter = {
-        let f = DateFormatter(); f.locale = Locale(identifier: "ko_KR"); f.dateFormat = tr("M월 d일 HH:mm"); return f
-    }()
+    /// Built per use: the language can change while the app runs.
+    private static var when: DateFormatter {
+        let f = DateFormatter(); f.locale = Locale(identifier: L10n.current.rawValue); f.dateFormat = tr("M월 d일 HH:mm"); return f
+    }
+
+    /// Type nodes carry the Korean TBox names and default themes their Korean names.
+    private static func title(_ title: String, label: String) -> String {
+        [NodeLabel.taskType, NodeLabel.resourceType, NodeLabel.theme].contains(label) ? L10n.tr(key: title) : title
+    }
 
     var body: some View {
         Group {
@@ -49,7 +55,7 @@ struct NodeDetailView: View {
                         .padding(.bottom, 22)
                     }
                     ForEach(d.sections, id: \.title) { section in
-                        sectionTitle(section.title, count: section.total)
+                        sectionTitle(L10n.tr(key: section.title), count: section.total)
                         VStack(spacing: 0) { ForEach(section.links) { row($0) } }
                         if section.total > section.links.count {
                             Text(tr("외 \(section.total - section.links.count)개")).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.top, 6)
@@ -75,8 +81,8 @@ struct NodeDetailView: View {
                 }
                 .buttonStyle(.plain).padding(.bottom, 12)
             }
-            BrandBadge(d.kindName)
-            Text(d.title).font(Brand.font(.screenTitle)).tracking(-1).foregroundStyle(Brand.ink).lineLimit(3).padding(.top, 12)
+            BrandBadge(d.kindName.components(separatedBy: " · ").map { L10n.tr(key: $0) }.joined(separator: " · "))
+            Text(Self.title(d.title, label: d.label)).font(Brand.font(.screenTitle)).tracking(-1).foregroundStyle(Brand.ink).lineLimit(3).padding(.top, 12)
                 .fixedSize(horizontal: false, vertical: true)
             if let address = d.address, address != d.title {
                 Text(address).font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(2).truncationMode(.middle).textSelection(.enabled).padding(.top, 6)
@@ -110,7 +116,7 @@ struct NodeDetailView: View {
         Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
             ForEach(Array(facts.enumerated()), id: \.offset) { _, fact in
                 GridRow {
-                    Text(fact.name).font(Brand.font(.body)).foregroundStyle(Brand.gray)
+                    Text(L10n.tr(key: fact.name)).font(Brand.font(.body)).foregroundStyle(Brand.gray)
                     Text(Self.text(fact.value)).font(Brand.font(.body, .medium)).foregroundStyle(Brand.text)
                 }
             }
@@ -120,7 +126,7 @@ struct NodeDetailView: View {
 
     static func text(_ value: NodeDetail.Value) -> String {
         switch value {
-        case .text(let text): text
+        case .text(let text): L10n.tr(key: text)
         case .duration(let seconds): TasksView.duration(seconds)
         case .time(let ts): when.string(from: Date(timeIntervalSince1970: ts))
         case .count(let n): tr("\(n)개")
@@ -139,7 +145,7 @@ struct NodeDetailView: View {
     private func row(_ link: NodeDetail.Link) -> some View {
         Button { state.openNodeDetail(NodeRef(label: link.label, key: link.key), fromDetail: true) } label: {
             HStack(spacing: 8) {
-                Text(link.title).font(Brand.font(.body)).foregroundStyle(Brand.text).lineLimit(1).truncationMode(.tail)
+                Text(Self.title(link.title, label: link.label)).font(Brand.font(.body)).foregroundStyle(Brand.text).lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 8)
                 if let meta = Self.meta(link) { Text(meta).font(Brand.font(.caption)).foregroundStyle(Brand.gray).fixedSize() }
             }

@@ -18,7 +18,7 @@ public enum ChatArtifactHTML {
             body = "<pre>\(escape(reindent(artifact.content)))</pre>"
         } else { body = "<pre>\(escape(artifact.content))</pre>" }
         return """
-        <!doctype html><html lang="ko"><head><meta charset="utf-8">
+        <!doctype html><html lang="\(L10n.current.rawValue)"><head><meta charset="utf-8">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
         <meta name="viewport" content="width=device-width, initial-scale=1"><title>\(escape(artifact.title))</title>
         <style>body{font:14px/1.7 -apple-system,BlinkMacSystemFont,sans-serif;color:#141210;background:#fff;margin:32px 28px;overflow-wrap:anywhere}h1,h2,h3{line-height:1.3}h1{font-size:24px}h2{font-size:18px;margin-top:28px}p{white-space:pre-wrap}pre{white-space:pre-wrap;background:#F6F5F4;padding:16px;border-radius:6px}code{font-family:ui-monospace,monospace}table{border-collapse:collapse;width:100%;margin:20px 0}td,th{border:1px solid #E5E2DF;padding:8px 12px;text-align:left}tr:first-child td{background:#F6F5F4;font-weight:600}blockquote{border-left:3px solid #E5E2DF;margin-left:0;padding-left:16px;color:#736D68}a{color:#265ed4}hr{border:0;border-top:1px solid #E5E2DF;margin:24px 0}section{border-bottom:1px solid #E5E2DF;padding-bottom:24px}@media print{body{margin:0}pre,table{break-inside:avoid}section{break-after:page}}</style>

@@ -172,7 +172,7 @@ public enum OfficeFile {
             }
             let paragraphs = body.compactMap(slideParagraph).joined()
             let slide = head + #"<p:sld \#(pns)><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>"#
-                + textBox(id: 2, y: 457200, cy: 1143000, bodyPr: #"<a:bodyPr wrap="square"/>"#, paragraphs: #"<a:p><a:r><a:rPr lang="ko-KR" sz="3200" b="1"/><a:t>\#(xml(plain(heading).replacingOccurrences(of: "**", with: "")))</a:t></a:r></a:p>"#)
+                + textBox(id: 2, y: 457200, cy: 1143000, bodyPr: #"<a:bodyPr wrap="square"/>"#, paragraphs: #"<a:p><a:r><a:rPr lang="\#(lang)" sz="3200" b="1"/><a:t>\#(xml(plain(heading).replacingOccurrences(of: "**", with: "")))</a:t></a:r></a:p>"#)
                 + textBox(id: 3, y: 1714500, cy: 4572000, bodyPr: #"<a:bodyPr wrap="square"><a:normAutofit/></a:bodyPr>"#, paragraphs: paragraphs.isEmpty ? "<a:p/>" : paragraphs)
                 + "</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>"
             parts["ppt/slides/slide\(index + 1).xml"] = slide
@@ -191,8 +191,11 @@ public enum OfficeFile {
         let bullet = t.hasPrefix("- ") || t.hasPrefix("* ")
         if bullet { t = String(t.dropFirst(2)) } else if t.hasPrefix("#") { t = String(t.drop(while: { $0 == "#" || $0 == " " })) }
         let pPr = bullet ? #"<a:pPr marL="342900" indent="-342900"><a:buChar char="•"/></a:pPr>"# : "<a:pPr><a:buNone/></a:pPr>"
-        return #"<a:p>\#(pPr)<a:r><a:rPr lang="ko-KR" sz="2000"/><a:t>\#(xml(plain(t).replacingOccurrences(of: "**", with: "")))</a:t></a:r></a:p>"#
+        return #"<a:p>\#(pPr)<a:r><a:rPr lang="\#(lang)" sz="2000"/><a:t>\#(xml(plain(t).replacingOccurrences(of: "**", with: "")))</a:t></a:r></a:p>"#
     }
+
+    /// PowerPoint proofs each text run in this language.
+    private static var lang: String { L10n.current == .ko ? "ko-KR" : "en-US" }
 
     private static func textBox(id: Int, y: Int, cy: Int, bodyPr: String, paragraphs: String) -> String {
         #"<p:sp><p:nvSpPr><p:cNvPr id="\#(id)" name="Text \#(id)"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="609600" y="\#(y)"/><a:ext cx="10972800" cy="\#(cy)"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody>\#(bodyPr)<a:lstStyle/>\#(paragraphs)</p:txBody></p:sp>"#
@@ -293,7 +296,7 @@ public enum OfficeFile {
             return try Data(contentsOf: tmp.appendingPathComponent("o.zip"))
         } catch {
             AppLog.write("office zip failed: \(error.localizedDescription)")
-            throw ChatToolError.unavailable("Office 파일을 만들지 못했습니다.")
+            throw ChatToolError.unavailable(tr("Office 파일을 만들지 못했습니다."))
         }
     }
 }

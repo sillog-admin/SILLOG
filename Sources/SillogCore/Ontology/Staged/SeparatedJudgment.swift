@@ -91,7 +91,7 @@ extension StagedPipeline {
                 for _ in 0..<choiceConcurrency { enqueue() }
                 for await (row, result) in group {
                     switch result {
-                    case .success(let choice): selected[row] = .init(row: row, choice: choice, reason: "판단 모델")
+                    case .success(let choice): selected[row] = .init(row: row, choice: choice, reason: tr("판단 모델"))
                     // Stop sending new rows while the server is failing; keep the message for the batch log.
                     case .failure(let error): failure = failure ?? error.localizedDescription
                     }
@@ -101,7 +101,7 @@ extension StagedPipeline {
             if let failure { AppLog.write("판단 모델 호출 실패: \(failure.prefix(200))") }
             let result = selected.values.sorted { $0.row < $1.row }.map { "\($0.row): \($0.choice)" }.joined(separator: "\n")
             state.calls.append(.init(stage: "assign-choice", system: choiceRules, user: "", raw: failure ?? "",
-                                     arguments: result + (failure.map { "\n판단 모델 호출 실패: \($0)" } ?? ""),
+                                     arguments: result + (failure.map { tr("\n판단 모델 호출 실패: \($0)") } ?? ""),
                                      model: client.modelName, promptTokens: 0, completionTokens: 0))
         }
 

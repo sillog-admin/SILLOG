@@ -16,7 +16,7 @@ struct ExcludedAppsView: View {
     private var entries: [Entry] {
         state.settings.excludedBundles.map { bundle in
             let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle)
-            let name = PrivacyFilter.defaultNames[bundle]
+            let name = PrivacyFilter.defaultNames[bundle].map { L10n.tr(key: $0) }
                 ?? url.map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") } ?? bundle
             return Entry(id: bundle, name: name, icon: url.map { NSWorkspace.shared.icon(forFile: $0.path) })
         }

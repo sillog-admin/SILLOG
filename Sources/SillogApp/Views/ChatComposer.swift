@@ -205,7 +205,7 @@ struct ChatComposer: View {
         guard let shortcut else { return [] }
         let choices: [ShortcutChoice]
         switch shortcut.kind {
-        case .skill: choices = chat.skills.map { .init(id: $0.id, name: $0.title, icon: $0.icon) }
+        case .skill: choices = chat.skills.map { .init(id: $0.id, name: $0.displayTitle, icon: $0.icon) }
         case .connector:
             // Wait for the Keychain read, or connected rows act unconnected and reorder under the cursor.
             guard let connectedConnectors else { return [] }

@@ -108,13 +108,16 @@ public struct PeriodCalendar: Sendable {
     }
 }
 
-/// 사람이 읽는 시간 문구. 다이제스트 본문과 채팅 집계가 같은 표현을 쓴다
+/// Human-readable durations shared by digest bodies and chat totals.
 public enum TimePhrase {
-    public static func approx(_ seconds: Double) -> String {
+    /// Args: localized is false for digest input, whose hash must not change with the app language.
+    /// Returns: e.g. "약 2시간 30분" or "about 2 h 30 min".
+    public static func approx(_ seconds: Double, localized: Bool = true) -> String {
+        let text: (LocalizedText) -> String = localized ? tr : L10n.korean
         let minutes = Int((seconds / 60).rounded())
-        if minutes < 1 { return seconds > 0 ? "1분 미만" : "0분" }
-        if minutes < 60 { return "약 \(minutes)분" }
+        if minutes < 1 { return seconds > 0 ? text("1분 미만") : text("0분") }
+        if minutes < 60 { return text("약 \(minutes)분") }
         let hours = minutes / 60, rest = minutes % 60
-        return rest == 0 ? "약 \(hours)시간" : "약 \(hours)시간 \(rest)분"
+        return rest == 0 ? text("약 \(hours)시간") : text("약 \(hours)시간 \(rest)분")
     }
 }

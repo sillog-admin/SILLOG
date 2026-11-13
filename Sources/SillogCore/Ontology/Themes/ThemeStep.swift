@@ -48,7 +48,7 @@ public enum ThemeStep {
                 "type": "object",
                 "properties": .object([
                     "id": .object(["type": "string", "description": "TASKS 의 id"]),
-                    "theme": .object(["type": "string", "description": "NEEDS_THEME 일 때: 분야 이름 (짧은 한국어 명사구)"]),
+                    "theme": .object(["type": "string", "description": .string("NEEDS_THEME 일 때: 분야 이름 (짧은 \(L10n.current.nameInKorean) 명사구)")]),
                     "new_theme": .object(["type": "boolean", "description": "THEMES·DEFAULT_THEMES 에 없는 새 분야면 true"]),
                     "task_type": .object(["type": "string", "enum": .array(TBox.leafTaskTypes.map { .string($0) }), "description": "NEEDS_TYPE 일 때"]),
                 ]),
@@ -84,11 +84,12 @@ public enum ThemeStep {
         if themes.isEmpty { lines.append("(none)") }
         for theme in themes {
             let tasks = theme.tasks.prefix(5).map { OntologyPrompt.clip($0, 60) }.joined(separator: "; ")
-            lines.append(tasks.isEmpty ? "- \(theme.name)" : "- \(theme.name) | tasks: \(tasks)")
+            let name = L10n.tr(key: theme.name)   // the model answers in the app language; find() maps it back
+            lines.append(tasks.isEmpty ? "- \(name)" : "- \(name) | tasks: \(tasks)")
         }
         let used = Set(themes.map { ThemeCatalog.matchKey($0.name) })
         let unused = ThemeCatalog.defaults.filter { !used.contains(ThemeCatalog.matchKey($0)) }
-        lines.append("DEFAULT_THEMES (not used yet): " + (unused.isEmpty ? "(none)" : unused.joined(separator: ", ")))
+        lines.append("DEFAULT_THEMES (not used yet): " + (unused.isEmpty ? "(none)" : unused.map { L10n.tr(key: $0) }.joined(separator: ", ")))
         lines.append("SLOTS: \(max(0, ThemeCatalog.limit - themes.count))")
         if targets.contains(where: \.needsType) { lines.append("TASK_TYPES: " + TBox.leafTaskTypes.joined(separator: ", ")) }
         lines.append("TASKS:")

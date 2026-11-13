@@ -12,7 +12,7 @@ public enum FileTextExtractor {
         let ext = url.pathExtension.lowercased()
         var text = ""
         if ext == "pdf", let pdf = PDFDocument(url: url) {
-            text = (0..<pdf.pageCount).map { "[\($0 + 1)쪽]\n\(pdf.page(at: $0)?.string ?? "")" }.joined(separator: "\n")
+            text = (0..<pdf.pageCount).map { tr("[\($0 + 1)쪽]\n\(pdf.page(at: $0)?.string ?? "")") }.joined(separator: "\n")
             if text.filter({ $0.isLetter }).isEmpty {
                 return ("", "이미지로 된 PDF입니다. 원본은 보관되지만 본문 검색에는 텍스트가 있는 PDF가 필요합니다.")
             }
@@ -63,11 +63,11 @@ public enum FileTextExtractor {
         try process.run()
         var data = Data()
         while let chunk = try pipe.fileHandleForReading.read(upToCount: 65536), !chunk.isEmpty {
-            guard data.count + chunk.count <= 8_000_000 else { process.terminate(); process.waitUntilExit(); throw ChatToolError.unavailable("문서의 압축 해제 내용이 너무 큽니다.") }
+            guard data.count + chunk.count <= 8_000_000 else { process.terminate(); process.waitUntilExit(); throw ChatToolError.unavailable(tr("문서의 압축 해제 내용이 너무 큽니다.")) }
             data.append(chunk)
         }
         process.waitUntilExit()
-        guard process.terminationStatus == 0 else { throw ChatToolError.unavailable("문서 내용을 추출하지 못했습니다.") }
+        guard process.terminationStatus == 0 else { throw ChatToolError.unavailable(tr("문서 내용을 추출하지 못했습니다.")) }
         return String(decoding: data, as: UTF8.self)
     }
 }

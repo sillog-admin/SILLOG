@@ -22,4 +22,12 @@ final class EventSuggestionCopyTests: XCTestCase {
         XCTAssertEqual(EventSuggestionCopy.dateText(start: time("2026-11-10 23:59"), allDay: false, timeZone: seoul), "11월 10일 화 23:59")
         XCTAssertEqual(EventSuggestionCopy.dateText(start: time("2026-11-10 00:00"), allDay: true, timeZone: seoul), "11월 10일 화")
     }
+
+    func testCopyFollowsTheAppLanguage() {
+        L10n.current = .en
+        defer { L10n.current = .ko }
+        XCTAssertEqual(EventSuggestionCopy.title, "Add this event to your calendar?")
+        XCTAssertEqual(EventSuggestionCopy.dateText(start: time("2026-11-10 23:59"), allDay: false, timeZone: seoul), "Tue, Nov 10 23:59")
+        XCTAssertEqual(EventSuggestionCopy.dateText(start: time("2026-11-10 00:00"), allDay: true, timeZone: seoul), "Tue, Nov 10")
+    }
 }

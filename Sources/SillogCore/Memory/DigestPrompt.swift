@@ -33,7 +33,7 @@ public enum DigestPrompt {
     public static var tool: ToolSpec {
         func items(_ extra: [String: JSONValue], required: [String]) -> JSONValue {
             var properties: [String: JSONValue] = [
-                "text": .object(["type": "string", "description": "한국어 한 문장"]),
+                "text": .object(["type": "string", "description": .string("\(L10n.current.nameInKorean) 한 문장")]),
                 "anchors": .object(["type": "array", "items": .object(["type": "string"]), "description": "ANCHORS 에서 그대로 복사한 key 1~3개"]),
             ]
             properties.merge(extra) { _, new in new }

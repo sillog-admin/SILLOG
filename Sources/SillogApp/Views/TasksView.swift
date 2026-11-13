@@ -34,12 +34,13 @@ struct TasksView: View {
         self.onSelect = onSelect
     }
 
-    private static let day: DateFormatter = {
+    /// Built per use: the language can change while the app runs.
+    private static var day: DateFormatter {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.locale = Locale(identifier: L10n.current.rawValue)
         formatter.dateFormat = tr("M월 d일")
         return formatter
-    }()
+    }
     private static let clock: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
@@ -342,7 +343,7 @@ struct TasksView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(tr("\(folder.name) 분야, 업무 \(folder.tasks.count)개, \(open ? tr("펼침") : tr("접힘"))"))
+        .accessibilityLabel(tr("\(L10n.tr(key: folder.name)) 분야, 업무 \(folder.tasks.count)개, \(open ? tr("펼침") : tr("접힘"))"))
         .contextMenu {
             if folder.name != Self.noField {                                        // '분야 없음' 은 분야가 아니라 고를 수 없다
                 Button(tr("이 분야로 묻기")) { state.askAbout(theme: folder.name) }
@@ -519,7 +520,7 @@ struct TasksView: View {
     private func heading(_ task: TaskSummary, lines: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
-                if let type = task.taskType { BrandBadge(type) }
+                if let type = task.taskType { BrandBadge(L10n.tr(key: type)) }
             }
             Text(task.title).font(Brand.font(.screenTitle)).tracking(-1.26).foregroundStyle(Brand.ink).lineLimit(lines).padding(.top, 14)
         }
@@ -820,7 +821,7 @@ struct TasksView: View {
         return minutes >= 60 ? tr("\(minutes / 60)시간 \(minutes % 60)분") : tr("\(max(minutes, seconds > 0 ? 1 : 0))분")
     }
 
-    private static func dayLabel(_ date: Date) -> String {
+    static func dayLabel(_ date: Date) -> String {
         (Calendar.current.isDateInToday(date) ? tr("오늘, ") : "") + day.string(from: date)
     }
 

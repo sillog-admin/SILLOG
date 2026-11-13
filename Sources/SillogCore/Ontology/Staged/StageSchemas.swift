@@ -45,7 +45,7 @@ public enum StageTool {
                 "properties": .object([
                     "rows": rowRange,
                     "kind": .object(["type": "string", "enum": .array(["work", "off", "none"])]),
-                    "reason": .object(["type": "string", "description": "한국어 몇 단어: 업무면 무엇에 쓰였는지, 업무 외면 왜 어떤 목표에도 안 쓰이는지, 없음이면 '내용 없음'"]),
+                    "reason": .object(["type": "string", "description": .string("\(L10n.current.nameInKorean) 몇 단어: 업무면 무엇에 쓰였는지, 업무 외면 왜 어떤 목표에도 안 쓰이는지, 없음이면 '\(tr("내용 없음"))'")]),
                 ]),
                 "required": .array(["rows", "kind", "reason"]),
             ])])]),
@@ -63,8 +63,8 @@ public enum StageTool {
                         "ref": .object(["type": "string", "description": "이 답 안에서만 쓰는 짧은 이름 (A, B, …). \"off\" 는 쓰지 않는다"]),
                         "match": .object(["type": "string", "enum": .array(["existing", "new"])]),
                         "id": .object(["type": "string", "description": "match=existing 일 때 OPEN_TASKS 의 id"]),
-                        "title": .object(["type": "string", "description": "match=new 일 때: 과목·프로젝트와 목표를 담은 짧은 한국어 제목"]),
-                        "goal": .object(["type": "string", "description": "match=new 일 때 필수: 무엇을 위한 업무인지 한국어 한 문장 (회사·과목·프로젝트, 행사·마감 등 맥락 포함)"]),
+                        "title": .object(["type": "string", "description": .string("match=new 일 때: 과목·프로젝트와 목표를 담은 짧은 \(L10n.current.nameInKorean) 제목")]),
+                        "goal": .object(["type": "string", "description": .string("match=new 일 때 필수: 무엇을 위한 업무인지 \(L10n.current.nameInKorean) 한 문장 (회사·과목·프로젝트, 행사·마감 등 맥락 포함)")]),
                     ]),
                     "required": .array(["ref", "match"]),
                 ])]),
@@ -73,7 +73,7 @@ public enum StageTool {
                     "properties": .object([
                         "rows": rowRange,
                         "task": .object(["type": "string", "description": "tasks 의 ref, 또는 어느 목표에도 안 맞으면 \"off\""]),
-                        "reason": .object(["type": "string", "description": "이 행이 그 목표에 무엇으로 기여하는지 한국어 몇 단어"]),
+                        "reason": .object(["type": "string", "description": .string("이 행이 그 목표에 무엇으로 기여하는지 \(L10n.current.nameInKorean) 몇 단어")]),
                     ]),
                     "required": .array(["rows", "task", "reason"]),
                 ])]),
@@ -95,7 +95,7 @@ public enum StageTool {
                     "type": "object",
                     "properties": .object([
                         "task": .object(["type": "string", "description": "TASKS 의 ref"]),
-                        "summary": .object(["type": "string", "description": "이 행들에서 사용자가 한 일. 구체적인 대상(파일·문서 부분·페이지)과 행이 보여 주는 동사(작성·수정·제출은 근거가 보일 때만)로 쓴 한국어 한 문장, 100자 이내"]),
+                        "summary": .object(["type": "string", "description": .string("이 행들에서 사용자가 한 일. 구체적인 대상(파일·문서 부분·페이지)과 행이 보여 주는 동사(작성·수정·제출은 근거가 보일 때만)로 쓴 \(L10n.current.nameInKorean) 한 문장, 100자 이내")]),
                         "topics": .object(["type": "array", "items": .object(["type": "string"]), "description": "무엇에 관한 일인지 1~4개 (개념·기술·과목·문제 영역). 앱·사이트·플랫폼·프로젝트 이름과 채움말은 아님"]),
                         "task_type": .object(["type": "string", "enum": .array(TBox.leafTaskTypes.map { .string($0) }), "description": "NEW 업무일 때 필수"]),
                     ]),

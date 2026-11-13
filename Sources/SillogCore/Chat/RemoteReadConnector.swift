@@ -47,7 +47,7 @@ public enum RemoteReadConnector: String, CaseIterable, Sendable {
         guard let url = URL(string: value), url.scheme == "https", let host = url.host,
               hosts.contains(host), url.user == nil, url.password == nil,
               url.port == nil || url.port == 443 else {
-            throw ChatToolError.unavailable("공급자의 인증 주소를 확인할 수 없습니다.")
+            throw ChatToolError.unavailable(tr("공급자의 인증 주소를 확인할 수 없습니다."))
         }
         return url
     }
@@ -100,7 +100,7 @@ public actor RemoteReadSession {
             tools += (result["tools"]?.arrayValue ?? []).compactMap(\.objectValue)
             cursor = result["nextCursor"]?.stringValue
             guard tools.count < 500, cursor.map({ seenCursors.insert($0).inserted }) ?? true else {
-                throw ChatToolError.unavailable("커넥터 도구 목록을 끝까지 확인할 수 없습니다.")
+                throw ChatToolError.unavailable(tr("커넥터 도구 목록을 끝까지 확인할 수 없습니다."))
             }
         } while cursor != nil
         return tools
@@ -169,7 +169,7 @@ public actor RemoteReadSession {
 
     public func call(_ name: String, arguments: [String: JSONValue]) async throws -> [String: JSONValue] {
         guard connector.allowedTools.contains(name) else {
-            throw ChatToolError.unavailable("이 커넥터에서는 검색·읽기 도구만 실행할 수 있습니다: \(name)")
+            throw ChatToolError.unavailable(tr("이 커넥터에서는 검색·읽기 도구만 실행할 수 있습니다: \(name)"))
         }
         try await initialize()
         let result = try await request("tools/call", params: ["name": .string(name), "arguments": .object(arguments)])
@@ -216,7 +216,7 @@ public actor RemoteReadSession {
         ])
         guard let version = result["protocolVersion"]?.stringValue,
               ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"].contains(version) else {
-            throw ChatToolError.unavailable("지원하지 않는 커넥터 통신 버전입니다.")
+            throw ChatToolError.unavailable(tr("지원하지 않는 커넥터 통신 버전입니다."))
         }
         protocolVersion = version
         _ = try await request("notifications/initialized", params: [:], notification: true)
@@ -239,7 +239,7 @@ public actor RemoteReadSession {
         let (bytes, response) = try await session.bytes(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            throw ChatToolError.unavailable(status == 401 ? "\(connector.rawValue) 승인이 만료되었습니다. 다시 연결하세요." : "\(connector.rawValue) 연결 HTTP \(status)")
+            throw ChatToolError.unavailable(status == 401 ? tr("\(connector.rawValue) 승인이 만료되었습니다. 다시 연결하세요.") : tr("\(connector.rawValue) 연결 HTTP \(status)"))
         }
         if let value = http.value(forHTTPHeaderField: "Mcp-Session-Id") { sessionID = value }
         if notification { return [:] }
@@ -250,7 +250,7 @@ public actor RemoteReadSession {
             // AsyncBytes.lines는 빈 줄을 생략하므로 SSE 이벤트 경계를 바이트 단위로 보존한다.
             for try await byte in bytes {
                 size += 1
-                guard size <= 4_000_000 else { throw ChatToolError.unavailable("커넥터 응답이 너무 큽니다.") }
+                guard size <= 4_000_000 else { throw ChatToolError.unavailable(tr("커넥터 응답이 너무 큽니다.")) }
                 guard byte == 10 else { lineBytes.append(byte); continue }
                 if lineBytes.last == 13 { lineBytes.removeLast() }
                 let line = String(decoding: lineBytes, as: UTF8.self)
@@ -267,11 +267,11 @@ public actor RemoteReadSession {
             var data = Data()
             for try await byte in bytes {
                 data.append(byte)
-                guard data.count <= 4_000_000 else { throw ChatToolError.unavailable("커넥터 응답이 너무 큽니다.") }
+                guard data.count <= 4_000_000 else { throw ChatToolError.unavailable(tr("커넥터 응답이 너무 큽니다.")) }
             }
             if let result = try Self.decodeReply(data, id: id) { return result }
         }
-        throw ChatToolError.unavailable("커넥터에서 요청에 맞는 응답을 받지 못했습니다.")
+        throw ChatToolError.unavailable(tr("커넥터에서 요청에 맞는 응답을 받지 못했습니다."))
     }
 
     static func decodeReply(_ data: Data, id: String) throws -> [String: JSONValue]? {
@@ -279,9 +279,9 @@ public actor RemoteReadSession {
         let reply = try JSONDecoder().decode(JSONValue.self, from: data).objectValue ?? [:]
         guard reply["id"]?.stringValue == id else { return nil }
         if let error = reply["error"]?.objectValue {
-            throw ChatToolError.unavailable(String((error["message"]?.stringValue ?? "커넥터 요청 실패").prefix(1500)))
+            throw ChatToolError.unavailable(String((error["message"]?.stringValue ?? tr("커넥터 요청 실패")).prefix(1500)))
         }
-        guard let result = reply["result"]?.objectValue else { throw ChatToolError.unavailable("커넥터 응답 형식이 올바르지 않습니다.") }
+        guard let result = reply["result"]?.objectValue else { throw ChatToolError.unavailable(tr("커넥터 응답 형식이 올바르지 않습니다.")) }
         return result
     }
 }

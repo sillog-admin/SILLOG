@@ -155,7 +155,7 @@ public actor CollectorCoordinator {
             snapshot = ContextSnapshot(appBundle: snapshot.appBundle, appName: snapshot.appName, windowTitle: nil, url: nil, docPath: nil, pid: snapshot.pid)
             redacted = true
         } else if privacy.isPrivateWindow(title: snapshot.windowTitle) {
-            snapshot.windowTitle = "비공개 창"; snapshot.url = nil; snapshot.docPath = nil
+            snapshot.windowTitle = tr("비공개 창"); snapshot.url = nil; snapshot.docPath = nil
             redacted = true
         }
 

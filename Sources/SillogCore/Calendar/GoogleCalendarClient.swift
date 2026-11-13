@@ -141,7 +141,7 @@ public struct GoogleCalendarClient: Sendable {
         guard let id = item["id"] as? String, item["status"] as? String != "cancelled",
               let start = item["start"] as? [String: Any], let (begin, allDay) = moment(start) else { return nil }
         let end = (item["end"] as? [String: Any]).flatMap(moment)?.0
-        return Event(id: id, title: item["summary"] as? String ?? "(제목 없음)", start: begin, end: end, allDay: allDay,
+        return Event(id: id, title: item["summary"] as? String ?? tr("제목 없음"), start: begin, end: end, allDay: allDay,
                      location: item["location"] as? String, notes: item["description"] as? String)
     }
 
