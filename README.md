@@ -66,13 +66,13 @@ SILLOG(실록)는 Mac에서 쓰는 앱과 창, 웹페이지, 화면 글자, 파�
 
 SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 연결한 AI 계정으로 해요.
 
-<img src="docs/readme/privacy-icons.webp" alt="저장: 기록은 내 Mac에 저장해요. 확인: 보낸 내용과 받은 결과를 활동 로그에서 봐요. 제어: 기능별로 전송을 끌 수 있어요.">
+<a href="https://sillog.app"><img src="docs/readme/privacy-icons.webp" alt="저장: 기록은 내 Mac에 저장해요. 확인: 보낸 내용과 받은 결과를 활동 로그에서 봐요. 제어: 기능별로 전송을 끌 수 있어요."></a>
 
 비밀번호 입력칸은 기록하지 않아요. 비밀번호 관리자와 키체인 같은 앱은 이름과 시간만 남겨요. 자세한 내용은 [개인정보와 데이터](#개인정보와-데이터)에 있습니다.
 
 ## 할 수 있는 일
 
-<img src="docs/readme/section-features.webp" alt="">
+<a href="https://sillog.app"><img src="docs/readme/section-features.webp" alt=""></a>
 
 - 지금 쓰는 앱, 창 제목, 주소, 화면 글자, 스크린샷, 다운로드한 파일, Claude Code와 Codex에 보낸 요청을 자동으로 기록합니다. 기록하고 싶지 않은 앱은 이름과 시간만 남깁니다.
 - 5분마다 새 기록을 업무, 세션, 자료, 문제, 주제로 나눠 그래프로 보여 줍니다. 업무마다 썼던 파일과 페이지를 다시 열 수 있고, 필요 없는 노드는 원본 기록과 함께 지울 수 있습니다.
@@ -86,13 +86,13 @@ SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 �
 
 ## 동작 방식
 
-<img src="docs/readme/how-it-works.webp" alt="내 Mac 안에서 수집, SQLite 저장, 5분마다 정리, 업무 그래프, 채팅과 결과물로 이어지고, 기록 요약과 질문만 설정한 LLM으로, 허용한 경우에만 웹 검색과 커넥터로 나갑니다.">
+<a href="https://sillog.app"><img src="docs/readme/how-it-works.webp" alt="내 Mac 안에서 수집, SQLite 저장, 5분마다 정리, 업무 그래프, 채팅과 결과물로 이어지고, 기록 요약과 질문만 ChatGPT(또는 설정한 API)로, 허용한 경우에만 웹 검색과 커넥터로 나갑니다."></a>
 
 기록은 모두 Mac 안의 SQLite에 저장됩니다. 밖으로 나가는 것은 정리와 채팅을 위해 설정한 LLM에 보내는 내용, 그리고 허용한 웹 검색과 커넥터 요청뿐입니다.
 
 ## 설치
 
-<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/section-install.webp" alt=""></a>
+<a href="https://sillog.app"><img src="docs/readme/section-install.webp" alt=""></a>
 
 ### 준비할 것
 
@@ -119,7 +119,7 @@ SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 �
 
 ## AI 연결
 
-<img src="docs/readme/section-ai.webp" alt="">
+<a href="https://sillog.app"><img src="docs/readme/section-ai.webp" alt=""></a>
 
 | 연결 | 쓰는 곳 | 설명 |
 | --- | --- | --- |
@@ -143,7 +143,7 @@ SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 �
 
 ## 개인정보와 데이터
 
-<img src="docs/readme/section-privacy.webp" alt="">
+<a href="https://sillog.app"><img src="docs/readme/section-privacy.webp" alt=""></a>
 
 기록은 Mac에 저장되지만, 정리와 채팅에 쓰는 내용은 설정한 모델로 보내집니다. 클라우드 모델을 쓰면 그 내용이 Mac 밖으로 나간다는 뜻입니다.
 
