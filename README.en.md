@@ -36,6 +36,8 @@ Tasks, sessions, sources, and topics are stored with their links. You can switch
 
 ## A quick tour
 
+Your organized records are ready to use in chat. Write a report from them, save what you make, and reopen what you were working with.
+
 The app is in Korean for now.
 
 | | |
