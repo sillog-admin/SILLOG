@@ -192,8 +192,7 @@ private struct WaveformIcon: View {
     }
 }
 
-/// 창 머리 알약 단추 모양: 주 단추(녹음)는 갈색 바탕에 흰 글자, 높이 32. 보조 단추(정리)는 연한 바탕에 갈색 글자, 높이 24. 테두리 없음.
-/// 단추 안의 내용만 바뀌고 알약은 그대로다. 커서를 올리면 바탕색이 한 단계 바뀐다
+/// Title bar pill: brown with white text for recording, light for 지금 정리; both 24 high so the row lines up.
 private struct TitlePill<Content: View>: View {
     var primary = false
     @ViewBuilder var content: () -> Content
@@ -204,7 +203,7 @@ private struct TitlePill<Content: View>: View {
             .font(primary ? Brand.font(.body, .bold) : Brand.font(.body))
             .foregroundStyle(primary ? .white : Brand.tabText)
             .lineLimit(1).fixedSize()                              // 옆 문구에 밀려 두 줄로 꺾이지 않게
-            .padding(.horizontal, primary ? 30 : 10).frame(height: primary ? 32 : 24)
+            .padding(.horizontal, primary ? 30 : 10).frame(height: 24)
             .background(Capsule().fill(primary ? (hover ? Brand.accentDark : Brand.accent) : hover ? Brand.pillFill.opacity(0.7) : Brand.pillFill))
             .contentShape(Capsule())
             .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }

@@ -430,7 +430,7 @@ final class AppState: ObservableObject {
         if settings.chatUsesAPI {
             let e = settings.chatEndpoint
             let url = URL(string: e.url.trimmingCharacters(in: .whitespaces)) ?? URL(string: "http://localhost:5010/v1")!
-            return .model(OpenAICompatClient(baseURL: url, model: e.model, apiKey: e.key.isEmpty ? nil : e.key))
+            return .model(OpenAICompatClient(baseURL: url, model: e.model, apiKey: e.key.isEmpty ? nil : e.key, reasoningEffort: settings.chatAPIEffort))
         }
         let model = chatCodexModel
         return .codex(CodexAppServerClient(auth: codexAuth, model: settings.effectiveChatCodexModel,
@@ -730,6 +730,12 @@ final class AppState: ObservableObject {
     func selectChatEffort(_ effort: String) {
         guard settings.chatEffort != effort else { return }
         settings.chatEffort = effort
+        if !isPreview { settings.save() }
+    }
+
+    func selectChatAPIEffort(_ effort: String?) {
+        guard settings.chatAPIEffort != effort else { return }
+        settings.chatAPIEffort = effort
         if !isPreview { settings.save() }
     }
 

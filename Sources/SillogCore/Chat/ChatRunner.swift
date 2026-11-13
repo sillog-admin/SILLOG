@@ -137,10 +137,12 @@ public enum ChatBackend: Sendable {
         }
     }
 
-    /// The reasoning effort sent with each turn; nil for an API server, which gets none.
+    /// The reasoning effort sent with each turn; nil leaves it to the model.
     public var effort: String? {
-        if case .codex(let client) = self { return client.effort }
-        return nil
+        switch self {
+        case .model(let client): (client as? OpenAICompatClient)?.reasoningEffort
+        case .codex(let client): client.effort
+        }
     }
 
     /// Args: firstQuery는 대화의 첫 사용자 요청이다.
@@ -182,7 +184,9 @@ public enum ChatBackend: Sendable {
         let messages = [ChatModelMessage(role: "user", text: text)]
         switch self {
         case .model(let client):
-            return try await client.respond(system: system, messages: messages, tools: []) { _ in }.text
+            // Short calls keep the server default, as Codex calls do below.
+            let plain = (client as? OpenAICompatClient).map { OpenAICompatClient(baseURL: $0.baseURL, model: $0.model, apiKey: $0.apiKey, timeout: $0.timeout, session: $0.session) } ?? client
+            return try await plain.respond(system: system, messages: messages, tools: []) { _ in }.text
         case .codex(var client):
             // Titles and memory summaries are short; they keep the model default whatever effort the user picked for answers.
             client.effort = client.defaultEffort

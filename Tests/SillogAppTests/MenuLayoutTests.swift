@@ -251,7 +251,8 @@ final class MenuLayoutTests: XCTestCase {
     // 창 머리 오른쪽 위: [● 녹음 시작]. 지금 정리는 메뉴 막대 아래 줄에 있다
 
     func testTitleBarHasTheRecordButton() {
-        let text = text(of: TitleBarControls(), size: CGSize(width: 360, height: 44)) { _ in }
+        // OCR misses white text in the 24pt pill at 1x.
+        let text = text(of: TitleBarControls().scaleEffect(2), size: CGSize(width: 720, height: 88)) { _ in }
         XCTAssertTrue(text.contains("녹음시작"), text)
     }
 

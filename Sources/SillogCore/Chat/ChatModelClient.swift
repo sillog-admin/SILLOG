@@ -278,6 +278,7 @@ extension OpenAICompatClient: ChatModelClient {
             return .object(value)
         }
         var body: [String: JSONValue] = ["model": .string(model), "stream": true, "messages": .array(values)]
+        if let reasoningEffort { body["reasoning_effort"] = .string(reasoningEffort) }
         if !tools.isEmpty {
             body["tools"] = .array(tools.map { .object(["type": "function", "function": .object([
                 "name": .string($0.name), "description": .string($0.description), "parameters": $0.parameters,

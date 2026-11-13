@@ -18,6 +18,8 @@ struct AppSettings: Codable, Equatable {
     var chatAPIKey = ""
     /// Reasoning effort for a ChatGPT chat model as Codex names it; nil uses the model's default.
     var chatEffort: String?
+    /// Reasoning effort for an API server chat model; nil sends none.
+    var chatAPIEffort: String?
     /// The user's own instructions added to every chat answer's system prompt.
     var chatInstructions = ""
     /// Stored as "gpt" / "jev" / "decisions"; read through `judgeChoice`.
@@ -73,6 +75,7 @@ struct AppSettings: Codable, Equatable {
         chatModel = try c.decodeIfPresent(String.self, forKey: .chatModel) ?? llmModel
         chatAPIKey = try c.decodeIfPresent(String.self, forKey: .chatAPIKey) ?? llmAPIKey
         chatEffort = try c.decodeIfPresent(String.self, forKey: .chatEffort)
+        chatAPIEffort = try c.decodeIfPresent(String.self, forKey: .chatAPIEffort)
         chatInstructions = try c.decodeIfPresent(String.self, forKey: .chatInstructions) ?? d.chatInstructions
         let oldJudge = try c.decodeIfPresent(String.self, forKey: .judgeProvider) ?? "gpt"
         judgeProvider = ["jev", "decisions"].contains(oldJudge) ? oldJudge : "gpt"

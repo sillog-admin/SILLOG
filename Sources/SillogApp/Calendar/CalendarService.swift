@@ -45,7 +45,13 @@ final class CalendarService: ObservableObject {
     private init() {
         guard AppFeatures.calendarOn else { return }
         granted = Self.isGranted
-        googleConnected = (try? ConnectorAuth.isConnected("gcal")) ?? false
+        // A Keychain read can wait on an access prompt; keep it off the main thread.
+        Task { [weak self] in
+            let connected = await Task.detached { (try? ConnectorAuth.isConnected("gcal")) ?? false }.value
+            guard let self, connected else { return }
+            self.googleConnected = true
+            await self.loadGoogle()
+        }
         NotificationCenter.default.addObserver(forName: .EKEventStoreChanged, object: store, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }

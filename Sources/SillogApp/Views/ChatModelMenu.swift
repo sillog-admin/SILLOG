@@ -17,6 +17,9 @@ struct ChatModelMenu: View {
 
     /// The model's default effort stays out of the chip.
     private var label: String {
+        if state.settings.effectiveChatProvider != "codex" {
+            return state.settings.chatAPIEffort.map { "\(name) · \(CodexEffort.title($0))" } ?? name
+        }
         let model = state.chatCodexModel
         guard state.settings.effectiveChatProvider == "codex", let effort = CodexEffort.resolve(state.settings.chatEffort, model: model),
               effort != CodexEffort.resolve(nil, model: model) else { return name }
@@ -48,6 +51,13 @@ struct ChatModelMenu: View {
                 }
             } else {
                 Text(tr("\(name) (직접 연결한 서버)"))
+                Divider()
+                // shortcut: fixed OpenAI effort names, since servers don't list what a model takes; a rejected value shows as the answer's error.
+                Picker(tr("추론 강도"), selection: Binding(get: { state.settings.chatAPIEffort ?? "" }, set: { state.selectChatAPIEffort($0.isEmpty ? nil : $0) })) {
+                    Text(tr("기본")).tag("")
+                    ForEach(["low", "medium", "high"], id: \.self) { Text(CodexEffort.title($0)).tag($0) }
+                }
+                .pickerStyle(.inline)
             }
             Divider()
             Button(tr("모델 설정…"), action: openSettings)

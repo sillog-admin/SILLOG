@@ -173,6 +173,19 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(reply.text, "안녕하세요")
         let sent = StubURLProtocol.requests.first?.body["messages"] as? [[String: Any]]
         XCTAssertEqual(sent?.last?["tool_call_id"] as? String, "c1")
+        XCTAssertNil(StubURLProtocol.requests.first?.body["reasoning_effort"])
+    }
+
+    func testAPIServerEffortIsSentOnlyWhenChosen() async throws {
+        let stream = "data: {\"choices\":[{\"delta\":{\"content\":\"네\"},\"finish_reason\":\"stop\"}]}\n\n"
+        StubURLProtocol.reset([.init(status: 200, body: stream), .init(status: 200, body: stream)])
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [StubURLProtocol.self]
+        let client = OpenAICompatClient(baseURL: URL(string: "https://example.invalid/v1")!, model: "test", reasoningEffort: "high", session: URLSession(configuration: config))
+        let backend = ChatBackend.model(client)
+        XCTAssertEqual(backend.effort, "high")
+        _ = try await client.respond(system: "s", messages: [.init(role: "user", text: "q")], tools: []) { _ in }
+        _ = try await backend.complete(system: "s", text: "title")
+        XCTAssertEqual(StubURLProtocol.requests.map { $0.body["reasoning_effort"] as? String }, ["high", nil])
     }
 
     func testOldMessagesDecodeWithoutModelOrEarlierAnswers() throws {

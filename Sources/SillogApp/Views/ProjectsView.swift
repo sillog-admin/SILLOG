@@ -101,7 +101,7 @@ struct ProjectOverview<Composer: View>: View {
                 else { ProjectSourcesView(library: chat.library, projects: projects, project: project, kind: $sourceKind, newestFirst: $newestFirst) }
                 if let error = projects.error { Text(error).font(Brand.font(.body)).foregroundStyle(.red).textSelection(.enabled) }
                 if let error = chat.error { Text(error).font(Brand.font(.body)).foregroundStyle(.red).textSelection(.enabled) }
-            }.frame(maxWidth: ChatPalette.columnWidth, alignment: .leading)
+            }.frame(maxWidth: ChatPalette.readingWidth, alignment: .leading)
                 .padding(.horizontal, 34).padding(.top, 40).padding(.bottom, 40)
                 .frame(maxWidth: .infinity)
         }.background(.white)

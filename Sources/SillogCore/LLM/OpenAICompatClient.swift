@@ -6,13 +6,15 @@ public final class OpenAICompatClient: LLMClient, @unchecked Sendable {
     public let baseURL: URL
     public let model: String
     public let apiKey: String?
+    /// Sent as `reasoning_effort` on chat turns only; nil leaves it to the server.
+    public let reasoningEffort: String?
     let timeout: TimeInterval
     let session: URLSession
 
     public var modelName: String { model }
 
-    public init(baseURL: URL, model: String, apiKey: String? = nil, timeout: TimeInterval = 180, session: URLSession = .shared) {
-        self.baseURL = baseURL; self.model = model; self.apiKey = apiKey
+    public init(baseURL: URL, model: String, apiKey: String? = nil, reasoningEffort: String? = nil, timeout: TimeInterval = 180, session: URLSession = .shared) {
+        self.baseURL = baseURL; self.model = model; self.apiKey = apiKey; self.reasoningEffort = reasoningEffort
         self.timeout = timeout; self.session = session
     }
 
