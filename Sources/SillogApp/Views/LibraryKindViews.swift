@@ -100,7 +100,9 @@ struct LibraryTextInfo {
 
     static func from(_ raw: String) -> LibraryTextInfo {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("<") ? plainText(raw) : raw
-        let line = text.split(separator: "\n").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "#>*- \t")) }.first { !$0.isEmpty } ?? ""
+        // Office text starts each part with a "[word/document.xml]" line from FileTextExtractor.
+        let line = text.split(separator: "\n").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "#>*- \t")) }
+            .first { !$0.isEmpty && !($0.hasPrefix("[") && $0.hasSuffix(".xml]")) } ?? ""
         return .init(first: line, count: text.count)
     }
 
