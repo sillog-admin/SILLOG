@@ -75,7 +75,7 @@ public struct ChatTools: Sendable {
             tools.append(Self.spec("github_list", "GitHub 커넥터에서 저장소 루트 또는 하위 폴더의 파일 목록을 확인한다.", ["repository": "owner/repository", "path": "폴더 경로. 빈 문자열이면 저장소 루트"]))
         }
         if scope.connectors.contains("drive") {
-            tools.append(Self.spec("drive_search", "Google Drive 커넥터에서 사용자가 SILLOG에 고른 파일만 이름으로 검색한다. 찾는 파일이 없으면 커넥터 화면의 'Drive 파일 고르기'로 추가하라고 안내한다.", ["query": "파일 이름 검색어. 고른 파일 전체면 빈 문자열"]))
+            tools.append(Self.spec("drive_search", "Google Drive 커넥터에서 사용자가 이 대화에 고른 파일을 이름으로 검색한다. 찾는 파일이 없으면 + 메뉴의 'Google Drive에서 선택'으로 추가하라고 안내한다.", ["query": "파일 이름 검색어. 고른 파일 전체면 빈 문자열"]))
             tools.append(Self.spec("drive_read", "Google Drive 커넥터에서 텍스트 또는 Google 문서의 내용을 읽는다.", ["id": "파일 ID"]))
         }
         if scope.connectors.contains("notion") && !remoteConnectors.contains("notion") {

@@ -114,8 +114,9 @@ struct ChatComposer: View {
     private var box: some View {
         let attachments = Self.shownAttachments(library.attached, messages: chat.messages)
         let paths = chat.current.scope.paths
+        let driveFiles = chat.current.scope.driveFiles
         return VStack(alignment: .leading, spacing: 0) {
-            if !attachments.isEmpty || !paths.isEmpty {
+            if !attachments.isEmpty || !paths.isEmpty || !driveFiles.isEmpty {
                 // CH-18: 첨부 칩은 입력 줄 위에 줄바꿈으로 놓이고 상자가 위로 커진다. 모두 x 로 연결 해제
                 ChatChipFlow(spacing: 6) {
                     ForEach(attachments) { item in
@@ -125,6 +126,12 @@ struct ChatComposer: View {
                     ForEach(paths, id: \.self) { path in
                         attachmentChip(icon: "folder", text: URL(fileURLWithPath: path).lastPathComponent, help: path) {
                             chat.current.scope.paths.removeAll { $0 == path }
+                        }
+                    }
+                    ForEach(driveFiles, id: \.id) { file in
+                        attachmentChip(icon: "externaldrive", text: file.name, help: file.url) {
+                            chat.current.scope.driveFiles.removeAll { $0.id == file.id }
+                            chat.saveScope()
                         }
                     }
                 }.padding(.top, 12).padding(.horizontal, 13)
@@ -455,6 +462,7 @@ struct ChatComposer: View {
             MenuRow(icon: "square.and.arrow.up", title: tr("파일 업로드")) { showPlus = false; chat.uploadFiles() }
             MenuRow(icon: "archivebox", title: tr("결과물에서 선택")) { showPlus = false; DispatchQueue.main.async { showLibraryPicker = true } }
             MenuRow(icon: "folder.badge.plus", title: tr("원본 파일과 폴더 연결")) { showPlus = false; chat.connectFiles() }
+            MenuRow(icon: "externaldrive", title: tr("Google Drive에서 선택")) { showPlus = false; openDrivePicker() }
             Rectangle().fill(Brand.line).frame(height: 1).padding(.vertical, 4)
             MenuRow(icon: "diamond", title: tr("참고할 기록")) { showPlus = false; DispatchQueue.main.async { showFocus = true } } trailing: {
                 Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
@@ -667,6 +675,25 @@ struct ChatComposer: View {
             Button(action: tidyNow) { Text(tr("지금 정리")).underline().foregroundStyle(Brand.ink) }.buttonStyle(.plain)
         }
         .font(Brand.font(.tag)).foregroundStyle(Brand.gray)
+    }
+
+    /// Args: none.
+    /// Returns: nothing. Opens Google Picker in the browser and attaches the picks to this chat, or opens the connectors screen when Drive isn't connected.
+    /// Raises: none. Errors show in the chat.
+    private func openDrivePicker() {
+        let conversationID = chat.current.id
+        Task {
+            // Off the main thread: a Keychain read can wait on a macOS prompt.
+            let connected = await Task.detached { (try? ConnectorAuth.isConnected("drive")) == true }.value
+            guard connected else { onOpenConnectors(); return }
+            do {
+                let files = try await ConnectorAuth.pickDriveFiles()
+                guard !files.isEmpty else { return }
+                guard chat.current.id == conversationID else { chat.error = tr("다른 대화로 옮겨서 고른 Drive 파일을 붙이지 않았어요."); return }
+                chat.current.scope.addDriveFiles(files)
+                chat.saveScope()
+            } catch { chat.error = error.localizedDescription }
+        }
     }
 
     /// Args: id는 대화에서 켜거나 끌 커넥터이다.

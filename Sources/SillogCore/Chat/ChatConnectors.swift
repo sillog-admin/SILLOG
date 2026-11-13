@@ -51,6 +51,12 @@ extension ChatTools {
     /// Returns: 관련 파일의 제목·링크·설명.
     /// Raises: 연결·Drive API 오류.
     func driveSearch(_ query: String, onlyReadable: Bool = false) async throws -> ChatToolOutput {
+        // drive.file can read every file ever picked, so a chat with its own picks only searches those.
+        if !scope.driveFiles.isEmpty {
+            let term = query.trimmingCharacters(in: .whitespaces)
+            return try Self.output(scope.driveFiles.filter { term.isEmpty || $0.name.localizedCaseInsensitiveContains(term) }
+                .map { ChatSource(id: "drive:\($0.id)", title: $0.name, location: $0.url, excerpt: $0.mimeType) })
+        }
         var url = URLComponents(string: "https://www.googleapis.com/drive/v3/files")!
         let escaped = String(query.prefix(200)).replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
         var filters = ["trashed = false"]

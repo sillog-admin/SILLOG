@@ -194,10 +194,6 @@ struct ConnectorCatalogView: View {
                             if connector.id == "github", let url = githubInstallURL {
                                 Button(tr("Repository 선택")) { NSWorkspace.shared.open(url) }.buttonStyle(BrandButtonStyle(kind: .secondary))
                             }
-                            if connector.id == "drive" {
-                                Button(tr("Drive 파일 고르기")) { pickDriveFiles() }
-                                    .buttonStyle(BrandButtonStyle(kind: .secondary)).disabled(connecting)
-                            }
                             Button(tr("검색·읽기 확인")) { checkConnection(connector) }
                                 .buttonStyle(BrandButtonStyle(kind: .secondary)).disabled(connecting)
                         }.padding(.top, 16)
@@ -441,7 +437,7 @@ struct ConnectorCatalogView: View {
     }
 
     /// Args: none.
-    /// Returns: nothing. Signs in to Google Drive, then opens the file picker.
+    /// Returns: nothing. Signs in to Google Drive; files are picked per chat.
     /// Raises: none. OAuth errors are shown on screen.
     private func connectDrive() {
         do {
@@ -457,25 +453,8 @@ struct ConnectorCatalogView: View {
                 try await ConnectorAuth.connectGoogle(["drive"], clientID: client)
                 connected.insert("drive")
                 connecting = false
-                pickDriveFiles()
+                notify(tr("Google Drive를 연결했어요. 채팅의 + 메뉴에서 ‘Google Drive에서 선택’으로 파일을 고르세요."))
             } catch { notify(error.localizedDescription); connecting = false }
-        }
-    }
-
-    /// Args: none.
-    /// Returns: nothing. Opens Google Picker in the browser; only picked files are readable with drive.file.
-    /// Raises: none. Errors are shown on screen.
-    private func pickDriveFiles() {
-        connecting = true
-        Task {
-            defer { connecting = false }
-            do {
-                let count = try await ConnectorAuth.pickDriveFiles()
-                if count > 0 { notify(tr("Drive 파일 \(count)개를 SILLOG이 읽을 수 있어요. 더 추가하려면 ‘Drive 파일 고르기’를 누르세요.")) }
-            } catch {
-                if error is ConnectorReconnectError { connected.remove("drive") }
-                notify(error.localizedDescription)
-            }
         }
     }
 
