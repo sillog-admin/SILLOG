@@ -41,7 +41,7 @@ jobs:
       - name: Test
         run: swift test --skip-build
 
-      # main releases are signed with one fixed self-signed certificate so updates keep keychain access and macOS permissions.
+      # main releases are signed with Developer ID so they can be notarized; PR builds stay ad-hoc.
       - name: Import signing certificate
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
@@ -55,13 +55,17 @@ jobs:
           security set-keychain-settings -lut 21600 "$keychain"
           security unlock-keychain -p "$password" "$keychain"
           security import "$RUNNER_TEMP/sign.p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          # The runner lacks Apple's Developer ID intermediate, so codesign can't build the chain without it.
+          curl -fsSL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o "$RUNNER_TEMP/DeveloperIDG2CA.cer"
+          security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$keychain" || true   # the p12 may already carry it
           security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
           security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
           rm "$RUNNER_TEMP/sign.p12"
+          security find-identity -v -p codesigning "$keychain" | grep -q "Developer ID Application"
 
       - name: Build app bundle
         env:
-          SIGN_IDENTITY: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'SILLOG Release' || '-' }}
+          SIGN_IDENTITY: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'Developer ID Application' || '-' }}
           SILLOG_GOOGLE_CLIENT_SECRET: ${{ secrets.SILLOG_GOOGLE_CLIENT_SECRET }}
         run: ./scripts/make-app.sh
 
@@ -74,6 +78,27 @@ jobs:
           ditto "$HOME/Applications/SILLOG.app" "$stage/SILLOG.app"
           ln -s /Applications "$stage/Applications"
           hdiutil create -volname SILLOG -srcfolder "$stage" -ov -format UDZO "$RUNNER_TEMP/SILLOG.dmg"
+          codesign --sign "Developer ID Application" --timestamp "$RUNNER_TEMP/SILLOG.dmg"
+
+      # Notarizing the dmg also registers the app inside, so Gatekeeper accepts it after it's copied out.
+      - name: Notarize dmg
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          NOTARY_KEY: ${{ secrets.SILLOG_NOTARY_KEY }}
+          NOTARY_KEY_ID: ${{ secrets.SILLOG_NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.SILLOG_NOTARY_ISSUER_ID }}
+        run: |
+          key="$RUNNER_TEMP/notary.p8"
+          printf '%s\n' "$NOTARY_KEY" > "$key"
+          auth=(--key "$key" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID")
+          out="$(xcrun notarytool submit "$RUNNER_TEMP/SILLOG.dmg" "${auth[@]}" --wait --timeout 30m --output-format json)"
+          echo "$out"
+          if [ "$(plutil -extract status raw - <<< "$out")" != "Accepted" ]; then
+            xcrun notarytool log "$(plutil -extract id raw - <<< "$out")" "${auth[@]}"
+            exit 1
+          fi
+          rm "$key"
+          xcrun stapler staple "$RUNNER_TEMP/SILLOG.dmg"
 
       - name: Publish release
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
