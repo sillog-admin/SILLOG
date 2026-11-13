@@ -47,68 +47,6 @@ extension ChatTools {
         return request
     }
 
-    /// Args: query는 Gmail 검색 문법의 검색어이다.
-    /// Returns: 관련 메일의 제목·미리보기·원문 위치.
-    /// Raises: 연결·Gmail API 오류.
-    func gmailSearch(_ query: String, limit: Int = 10) async throws -> ChatToolOutput {
-        var url = URLComponents(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages")!
-        url.queryItems = [URLQueryItem(name: "q", value: String(query.prefix(300))), URLQueryItem(name: "maxResults", value: "\(limit)")]
-        let listing = try await Self.json(connectorRequest("gmail", url.url!)).objectValue ?? [:]
-        var sources: [ChatSource] = []
-        for item in listing["messages"]?.arrayValue ?? [] {
-            guard let id = item.objectValue?["id"]?.stringValue else { continue }
-            var detailURL = URLComponents(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages/\(id)")!
-            detailURL.queryItems = [URLQueryItem(name: "format", value: "metadata"), URLQueryItem(name: "metadataHeaders", value: "Subject"), URLQueryItem(name: "metadataHeaders", value: "From"), URLQueryItem(name: "metadataHeaders", value: "Date")]
-            let detail = try await Self.json(connectorRequest("gmail", detailURL.url!)).objectValue ?? [:]
-            let headers = detail["payload"]?.objectValue?["headers"]?.arrayValue ?? []
-            let fields = Dictionary(headers.compactMap { item -> (String, String)? in
-                let value = item.objectValue ?? [:]
-                guard let name = value["name"]?.stringValue, let text = value["value"]?.stringValue else { return nil }
-                return (name.lowercased(), text)
-            }, uniquingKeysWith: { first, _ in first })
-            let location = "https://mail.google.com/mail/u/0/#all/\(id)"
-            sources.append(.init(id: "gmail:\(id)", title: fields["subject"] ?? "제목 없는 메일", location: location,
-                                 excerpt: "보낸 사람: \(fields["from"] ?? "") · 날짜: \(fields["date"] ?? "")\n\(detail["snippet"]?.stringValue ?? "")"))
-        }
-        return try Self.output(sources)
-    }
-
-    /// Args: reference는 Gmail 검색 결과의 메일 ID 또는 출처 ID이다.
-    /// Returns: 메일 본문과 원문 위치.
-    /// Raises: 연결·Gmail API 오류.
-    func gmailRead(_ reference: String, allowSnippet: Bool = true) async throws -> ChatToolOutput {
-        let id = reference.hasPrefix("gmail:") ? String(reference.dropFirst(6)) : reference
-        guard id.range(of: "^[A-Za-z0-9]+$", options: .regularExpression) != nil else { throw ChatToolError.unavailable("메일 ID가 올바르지 않습니다.") }
-        let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages/\(id)?format=full")!
-        let detail = try await Self.json(connectorRequest("gmail", url)).objectValue ?? [:]
-        let payload = detail["payload"]?.objectValue ?? [:]
-        let headers = payload["headers"]?.arrayValue ?? []
-        let subject = headers.first { $0.objectValue?["name"]?.stringValue?.lowercased() == "subject" }?.objectValue?["value"]?.stringValue ?? "제목 없는 메일"
-        let body = Self.gmailBody(payload, mimeType: "text/plain")
-            ?? Self.gmailBody(payload, mimeType: "text/html").map(Self.htmlText)
-            ?? (allowSnippet ? detail["snippet"]?.stringValue : nil) ?? ""
-        let location = "https://mail.google.com/mail/u/0/#all/\(id)"
-        return try Self.output([.init(id: "gmail:\(id)", title: subject, location: location, excerpt: String(body.prefix(20000)))])
-    }
-
-    /// Args: payload는 Gmail MIME 파트, mimeType은 찾을 본문 형식이다.
-    /// Returns: 해당 형식의 첫 번째 텍스트 본문 또는 없음.
-    /// Raises: 없음.
-    private static func gmailBody(_ payload: [String: JSONValue], mimeType: String) -> String? {
-        if payload["mimeType"]?.stringValue == mimeType, let encoded = payload["body"]?.objectValue?["data"]?.stringValue {
-            let base64 = encoded.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
-            let padded = base64 + String(repeating: "=", count: (4 - base64.count % 4) % 4)
-            if let data = Data(base64Encoded: padded) {
-                let text = String(decoding: data, as: UTF8.self)
-                if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return text }
-            }
-        }
-        for part in payload["parts"]?.arrayValue ?? [] {
-            if let body = gmailBody(part.objectValue ?? [:], mimeType: mimeType) { return body }
-        }
-        return nil
-    }
-
     /// Args: query는 Google Drive 파일 이름 검색어이다.
     /// Returns: 관련 파일의 제목·링크·설명.
     /// Raises: 연결·Drive API 오류.

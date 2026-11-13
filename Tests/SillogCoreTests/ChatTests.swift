@@ -116,7 +116,7 @@ final class ChatTests: XCTestCase {
 
         scope.connectors = ["gmail", "drive", "notion"]
         let connectors = ChatTools(db: try .inMemory(), scope: scope)
-        XCTAssertTrue(connectors.specs.contains { $0.name == "gmail_search" })
+        XCTAssertFalse(connectors.specs.contains { $0.name == "gmail_search" }, "a saved Gmail scope adds no tools")
         XCTAssertTrue(connectors.specs.contains { $0.name == "drive_read" })
         XCTAssertTrue(connectors.specs.contains { $0.name == "notion_search" })
     }

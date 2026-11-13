@@ -137,8 +137,8 @@ Connectors only read. SILLOG never sends mail, edits files, or changes repositor
 | --- | --- | --- |
 | Notion, Lovable, Higgsfield, Canva | Sign in and approve in the browser | Works without creating any keys |
 | Slack | Sign in and approve in the browser | Your workspace may need an admin to approve the app |
-| Gmail, Google Drive | Sign in with Google and approve | The Google app is still in testing, so only invited accounts can use it and you have to reconnect every 7 days |
-| GitHub | Enter a device code | Not available in release builds yet |
+| Google Drive | Sign in with Google, then pick the files to read | Reads only the files you pick. The Google app is still in testing, so only invited accounts can use it and you have to reconnect every 7 days |
+| GitHub | Enter a device code, then pick the repositories to read | Reads only the repositories you pick |
 | Figma, Discord | Paste a token you created | The connect window walks you through making one |
 
 If you build SILLOG yourself, connector setup is in [docs/connectors.md](docs/connectors.md).
@@ -215,7 +215,7 @@ For now, Apple silicon Macs on macOS 14 or later. Windows and mobile aren't read
 - Artifacts are text formats plus PDF export. SILLOG can read DOCX, PPTX, and XLSX but can't create them.
 - Scheduled tasks repeat every few hours and only run while SILLOG is open. You can't pick a weekday or time of day.
 - Scanned PDFs aren't OCR'd, and images are read only for the text in them.
-- Gmail and Drive are limited to test accounts until Google finishes its review.
+- Drive is limited to test accounts until Google finishes its review. There is no Gmail connector.
 
 ## Build from source
 

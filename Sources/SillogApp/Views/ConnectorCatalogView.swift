@@ -10,7 +10,7 @@ struct ConnectorEntry: Identifiable {
 
     var icon: String {
         switch id {
-        case "gmail", "slack", "discord": "bubble.left.and.bubble.right"
+        case "slack", "discord": "bubble.left.and.bubble.right"
         case "drive": "externaldrive"
         case "github", "lovable": "chevron.left.forwardslash.chevron.right"
         case "notion": "doc.text"
@@ -21,12 +21,9 @@ struct ConnectorEntry: Identifiable {
     }
 
     static let all: [ConnectorEntry] = [
-        .init(id: "gmail", name: "Gmail", summary: tr("메일 검색과 읽기"),
-              description: tr("연결한 계정의 메일을 찾아 읽어요. 메일을 보내거나 수정하지 않아요."),
-              examples: [tr("지난주 받은 메일에서 내가 답해야 할 내용을 정리해 줘."), tr("최근 프로젝트 관련 메일의 결정 사항을 찾아 줘.")]),
-        .init(id: "drive", name: "Google Drive", summary: tr("파일 검색과 문서 읽기"),
-              description: tr("Drive에서 파일을 찾고 문서를 읽어요. 파일을 만들거나 수정하지 않아요."),
-              examples: [tr("최근 작성한 기획서를 찾아 핵심 결정을 요약해 줘."), tr("내 Drive 자료를 바탕으로 발표 개요를 만들어 줘.")]),
+        .init(id: "drive", name: "Google Drive", summary: tr("고른 파일 검색과 읽기"),
+              description: tr("Drive에서 직접 고른 파일만 찾고 읽어요. 파일을 만들거나 수정하지 않아요."),
+              examples: [tr("최근 작성한 기획서를 찾아 핵심 결정을 요약해 줘."), tr("고른 Drive 자료를 바탕으로 발표 개요를 만들어 줘.")]),
         .init(id: "github", name: "GitHub", summary: tr("저장소, 코드와 PR 읽기"),
               description: tr("접근 권한이 있는 저장소의 코드와 PR을 읽어요. 저장소를 변경하지 않아요."),
               examples: [tr("내가 작업한 저장소의 구조와 주요 기능을 설명해 줘."), tr("최근 PR을 바탕으로 프로젝트 진행 상황을 정리해 줘.")]),
@@ -63,8 +60,6 @@ struct ConnectorCatalogView: View {
 
     @State private var query = ""
     @State private var connectedOnly = false
-    @State private var googleSelection: Set<String> = []
-    @State private var showGoogleInstall = false
     @State private var externalConnector: ConnectorEntry?
     @State private var externalCredential = ""
     @State private var externalResource = ""
@@ -91,7 +86,6 @@ struct ConnectorCatalogView: View {
         Group { if let selected { detail(selected) } else { catalog } }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(.white)
-            .sheet(isPresented: $showGoogleInstall) { googleInstallSheet }
             .sheet(item: $externalConnector) { externalConnectSheet($0) }
             .alert(tr("커넥터 연결"), isPresented: $showNotice) {
                 Button(tr("확인"), role: .cancel) {}
@@ -187,7 +181,7 @@ struct ConnectorCatalogView: View {
                     }.padding(.top, 22)
                     examplePanel(connector, on: on).padding(.top, 15)
                     Text(connector.description).font(Brand.font(.body)).foregroundStyle(Brand.tabText).padding(.top, 18)
-                    if ["gmail", "drive", "slack", "notion", "higgsfield", "lovable", "canva"].contains(connector.id) {
+                    if ["drive", "slack", "notion", "higgsfield", "lovable", "canva"].contains(connector.id) {
                         Text(tr("연결을 누르면 브라우저에서 로그인하고 권한을 승인해요. 키를 직접 발급할 필요가 없어요."))
                             .font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 10)
                     }
@@ -199,6 +193,10 @@ struct ConnectorCatalogView: View {
                         HStack(spacing: 8) {
                             if connector.id == "github", let url = githubInstallURL {
                                 Button(tr("Repository 선택")) { NSWorkspace.shared.open(url) }.buttonStyle(BrandButtonStyle(kind: .secondary))
+                            }
+                            if connector.id == "drive" {
+                                Button(tr("Drive 파일 고르기")) { pickDriveFiles() }
+                                    .buttonStyle(BrandButtonStyle(kind: .secondary)).disabled(connecting)
                             }
                             Button(tr("검색·읽기 확인")) { checkConnection(connector) }
                                 .buttonStyle(BrandButtonStyle(kind: .secondary)).disabled(connecting)
@@ -215,7 +213,7 @@ struct ConnectorCatalogView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         infoRow(tr("SILLOG에서 실행"), tr("검색·읽기만 해요"))
                         infoRow(tr("연결 정보"), tr("이 Mac의 키체인에 보관해요"))
-                        infoRow(tr("제공"), ["gmail", "drive"].contains(connector.id) ? "Google" : connector.name)
+                        infoRow(tr("제공"), connector.id == "drive" ? "Google" : connector.name)
                     }.padding(.top, 11)
                     Text(tr("질문과 조회한 자료는 연결한 AI로 전송돼요.")).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.top, 22)
                 }
@@ -355,49 +353,9 @@ struct ConnectorCatalogView: View {
         }
     }
 
-    private var googleInstallSheet: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            BrandPageHeader(title: tr("설치할 Google 커넥터 선택"), detail: tr("승인할 자료만 골라 주세요. 연결한 뒤에도 각 커넥터를 해제할 수 있어요.")) {
-                Button { showGoogleInstall = false } label: {
-                    Image(systemName: "xmark").font(.system(size: 13)).foregroundStyle(Brand.tabText)
-                        .frame(width: 28, height: 28).contentShape(Rectangle())
-                }.buttonStyle(.plain).accessibilityLabel(tr("닫기"))
-            }
-            VStack(spacing: 0) {
-                ForEach(ConnectorEntry.all.filter { ["gmail", "drive"].contains($0.id) }) { connector in
-                    HStack(spacing: 12) {
-                        ConnectorLogo(connector: connector, size: 44)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(connector.name).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
-                            Text(connector.summary).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
-                        }
-                        Spacer()
-                        Toggle("", isOn: googleBinding(connector.id)).toggleStyle(.switch).labelsHidden().controlSize(.small).tint(Brand.accentDark)
-                    }.padding(.vertical, 16)
-                        .overlay(alignment: .bottom) { Rectangle().fill(Brand.line).frame(height: 1) }
-                }
-            }.padding(.horizontal, 32).padding(.top, 4)
-            HStack {
-                Spacer()
-                Button(tr("Google에서 계속")) { showGoogleInstall = false; connectGoogle() }
-                    .buttonStyle(BrandButtonStyle(kind: .primary)).disabled(googleSelection.isEmpty)
-            }.padding(.horizontal, 32).frame(height: 63).background(Self.soft)
-                .overlay(alignment: .top) { Rectangle().fill(Brand.line).frame(height: 1) }
-        }.frame(width: 560).background(.white)
-    }
-
-    /// Args: id는 Google 커넥터 ID이다.
-    /// Returns: 설치 선택 상태 바인딩.
-    /// Raises: 없음.
-    private func googleBinding(_ id: String) -> Binding<Bool> {
-        Binding(get: { googleSelection.contains(id) }, set: { enabled in
-            if enabled { googleSelection.insert(id) } else { googleSelection.remove(id) }
-        })
-    }
-
-    /// Args: connector은 설치할 서비스이다.
-    /// Returns: 없음. Google은 권한 선택을 보여주고 나머지는 공급자 승인을 시작한다.
-    /// Raises: 없음. 오류는 화면에 표시한다.
+    /// Args: connector is the service to install.
+    /// Returns: nothing. Starts the provider's sign-in.
+    /// Raises: none. Errors are shown on screen.
     private func install(_ connector: ConnectorEntry) {
         if let remote = RemoteReadConnector(rawValue: connector.id) {
             connecting = true
@@ -426,9 +384,8 @@ struct ConnectorCatalogView: View {
             prepareCredentials(connector)
             return
         }
-        if ["gmail", "drive"].contains(connector.id) {
-            googleSelection = [connector.id]
-            showGoogleInstall = true
+        if connector.id == "drive" {
+            connectDrive()
             return
         }
         do {
@@ -482,13 +439,12 @@ struct ConnectorCatalogView: View {
         }
     }
 
-    /// Args: 없음. 사용자가 선택한 Google 커넥터를 승인한다.
-    /// Returns: 없음. 승인 성공 시 설치됨 상태를 갱신한다.
-    /// Raises: 없음. OAuth 오류는 화면에 표시한다.
-    private func connectGoogle() {
-        let ids = googleSelection
+    /// Args: none.
+    /// Returns: nothing. Signs in to Google Drive, then opens the file picker.
+    /// Raises: none. OAuth errors are shown on screen.
+    private func connectDrive() {
         do {
-            guard try ConnectorAuth.isAvailable("gmail") else {
+            guard try ConnectorAuth.isAvailable("drive") else {
                 notify(tr("이 빌드에는 Google 연결 정보가 아직 없습니다. 앱 제공자가 OAuth 앱을 등록해야 사용할 수 있습니다."))
                 return
             }
@@ -497,10 +453,25 @@ struct ConnectorCatalogView: View {
         Task {
             do {
                 let client = try ConnectorAuth.configuration("google-client", environment: "GOOGLE_CLIENT_ID")
-                try await ConnectorAuth.connectGoogle(ids, clientID: client)
-                connected.formUnion(ids)
+                try await ConnectorAuth.connectGoogle(["drive"], clientID: client)
+                connected.insert("drive")
+                connecting = false
+                pickDriveFiles()
+            } catch { notify(error.localizedDescription); connecting = false }
+        }
+    }
+
+    /// Args: none.
+    /// Returns: nothing. Opens Google Picker in the browser; only picked files are readable with drive.file.
+    /// Raises: none. Errors are shown on screen.
+    private func pickDriveFiles() {
+        connecting = true
+        Task {
+            defer { connecting = false }
+            do {
+                let count = try await ConnectorAuth.pickDriveFiles()
+                if count > 0 { notify(tr("Drive 파일 \(count)개를 SILLOG이 읽을 수 있어요. 더 추가하려면 ‘Drive 파일 고르기’를 누르세요.")) }
             } catch { notify(error.localizedDescription) }
-            connecting = false
         }
     }
 

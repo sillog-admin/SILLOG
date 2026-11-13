@@ -30,7 +30,7 @@ enum ConnectorAuth {
     /// Raises: Keychain 접근 오류.
     static func isAvailable(_ id: String) throws -> Bool {
         switch id {
-        case "gmail", "drive", "gcal": return try !configuration("google-client", environment: "GOOGLE_CLIENT_ID").isEmpty
+        case "drive", "gcal": return try !configuration("google-client", environment: "GOOGLE_CLIENT_ID").isEmpty
         case "github": return try !configuration("github-client", environment: "GITHUB_CLIENT_ID").isEmpty
         case "notion", "higgsfield", "lovable", "canva": return true
         case "slack": return try !configuration("slack-client", environment: "SLACK_CLIENT_ID").isEmpty
@@ -47,7 +47,7 @@ enum ConnectorAuth {
         return try ChatSecrets.load("plugin-\(key)")
     }
 
-    /// Args: id는 gmail·drive·github·notion 중 하나이다.
+    /// Args: id is a connector ID such as drive, github or notion.
     /// Returns: Keychain에 연결된 계정이 있으면 true.
     /// Raises: Keychain 접근 오류.
     static func isConnected(_ id: String) throws -> Bool { try !ChatSecrets.load("plugin-\(id)").isEmpty }
@@ -248,8 +248,28 @@ enum ConnectorAuth {
         for id in ids { try save(token, id: id) }
     }
 
-    /// 구글 로그인을 쓰는 커넥터: Gmail·Drive(채팅), 캘린더(gcal, 캘린더 탭)
-    static let googleIDs: Set<String> = ["gmail", "drive", "gcal"]
+    /// Args: none.
+    /// Returns: how many files the user picked in Google Picker; 0 if they cancelled.
+    /// Raises: missing Picker key, Drive not connected, port busy or timeout.
+    static func pickDriveFiles() async throws -> Int {
+        let apiKey = try configuration("google-api-key", environment: "GOOGLE_API_KEY")
+        guard !apiKey.isEmpty else {
+            throw ChatToolError.unavailable(tr("이 빌드에는 Google Picker 키가 없습니다. 앱 제공자가 SILLOG_GOOGLE_API_KEY를 넣어야 파일을 고를 수 있습니다."))
+        }
+        let state = randomURLSafe(16)
+        let page = DrivePicker.page(token: try await accessToken("drive"), apiKey: apiKey,
+                                    clientID: try configuration("google-client", environment: "GOOGLE_CLIENT_ID"), state: state)
+        return try await LoopbackOAuth.serve(open: URL(string: "http://127.0.0.1:8765\(DrivePicker.pagePath)?state=\(state)")!) { path in
+            if path == "\(DrivePicker.pagePath)?state=\(state)" { return (200, page, nil) }
+            let values = URLComponents(string: "http://127.0.0.1\(path)")?.queryItems ?? []
+            guard path.hasPrefix("\(DrivePicker.donePath)?"), values.first(where: { $0.name == "state" })?.value == state,
+                  let count = values.first(where: { $0.name == "count" })?.value.flatMap(Int.init) else { return (404, "", nil) }
+            return (200, tr("<h2>파일을 골랐습니다. SILLOG 앱으로 돌아가세요.</h2>"), .success(count))
+        }
+    }
+
+    /// Google sign-in connectors: Drive for chat, gcal for the calendar tab.
+    static let googleIDs: Set<String> = ["drive", "gcal"]
 
     /// Args: ids는 연결할 구글 커넥터 ID이다.
     /// Returns: 요청할 권한. 캘린더는 캘린더 목록 읽기와 일정 읽기·쓰기만.
@@ -257,10 +277,8 @@ enum ConnectorAuth {
     static func googleScopes(_ ids: Set<String>) -> [String] {
         ids.sorted().flatMap { id -> [String] in
             switch id {
-            // TODO: hide Gmail in release builds; gmail.readonly is restricted and needs a paid yearly CASA audit.
-            case "gmail": ["https://www.googleapis.com/auth/gmail.readonly"]
-            // TODO: switch to drive.file with a file picker; drive.readonly is restricted and needs CASA.
-            case "drive": ["https://www.googleapis.com/auth/drive.readonly"]
+            // Restricted Gmail and drive.readonly need a paid yearly CASA audit; drive.file is non-sensitive.
+            case "drive": ["https://www.googleapis.com/auth/drive.file"]
             case "gcal": ["https://www.googleapis.com/auth/calendar.calendarlist.readonly", "https://www.googleapis.com/auth/calendar.events"]
             default: []
             }
@@ -436,6 +454,26 @@ private final class LoopbackOAuth {
     /// Returns: 승인 후 로컬 콜백으로 받은 코드.
     /// Raises: 포트 사용 중·승인 거절·상태 불일치.
     static func receive(auth: URL, state: String) async throws -> String {
+        try await serve(open: auth) { path in
+            guard path.hasPrefix("/callback?") else { return (404, "", nil) }
+            let values = URLComponents(string: "http://127.0.0.1\(path)")?.queryItems ?? []
+            let receivedState = values.first { $0.name == "state" }?.value
+            let code = values.first { $0.name == "code" }?.value
+            let accepted = receivedState == state && !(code ?? "").isEmpty
+                && values.filter({ $0.name == "state" }).count == 1 && values.filter({ $0.name == "code" }).count == 1
+                && !values.contains(where: { $0.name == "error" })
+            guard accepted, let code else {
+                return (400, tr("<h2>승인이 완료되지 않았습니다. SILLOG에서 다시 시도하세요.</h2>"),
+                        .failure(ChatToolError.unavailable(tr("OAuth 승인 또는 상태 확인에 실패했습니다."))))
+            }
+            return (200, tr("<h2>승인을 받았습니다. 연결 결과는 SILLOG 앱에서 확인하세요.</h2>"), .success(code))
+        }
+    }
+
+    /// Args: open is the page opened in the browser; handle answers each GET path with a status, HTML and, to stop, a result.
+    /// Returns: the first result handle gives.
+    /// Raises: port busy, 10-minute timeout, or the failure handle gives.
+    static func serve<T: Sendable>(open: URL, handle: @escaping @Sendable (String) -> (Int, String, Result<T, Error>?)) async throws -> T {
         try await Task.detached(priority: .userInitiated) {
             let server = socket(AF_INET, SOCK_STREAM, 0)
             guard server >= 0 else { throw ChatToolError.unavailable(tr("OAuth 콜백을 시작하지 못했습니다.")) }
@@ -450,33 +488,32 @@ private final class LoopbackOAuth {
             let bound = withUnsafePointer(to: &address) {
                 $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(server, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) }
             }
-            guard bound == 0, listen(server, 1) == 0 else { throw ChatToolError.unavailable(tr("OAuth 콜백 포트 8765를 열 수 없습니다.")) }
-            await MainActor.run { _ = NSWorkspace.shared.open(auth) }
-            var ready = pollfd(fd: server, events: Int16(POLLIN), revents: 0)
-            guard poll(&ready, 1, 600_000) > 0 else { throw ChatToolError.unavailable(tr("OAuth 승인 시간이 지났습니다. 다시 연결하세요.")) }
-            let connection = accept(server, nil, nil)
-            guard connection >= 0 else { throw ChatToolError.unavailable(tr("OAuth 콜백을 받지 못했습니다.")) }
-            defer { close(connection) }
-            var timeout = timeval(tv_sec: 5, tv_usec: 0)
-            _ = setsockopt(connection, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout.size(ofValue: timeout)))
-            var buffer = [UInt8](repeating: 0, count: 8192)
-            let count = recv(connection, &buffer, buffer.count, 0)
-            let line = String(decoding: buffer.prefix(max(0, count)), as: UTF8.self).components(separatedBy: "\r\n").first ?? ""
-            let path = line.split(separator: " ").dropFirst().first.map(String.init) ?? ""
-            let values = URLComponents(string: "http://127.0.0.1\(path)")?.queryItems ?? []
-            let receivedState = values.first { $0.name == "state" }?.value
-            let code = values.first { $0.name == "code" }?.value
-            let accepted = line.hasPrefix("GET ") && path.hasPrefix("/callback?") && receivedState == state && !(code ?? "").isEmpty
-                && values.filter({ $0.name == "state" }).count == 1 && values.filter({ $0.name == "code" }).count == 1
-                && !values.contains(where: { $0.name == "error" })
-            let html = accepted ? tr("<h2>승인을 받았습니다. 연결 결과는 SILLOG 앱에서 확인하세요.</h2>") : tr("<h2>승인이 완료되지 않았습니다. SILLOG에서 다시 시도하세요.</h2>")
-            let body = Data(html.utf8)
-            let header = "HTTP/1.1 \(accepted ? "200 OK" : "400 Bad Request")\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n"
-            let reply = Data(header.utf8) + body
-            _ = reply.withUnsafeBytes { send(connection, $0.baseAddress, reply.count, 0) }
-            guard accepted, let code else { throw ChatToolError.unavailable(tr("OAuth 승인 또는 상태 확인에 실패했습니다.")) }
-            await MainActor.run { NSApp.activate(ignoringOtherApps: true) }
-            return code
+            guard bound == 0, listen(server, 4) == 0 else { throw ChatToolError.unavailable(tr("OAuth 콜백 포트 8765를 열 수 없습니다.")) }
+            await MainActor.run { _ = NSWorkspace.shared.open(open) }
+            let deadline = Date().addingTimeInterval(600)
+            while true {
+                var ready = pollfd(fd: server, events: Int16(POLLIN), revents: 0)
+                let wait = Int32(max(0, deadline.timeIntervalSinceNow) * 1000)
+                guard wait > 0, poll(&ready, 1, wait) > 0 else { throw ChatToolError.unavailable(tr("OAuth 승인 시간이 지났습니다. 다시 연결하세요.")) }
+                let connection = accept(server, nil, nil)
+                guard connection >= 0 else { continue }
+                defer { close(connection) }
+                var timeout = timeval(tv_sec: 5, tv_usec: 0)
+                _ = setsockopt(connection, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout.size(ofValue: timeout)))
+                var buffer = [UInt8](repeating: 0, count: 8192)
+                let count = recv(connection, &buffer, buffer.count, 0)
+                let line = String(decoding: buffer.prefix(max(0, count)), as: UTF8.self).components(separatedBy: "\r\n").first ?? ""
+                let path = line.hasPrefix("GET ") ? line.split(separator: " ").dropFirst().first.map(String.init) ?? "" : ""
+                let (status, html, result) = handle(path)
+                let body = Data(html.utf8)
+                let reason = [200: "OK", 400: "Bad Request"][status] ?? "Not Found"
+                let header = "HTTP/1.1 \(status) \(reason)\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n"
+                let reply = Data(header.utf8) + body
+                _ = reply.withUnsafeBytes { send(connection, $0.baseAddress, reply.count, 0) }
+                guard let result else { continue }
+                await MainActor.run { NSApp.activate(ignoringOtherApps: true) }
+                return try result.get()
+            }
         }.value
     }
 }
