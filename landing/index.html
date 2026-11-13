@@ -193,12 +193,14 @@ main>section::before{content:"";position:absolute;inset:0;z-index:-1;pointer-eve
 .fmeta small{display:block;margin-top:8px;font-size:14px;line-height:19.6px;letter-spacing:-.14px;color:rgba(255,255,255,.75)}
 .fmeta nav{display:flex;gap:22px;font-size:15px;line-height:21px;font-weight:500}
 .fmeta nav a:hover{opacity:.6}
+.nav a,.fmeta nav a{white-space:nowrap}
 
 /* 등장 */
 .js .rv{opacity:0;translate:0 28px;transition:opacity .7s var(--ease) var(--d,0ms),translate .7s var(--ease) var(--d,0ms)}
 .js .rv.rv-in{opacity:1;translate:0 0}
 
 @media (max-width:1100px){.chr.hide-m{display:none}}
+@media (max-width:1000px){.nav a.pp{display:none}}
 @media (max-width:700px){
   .topbar{height:68px}
   .topbar-in{width:calc(100% - 32px)}
@@ -258,7 +260,7 @@ main>section::before{content:"";position:absolute;inset:0;z-index:-1;pointer-eve
   .fmeta{bottom:20px}
   .fmeta>div{flex-direction:column;align-items:center;gap:14px}
   .fmeta small{text-align:center}
-  .fmeta nav{gap:16px}
+  .fmeta nav{gap:8px 16px;flex-wrap:wrap;justify-content:center}
 }
 @media (prefers-reduced-motion:reduce){
   .topbar,.hero h1,.hero .sub,.chev,.chr,.hm .m3d,.fm .m3d,.orb,.stars::after,.it img,.qrow,.fd,.fc{animation:none}
@@ -290,6 +292,7 @@ main>section::before{content:"";position:absolute;inset:0;z-index:-1;pointer-eve
       <a class="l" href="#features">기능</a>
       <a class="l" href="#privacy">개인정보</a>
       <a class="l" href="#faq">자주 묻는 질문</a>
+      <a class="l pp" href="/privacy">개인정보 처리방침</a>
       <a class="l" href="https://github.com/sillog-admin/sillog" target="_blank" rel="noopener">GitHub</a>
       <a class="mint dl" href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg" download>앱 다운로드</a>
     </nav>
@@ -433,7 +436,7 @@ main>section::before{content:"";position:absolute;inset:0;z-index:-1;pointer-eve
     <div class="fm hide-s" style="--x:560px;--s:230px;--b:150px;--bd:-4.2s"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m4.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="-14" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
     <div class="fmeta"><div>
       <div><img decoding="async" class="wordmark" src="assets/wordmark.png" alt="SILLOG" width="107" height="18"><small>© 2026 SILLOG</small></div>
-      <nav><a href="#features">기능</a><a href="#privacy">개인정보</a><a href="#faq">자주 묻는 질문</a><a href="https://github.com/sillog-admin/sillog" target="_blank" rel="noopener">GitHub</a></nav>
+      <nav><a href="#features">기능</a><a href="#privacy">개인정보</a><a href="#faq">자주 묻는 질문</a><a href="/privacy">개인정보 처리방침</a><a href="https://github.com/sillog-admin/sillog" target="_blank" rel="noopener">GitHub</a></nav>
     </div></div>
   </section>
 </main>
