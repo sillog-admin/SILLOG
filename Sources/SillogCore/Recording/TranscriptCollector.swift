@@ -40,6 +40,9 @@ public struct TranscriptCollector: Sendable {
         }
     }
 
+    /// Everything so far, including the utterance still being spoken.
+    public var heard: String { (utterances + (pending.isEmpty ? [] : [pending])).joined(separator: " ") }
+
     /// 끝까지 받은 뒤: 끝나지 않은 발화도 붙인다
     public mutating func finish() -> [String] {
         if !pending.isEmpty, !isRedelivery(pending, end: pendingEnd) { utterances.append(pending); lastEnd = max(lastEnd, pendingEnd) }

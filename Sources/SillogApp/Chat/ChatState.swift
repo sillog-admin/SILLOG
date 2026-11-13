@@ -625,16 +625,7 @@ final class ChatState: ObservableObject {
                 let finished = self.activeMessage
                 self.activeMessage = nil; self.runTask = nil
                 do { try self.reload() } catch { self.error = error.localizedDescription }
-                if succeeded, automationID == nil, let finished, !Task.isCancelled {
-                    do {
-                        let followUp = try await backend.followUpQuestion(question: text, answer: finished.text)
-                        // Re-read so a regenerated or deleted answer is not saved back and later edits are kept.
-                        if var stored = try self.store.messages(conversation.id).first(where: { $0.id == finished.id }) {
-                            stored.followUp = followUp
-                            try self.store.save(stored); self.replaceVisible(stored)
-                        }
-                    } catch { AppLog.write("chat follow-up failed: \(error.localizedDescription)") }
-                }
+                // Title first so the sidebar names the chat without waiting for the follow-up call.
                 if needsTitle, !Task.isCancelled {
                     do {
                         let title = try await backend.conversationTitle(for: firstText)
@@ -644,6 +635,16 @@ final class ChatState: ObservableObject {
                         // updateOldTitles retries chats titled with this prefix on a later launch.
                         self.applyTitle(fallbackTitle, to: conversation.id, replacing: conversation.title)
                     }
+                }
+                if succeeded, automationID == nil, let finished, !Task.isCancelled {
+                    do {
+                        let followUp = try await backend.followUpQuestion(question: text, answer: finished.text)
+                        // Re-read so a regenerated or deleted answer is not saved back and later edits are kept.
+                        if var stored = try self.store.messages(conversation.id).first(where: { $0.id == finished.id }) {
+                            stored.followUp = followUp
+                            try self.store.save(stored); self.replaceVisible(stored)
+                        }
+                    } catch { AppLog.write("chat follow-up failed: \(error.localizedDescription)") }
                 }
             }
             return true

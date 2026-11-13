@@ -2,6 +2,11 @@ import XCTest
 @testable import SillogCore
 
 final class ChatTests: XCTestCase {
+    func testPlainTextStripsMarkdownMarkers() {
+        let markdown = "## 요약\n\n- **굵게** 와 __밑줄__\n1. `code` 링크 [문서](https://a.b/c) [S1]\n> 인용\n```swift\nlet x = 1\n```"
+        XCTAssertEqual(ConversationMessage.plainText(markdown), "요약 굵게 와 밑줄 code 링크 문서 [S1] 인용 let x = 1")
+    }
+
     func testConnectorRenamePreservesSavedScopes() throws {
         let saved = Data(#"{"plugins":["gmail","figma"],"useWeb":false,"useGitHub":true}"#.utf8)
         let scope = try JSONDecoder().decode(ChatScope.self, from: saved)

@@ -28,6 +28,7 @@ struct ChatView: View {
     @State private var showDelete = false
     @State private var selectedQuestionID: String?
     @State private var hoveredQuestionID: String?
+    @State private var scrubbingQuestions = false
     @State private var expandedSources: Set<String> = []
     @State private var expandedSteps: Set<String> = []     // 끝난 답변의 단계 목록: 기본 접힘
     @State private var collapsedSteps: Set<String> = []    // 실행 중 답변의 단계 목록: 기본 펼침(CH-15)
@@ -38,6 +39,8 @@ struct ChatView: View {
     @State private var pendingResend: PendingResend?
     @State private var copiedID: String?
     @State private var hoveredArtifactID: String?
+    @State private var showResults = false
+    @State private var hoveredResultID: String?
     @State private var atBottom = true
     /// A search hit to land on once its conversation is on screen.
     @State private var pendingScrollID: String?
@@ -338,6 +341,13 @@ struct ChatView: View {
                 }
             }
             if !chat.messages.isEmpty {
+                if let project = chat.projects.projects.first(where: { $0.id == chat.current.projectID }) {
+                    Button { chat.newConversation(projectID: project.id); pane = .project(project.id) } label: {
+                        Label(project.title, systemImage: "folder").font(Brand.font(.rowTitle)).foregroundStyle(Brand.gray).lineLimit(1).frame(maxWidth: 220)
+                            .contentShape(Rectangle())
+                    }.buttonStyle(.plain).help(tr("프로젝트 열기")).accessibilityLabel(tr("\(project.title) 프로젝트 열기"))
+                    Text("/").font(Brand.font(.rowTitle)).foregroundStyle(Brand.gray).accessibilityHidden(true)
+                }
                 HoverScrollingText(text: ChatConversation.display(chat.current.title)).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
                 // The sidebar is hidden while an artifact is open, so its row menu is out of reach.
                 Menu {
@@ -345,6 +355,7 @@ struct ChatView: View {
                     Button { editingConversation = item; conversationName = ChatConversation.display(item.title); showRename = true } label: {
                         Label(tr("이름 바꾸기"), systemImage: "pencil")
                     }
+                    ProjectMoveMenu(projects: chat.projects, itemID: "conversation:\(item.id)").disabled(chat.activeMessage?.conversationID == item.id)
                     Button(role: .destructive) { deletingConversation = item; showDelete = true } label: { Label(tr("삭제"), systemImage: "trash") }
                 } label: {
                     Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(Brand.tabText)
@@ -353,9 +364,40 @@ struct ChatView: View {
                 .help(tr("대화 메뉴")).accessibilityLabel(tr("대화 메뉴"))
             }
             Spacer(minLength: 0)
+            let results = ChatArtifact.latestPerSeries(chat.messages.flatMap { $0.versions.flatMap(\.artifacts) })
+            if !results.isEmpty {
+                ChatPillButton(title: tr("결과물 \(results.count)"), systemName: "archivebox") { showResults.toggle() }
+                    .help(tr("이 대화의 결과물"))
+                    .popover(isPresented: $showResults, arrowEdge: .bottom) { resultsMenu(results) }
+            }
         }.padding(.top, sidebarVisible ? 20.5 : 20)   // 목록 "채팅" 제목과 글자 바닥선을 맞춘다
             .padding(.leading, sidebarVisible ? 28 : 21).padding(.trailing, 28)
             .frame(height: 65, alignment: .topLeading)
+    }
+
+    private func resultsMenu(_ results: [ChatArtifact]) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(results) { item in
+                    let version = ChatArtifact.versions(of: item, in: chat.messages).count
+                    Button { showResults = false; chat.openArtifactID = item.id } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: Self.artifactIcon(item.format)).font(.system(size: 14, weight: .light)).foregroundStyle(Brand.ink).frame(width: 18)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
+                                Text(item.format.uppercased() + " · " + tr("버전 \(version)")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+                            }
+                            Spacer(minLength: 0)
+                        }.padding(.horizontal, 8).padding(.vertical, 6).frame(maxWidth: .infinity)
+                            .background(hoveredResultID == item.id ? ChatPalette.rowHover : .clear, in: RoundedRectangle(cornerRadius: 6))
+                            .contentShape(Rectangle())
+                    }.buttonStyle(.plain).help(item.title)
+                    .onHover { hovering in
+                        if hovering { hoveredResultID = item.id } else if hoveredResultID == item.id { hoveredResultID = nil }
+                    }
+                }
+            }.padding(6)
+        }.frame(width: 280).frame(maxHeight: 360).fixedSize(horizontal: false, vertical: true)
     }
 
     private var conversation: some View {
@@ -366,40 +408,64 @@ struct ChatView: View {
                         let turns = conversationTurns
                         let step = min(28, max(10, (geometry.size.height - 36) / CGFloat(turns.count)))
                         let activeID = selectedQuestionID ?? turns.last?.id
+                        let hovered = turns.firstIndex { $0.id == hoveredQuestionID }
+                        let nearest: (CGFloat) -> Int = { y in min(max(Int((y - 18) / step), 0), turns.count - 1) }
+                        // Hover and clicks stop at the last tick, so the empty gutter below stays inert.
+                        let ticks = CGRect(x: 0, y: 0, width: geometry.size.width, height: 18 + CGFloat(turns.count) * step)
+                        let jump: (ConversationTurn, Bool) -> Void = { turn, animated in
+                            selectedQuestionID = turn.id
+                            withAnimation(animated && !reduceMotion ? .easeInOut(duration: 0.25) : nil) { proxy.scrollTo(turn.id, anchor: .top) }
+                        }
                         ZStack(alignment: .topLeading) {
                             ForEach(Array(turns.enumerated()), id: \.element.id) { index, turn in
-                                Button {
-                                    selectedQuestionID = turn.id
-                                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
-                                        proxy.scrollTo(turn.id, anchor: .top)
-                                    }
-                                } label: {
-                                    Capsule()
-                                        .fill(activeID == turn.id ? Brand.ink : Brand.gray.opacity(0.45))
-                                        .frame(width: hoveredQuestionID == turn.id ? 29 : activeID == turn.id ? 24 : 13,
-                                               height: hoveredQuestionID == turn.id || activeID == turn.id ? 3 : 2)
-                                        .frame(width: 44, height: step)
-                                        .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .offset(y: 18 + CGFloat(index) * step)
-                                .onHover { hovering in
-                                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
-                                        if hovering { hoveredQuestionID = turn.id }
-                                        else if hoveredQuestionID == turn.id { hoveredQuestionID = nil }
-                                    }
-                                }
-                                .accessibilityLabel(tr("질문 \(index + 1): \(String(turn.question.text.prefix(80)))"))
+                                let distance = hovered.map { abs($0 - index) } ?? 3
+                                // Dock-like: neighbours grow less by distance; reduce motion only marks the hovered tick.
+                                let grow: CGFloat = reduceMotion ? (distance == 0 ? 11 : 0) : [16, 9, 4, 0][min(distance, 3)]
+                                let active = activeID == turn.id
+                                Capsule()
+                                    .fill(active ? Brand.ink : Brand.gray.opacity(0.45))
+                                    .frame(width: max(active ? 24 : 13, 13 + grow), height: active || distance == 0 ? 3 : 2)
+                                    .frame(width: 44, height: step)
+                                    .offset(y: 18 + CGFloat(index) * step)
+                                    .accessibilityElement()
+                                    .accessibilityLabel(tr("질문 \(index + 1): \(String(ConversationMessage.plainText(turn.question.text).prefix(80)))"))
+                                    .accessibilityAddTraits(.isButton)
+                                    .accessibilityAction { jump(turn, true) }
+                                    // Full Keyboard Access only; a click still goes to the rail's gesture.
+                                    .focusable(interactions: .activate)
+                                    .onKeyPress(keys: [.space, .return]) { _ in jump(turn, true); return .handled }
                             }
-                            if let index = turns.firstIndex(where: { $0.id == hoveredQuestionID }) {
-                                turnPreview(turns[index])
-                                    .offset(x: 48, y: min(max(18 + CGFloat(index) * step - 24, 8),
+                            // Same branch for every tick, so the card slides between ticks and fades only on enter and leave.
+                            if let hovered {
+                                turnPreview(turns[hovered])
+                                    .offset(x: 48, y: min(max(18 + CGFloat(hovered) * step - 24, 8),
                                                           max(8, geometry.size.height - 160)))
-                                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .leading)))
+                                    .transition(.opacity.animation(.easeOut(duration: 0.12)))
                                     .allowsHitTesting(false)
                             }
                         }
-                        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: hoveredQuestionID)
+                        .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+                        .contentShape(Path(ticks))
+                        .onContinuousHover { phase in
+                            guard !scrubbingQuestions else { return }
+                            let id: String? = if case .active(let point) = phase { turns[nearest(point.y)].id } else { nil }
+                            if hoveredQuestionID != id { hoveredQuestionID = id }
+                        }
+                        .gesture(DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                guard scrubbingQuestions || abs(value.translation.height) > 3 else { return }
+                                let turn = turns[nearest(value.location.y)]
+                                if !scrubbingQuestions || hoveredQuestionID != turn.id {
+                                    scrubbingQuestions = true; hoveredQuestionID = turn.id; jump(turn, false)
+                                }
+                            }
+                            .onEnded { value in
+                                if !scrubbingQuestions { jump(turns[nearest(value.location.y)], true) }
+                                scrubbingQuestions = false
+                                // Hover events pause during a drag, so a release off the rail would leave the card up.
+                                if !ticks.contains(value.location) { hoveredQuestionID = nil }
+                            })
+                        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: hoveredQuestionID)
                     }
                     .frame(width: 44)
                     .zIndex(1)
@@ -491,10 +557,10 @@ struct ChatView: View {
     /// Raises: 없음.
     private func turnPreview(_ turn: ConversationTurn) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(turn.question.text).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).lineLimit(2)
+            Text(ConversationMessage.plainText(turn.question.text)).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).lineLimit(2)
             Rectangle().fill(Brand.line).frame(height: 1)
             if let answer = turn.answer, !answer.text.isEmpty {
-                Text(answer.text).font(Brand.font(.body)).foregroundStyle(Brand.gray).lineLimit(3)
+                Text(ConversationMessage.plainText(answer.text)).font(Brand.font(.body)).foregroundStyle(Brand.gray).lineLimit(3)
             } else {
                 Text(turn.answer?.status == "running" ? tr("답변 작성 중…") : tr("답변 없음"))
                     .font(Brand.font(.body)).foregroundStyle(Brand.gray)

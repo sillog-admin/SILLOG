@@ -64,6 +64,10 @@ final class ChatArtifactPanelTests: XCTestCase {
         XCTAssertTrue(text.contains("고쳤습니다"), text)
     }
 
+    func testTheHeaderCountsEachSeriesOnce() throws {
+        XCTAssertTrue(try text { _, _ in nil }.contains("결과물1"))
+    }
+
     func testAnIDThatNoLongerResolvesShowsNoPanel() throws {
         XCTAssertNil(try text { _, _ in "gone" }.range(of: "버전2/?2", options: .regularExpression))     // cards still name their versions
     }

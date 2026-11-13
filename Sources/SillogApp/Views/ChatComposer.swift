@@ -16,6 +16,9 @@ struct ChatComposer: View {
     var showsNotice: Bool = true
 
     @EnvironmentObject private var state: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @StateObject private var dictation = ChatDictation()
+    @State private var micHover = false
     @State private var inputHeight: CGFloat = 38
     @State private var showPlus = false
     @State private var showFocus = false
@@ -58,6 +61,15 @@ struct ChatComposer: View {
             if !chat.current.scope.focus.isEmpty, chat.current.scope.useActivity, pendingRecords > 0 {
                 tidyHint.padding(.top, 8).padding(.leading, 12)
             }
+            if let problem = dictation.problem {
+                HStack(spacing: 8) {
+                    Text(problem.text).font(Brand.font(.caption)).foregroundStyle(Brand.ink).lineLimit(1)
+                    if problem.settingsURL != nil {
+                        ChatPillButton(title: tr("시스템 설정 열기"), systemName: "gearshape") { problem.openSettings() }
+                    }
+                }
+                .frame(maxWidth: .infinity).padding(.top, 8)
+            }
             if !state.chatConnected {
                 HStack(spacing: 8) {
                     Text(tr("AI가 연결되지 않았어요. [설정 > AI 연결]에서 먼저 연결해 주세요."))
@@ -73,14 +85,17 @@ struct ChatComposer: View {
         }
         .frame(maxWidth: ChatPalette.readingWidth).frame(maxWidth: .infinity)
         .sheet(isPresented: $showLibraryPicker) { LibraryPicker(library: library) { chat.attachLibraryItem($0) } }
-        .onChange(of: chat.current.id) { _, _ in shortcut = nil; dismissedShortcut = nil; dismissedFollowUp = nil }
+        .onChange(of: chat.current.id) { _, _ in shortcut = nil; dismissedShortcut = nil; dismissedFollowUp = nil; dictation.cancel() }
+        .onDisappear { dictation.cancel() }
         .onChange(of: chat.draft) { _, draft in if !draft.isEmpty { dismissedFollowUp = chat.messages.last?.id } }
     }
 
     /// 보내기가 시작됐을 때만 알린다 (프로젝트 상세에서 대화로 넘어가는 용도)
     private func send() {
         guard state.chatConnected else { return }
-        if chat.send() { shortcut = nil; onSent() }
+        // Enter finishes Whisper dictation first; its text lands in the draft only on stop.
+        if dictation.holdsSpeech { dictation.stop(); return }
+        if chat.send() { dictation.cancel(); shortcut = nil; onSent() }
     }
 
     static func placeholder(_ scope: ChatScope) -> String {
@@ -117,9 +132,9 @@ struct ChatComposer: View {
             ZStack(alignment: .topLeading) {
                 if chat.draft.isEmpty {
                     HStack(spacing: 8) {
-                        Text(followUp ?? Self.placeholder(chat.current.scope))
+                        Text(placeholder)
                             .font(Brand.font(.sectionTitle, .regular)).foregroundStyle(Brand.text.opacity(0.5)).lineLimit(1)
-                        if followUp != nil {
+                        if followUp != nil && !dictation.listening {
                             Text("Tab").font(Brand.font(.tag, .medium)).foregroundStyle(Brand.gray)
                                 .padding(.horizontal, 5).frame(height: 16)
                                 .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Brand.line))
@@ -129,14 +144,15 @@ struct ChatComposer: View {
                 }
                 ChatInput(text: $chat.draft, height: $inputHeight, minimumHeight: 38, focusRequest: chat.inputFocusRequest,
                           selectionOnFocus: shortcutCaret.flatMap { $0.request == chat.inputFocusRequest ? $0.range : nil }, onShortcut: updateShortcut, shortcutKey: handleShortcutKey,
-                          onFiles: { chat.attach($0) }, onEscape: { if busy { chat.cancel() } else { chat.openArtifactID = nil } }, onEditLast: onEditLast,
-                          placeholder: followUp.map { tr("추천 질문: \($0). Tab으로 입력") } ?? Self.placeholder(chat.current.scope), onSend: send)
+                          onFiles: { chat.attach($0) }, onEscape: { if dictation.listening { dictation.cancel() } else if busy { chat.cancel() } else { chat.openArtifactID = nil } }, onEditLast: onEditLast,
+                          placeholder: dictation.listening ? placeholder : followUp.map { tr("추천 질문: \($0). Tab으로 입력") } ?? placeholder, onSend: send)
                     .frame(height: inputHeight)
             }
             .padding(.top, 18).padding(.horizontal, 13)
             Spacer(minLength: 0)
             HStack(spacing: 8) {
                 plusButton
+                micButton
                 chips
                 Spacer(minLength: 0)
                 sendButton
@@ -302,6 +318,37 @@ struct ChatComposer: View {
         .help(tr("자료 추가")).accessibilityLabel(tr("자료 추가"))
         .popover(isPresented: $showPlus, arrowEdge: .bottom) { plusMenu }
         .background { Color.clear.popover(isPresented: $showFocus, arrowEdge: .bottom) { ChatFocusPicker(chat: chat) } }
+    }
+
+    private var placeholder: String {
+        dictation.listening ? tr("듣고 있어요…") : followUp ?? Self.placeholder(chat.current.scope)
+    }
+
+    private var micButton: some View {
+        let on = dictation.listening
+        return Button {
+            // The caret only counts while the input has focus; otherwise speech is appended.
+            let caret = (NSApp.keyWindow?.firstResponder as? ChatTextView)?.selectedRange()
+            dictation.toggle(draft: $chat.draft, selection: caret, permissions: state.recordingPermissions)
+        } label: {
+            Group {
+                if dictation.transcribing { ProgressView().controlSize(.small) }
+                else { Image(systemName: on ? "mic.fill" : "mic").font(.system(size: 14)).foregroundStyle(on ? Color.white : Brand.tabText) }
+            }
+            .frame(width: 28, height: 28)
+            .background(on ? Brand.accent : micHover && !dictation.unavailable ? ChatPalette.soft : .clear, in: Circle())
+            .overlay {
+                if on && !reduceMotion {
+                    Circle().strokeBorder(Brand.accent.opacity(0.35), lineWidth: 2)
+                        .scaleEffect(1 + dictation.level * 0.35).animation(.easeOut(duration: 0.12), value: dictation.level)
+                }
+            }
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain).onHover { micHover = $0 }
+        .disabled(dictation.unavailable || dictation.transcribing)
+        .help(dictation.unavailable ? tr("이 Mac에서는 이 언어를 기기 안에서 받아쓸 수 없어요") : dictation.transcribing ? tr("받아쓰는 중…") : on ? tr("받아쓰기 멈추기") : tr("음성으로 입력"))
+        .accessibilityLabel(on ? tr("받아쓰기 멈추기") : tr("음성으로 입력"))
     }
 
     private var sendButton: some View {
