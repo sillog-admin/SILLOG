@@ -88,18 +88,7 @@ Password fields are never recorded. For apps like password managers and Keychain
 
 <img src="docs/readme/section-how-en.webp" alt="">
 
-```mermaid
-flowchart LR
-    subgraph mac["Your Mac"]
-        A["Collect<br/>apps, windows, URLs, screen text<br/>files, AI chats, audio"] --> DB[("SQLite")]
-        DB --> B["Organize, every 5 min<br/>group activity into tasks"]
-        B --> G["Task graph"]
-        G --> C["Chat, artifacts,<br/>scheduled tasks"]
-    end
-    B <-. "activity summaries" .-> LLM["Your chosen LLM"]
-    C <-. "questions and retrieved records" .-> LLM
-    C <-. "only when you allow it" .-> EXT["Web search, connectors"]
-```
+<img src="docs/readme/how-it-works-en.webp" alt="On your Mac: collect, store in SQLite, organize every 5 minutes, task graph, then chat and artifacts. Only activity summaries and questions go to your chosen LLM, and web search and connectors run only when you allow them.">
 
 All records are stored in SQLite on your Mac. The only things that leave it are what's sent to the model you configure for organizing and chat, plus web searches and connector requests you allow.
 

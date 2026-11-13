@@ -86,18 +86,7 @@ SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 �
 
 <img src="docs/readme/section-how.webp" alt="">
 
-```mermaid
-flowchart LR
-    subgraph mac["내 Mac"]
-        A["수집<br/>앱·창·주소·화면 글자<br/>파일·AI 대화·녹음"] --> DB[("SQLite")]
-        DB --> B["정리 (5분마다)<br/>기록을 업무로 묶기"]
-        B --> G["업무 그래프"]
-        G --> C["채팅·결과물·예약 작업"]
-    end
-    B <-. "기록 요약" .-> LLM["설정한 LLM"]
-    C <-. "질문과 찾은 자료" .-> LLM
-    C <-. "허용한 경우만" .-> EXT["웹 검색·커넥터"]
-```
+<img src="docs/readme/how-it-works.webp" alt="내 Mac 안에서 수집, SQLite 저장, 5분마다 정리, 업무 그래프, 채팅과 결과물로 이어지고, 기록 요약과 질문만 설정한 LLM으로, 허용한 경우에만 웹 검색과 커넥터로 나갑니다.">
 
 기록은 모두 Mac 안의 SQLite에 저장됩니다. 밖으로 나가는 것은 정리와 채팅을 위해 설정한 LLM에 보내는 내용, 그리고 허용한 웹 검색과 커넥터 요청뿐입니다.
 
