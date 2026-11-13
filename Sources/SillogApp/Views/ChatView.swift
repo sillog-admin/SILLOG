@@ -30,6 +30,7 @@ struct ChatView: View {
     @State private var hoveredQuestionID: String?
     @State private var scrubbingQuestions = false
     @State private var expandedSources: Set<String> = []
+    @State private var expandedOtherSources: Set<String> = []
     @State private var expandedSteps: Set<String> = []     // 끝난 답변의 단계 목록: 기본 접힘
     @State private var collapsedSteps: Set<String> = []    // 실행 중 답변의 단계 목록: 기본 펼침(CH-15)
     @State private var editingMessageID: String?
@@ -797,7 +798,8 @@ struct ChatView: View {
                                     }
                                 } label: {
                                     HStack(spacing: 4) {
-                                        Text(tr("출처 \(shown.sources.count)개"))
+                                        let cited = shown.splitSources.cited.count
+                                        Text(cited > 0 ? tr("출처 \(cited)개") : tr("그 밖에 조회한 자료 \(shown.sources.count)개"))
                                         Image(systemName: expandedSources.contains(message.id) ? "chevron.down" : "chevron.right").font(.system(size: 8))
                                     }.foregroundStyle(Brand.gray).padding(.horizontal, 6).frame(height: 28).contentShape(Rectangle())
                                 }
@@ -825,32 +827,29 @@ struct ChatView: View {
                     .focused($focusedActions, equals: message.id)
                 }
                 if expandedSources.contains(message.id) {
-                    // 본문의 [1] 번호와 맞도록 순서, 번호를 그대로 둔다
+                    let split = shown.splitSources
                     VStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(shown.sources.enumerated()), id: \.element.id) { index, item in
-                            Button { source = item } label: {
-                                HStack(spacing: 10) {
-                                    Text("\(index + 1)").font(Brand.jost(10)).foregroundStyle(Brand.gray).frame(width: 14, alignment: .trailing)
-                                    let title = Text(ChatRunner.displayTitle(item.title)).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
-                                    // Same-titled sources, like several records of one chat, differ only by their excerpt.
-                                    if let line = item.excerpt.split(whereSeparator: \.isNewline).lazy.map({ $0.trimmingCharacters(in: .whitespaces) }).first(where: { !$0.isEmpty }) {
-                                        // Drop the excerpt when the title leaves it too little room to read.
-                                        ViewThatFits(in: .horizontal) {
-                                            HStack(spacing: 10) {
-                                                title.layoutPriority(1)
-                                                Text(line).font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
-                                                    .frame(minWidth: 60, idealWidth: 60, alignment: .leading)
-                                            }
-                                            title
-                                        }.layoutPriority(1)
-                                    } else {
-                                        title
+                        if split.cited.isEmpty {
+                            sourceRows(split.other)
+                        } else {
+                            sourceRows(split.cited)
+                            if !split.other.isEmpty {
+                                let open = expandedOtherSources.contains(message.id)
+                                Button {
+                                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+                                        if open { expandedOtherSources.remove(message.id) } else { expandedOtherSources.insert(message.id) }
                                     }
-                                    Spacer(minLength: 8)
-                                    Image(systemName: "arrow.up.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
-                                }.frame(height: 28).contentShape(Rectangle())
-                            }.buttonStyle(.plain).help(ChatRunner.displayTitle(item.title))
-                            .overlay(alignment: .top) { if index > 0 { Rectangle().fill(Brand.line).frame(height: 1) } }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(tr("그 밖에 조회한 자료 \(split.other.count)개"))
+                                        Image(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 8))
+                                        Spacer(minLength: 0)
+                                    }.font(Brand.font(.caption)).foregroundStyle(Brand.gray).frame(height: 28).contentShape(Rectangle())
+                                }.buttonStyle(.plain)
+                                .accessibilityValue(open ? tr("펼침") : tr("접힘"))
+                                .overlay(alignment: .top) { Rectangle().fill(Brand.line).frame(height: 1) }
+                                if open { sourceRows(split.other).overlay(alignment: .top) { Rectangle().fill(Brand.line).frame(height: 1) } }
+                            }
                         }
                     }
                 }
@@ -860,6 +859,37 @@ struct ChatView: View {
             .contentShape(Rectangle())
             .onHover { hovering in
                 if hovering { hoveredMessageID = message.id } else if hoveredMessageID == message.id { hoveredMessageID = nil }
+            }
+        }
+    }
+
+    /// Numbered source rows; numbering restarts in each list.
+    private func sourceRows(_ items: [ChatSource]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                Button { source = item } label: {
+                    HStack(spacing: 10) {
+                        Text("\(index + 1)").font(Brand.jost(10)).foregroundStyle(Brand.gray).frame(width: 14, alignment: .trailing)
+                        let title = Text(ChatRunner.displayTitle(item.title)).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
+                        // Same-titled sources, like several records of one chat, differ only by their excerpt.
+                        if let line = item.excerpt.split(whereSeparator: \.isNewline).lazy.map({ $0.trimmingCharacters(in: .whitespaces) }).first(where: { !$0.isEmpty }) {
+                            // Drop the excerpt when the title leaves it too little room to read.
+                            ViewThatFits(in: .horizontal) {
+                                HStack(spacing: 10) {
+                                    title.layoutPriority(1)
+                                    Text(line).font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
+                                        .frame(minWidth: 60, idealWidth: 60, alignment: .leading)
+                                }
+                                title
+                            }.layoutPriority(1)
+                        } else {
+                            title
+                        }
+                        Spacer(minLength: 8)
+                        Image(systemName: "arrow.up.right").font(.system(size: 9)).foregroundStyle(Brand.gray)
+                    }.frame(height: 28).contentShape(Rectangle())
+                }.buttonStyle(.plain).help(ChatRunner.displayTitle(item.title))
+                .overlay(alignment: .top) { if index > 0 { Rectangle().fill(Brand.line).frame(height: 1) } }
             }
         }
     }

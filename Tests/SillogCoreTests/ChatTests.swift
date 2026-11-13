@@ -684,6 +684,17 @@ final class ChatTests: XCTestCase {
         XCTAssertTrue(ChatFailure.needsSettings(CodexAuthError.notLoggedIn.description))
     }
 
+    func testSourcesSplitIntoCitedAndOtherLookedUpItems() {
+        var answer = ConversationMessage(conversationID: "c", role: "assistant", text: "회의에서 정했어요 [node:12] [card:2]")
+        answer.sources = ["node:1", "node:12", "card:2", "card:3"].map { .init(id: $0, title: $0, location: "", excerpt: "") }
+        XCTAssertEqual(answer.splitSources.cited.map(\.id), ["node:12", "card:2"])
+        XCTAssertEqual(answer.splitSources.other.map(\.id), ["node:1", "card:3"], "node:1 is not cited by [node:12]")
+        answer.text = "인용 없음"
+        XCTAssertTrue(answer.splitSources.cited.isEmpty)
+        XCTAssertEqual(answer.splitSources.other.count, 4)
+        XCTAssertEqual(answer.markdown, "인용 없음", "uncited lookups stay out of the copy")
+    }
+
     func testConversationMarkdownKeepsEachAnswersSources() {
         var answer = ConversationMessage(conversationID: "c", role: "assistant", text: "정리했습니다 [observation:1]")
         answer.sources = [.init(id: "observation:1", title: "주간 회의", location: "https://example.com/a", excerpt: "x"), .init(id: "card:2", title: "메모", location: "", excerpt: "")]
@@ -692,7 +703,7 @@ final class ChatTests: XCTestCase {
             .init(conversationID: "c", role: "user", text: "정리해줘"), answer,
             .init(conversationID: "c", role: "user", text: "더"), running,
         ])
-        XCTAssertEqual(markdown, "# 보고\n\n## 질문\n\n정리해줘\n\n## 답변\n\n정리했습니다 [observation:1]\n\n**출처**\n\n- [observation:1] 주간 회의 — https://example.com/a\n- [card:2] 메모\n\n## 질문\n\n더\n")
+        XCTAssertEqual(markdown, "# 보고\n\n## 질문\n\n정리해줘\n\n## 답변\n\n정리했습니다 [observation:1]\n\n**출처**\n\n- [observation:1] 주간 회의 — https://example.com/a\n\n## 질문\n\n더\n")
         XCTAssertEqual(ConversationMessage(conversationID: "c", role: "assistant", text: "a").markdown, "a")
     }
 

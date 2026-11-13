@@ -1,10 +1,17 @@
 import Foundation
 
 extension ConversationMessage {
-    /// The text followed by its sources, each with the ID the answer cites.
+    /// The sources the text cites as [id], and the other items its tools looked up, each in stored order.
+    public var splitSources: (cited: [ChatSource], other: [ChatSource]) {
+        let cites = { (source: ChatSource) in text.contains("[\(source.id)]") }
+        return (sources.filter(cites), sources.filter { !cites($0) })
+    }
+
+    /// The text followed by the sources it cites, each with the ID the answer uses.
     public var markdown: String {
-        guard !sources.isEmpty else { return text }
-        let list = sources.map { source in
+        let cited = splitSources.cited
+        guard !cited.isEmpty else { return text }
+        let list = cited.map { source in
             "- [\(source.id)] \(ChatRunner.displayTitle(source.title))" + (source.location.isEmpty ? "" : " — \(source.location)")
         }
         return text + "\n\n**\(tr("출처"))**\n\n" + list.joined(separator: "\n")
