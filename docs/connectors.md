@@ -28,7 +28,7 @@ Gmail 커넥터는 없습니다. `gmail.readonly`는 제한 권한이라 매년 
 TODO (정식 게시 전):
 - [ ] 브랜드 인증: sillog.app에 개인정보처리방침 추가, Search Console 도메인 확인, Google Auth Platform → 브랜딩에서 신청. 권한 수정과 상관없이 먼저 할 수 있습니다.
 - [x] Gmail: 커넥터를 뺐습니다. OAuth 동의 화면의 데이터 액세스에서 `gmail.readonly`도 지웁니다.
-- [x] Drive: `drive.file`과 Google Picker로 바꿨습니다. 동의 화면에서 `drive.readonly`를 지우고 `drive.file`을 넣습니다. Picker용 API 키를 만들어 `Config/OAuthClients.plist` 또는 `SILLOG_GOOGLE_API_KEY`에 넣습니다.
+- [x] Drive: `drive.file`과 Google Picker로 바꿨습니다. 동의 화면에서 `drive.readonly`를 지우고 `drive.file`을 넣습니다. Picker용 API 키를 만들어 `Config/OAuthClients.plist` 또는 `SILLOG_GOOGLE_API_KEY`에 넣습니다. 릴리스 CI는 같은 이름의 GitHub Secret에서 읽습니다.
 - [ ] 캘린더: 권한 심사 동안 Google 연결 버튼을 숨깁니다(`CalendarService.googleAvailable`).
 - [ ] 권한 심사: 브랜드 인증과 Drive 변경을 마친 뒤 캘린더·Drive 권한으로 신청합니다.
 
