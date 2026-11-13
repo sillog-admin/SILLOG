@@ -27,33 +27,29 @@ struct ChatSidebar: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             VStack(spacing: 2) {
-                navRow(tr("새 대화"), "plus", selected: pane == .chat && chat.messages.isEmpty && !isSearching) {
+                navRow(tr("새 대화"), "plus", selected: pane == .chat && chat.messages.isEmpty && !isSearching, help: tr("새 대화 (⌘N)")) {
                     chat.newConversation(); pane = .chat
                 }
-                navRow(tr("검색"), "magnifyingglass", selected: isSearching, action: onSearch)
+                navRow(tr("검색"), "magnifyingglass", selected: isSearching, help: tr("검색 (⌘K)"), action: onSearch)
                 navRow(tr("프로젝트"), "folder", selected: isProjectPane) { pane = .projects }
                 navRow(tr("결과물"), "square.on.square", selected: pane == .results) { pane = .results }
-                navRow(tr("예약 작업"), "clock", selected: false, trailing: "\(chat.automations.count)", action: onSchedules)
+                navRow(tr("예약 작업"), "clock", selected: false, trailing: chat.automations.isEmpty ? nil : "\(chat.automations.count)", action: onSchedules)
             }
             .padding(.leading, 12).padding(.trailing, 12).padding(.top, 8)
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     if !chat.pinnedConversations.isEmpty {
                         VStack(alignment: .leading, spacing: 0) {
                             sectionHeader(tr("고정됨"), open: $pinnedOpen)
                             if pinnedOpen { ForEach(chat.pinnedConversations) { conversationRow($0) } }
                         }.onHover { hoverSection = $0 ? "pinned" : (hoverSection == "pinned" ? nil : hoverSection) }
                     }
-                    VStack(alignment: .leading, spacing: 0) {
-                        sectionHeader(tr("프로젝트"), open: $projectsOpen)
-                        if projectsOpen {
-                            ForEach(projects.projects) { project in projectRow(project) }
-                            if projects.projects.isEmpty {
-                                Text(tr("아직 프로젝트가 없어요")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
-                                    .padding(.horizontal, 10).padding(.vertical, 6)
-                            }
-                        }
-                    }.onHover { hoverSection = $0 ? tr("프로젝트") : nil }
+                    if !projects.projects.isEmpty {
+                        VStack(alignment: .leading, spacing: 0) {
+                            sectionHeader(tr("프로젝트"), open: $projectsOpen)
+                            if projectsOpen { ForEach(projects.projects) { project in projectRow(project) } }
+                        }.onHover { hoverSection = $0 ? tr("프로젝트") : nil }
+                    }
                     VStack(alignment: .leading, spacing: 0) {
                         sectionHeader(tr("최근 항목"), open: $recentOpen)
                         if recentOpen {
@@ -87,7 +83,7 @@ struct ChatSidebar: View {
             Button(action: onCollapse) {
                 Image(systemName: "sidebar.left").font(.system(size: 15)).foregroundStyle(Brand.tabText)
                     .frame(width: 24, height: 24).contentShape(Rectangle())
-            }.buttonStyle(.plain).help(tr("목록 접기")).accessibilityLabel(tr("목록 접기"))
+            }.buttonStyle(.plain).help(tr("목록 접기 (⌘\\)")).accessibilityLabel(tr("목록 접기"))
             Text(tr("채팅")).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink)
             Spacer(minLength: 0)
             Button {
@@ -100,7 +96,7 @@ struct ChatSidebar: View {
         }.padding(.horizontal, 14).padding(.top, 14).frame(height: 56, alignment: .topLeading)
     }
 
-    private func navRow(_ title: String, _ icon: String, selected: Bool, trailing: String? = nil,
+    private func navRow(_ title: String, _ icon: String, selected: Bool, trailing: String? = nil, help: String = "",
                         action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
@@ -113,7 +109,7 @@ struct ChatSidebar: View {
             .padding(.leading, 10).padding(.trailing, 12).frame(height: 32)
             .background(RoundedRectangle(cornerRadius: 7).fill(selected ? ChatPalette.navSelected : .clear))
             .contentShape(Rectangle())
-        }.buttonStyle(.plain).hoverHighlight(cornerRadius: 7)
+        }.buttonStyle(.plain).hoverHighlight(cornerRadius: 7).help(help)
     }
 
     private func sectionHeader(_ title: String, open: Binding<Bool>) -> some View {
@@ -138,19 +134,19 @@ struct ChatSidebar: View {
                 HStack(spacing: 8) {
                     Image(systemName: selected.contains(item.id) ? "checkmark.circle.fill" : "circle")
                         .foregroundStyle(selected.contains(item.id) ? Brand.accent : Brand.gray)
-                    HoverScrollingText(text: item.title)
+                    HoverScrollingText(text: ChatConversation.display(item.title))
                     Spacer(minLength: 0)
                 }.font(Brand.font(.body)).foregroundStyle(Brand.tabText)
                     .padding(.horizontal, 10).frame(height: 32).contentShape(Rectangle())
             }.buttonStyle(.plain).hoverHighlight(cornerRadius: 5)
-                .accessibilityLabel("\(selected.contains(item.id) ? tr("선택 해제") : tr("선택")): \(item.title)")
+                .accessibilityLabel(ChatConversation.display(item.title)).accessibilityAddTraits(selected.contains(item.id) ? .isSelected : [])
                 .disabled(chat.activeMessage?.conversationID == item.id)
         } else {
             ConversationRow(item: item, isCurrent: pane == .chat && chat.current.id == item.id,
                         isBusy: chat.activeMessage?.conversationID == item.id,
                         open: { chat.select(item); pane = .chat },
                         context: { menu(item) }, pop: { close in popMenu(item, close) })
-            .padding(.vertical, 1)     // 줄 30 + 사이 2 = 피치 32 (Figma CH-02)
+            .padding(.vertical, 1)
         }
     }
 
@@ -163,7 +159,7 @@ struct ChatSidebar: View {
                 } label: {
                     Image(systemName: open ? "chevron.down" : "chevron.right")
                         .font(.system(size: 9)).frame(width: 20, height: 32).contentShape(Rectangle())
-                }.buttonStyle(.plain).accessibilityLabel("\(project.title) \(open ? tr("접기") : tr("펼치기"))")
+                }.buttonStyle(.plain).accessibilityLabel(project.title).accessibilityValue(open ? tr("펼침") : tr("접힘"))
                 Button {
                     chat.newConversation(projectID: project.id); pane = .project(project.id)
                 } label: {
@@ -220,8 +216,10 @@ struct ChatSidebar: View {
         }
         Button { onRename(item) } label: { Label(tr("이름 바꾸기"), systemImage: "pencil") }
         ProjectMoveMenu(projects: chat.projects, itemID: "conversation:\(item.id)").disabled(busy)
+        Button { chat.exportMarkdown(item, toFile: false) } label: { Label(tr("전체 복사"), systemImage: "doc.on.doc") }
+        Button { chat.exportMarkdown(item, toFile: true) } label: { Label(tr("Markdown으로 내보내기"), systemImage: "square.and.arrow.up") }
         Divider()
-        Button(role: .destructive) { onDelete(item) } label: { Label(tr("삭제"), systemImage: "trash") }.disabled(busy)
+        Button(role: .destructive) { onDelete(item) } label: { Label(tr("삭제"), systemImage: "trash") }
     }
 
     /// ⋯ 메뉴 (CH-29, 47, 48): 아이콘이 있고 삭제는 빨강
@@ -230,6 +228,8 @@ struct ChatSidebar: View {
             PopRow(icon: item.pinnedAt != nil ? "pin.slash" : "pin", title: item.pinnedAt != nil ? tr("고정 해제") : tr("고정")) { close(); chat.togglePin(item) }
             PopRow(icon: "pencil", title: tr("이름 바꾸기")) { close(); onRename(item) }
             MoveRow(projects: chat.projects, itemID: "conversation:\(item.id)", close: close)
+            PopRow(icon: "doc.on.doc", title: tr("전체 복사")) { close(); chat.exportMarkdown(item, toFile: false) }
+            PopRow(icon: "square.and.arrow.up", title: tr("Markdown으로 내보내기")) { close(); chat.exportMarkdown(item, toFile: true) }
             Divider().padding(.vertical, 2)
             PopRow(icon: "trash", title: tr("삭제"), color: PopRow.red) { close(); onDelete(item) }
         }.padding(6).frame(width: 190)
@@ -297,29 +297,32 @@ private struct ConversationRow<Context: View, Pop: View>: View {
     @ViewBuilder var pop: (@escaping () -> Void) -> Pop
     @State private var hovering = false
     @State private var menuOpen = false
+    @FocusState private var menuFocused: Bool
 
     var body: some View {
         HStack(spacing: 0) {
             Button(action: open) {
-                HoverScrollingText(text: item.title, rowHovered: hovering)
-                    .font(Brand.font(.rowTitle)).foregroundStyle(isCurrent ? Brand.ink : Brand.tabText)
+                HoverScrollingText(text: ChatConversation.display(item.title), rowHovered: hovering)
+                    .font(Brand.font(.rowTitle, isCurrent ? .medium : .regular)).foregroundStyle(isCurrent ? Brand.ink : Brand.tabText)
                     .padding(.leading, 10)
-                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading).contentShape(Rectangle())
+                    .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain)
             if isBusy {
                 // CH-14: 응답이 도는 대화는 메뉴 자리에 스피너 (메뉴는 오른쪽 클릭으로)
-                ProgressView().controlSize(.small).frame(width: 28, height: 30)
+                ProgressView().controlSize(.small).frame(width: 28, height: 32)
             } else {
                 Button { menuOpen.toggle() } label: {
                     Image(systemName: "ellipsis").font(.system(size: 12)).foregroundStyle(Brand.tabText)
-                        .frame(width: 28, height: 30).contentShape(Rectangle())
+                        .frame(width: 28, height: 32).contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityLabel(tr("대화 메뉴"))
-                    .opacity(hovering || menuOpen ? 1 : 0)
+                    .focused($menuFocused)
+                    .opacity(hovering || menuOpen || menuFocused ? 1 : 0)
                     .popover(isPresented: $menuOpen, arrowEdge: .bottom) { pop { menuOpen = false } }
             }
         }
-        .frame(height: 30)
-        .background(RoundedRectangle(cornerRadius: 5).fill(hovering || menuOpen ? Color.white.opacity(0.6) : (isCurrent ? Color.white.opacity(0.4) : .clear)))
+        .frame(height: 32)
+        // Same fill as the selected menu row above, so the open chat reads as selected.
+        .background(RoundedRectangle(cornerRadius: 7).fill(isCurrent ? ChatPalette.navSelected : hovering || menuOpen ? ChatPalette.rowHover : .clear))
         .onHover { hovering = $0 }
         .contextMenu { context() }
     }

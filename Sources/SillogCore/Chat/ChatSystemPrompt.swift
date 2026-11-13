@@ -7,6 +7,7 @@ struct ChatSystemPrompt: Sendable {
     let chatModel: String
     let scheduled: Bool
     var skillInstructions = ""
+    var userInstructions = ""
     var project: ChatProject?
     var rememberedSources = ""
     /// 대화의 초점 설명 (ContextSearch.focusOutline). nil 이면 블록을 뺀다
@@ -28,6 +29,7 @@ struct ChatSystemPrompt: Sendable {
     func render(role: String?, now: Date = Date(), timeZone: TimeZone = .current) -> String {
         var omitted: Set<String> = []
         if role != nil || skillInstructions.isEmpty { omitted.insert("skill_instructions") }
+        if role != nil || userInstructions.isEmpty { omitted.insert("user_instructions") }
         if role != nil || project == nil { omitted.insert("project") }
         if role != nil || focus == nil { omitted.insert("focus") }
         if role != nil || rememberedSources.isEmpty { omitted.insert("remembered_sources") }
@@ -37,7 +39,7 @@ struct ChatSystemPrompt: Sendable {
         // 타입을 적고 식을 나눠 둔다: 한 덩어리 사전 리터럴은 Swift 6.2 에서 타입 계산 시간 초과로 빌드가 멈춘다
         let connectors = (scope.connectors + (scope.useGitHub ? ["github"] : [])).joined(separator: ", ")
         let raw: [String: String] = [
-            "skill_instructions": skillInstructions,
+            "skill_instructions": skillInstructions, "user_instructions": userInstructions,
             "project_title": project?.title ?? "", "project_goal": project?.goal ?? "",
             "project_memory_mode": project?.memoryMode.title ?? "", "project_instructions": project?.instructions ?? "",
             "use_activity": scope.useActivity ? "on" : "off", "connected_paths": scope.paths.joined(separator: ", "),

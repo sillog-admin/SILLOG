@@ -6,6 +6,13 @@ enum ChatDateText {
     /// 예: "11월 2일" (현지 시간대)
     static func day(_ time: Double) -> String { RecordingText.date(time, tr("M월 d일"), timeZone: .current) }
 
+    /// e.g. "11월 13일 오후 1:43" or "Nov 13 at 1:43 PM", in the app language rather than the system's.
+    static func dateTime(_ time: Double, timeZone: TimeZone = .current) -> String {
+        var style = Date.FormatStyle.dateTime.month().day().hour().minute()
+        style.locale = Locale(identifier: L10n.current.rawValue); style.timeZone = timeZone
+        return Date(timeIntervalSince1970: time).formatted(style)
+    }
+
     /// 오늘, 어제, 그저께, 그 밖에는 day와 같다.
     static func relative(_ time: Double, now: Date = Date()) -> String {
         let calendar = Calendar.current

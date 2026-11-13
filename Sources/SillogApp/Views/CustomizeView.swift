@@ -19,7 +19,11 @@ struct CustomizeView: View {
             Rectangle().fill(Brand.line).frame(width: 1)
             content.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .onAppear { connected = Set(ConnectorEntry.all.filter { (try? ConnectorAuth.isConnected($0.id)) == true }.map(\.id)) }
+        .task {
+            let ids = ConnectorEntry.all.map(\.id)
+            // A Keychain read can wait on a macOS prompt, which would freeze the app on the main thread.
+            connected = await Task.detached { Set(ids.filter { (try? ConnectorAuth.isConnected($0)) == true }) }.value
+        }
     }
 
     private var list: some View {

@@ -75,6 +75,10 @@ public enum CodexAuthError: Error, Equatable, CustomStringConvertible {
     }
 }
 
+extension CodexAuthError: LocalizedError {
+    public var errorDescription: String? { description }
+}
+
 /// 서명 검증 없이 클레임만 읽는다. 토큰의 진위는 서버가 판단하고, 앱은 만료 시각·계정 ID 표시에만 쓴다.
 public enum JWT {
     public static func claims(_ token: String) -> [String: Any] {

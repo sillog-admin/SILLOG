@@ -237,7 +237,29 @@ struct SettingsView: View {
 
     // MARK: AI 연결
 
-    private var aiConnection: some View { ConnectionSection() }
+    private var aiConnection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ConnectionSection()
+            SectionLabel(tr("채팅 답변 지침"))
+            chatInstructions
+        }
+    }
+
+    static let chatInstructionsLimit = 1500
+
+    private var chatInstructions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(tr("모든 채팅 답변에 적용할 말투, 형식, 알아 둘 점을 적어 주세요.")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+            TextEditor(text: Binding(get: { state.settings.chatInstructions },
+                                     set: { state.settings.chatInstructions = String($0.prefix(Self.chatInstructionsLimit)) }))
+                .font(Brand.font(.body)).foregroundStyle(Brand.text).scrollContentBackground(.hidden)
+                .padding(6).frame(height: 120)
+                .background(RoundedRectangle(cornerRadius: 8).fill(ChatPalette.field))
+                .accessibilityLabel(tr("채팅 답변 지침"))
+            Text("\(state.settings.chatInstructions.count) / \(Self.chatInstructionsLimit)")
+                .font(Brand.font(.tag)).foregroundStyle(Brand.gray).frame(maxWidth: .infinity, alignment: .trailing)
+        }.padding(.horizontal, 4)
+    }
 }
 
 // MARK: AI 연결 한 구역 (Figma ST-03, 08, 09, 10, 27, 37)

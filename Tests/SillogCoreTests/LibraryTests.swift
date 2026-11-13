@@ -11,6 +11,17 @@ private actor ProjectContextClient: ChatModelClient {
     }
 }
 
+/// Deletes the image after the first request, so a second read of it would find nothing.
+private final class DeletesAfterFirstRequest: ChatModelClient, @unchecked Sendable {
+    let inner: any ChatModelClient, file: URL
+    init(_ inner: any ChatModelClient, file: URL) { self.inner = inner; self.file = file }
+    var modelName: String { inner.modelName }
+    func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec], onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply {
+        defer { try? FileManager.default.removeItem(at: file) }
+        return try await inner.respond(system: system, messages: messages, tools: tools, onText: onText)
+    }
+}
+
 final class LibraryTests: XCTestCase {
     private func conversation(_ db: SillogDatabase, project: ChatProject? = nil, text: String = "기존 대화") throws -> ChatConversation {
         var conversation = ChatConversation(); conversation.projectID = project?.id
@@ -66,6 +77,44 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual((StubURLProtocol.requests.last?.body["messages"] as? [[String: Any]])?.last?["content"] as? String, "이 그림 봐줘")
     }
 
+    func testAToolLoopReadsAnAttachedImageOnceAndDropsARefusedOne() async throws {
+        let db = try SillogDatabase.inMemory(), library = LibraryStore(db)
+        defer { try? FileManager.default.removeItem(at: library.directory) }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let png = folder.appendingPathComponent("shot.png")
+        let call = #"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"search_library","arguments":"{\"query\":\"\"}"}}]},"finish_reason":"tool_calls"}]}"# + "\n\n"
+        let done = #"data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}"# + "\n\n"
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [StubURLProtocol.self]
+        let client = OpenAICompatClient(baseURL: URL(string: "https://example.invalid/v1")!, model: "test", session: URLSession(configuration: config))
+        func run(_ stubs: [StubURLProtocol.Stub]) async throws -> [String] {
+            try (Data([0x89, 0x50, 0x4E, 0x47]) + Data(UUID().uuidString.utf8)).write(to: png)     // a fresh file each run
+            let image = try library.importFile(png), chat = try conversation(db)
+            try library.attach(image.id, conversationID: chat.id)
+            var scope = try ProjectStore(db).scope(for: chat); scope.conversationID = chat.id
+            StubURLProtocol.reset(stubs)
+            let runner = ChatRunner(client: DeletesAfterFirstRequest(client, file: library.url(for: image)), tools: ChatTools(db: db, scope: scope))
+            let result = try await runner.run(history: [.init(conversationID: chat.id, role: "user", text: "이 그림 봐줘")], skillIDs: []) { _ in }
+            XCTAssertEqual(result.text, "ok")
+            return StubURLProtocol.rawBodies
+        }
+        let bodies = try await run([.init(status: 200, body: call), .init(status: 200, body: done)])
+        XCTAssertEqual(bodies.map { $0.contains("base64,") }, [true, true], "the second request still has the picture after the file is gone")
+
+        let refused = try await run([.init(status: 415, body: "{}"), .init(status: 200, body: call), .init(status: 200, body: done)])
+        XCTAssertEqual(refused.map { $0.contains("base64,") }, [true, false, false], "after a refusal the next step sends one request without it")
+    }
+
+    func testOfficeArtifactsAreSavedAsRealFilesAndSearchedByTheirText() throws {
+        let db = try SillogDatabase.inMemory(), library = LibraryStore(db)
+        let item = try library.saveArtifact(.init(title: "분기 보고", format: "docx", content: "# 분기 보고\n매출 요약"))
+        XCTAssertTrue(item.filename.hasSuffix(".docx"), item.filename)
+        XCTAssertEqual(try Data(contentsOf: library.url(for: item)).prefix(4), Data([0x50, 0x4B, 0x03, 0x04]))
+        XCTAssertFalse(try library.search("매출", ids: [item.id]).isEmpty)
+        XCTAssertEqual(try library.text(for: item.id), "# 분기 보고\n매출 요약", "cards preview the source, not the unzipped XML")
+    }
+
     func testUploadSurvivesOriginalDeletionAndExplicitSharing() throws {
         let db = try SillogDatabase.inMemory(), projects = ProjectStore(db), library = LibraryStore(db)
         defer { try? FileManager.default.removeItem(at: library.directory) }
@@ -107,6 +156,28 @@ final class LibraryTests: XCTestCase {
         try library.collectArtifacts([answer])
         XCTAssertTrue(try library.items().isEmpty)
         XCTAssertThrowsError(try library.read("library:", ids: ["other"]))
+    }
+
+    func testVersionsFoldIntoOneItemAndUnfinishedAnswersAreSkipped() throws {
+        let db = try SillogDatabase.inMemory(), library = LibraryStore(db)
+        defer { try? FileManager.default.removeItem(at: library.directory) }
+        let conversation = try conversation(db)
+        let v1 = ChatArtifact(title: "보고서", format: "markdown", content: "초안")
+        var v2 = ChatArtifact(title: "보고서", format: "markdown", content: "수정본"); v2.baseID = v1.id
+        var first = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "초안"); first.artifacts = [v1]
+        var second = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "수정"); second.artifacts = [v2]
+        var failed = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "", status: "failed")
+        failed.artifacts = [.init(title: "실패", format: "txt", content: "x")]
+        var stopped = failed; stopped.id = UUID().uuidString; stopped.status = "cancelled"
+        try library.collectArtifacts([first, failed, stopped])
+        // An item saved before series were stored learns its series on the next sweep.
+        var legacy = second; legacy.artifacts[0].baseID = nil
+        try library.collectArtifacts([legacy]); try library.collectArtifacts([second])
+        let items = try library.items()
+        XCTAssertEqual(items.map(\.title), ["보고서", "보고서"])
+        let grouped = ChatLibraryItem.latestOfEachSeries(items)
+        XCTAssertEqual(grouped.items.map(\.originID), [v2.id])
+        XCTAssertEqual(grouped.versions[grouped.items[0].id], 2)
     }
 
     func testProjectOnlyMemoryBlocksSearchAndDirectReadsInBothDirections() throws {

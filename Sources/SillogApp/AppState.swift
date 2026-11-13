@@ -11,6 +11,8 @@ final class AppState: ObservableObject {
         didSet {
             guard !isPreview else { return }
             if settings.language != L10n.current { L10n.current = settings.language }
+            // Every write redraws all text, so only a real change is written.
+            if Brand.scale != settings.textScale { Brand.scale = settings.textScale }
             PIIMasker.enabled = settings.maskPII
         }
     }
@@ -37,6 +39,8 @@ final class AppState: ObservableObject {
     @Published var codexMessage: String?
     @Published var codexModels: [CodexModel] = []
     @Published var chatCodexModels: [CodexModel] = []
+    /// The account's unverified list, so efforts are known while the slow per-model check runs.
+    private var codexModelCandidates: [CodexModel] = []
     @Published var codexModelsLoading = false
     @Published var codexModelsError: String?
     @Published var chatCodexModelsError: String?
@@ -151,6 +155,7 @@ final class AppState: ObservableObject {
     init() {
         settings = AppSettings.load()
         L10n.current = settings.language
+        Brand.scale = settings.textScale
         PIIMasker.enabled = settings.maskPII
         guard instanceLock.acquire() else {
             startupError = Self.alreadyRunningMessage
@@ -169,6 +174,7 @@ final class AppState: ObservableObject {
             FrameMonitor.shared.screen = { [weak self] in self?.screenName ?? "" }   // 개발용 프레임 측정 로그의 화면 이름
             self.chat = ChatState(db: database, makeClient: { [unowned self] in self.makeChatClient() },
                                   makeProjectClient: { [unowned self] in self.makeClient() })
+            self.chat?.userInstructions = { [unowned self] in self.settings.chatInstructions }
             // 숨은 설정: defaults write com.sillog.app batchPipeline single (없으면 기본값인 3단계),
             // themes -bool true (없으면 분야 붙이기는 꺼짐), calendar -bool true (없으면 일정 찾기는 꺼짐, AppFeatures)
             let batchConfig = Self.batchConfig(themes: UserDefaults.standard.bool(forKey: "themes"), pipeline: UserDefaults.standard.string(forKey: "batchPipeline"),
@@ -408,6 +414,15 @@ final class AppState: ObservableObject {
                                  textFolder: RecordingPipeline.defaultTextFolder(home: NSHomeDirectory()))
     }
 
+    /// False only when a send cannot work; a failed model check is not, since it may be transient and is not retried.
+    var chatConnected: Bool {
+        if settings.chatUsesAPI {
+            let endpoint = settings.chatEndpoint     // an API key is optional for local servers
+            return !endpoint.url.trimmingCharacters(in: .whitespaces).isEmpty && !endpoint.model.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        return codexStatus != .loggedOut
+    }
+
     /// Args: 없음.
     /// Returns: 정리용 설정과 분리된 채팅 전용 연결.
     /// Raises: 없음. 인증·연결 오류는 실제 요청 시 전달된다.
@@ -415,9 +430,12 @@ final class AppState: ObservableObject {
         if settings.chatUsesAPI {
             let e = settings.chatEndpoint
             let url = URL(string: e.url.trimmingCharacters(in: .whitespaces)) ?? URL(string: "http://localhost:5010/v1")!
-            return .model(OpenAICompatClient(baseURL: url, model: e.model, apiKey: e.key.isEmpty ? nil : e.key))
+            return .model(OpenAICompatClient(baseURL: url, model: e.model, apiKey: e.key.isEmpty ? nil : e.key, reasoningEffort: settings.chatAPIEffort))
         }
-        return .codex(CodexAppServerClient(auth: codexAuth, model: settings.effectiveChatCodexModel))
+        let model = chatCodexModel
+        return .codex(CodexAppServerClient(auth: codexAuth, model: settings.effectiveChatCodexModel,
+                                           effort: CodexEffort.resolve(settings.chatEffort, model: model),
+                                           defaultEffort: CodexEffort.resolve(nil, model: model)))
     }
 
     /// Args: 없음.
@@ -486,6 +504,7 @@ final class AppState: ObservableObject {
                 try Task.checkCancellation()
                 guard codexModelTaskID == id else { return }
                 guard !candidates.isEmpty else { throw LLMError.backend(tr("모델 후보 목록이 비어 있습니다.")) }
+                codexModelCandidates = candidates
                 let auth = codexAuth
                 if checkBatch {
                     let result = try await CodexResponsesClient.verifyModels(candidates) { model in
@@ -693,12 +712,37 @@ final class AppState: ObservableObject {
         Task { await coordinator.setPaused(next) }
     }
 
+    /// The chosen chat model from the verified list; nil until the list loads.
+    var chatCodexModel: CodexModel? {
+        (chatCodexModels + codexModelCandidates).first { $0.slug == settings.effectiveChatCodexModel }
+    }
+
     /// 채팅 화면에서 모델 바꾸기: 다음 메시지부터 그 모델로 보낸다. 설정 화면을 거치지 않으니 여기서 저장한다 (업무 정리 모델은 그대로)
     func selectChatModel(_ slug: String) {
         guard !slug.isEmpty, settings.effectiveChatCodexModel != slug else { return }
         // '정리 모델과 같이'였으면 채팅에서 다른 모델을 고르는 순간 '따로 고르기'로 바뀐다
         if settings.chatSameAsOrganize { settings.chatProvider = settings.llmProvider; settings.chatSameAsOrganize = false }
         settings.chatCodexModel = slug
+        if !isPreview { settings.save() }
+    }
+
+    /// Picked in the chat model menu, which skips the settings screen, so it saves here.
+    func selectChatEffort(_ effort: String) {
+        guard settings.chatEffort != effort else { return }
+        settings.chatEffort = effort
+        if !isPreview { settings.save() }
+    }
+
+    func selectChatAPIEffort(_ effort: String?) {
+        guard settings.chatAPIEffort != effort else { return }
+        settings.chatAPIEffort = effort
+        if !isPreview { settings.save() }
+    }
+
+    /// View-menu zoom skips the settings screen, so it saves here.
+    func setTextScale(_ scale: Double) {
+        guard settings.textScale != scale else { return }
+        settings.textScale = scale
         if !isPreview { settings.save() }
     }
 

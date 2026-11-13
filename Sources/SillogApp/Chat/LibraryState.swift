@@ -4,7 +4,12 @@ import SillogCore
 
 @MainActor
 final class LibraryState: ObservableObject {
-    @Published var items: [ChatLibraryItem] = []
+    @Published var items: [ChatLibraryItem] = [] {
+        didSet { (grouped, versionCounts) = ChatLibraryItem.latestOfEachSeries(items) }
+    }
+    /// items with each chat result's versions folded into its newest one, for lists that show one row per result.
+    private(set) var grouped: [ChatLibraryItem] = []
+    private(set) var versionCounts: [String: Int] = [:]
     /// 보관 자료 id -> 연결 대화의 초점 (홈의 분야 기준). 없으면 "분야 없음"
     @Published var itemFocuses: [String: [ChatFocus]] = [:]
     @Published var busy = false {
@@ -13,6 +18,11 @@ final class LibraryState: ObservableObject {
     @Published var error: String?
     /// Import failure of files dropped or pasted into a chat; shown in the chat until the next send or import.
     @Published var chatImportError: String?
+    /// Items attached to the chat on screen, cached so the composer doesn't query the DB on every keystroke.
+    @Published private(set) var attached: [ChatLibraryItem] = []
+    /// Project-wide items; detaching them from one chat does nothing, so they get no remove button.
+    @Published private(set) var projectAttached: Set<String> = []
+    private var attachedTo: (conversationID: String, projectID: String?) = ("", nil)
     var onChange: (() -> Void)?
     /// Pasted screenshots are written here first and removed once imported.
     static let pasteFolder = FileManager.default.temporaryDirectory.appendingPathComponent("SillogPaste", isDirectory: true)
@@ -23,16 +33,31 @@ final class LibraryState: ObservableObject {
 
     func reload() {
         do { items = try store.items(); itemFocuses = try store.itemFocuses() } catch { self.error = error.localizedDescription }
+        refreshAttached()
+    }
+
+    func showAttachments(conversationID: String, projectID: String?) {
+        attachedTo = (conversationID, projectID); refreshAttached()
+    }
+
+    private func refreshAttached() {
+        let fresh = sources(conversationID: attachedTo.conversationID, projectID: attachedTo.projectID)
+        if fresh != attached { attached = fresh }
+        let project = attachedTo.projectID.map { pid in Set((try? store.sourceIDs(conversationID: nil, projectID: pid)) ?? []) } ?? []
+        if project != projectAttached { projectAttached = project }
     }
 
     func results(limit: Int? = nil) -> [ChatLibraryItem] {
-        let all = items.filter { $0.kind == "generated" }.sorted { $0.createdAt > $1.createdAt }
+        let all = grouped.filter { $0.kind == "generated" }.sorted { $0.createdAt > $1.createdAt }
         return limit.map { Array(all.prefix($0)) } ?? all
     }
 
+    // Separate from busy so the startup sweep doesn't refuse sending a chat.
+    private var collecting = false
+
     func collectExisting() {
-        guard !busy else { return }
-        busy = true
+        guard !collecting else { return }
+        collecting = true
         let db = db, store = store
         Task {
             do {
@@ -41,7 +66,7 @@ final class LibraryState: ObservableObject {
                 }.value
                 changed()
             } catch { self.error = tr("기존 결과물 보관 실패: \(error.localizedDescription)") }
-            busy = false
+            collecting = false
         }
     }
 
@@ -101,8 +126,12 @@ final class LibraryState: ObservableObject {
     func rename(_ item: ChatLibraryItem, title: String) {
         do { try store.rename(item.id, title: title); changed() } catch { self.error = error.localizedDescription }
     }
+    /// Deletes every version of a chat result, since lists show the series as one row.
     func delete(_ item: ChatLibraryItem) {
-        do { try store.delete(item); changed() } catch { self.error = error.localizedDescription }
+        do {
+            for version in items where version.seriesKey == item.seriesKey { try store.delete(version) }
+            changed()
+        } catch { self.error = error.localizedDescription; reload() }
     }
     func saveResponse(_ message: ConversationMessage, title: String, projectID: String) {
         do {
@@ -111,7 +140,11 @@ final class LibraryState: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
     func collect(_ message: ConversationMessage) {
-        do { try store.collectArtifacts([message]); changed() } catch { self.error = tr("결과물 보관 실패: \(error.localizedDescription)") }
+        let store = store
+        Task {
+            do { try await Task.detached { try store.collectArtifacts([message]) }.value; changed() }
+            catch { self.error = tr("결과물 보관 실패: \(error.localizedDescription)") }
+        }
     }
     func export(_ item: ChatLibraryItem) {
         let panel = NSSavePanel(); panel.nameFieldStringValue = item.filename

@@ -37,6 +37,9 @@ struct ChatInput: NSViewRepresentable {
     var onShortcut: (ChatShortcut?) -> Void = { _ in }
     var shortcutKey: (UInt16) -> Bool = { _ in false }
     var onFiles: ([URL]) -> Void = { _ in }
+    var onEscape: () -> Void = {}
+    var onEditLast: (() -> Void)? = nil
+    var placeholder = ""
     var onSend: () -> Void
 
     /// Args: context는 SwiftUI 연결 상태이다.
@@ -46,7 +49,6 @@ struct ChatInput: NSViewRepresentable {
         let scroll = NSScrollView()
         let editor = ChatTextView()
         editor.isRichText = false; editor.allowsUndo = true
-        editor.font = NSFont(name: "SUIT-Regular", size: 12) ?? .systemFont(ofSize: 12)
         let ink = NSColor(srgbRed: 20 / 255, green: 18 / 255, blue: 16 / 255, alpha: 1)
         editor.textColor = ink; editor.insertionPointColor = ink
         editor.drawsBackground = false; editor.textContainerInset = NSSize(width: 0, height: 8)
@@ -54,7 +56,7 @@ struct ChatInput: NSViewRepresentable {
         editor.autoresizingMask = [.width]
         editor.textContainer?.widthTracksTextView = true
         editor.delegate = context.coordinator; editor.onSend = onSend
-        editor.shortcutKey = shortcutKey; editor.onFiles = onFiles
+        editor.shortcutKey = shortcutKey; editor.onFiles = onFiles; editor.onEscape = onEscape; editor.onEditLast = onEditLast
         editor.setAccessibilityLabel(tr("메시지 입력"))
         scroll.documentView = editor; scroll.drawsBackground = false
         scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true
@@ -67,7 +69,11 @@ struct ChatInput: NSViewRepresentable {
     func updateNSView(_ view: NSScrollView, context: Context) {
         guard let editor = view.documentView as? ChatTextView else { return }
         context.coordinator.parent = self; editor.onSend = onSend
-        editor.shortcutKey = shortcutKey; editor.onFiles = onFiles
+        editor.shortcutKey = shortcutKey; editor.onFiles = onFiles; editor.onEscape = onEscape; editor.onEditLast = onEditLast
+        editor.setAccessibilityPlaceholderValue(placeholder)
+        // Set here, not only at creation, so zoom reaches the live editor.
+        let size = 15 * Brand.scale
+        if editor.font?.pointSize != size { editor.font = NSFont(name: "SUIT-Regular", size: size) ?? .systemFont(ofSize: size) }
         if editor.string != text, !editor.hasMarkedText() { editor.string = text }
         context.coordinator.resize(editor)
         if context.coordinator.focusRequest != focusRequest {
@@ -129,6 +135,8 @@ final class ChatTextView: NSTextView {
     var onSend: (() -> Void)?
     var shortcutKey: ((UInt16) -> Bool)?
     var onFiles: (([URL]) -> Void)?
+    var onEscape: (() -> Void)?
+    var onEditLast: (() -> Void)?
 
     /// Args: pasteboard is a paste or drop.
     /// Returns: copied or dropped files, or a pasted image saved as a temporary PNG. Nil for plain text.
@@ -160,6 +168,10 @@ final class ChatTextView: NSTextView {
     /// Raises: 없음.
     override func keyDown(with event: NSEvent) {
         if !hasMarkedText(), !event.modifierFlags.contains(.shift), shortcutKey?(event.keyCode) == true { return }
+        // Arrow keys always carry numericPad and function, so only those may be set for a plain Up.
+        if event.keyCode == 126, string.isEmpty, event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.numericPad, .function]).isEmpty, !hasMarkedText(), let onEditLast { onEditLast(); return }
+        // Esc would otherwise open NSTextView's word completion list.
+        if event.keyCode == 53, !hasMarkedText() { onEscape?(); return }
         if [36, 76].contains(event.keyCode), !hasMarkedText() {
             if event.modifierFlags.contains(.shift) { insertNewline(nil) }
             else { onSend?() }
@@ -167,4 +179,7 @@ final class ChatTextView: NSTextView {
         }
         super.keyDown(with: event)
     }
+    // Tab moves focus instead of typing a tab; the @ and / menus take Tab first in keyDown.
+    override func insertTab(_ sender: Any?) { window?.selectNextKeyView(self) }
+    override func insertBacktab(_ sender: Any?) { window?.selectPreviousKeyView(self) }
 }

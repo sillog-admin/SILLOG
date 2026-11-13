@@ -63,11 +63,36 @@ enum ConnectorAuth {
         return (try? JSONDecoder().decode(ConnectorToken.self, from: Data(value.utf8)))?.resource ?? ""
     }
 
-    static func remoteIDs() throws -> Set<String> {
-        Set(try RemoteReadConnector.allCases.filter {
-            let saved = try ChatSecrets.load("plugin-\($0.rawValue)")
-            return (try? JSONDecoder().decode(ConnectorToken.self, from: Data(saved.utf8)))?.remoteMCP == true
-        }.map(\.rawValue))
+    // Every Keychain read can raise a macOS access prompt, so which connectors are remote is kept outside it.
+    private static let remoteKey = "sillog.connectors.remote"
+
+    private static let remoteFill = NSLock()
+    nonisolated(unsafe) private static var remoteFilling = false
+
+    static func remoteIDs() -> Set<String> {
+        if let stored = UserDefaults.standard.stringArray(forKey: remoteKey) { return Set(stored) }
+        // shortcut: until the off-main Keychain read finishes, sends see no remote connectors; fine because it runs once per install.
+        // A failed fill is not retried this launch, or each send would prompt again.
+        let start = remoteFill.withLock { () -> Bool in
+            defer { remoteFilling = true }
+            return !remoteFilling
+        }
+        if start {
+            Task.detached {
+                guard let ids = try? RemoteReadConnector.allCases.filter({
+                    let saved = try ChatSecrets.load("plugin-\($0.rawValue)")
+                    return (try? JSONDecoder().decode(ConnectorToken.self, from: Data(saved.utf8)))?.remoteMCP == true
+                }).map(\.rawValue) else { return }
+                UserDefaults.standard.set(ids.sorted(), forKey: remoteKey)
+            }
+        }
+        return []
+    }
+
+    private static func markRemote(_ id: String, _ remote: Bool) {
+        guard var ids = UserDefaults.standard.stringArray(forKey: remoteKey).map(Set.init) else { return }
+        if remote { ids.insert(id) } else { ids.remove(id) }
+        UserDefaults.standard.set(ids.sorted(), forKey: remoteKey)
     }
 
     static func connectRemote(_ connector: RemoteReadConnector) async throws {
@@ -200,6 +225,7 @@ enum ConnectorAuth {
     /// Raises: Keychain 오류.
     static func disconnect(_ id: String) throws {
         try tokenChanges.withLock { try ChatSecrets.save("", account: "plugin-\(id)") }
+        markRemote(id, false)
     }
 
     /// Args: ids는 사용자가 설치할 Google 커넥터 ID 목록, clientID는 데스크톱 OAuth 클라이언트 ID이다.
@@ -320,6 +346,7 @@ enum ConnectorAuth {
             }
             try ChatSecrets.save(String(decoding: data, as: UTF8.self), account: account)
         }
+        markRemote(id, token.remoteMCP == true)
     }
 
     /// Args: url·fields는 폼 방식 OAuth 요청 정보이다.

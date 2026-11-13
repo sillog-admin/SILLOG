@@ -12,6 +12,8 @@ enum SnapshotRunner {
         // 혹시 실제 경로를 읽는 코드가 있어도 사용자 데이터가 아니라 스냅샷 폴더를 보게 한다
         setenv("SILLOG_DB", out.appendingPathComponent("snapshot.sqlite").path, 1)
         setenv("SILLOG_CODEX_AUTH", out.appendingPathComponent("no-auth.json").path, 1)
+        ChatSecrets.memoryOnly = true
+        ChatSecrets.defaults = nil
         NSApplication.shared.setActivationPolicy(.prohibited)
         if let lang = SillogEnv.value("LANG").flatMap(AppLanguage.init(rawValue:)) { L10n.current = lang }
         print("fonts: \(BrandFonts.register().sorted().joined(separator: ", "))")

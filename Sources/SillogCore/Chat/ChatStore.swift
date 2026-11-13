@@ -47,6 +47,13 @@ public struct ChatSource: Codable, Identifiable, Equatable, Sendable {
     public var title: String
     public var location: String
     public var excerpt: String
+    public init(id: String, title: String, location: String, excerpt: String) {
+        self.id = id; self.title = title; self.location = location; self.excerpt = excerpt
+    }
+    /// The task node's key when this source is a task; ContextSearch titles nodes "<label> · <title>" and puts the key in location.
+    public var taskKey: String? {
+        id.hasPrefix("node:") && title.hasPrefix("\(NodeLabel.task) · ") && !location.isEmpty ? location : nil
+    }
 }
 
 public struct ChatArtifact: Codable, Identifiable, Equatable, Sendable {
@@ -54,8 +61,64 @@ public struct ChatArtifact: Codable, Identifiable, Equatable, Sendable {
     public var title: String
     public var format: String
     public var content: String
+    /// First version's id; a root instead of a parent so dropping a middle version keeps the series together.
+    public var baseID: String?
+    public var seriesID: String { baseID ?? id }
     public init(title: String, format: String, content: String) {
         self.title = title; self.format = format; self.content = content
+    }
+
+    /// Args: artifact is any version, messages the conversation in order.
+    /// Returns: every version of the artifact's series, oldest first, including earlier answer versions.
+    /// Raises: none.
+    public static func versions(of artifact: ChatArtifact, in messages: [ConversationMessage]) -> [ChatArtifact] {
+        messages.flatMap { $0.versions.flatMap(\.artifacts) }.filter { $0.seriesID == artifact.seriesID }
+    }
+
+    /// Args: artifacts are one answer's results in order.
+    /// Returns: the last version of each series, in the order each series first appears.
+    /// Raises: none.
+    public static func latestPerSeries(_ artifacts: [ChatArtifact]) -> [ChatArtifact] {
+        let last = Dictionary(artifacts.map { ($0.seriesID, $0) }, uniquingKeysWith: { $1 })
+        var seen = Set<String>()
+        return artifacts.compactMap { seen.insert($0.seriesID).inserted ? last[$0.seriesID] : nil }
+    }
+
+    /// Args: artifact is the version the user edited, content its new text, messages the conversation in order.
+    /// Returns: the answer holding the series' latest version with the edit appended after it, and the edit. Nil when the series isn't in messages.
+    /// Raises: none.
+    public static func edit(_ artifact: ChatArtifact, content: String, in messages: [ConversationMessage]) -> (message: ConversationMessage, version: ChatArtifact)? {
+        guard let last = versions(of: artifact, in: messages).last,
+              var message = messages.first(where: { $0.versions.contains { $0.artifacts.contains { $0.id == last.id } } }) else { return nil }
+        var version = ChatArtifact(title: artifact.title, format: artifact.format, content: content)
+        version.baseID = artifact.seriesID
+        // Appending to the answer version holding the latest keeps the edit last in the series order.
+        if message.artifacts.contains(where: { $0.id == last.id }) { message.artifacts.append(version) }
+        else if let index = message.previous?.firstIndex(where: { $0.artifacts.contains { $0.id == last.id } }) { message.previous?[index].artifacts.append(version) }
+        return (message, version)
+    }
+
+    /// Args: text is a passage the user selected in a result.
+    /// Returns: the passage as a Markdown quote followed by an empty line, ready for a question after it.
+    /// Raises: none.
+    public static func quote(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: .newlines).map { "> \($0)" }.joined(separator: "\n") + "\n\n"
+    }
+}
+
+/// One tool call or agent step of an answer, shown in the answer's work log.
+public struct ChatStep: Codable, Identifiable, Equatable, Sendable {
+    public enum Status: String, Codable, Sendable { case running, done, failed }
+    public var id = UUID().uuidString
+    public var title: String
+    public var detail = ""
+    public var result = ""
+    public var status = Status.running
+    public var startedAt = Date().timeIntervalSince1970
+    public var endedAt: Double?
+    public init(title: String, detail: String = "", status: Status = .running) {
+        self.title = title; self.detail = detail; self.status = status
+        if status != .running { endedAt = startedAt }
     }
 }
 
@@ -67,7 +130,9 @@ public struct ChatAutomationProposal: Codable, Equatable, Sendable {
 
 public struct ChatConversation: Codable, Identifiable, Sendable {
     public var id = UUID().uuidString
-    public var title = "새 대화"
+    /// Stored untranslated so the auto-title check works in every language.
+    public static let defaultTitle = "새 대화"
+    public var title = defaultTitle
     /// 비면 스킬 지침을 적용하지 않는다. 예전 저장값 skillID 는 읽을 때 옮긴다.
     public var skillIDs: [String] = []
     public var scope = ChatScope()
@@ -75,12 +140,14 @@ public struct ChatConversation: Codable, Identifiable, Sendable {
     public var updatedAt = Date().timeIntervalSince1970
     /// nil이면 고정 안 됨. 원본은 app_conversations.pinned_at 칼럼이다.
     public var pinnedAt: Double?
+    /// Summary of the messages that no longer fit in what is sent to the model.
+    public var memory: ChatMemory?
     /// Args: 없음.
     /// Returns: 고유 ID를 가진 빈 대화.
     /// Raises: 없음.
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case id, title, skillIDs, skillID, scope, projectID, updatedAt, pinnedAt }
+    private enum CodingKeys: String, CodingKey { case id, title, skillIDs, skillID, scope, projectID, updatedAt, pinnedAt, memory }
 
     /// Args: decoder는 저장된 대화이다. skillIDs 가 없으면 예전 skillID 를 옮기고 "general" 은 빈 배열로 둔다.
     public init(from decoder: Decoder) throws {
@@ -93,6 +160,7 @@ public struct ChatConversation: Codable, Identifiable, Sendable {
         projectID = try v.decodeIfPresent(String.self, forKey: .projectID)
         updatedAt = try v.decodeIfPresent(Double.self, forKey: .updatedAt) ?? updatedAt
         pinnedAt = try v.decodeIfPresent(Double.self, forKey: .pinnedAt)
+        memory = try v.decodeIfPresent(ChatMemory.self, forKey: .memory)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -100,7 +168,19 @@ public struct ChatConversation: Codable, Identifiable, Sendable {
         try v.encode(id, forKey: .id); try v.encode(title, forKey: .title); try v.encode(skillIDs, forKey: .skillIDs)
         try v.encode(scope, forKey: .scope); try v.encodeIfPresent(projectID, forKey: .projectID)
         try v.encode(updatedAt, forKey: .updatedAt); try v.encodeIfPresent(pinnedAt, forKey: .pinnedAt)
+        try v.encodeIfPresent(memory, forKey: .memory)
     }
+
+    /// Args: title is a stored conversation title.
+    /// Returns: the title to show, with the untouched default translated.
+    public static func display(_ title: String) -> String { title == defaultTitle ? L10n.tr(key: title) : title }
+}
+
+/// Running summary of a conversation's older messages; `through` is the last message it covers.
+public struct ChatMemory: Codable, Equatable, Sendable {
+    public var summary: String
+    public var through: String
+    public init(summary: String, through: String) { self.summary = summary; self.through = through }
 }
 
 public struct ChatSearchHit: Identifiable, Equatable, Sendable {
@@ -108,10 +188,12 @@ public struct ChatSearchHit: Identifiable, Equatable, Sendable {
     public var title: String
     public var snippet: String
     public var updatedAt: Double
+    /// The message the snippet came from; nil when only the title matched.
+    public var messageID: String?
     public var id: String { conversationID }
 
-    public init(conversationID: String, title: String, snippet: String, updatedAt: Double) {
-        self.conversationID = conversationID; self.title = title; self.snippet = snippet; self.updatedAt = updatedAt
+    public init(conversationID: String, title: String, snippet: String, updatedAt: Double, messageID: String? = nil) {
+        self.conversationID = conversationID; self.title = title; self.snippet = snippet; self.updatedAt = updatedAt; self.messageID = messageID
     }
 }
 
@@ -125,8 +207,22 @@ public struct ConversationMessage: Codable, Identifiable, Sendable {
     public var sources: [ChatSource] = []
     public var artifacts: [ChatArtifact] = []
     public var steps: [String] = []
+    /// Tool steps with what they looked at and a preview of what came back. Nil in messages saved before it existed.
+    public var trace: [ChatStep]?
     public var automation: ChatAutomationProposal?
     public var approvedAutomationID: String?
+    /// The chat model that wrote this answer; nil in messages saved before it existed.
+    public var model: String?
+    /// The reasoning effort that answer used; nil for an API server and in messages saved before it existed.
+    public var effort: String?
+    /// When the run ended; nil while running and in messages saved before it existed.
+    public var completedAt: Double?
+    /// Earlier answers to the same question, oldest first, kept when the answer was regenerated.
+    public var previous: [ConversationMessage]?
+    /// A suggested next question shown as ghost text in the composer; nil until generated.
+    public var followUp: String?
+    /// The other paths from this question on, each starting with its own question; nil until the question is edited.
+    public var branches: [[ConversationMessage]]?
 
     /// Args: conversationID는 소속 대화, role·text·status는 메시지 내용과 상태이다.
     /// Returns: 저장 가능한 채팅 메시지.
@@ -144,6 +240,50 @@ extension ConversationMessage {
         guard let index = messages.firstIndex(where: { $0.id == message.id }) else { return [] }
         let start = message.role == "user" ? index : (messages[..<index].lastIndex(where: { $0.role == "user" }) ?? index)
         return Array(messages[start...])
+    }
+
+    /// Earlier answers then this one, oldest first, without nesting so a regenerate never stores copies of copies.
+    public var versions: [ConversationMessage] {
+        var latest = self; latest.previous = nil
+        return (previous ?? []) + [latest]
+    }
+
+    /// Args: replaced is the question this new one replaces and every message after it.
+    /// Returns: none. An edit keeps the replaced path as a branch, newest 9 kept; resending the same text keeps the branches and the asking time so the branch order holds.
+    /// Raises: none.
+    public mutating func branch(replacing replaced: [ConversationMessage]) {
+        guard let old = replaced.first, old.role == "user" else { return }
+        var paths = old.branches ?? []
+        if old.text.trimmingCharacters(in: .whitespacesAndNewlines) == text.trimmingCharacters(in: .whitespacesAndNewlines) {
+            createdAt = old.createdAt
+        } else {
+            var path = replaced; path[0].branches = nil
+            paths.append(path)
+        }
+        branches = paths.isEmpty ? nil : Array(paths.suffix(9))
+    }
+
+    /// Args: question is a question in messages, the conversation's active path.
+    /// Returns: every path from that question on, oldest question first, and the index of the active one. Empty when it isn't a question there.
+    /// Raises: none.
+    public static func paths(at question: ConversationMessage, in messages: [ConversationMessage]) -> (paths: [[ConversationMessage]], active: Int) {
+        guard question.role == "user", let start = messages.firstIndex(where: { $0.id == question.id }) else { return ([], 0) }
+        var active = Array(messages[start...])
+        let others = active[0].branches ?? []
+        active[0].branches = nil
+        let all = (others + [active]).filter { !$0.isEmpty }.sorted { $0[0].createdAt < $1[0].createdAt }
+        return (all, all.firstIndex { $0[0].id == question.id } ?? 0)
+    }
+
+    /// Args: question is a question in messages, index a path of `paths(at:in:)`.
+    /// Returns: the conversation with that path from the question on, carrying the others as its branches. Nil when index is out of range.
+    /// Raises: none.
+    public static func switching(_ question: ConversationMessage, to index: Int, in messages: [ConversationMessage]) -> [ConversationMessage]? {
+        let all = paths(at: question, in: messages).paths
+        guard all.indices.contains(index), let start = messages.firstIndex(where: { $0.id == question.id }) else { return nil }
+        var path = all[index]
+        path[0].branches = all.indices.filter { $0 != index }.map { all[$0] }
+        return Array(messages[..<start]) + path
     }
 }
 
@@ -242,7 +382,7 @@ public struct ChatStore: Sendable {
     public func setPinnedSkills(_ ids: [String]) throws {
         let available = Set(try skills().map(\.id))
         guard ids.count <= 6, Set(ids).count == ids.count, ids.allSatisfy({ available.contains($0) }) else {
-            throw ChatToolError.unavailable("목록에 있는 스킬을 최대 6개까지 표시할 수 있어요.")
+            throw ChatToolError.unavailable(tr("목록에 있는 스킬을 최대 6개까지 표시할 수 있어요."))
         }
         try db.writer.write { conn in
             try conn.execute(sql: "DELETE FROM app_chat_skill_pins")
@@ -289,7 +429,7 @@ public struct ChatStore: Sendable {
         let body = instructions.trimmingCharacters(in: .whitespacesAndNewlines)
         let description = summary.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, name.count <= 80, !body.isEmpty, body.count <= 12_000, description.count <= 200 else {
-            throw ChatToolError.unavailable("스킬 이름은 80자, 설명은 200자, 지침은 12,000자까지 입력할 수 있어요.")
+            throw ChatToolError.unavailable(tr("스킬 이름은 80자, 설명은 200자, 지침은 12,000자까지 입력할 수 있어요."))
         }
         let saved = skill.edited(title: name, instructions: body, summary: description)
         let json = String(decoding: try JSONEncoder().encode(saved), as: UTF8.self)
@@ -298,7 +438,7 @@ public struct ChatStore: Sendable {
                 let deleted = try String.fetchOne(conn, sql: "SELECT id FROM app_deleted_skills WHERE id = ?", arguments: [skill.id])
                 let existing = try String.fetchOne(conn, sql: "SELECT id FROM app_chat_skills WHERE id = ?", arguments: [skill.id])
                 guard deleted == nil, !skill.isCustom || existing != nil else {
-                    throw ChatToolError.unavailable("이 스킬이 이미 삭제됐어요.")
+                    throw ChatToolError.unavailable(tr("이 스킬이 이미 삭제됐어요."))
                 }
             }
             try conn.execute(sql: """
@@ -373,31 +513,33 @@ public struct ChatStore: Sendable {
         }
     }
 
-    /// Args: query는 찾을 글, limit는 최대 대화 수이다.
-    /// Returns: 제목이나 완료 메시지 본문에 query가 든 대화(대화당 한 줄, 최신순). 빈 검색어는 [].
-    /// Raises: DB 조회 오류.
-    public func searchConversations(_ query: String, limit: Int = 30) throws -> [ChatSearchHit] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return [] }
-        let like = "%" + q.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "%", with: "\\%").replacingOccurrences(of: "_", with: "\\_") + "%"
-        return try db.writer.read { conn in
+    /// Args: query는 찾을 글(공백으로 나눈 낱말 모두), limit는 최대 대화 수이다.
+    /// Returns: 낱말마다 제목이나 완료 메시지 본문에 든 대화(대화당 한 줄, 최신순). 빈 검색어는 [].
+    /// Raises: DB 조회 오류, 또는 Task가 취소되면 GRDB가 중단한 조회 오류.
+    public func searchConversations(_ query: String, limit: Int = 30) async throws -> [ChatSearchHit] {
+        let terms = query.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard let first = terms.first else { return [] }
+        let likes = terms.map { "%" + $0.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "%", with: "\\%").replacingOccurrences(of: "_", with: "\\_") + "%" }
+        let messageText = "json_extract(m.payload, '$.status') = 'complete' AND json_extract(m.payload, '$.text') LIKE ? ESCAPE '\\'"
+        let conversationWhere = Array(repeating: "(json_extract(c.payload, '$.title') LIKE ? ESCAPE '\\' OR EXISTS (SELECT 1 FROM app_messages m WHERE m.conversation_id = c.id AND \(messageText)))", count: terms.count).joined(separator: " AND ")
+        let matchWhere = Array(repeating: "json_extract(m.payload, '$.text') LIKE ? ESCAPE '\\'", count: terms.count).joined(separator: " AND ")
+        return try await db.writer.read { conn in
             let rows = try Row.fetchAll(conn, sql: """
                 SELECT c.id, json_extract(c.payload, '$.title') AS title, c.updated_at FROM app_conversations c
-                WHERE json_extract(c.payload, '$.title') LIKE ?1 ESCAPE '\\'
-                   OR EXISTS (SELECT 1 FROM app_messages m WHERE m.conversation_id = c.id
-                      AND json_extract(m.payload, '$.status') = 'complete' AND json_extract(m.payload, '$.text') LIKE ?1 ESCAPE '\\')
-                ORDER BY c.updated_at DESC LIMIT ?2
-                """, arguments: [like, limit])
+                WHERE \(conversationWhere)
+                ORDER BY c.updated_at DESC LIMIT ?
+                """, arguments: StatementArguments(likes.flatMap { [$0, $0] } + [limit]))
             return try rows.map { row in
                 let id: String = row["id"]
-                let hit = try String.fetchOne(conn, sql: """
-                    SELECT json_extract(payload, '$.text') FROM app_messages WHERE conversation_id = ?1
-                      AND json_extract(payload, '$.status') = 'complete' AND json_extract(payload, '$.text') LIKE ?2 ESCAPE '\\'
-                    ORDER BY created_at DESC, rowid DESC LIMIT 1
-                    """, arguments: [id, like])
+                let match = try Row.fetchOne(conn, sql: """
+                    SELECT m.id, json_extract(m.payload, '$.text') AS text FROM app_messages m WHERE m.conversation_id = ?
+                      AND json_extract(m.payload, '$.status') = 'complete' AND \(matchWhere)
+                    ORDER BY m.created_at DESC, m.rowid DESC LIMIT 1
+                    """, arguments: StatementArguments([id] + likes))
+                let hit: String? = match?["text"]
                 var snippet: String
                 if let hit {
-                    let start = hit.range(of: q, options: .caseInsensitive)?.lowerBound ?? hit.startIndex
+                    let start = hit.range(of: first, options: .caseInsensitive)?.lowerBound ?? hit.startIndex
                     let from = hit.index(start, offsetBy: -20, limitedBy: hit.startIndex) ?? hit.startIndex
                     snippet = String(hit[from...].prefix(120))
                 } else {
@@ -409,7 +551,8 @@ public struct ChatStore: Sendable {
                     snippet = String((last ?? "").prefix(120))
                 }
                 snippet = snippet.replacingOccurrences(of: "\r\n", with: " ").replacingOccurrences(of: "\n", with: " ")
-                return ChatSearchHit(conversationID: id, title: row["title"] ?? "", snippet: snippet, updatedAt: row["updated_at"])
+                return ChatSearchHit(conversationID: id, title: row["title"] ?? "", snippet: snippet, updatedAt: row["updated_at"],
+                                     messageID: match?["id"])
             }
         }
     }
@@ -541,7 +684,8 @@ public struct ChatStore: Sendable {
                 WHERE json_extract(payload, '$.status') = 'running'
                 """)
         }
-        for var job in try automations() where job.lastStatus == "실행 중" {
+        // Rows saved before statuses were stored as keys hold the English text.
+        for var job in try automations() where ["실행 중", L10n.english["실행 중"]].contains(job.lastStatus) {
             job.lastStatus = "앱 종료로 중단됨"; try save(job)
         }
     }
@@ -565,6 +709,26 @@ public struct ChatStore: Sendable {
             try conn.execute(sql: "INSERT INTO app_conversations (id, updated_at, payload, project_id) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload", arguments: [conversation.id, conversation.updatedAt, payload, conversation.projectID])
             for (message, json) in records {
                 try conn.execute(sql: "INSERT INTO app_messages VALUES (?, ?, ?, ?)", arguments: [message.id, message.conversationID, message.createdAt, json])
+            }
+        }
+    }
+
+    /// Args: removing are messages leaving the conversation's active path, inserting the ones taking their place.
+    /// Returns: none. Swaps them in one write and unlinks the removed answers' artifacts like startTurn.
+    /// Raises: encoding or DB errors; nothing changes then.
+    public func replaceMessages(in conversationID: String, removing: [ConversationMessage], inserting: [ConversationMessage]) throws {
+        let records = try inserting.map { ($0, String(decoding: try JSONEncoder().encode($0), as: UTF8.self)) }
+        try db.writer.write { conn in
+            for old in removing {
+                try conn.execute(sql: "DELETE FROM app_messages WHERE id = ? AND conversation_id = ?", arguments: [old.id, conversationID])
+                for artifact in old.artifacts {
+                    try conn.execute(sql: "DELETE FROM library_conversation_sources WHERE conversation_id = ? AND item_id IN (SELECT id FROM app_library WHERE origin_id = ?)",
+                                     arguments: [conversationID, artifact.id])
+                }
+            }
+            for (message, json) in records {
+                try conn.execute(sql: "INSERT INTO app_messages VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload",
+                                 arguments: [message.id, conversationID, message.createdAt, json])
             }
         }
     }

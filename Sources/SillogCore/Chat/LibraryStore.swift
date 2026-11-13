@@ -10,8 +10,23 @@ public struct ChatLibraryItem: Codable, Identifiable, Equatable, Sendable {
     public var updatedAt: Double?
     public var extractionNote = ""
     public var originID: String?
+    /// The chat result's series when it is a later version; nil for a first version and items saved before it existed.
+    public var seriesID: String?
     public init(title: String, filename: String, kind: String) {
         self.title = title; self.filename = filename; self.kind = kind
+    }
+
+    /// Same for every saved version of one chat result; a first version's origin is the series id.
+    public var seriesKey: String { seriesID ?? originID ?? id }
+
+    /// Args: items in any order.
+    /// Returns: the newest item of each series in the order of items, and each series' version count keyed by that newest item's id.
+    /// Raises: none.
+    public static func latestOfEachSeries(_ items: [ChatLibraryItem]) -> (items: [ChatLibraryItem], versions: [String: Int]) {
+        let groups = Dictionary(grouping: items, by: \.seriesKey)
+        let newest = groups.compactMapValues { $0.max { $0.createdAt < $1.createdAt }?.id }
+        let kept = items.filter { newest[$0.seriesKey] == $0.id }
+        return (kept, Dictionary(uniqueKeysWithValues: kept.map { ($0.id, groups[$0.seriesKey]?.count ?? 1) }))
     }
 }
 
@@ -60,6 +75,13 @@ public struct LibraryStore: Sendable {
         directory.appendingPathComponent(item.id, isDirectory: true).appendingPathComponent(item.filename)
     }
 
+    /// Args: id is the library item.
+    /// Returns: its indexed text, or "" if it is gone.
+    /// Raises: DB errors.
+    public func text(for id: String) throws -> String {
+        try db.writer.read { try String.fetchOne($0, sql: "SELECT text FROM app_library WHERE id = ?", arguments: [id]) } ?? ""
+    }
+
     public func modifiedAt(for item: ChatLibraryItem) -> Double {
         let fileDate = (try? url(for: item).resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate?.timeIntervalSince1970
         if let updatedAt = item.updatedAt { return max(updatedAt, fileDate ?? updatedAt) }
@@ -97,16 +119,23 @@ public struct LibraryStore: Sendable {
         }
     }
 
-    /// Args: artifact는 채팅에서 생성한 결과물이다.
-    /// Returns: 같은 결과물을 중복 저장하지 않는 보관 자료.
-    /// Raises: 파일·DB 오류.
+    /// Args: artifact is a result created in chat.
+    /// Returns: the library item, reused if this artifact was saved before.
+    /// Raises: file, DB, or Office packaging errors.
     @discardableResult public func saveArtifact(_ artifact: ChatArtifact) throws -> ChatLibraryItem {
-        if let existing = try find(originID: artifact.id) { return existing }
-        let ext = ["markdown": "md", "text": "txt", "txt": "txt", "json": "json", "html": "html", "csv": "csv", "svg": "svg"][artifact.format] ?? "txt"
+        if var existing = try find(originID: artifact.id) {
+            guard existing.seriesID != artifact.baseID else { return existing }
+            // Items saved before versions were grouped learn their series on the startup sweep.
+            existing.seriesID = artifact.baseID
+            let json = String(decoding: try JSONEncoder().encode(existing), as: UTF8.self)
+            try db.writer.write { try $0.execute(sql: "UPDATE app_library SET payload = ? WHERE id = ?", arguments: [json, existing.id]) }
+            return existing
+        }
+        let ext = artifact.fileExtension
         let name = artifact.title.components(separatedBy: CharacterSet(charactersIn: "/:\n\\")).joined(separator: "-")
         var item = ChatLibraryItem(title: artifact.title, filename: "\(name.isEmpty ? "result" : String(name.prefix(120))).\(ext)", kind: "generated")
-        item.originID = artifact.id
-        return try write(item, data: Data(artifact.content.utf8)) { _ in (artifact.content, "") }
+        item.originID = artifact.id; item.seriesID = artifact.baseID
+        return try write(item, data: try artifact.fileData()) { _ in (artifact.content, "") }
     }
 
     /// Args: message는 완료된 답변, title은 사용자가 지정한 자료 이름이다.

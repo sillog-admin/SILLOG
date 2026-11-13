@@ -15,6 +15,17 @@ struct ChatModelMenu: View {
         return unverified + models.map { ($0.slug, $0.displayName) }
     }
 
+    /// The model's default effort stays out of the chip.
+    private var label: String {
+        if state.settings.effectiveChatProvider != "codex" {
+            return state.settings.chatAPIEffort.map { "\(name) · \(CodexEffort.title($0))" } ?? name
+        }
+        let model = state.chatCodexModel
+        guard state.settings.effectiveChatProvider == "codex", let effort = CodexEffort.resolve(state.settings.chatEffort, model: model),
+              effort != CodexEffort.resolve(nil, model: model) else { return name }
+        return "\(name) · \(CodexEffort.title(effort))"
+    }
+
     var body: some View {
         Menu {
             if state.settings.effectiveChatProvider == "codex" {
@@ -28,15 +39,32 @@ struct ChatModelMenu: View {
                 }
                 .pickerStyle(.inline)
                 .labelsHidden()
+                if let model = state.chatCodexModel, !model.efforts.isEmpty {
+                    Divider()
+                    Picker(tr("추론 강도"), selection: Binding(get: { CodexEffort.resolve(state.settings.chatEffort, model: model) ?? "" },
+                                                          set: { state.selectChatEffort($0) })) {
+                        ForEach(model.efforts, id: \.value) { effort in
+                            Text(CodexEffort.title(effort.value)).help(effort.description).tag(effort.value)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                }
             } else {
                 Text(tr("\(name) (직접 연결한 서버)"))
+                Divider()
+                // shortcut: fixed OpenAI effort names, since servers don't list what a model takes; a rejected value shows as the answer's error.
+                Picker(tr("추론 강도"), selection: Binding(get: { state.settings.chatAPIEffort ?? "" }, set: { state.selectChatAPIEffort($0.isEmpty ? nil : $0) })) {
+                    Text(tr("기본")).tag("")
+                    ForEach(["low", "medium", "high"], id: \.self) { Text(CodexEffort.title($0)).tag($0) }
+                }
+                .pickerStyle(.inline)
             }
             Divider()
             Button(tr("모델 설정…"), action: openSettings)
         } label: {
             // borderlessButton 메뉴는 라벨을 시스템 버튼(화살표 왼쪽, 시스템 색)으로 바꿔 그린다. plain 버튼 메뉴로 이 모양 그대로 그린다
             HStack(spacing: 4) {
-                Text(name).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
+                Text(label).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
                 Image(systemName: "chevron.down").font(.system(size: 8)).foregroundStyle(Brand.tabText)
             }
             .contentShape(Rectangle())

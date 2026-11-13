@@ -11,4 +11,12 @@ final class RecordingCitationTests: XCTestCase {
         XCTAssertEqual(cited.map(\.id), ["recording:7"])
         XCTAssertFalse(missing)
     }
+
+    func testConnectorCitationsBecomeSourceChips() {
+        let source = ChatSource(id: "slack:https://team.slack.com/archives/C1/p2", title: "Slack · #design", location: "https://team.slack.com/archives/C1/p2", excerpt: "…")
+        let (body, cited, missing) = ChatMessageText.citations(in: "카드 간격은 16px로 정했어요. [slack:https://team.slack.com/archives/C1/p2]", sources: [source])
+        XCTAssertEqual(body, "카드 간격은 16px로 정했어요.")
+        XCTAssertEqual(cited.map(\.id), [source.id])
+        XCTAssertFalse(missing)
+    }
 }

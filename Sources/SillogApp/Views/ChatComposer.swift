@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import SillogCore
 
-/// 채팅 입력: 입력 상자(+ 메뉴, 칩, 보내기) + 아래 줄(범위, 모델) + 안내문. 폭은 ChatPalette.columnWidth
+/// 채팅 입력: 입력 상자(+ 메뉴, 칩, 보내기) + 아래 줄(범위, 모델) + 안내문. 폭은 ChatPalette.readingWidth
 struct ChatComposer: View {
     @ObservedObject var chat: ChatState
     @ObservedObject var library: LibraryState
@@ -12,9 +12,13 @@ struct ChatComposer: View {
     var tidyNow: () -> Void = {}
     var onOpenConnectors: () -> Void = {}
     var onSent: () -> Void = {}
+    var onEditLast: (() -> Void)? = nil
     var showsNotice: Bool = true
 
     @EnvironmentObject private var state: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @StateObject private var dictation = ChatDictation()
+    @State private var micHover = false
     @State private var inputHeight: CGFloat = 38
     @State private var showPlus = false
     @State private var showFocus = false
@@ -26,12 +30,24 @@ struct ChatComposer: View {
     @State private var dismissedShortcut: ChatShortcut?
     @State private var shortcutIndex = 0
     @State private var shortcutMenuHeight: CGFloat = 0
-    @State private var shortcutCaret: NSRange?
-    @State private var connectedConnectors: Set<String> = []
+    /// Tied to the focus request it was set for, so a later focus from elsewhere ignores it.
+    @State private var shortcutCaret: (request: Int, range: NSRange)?
+    @State private var connectedConnectors: Set<String>?
     @State private var dropTargeted = false
+    @State private var plusHover = false
+    @State private var previewItem: ChatLibraryItem?
+    /// The answer whose follow-up the user typed over; it stays hidden after the draft is cleared.
+    @State private var dismissedFollowUp: String?
 
     /// 이 대화에 응답이 도는 중이면 자료 설정을 잠근다
     private var busy: Bool { chat.activeMessage?.conversationID == chat.current.id }
+
+    /// Ghost text for the empty input: the latest answer's suggested next question.
+    private var followUp: String? {
+        guard chat.draft.isEmpty, !busy, let last = chat.messages.last, last.role == "assistant", last.status == "complete",
+              last.id != dismissedFollowUp else { return nil }
+        return last.followUp
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -45,36 +61,66 @@ struct ChatComposer: View {
             if !chat.current.scope.focus.isEmpty, chat.current.scope.useActivity, pendingRecords > 0 {
                 tidyHint.padding(.top, 8).padding(.leading, 12)
             }
-            if showsNotice {
+            if let problem = dictation.problem {
+                HStack(spacing: 8) {
+                    Text(problem.text).font(Brand.font(.caption)).foregroundStyle(Brand.ink).lineLimit(1)
+                    if problem.settingsURL != nil {
+                        ChatPillButton(title: tr("시스템 설정 열기"), systemName: "gearshape") { problem.openSettings() }
+                    }
+                }
+                .frame(maxWidth: .infinity).padding(.top, 8)
+            }
+            if !state.chatConnected {
+                HStack(spacing: 8) {
+                    Text(tr("AI가 연결되지 않았어요. [설정 > AI 연결]에서 먼저 연결해 주세요."))
+                        .font(Brand.font(.caption)).foregroundStyle(Brand.ink).lineLimit(1)
+                    ChatPillButton(title: tr("설정 열기"), systemName: "gearshape", action: openSettings)
+                }
+                .frame(maxWidth: .infinity).padding(.top, 8)
+            } else if showsNotice {
                 Text(tr("질문과 조회한 자료는 연결한 AI로 전송돼요. 웹 검색과 커넥터는 허용한 범위만 사용해요."))
                     .font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
                     .frame(maxWidth: .infinity).padding(.top, 8)
             }
         }
-        .frame(maxWidth: ChatPalette.columnWidth).frame(maxWidth: .infinity)
+        .frame(maxWidth: ChatPalette.readingWidth).frame(maxWidth: .infinity)
         .sheet(isPresented: $showLibraryPicker) { LibraryPicker(library: library) { chat.attachLibraryItem($0) } }
-        .onChange(of: chat.current.id) { _, _ in shortcut = nil; dismissedShortcut = nil }
+        .onChange(of: chat.current.id) { _, _ in shortcut = nil; dismissedShortcut = nil; dismissedFollowUp = nil; dictation.cancel() }
+        .onDisappear { dictation.cancel() }
+        .onChange(of: chat.draft) { _, draft in if !draft.isEmpty { dismissedFollowUp = chat.messages.last?.id } }
     }
 
     /// 보내기가 시작됐을 때만 알린다 (프로젝트 상세에서 대화로 넘어가는 용도)
-    private func send() { if chat.send() { shortcut = nil; onSent() } }
+    private func send() {
+        guard state.chatConnected else { return }
+        // Enter finishes Whisper dictation first; its text lands in the draft only on stop.
+        if dictation.holdsSpeech { dictation.stop(); return }
+        if chat.send() { dictation.cancel(); shortcut = nil; onSent() }
+    }
 
     static func placeholder(_ scope: ChatScope) -> String {
         guard scope.useActivity, !scope.focus.isEmpty else { return tr("기록을 바탕으로 무엇을 할까요?") }
         return tr("\(ChatFocusButton.summary(scope.focus))에 대해 물어보세요")
     }
 
+    /// The chat's own artifacts stay attached for the model but are not shown as chips.
+    static func shownAttachments(_ attached: [ChatLibraryItem], messages: [ConversationMessage]) -> [ChatLibraryItem] {
+        let own = Set(messages.flatMap { $0.versions.flatMap(\.artifacts) }.map(\.id))
+        return attached.filter { !($0.kind == "generated" && own.contains($0.originID ?? "")) }
+    }
+
     // MARK: 입력 상자
 
     private var box: some View {
-        let attachments = library.sources(conversationID: chat.current.id, projectID: chat.current.projectID)
+        let attachments = Self.shownAttachments(library.attached, messages: chat.messages)
         let paths = chat.current.scope.paths
         return VStack(alignment: .leading, spacing: 0) {
             if !attachments.isEmpty || !paths.isEmpty {
                 // CH-18: 첨부 칩은 입력 줄 위에 줄바꿈으로 놓이고 상자가 위로 커진다. 모두 x 로 연결 해제
                 ChatChipFlow(spacing: 6) {
                     ForEach(attachments) { item in
-                        attachmentChip(icon: "doc", text: item.title, help: item.title) { library.detach(item, conversationID: chat.current.id) }
+                        attachmentChip(icon: "doc", text: item.title, help: item.title, item: item,
+                                       remove: library.projectAttached.contains(item.id) ? nil : { library.detach(item, conversationID: chat.current.id) })
                     }
                     ForEach(paths, id: \.self) { path in
                         attachmentChip(icon: "folder", text: URL(fileURLWithPath: path).lastPathComponent, help: path) {
@@ -85,19 +131,28 @@ struct ChatComposer: View {
             }
             ZStack(alignment: .topLeading) {
                 if chat.draft.isEmpty {
-                    Text(Self.placeholder(chat.current.scope))
-                        .font(Brand.font(.body)).foregroundStyle(Brand.text.opacity(0.5)).lineLimit(1)
-                        .padding(.top, 8).padding(.leading, 5).allowsHitTesting(false)
+                    HStack(spacing: 8) {
+                        Text(placeholder)
+                            .font(Brand.font(.sectionTitle, .regular)).foregroundStyle(Brand.text.opacity(0.5)).lineLimit(1)
+                        if followUp != nil && !dictation.listening {
+                            Text("Tab").font(Brand.font(.tag, .medium)).foregroundStyle(Brand.gray)
+                                .padding(.horizontal, 5).frame(height: 16)
+                                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Brand.line))
+                        }
+                    }
+                    .padding(.top, 8).padding(.leading, 5).allowsHitTesting(false).accessibilityHidden(true)
                 }
                 ChatInput(text: $chat.draft, height: $inputHeight, minimumHeight: 38, focusRequest: chat.inputFocusRequest,
-                          selectionOnFocus: shortcutCaret, onShortcut: updateShortcut, shortcutKey: handleShortcutKey,
-                          onFiles: { chat.attach($0) }, onSend: send)
+                          selectionOnFocus: shortcutCaret.flatMap { $0.request == chat.inputFocusRequest ? $0.range : nil }, onShortcut: updateShortcut, shortcutKey: handleShortcutKey,
+                          onFiles: { chat.attach($0) }, onEscape: { if dictation.listening { dictation.cancel() } else if busy { chat.cancel() } else { chat.openArtifactID = nil } }, onEditLast: onEditLast,
+                          placeholder: dictation.listening ? placeholder : followUp.map { tr("추천 질문: \($0). Tab으로 입력") } ?? placeholder, onSend: send)
                     .frame(height: inputHeight)
             }
             .padding(.top, 18).padding(.horizontal, 13)
             Spacer(minLength: 0)
             HStack(spacing: 8) {
                 plusButton
+                micButton
                 chips
                 Spacer(minLength: 0)
                 sendButton
@@ -108,6 +163,7 @@ struct ChatComposer: View {
         .fixedSize(horizontal: false, vertical: true)   // 남는 세로 공간을 차지하지 않게: 글이 늘 때만 커진다 (Figma 96)
         .background(.white, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(dropTargeted ? Brand.ink : ChatPalette.inputLine, lineWidth: dropTargeted ? 1.5 : 1))
+        .sheet(item: $previewItem) { LibraryPreview(library: library, item: $0) }
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
             Task { @MainActor in
                 var urls: [URL] = []
@@ -141,9 +197,12 @@ struct ChatComposer: View {
         let choices: [ShortcutChoice]
         switch shortcut.kind {
         case .skill: choices = chat.skills.map { .init(id: $0.id, name: $0.title, icon: $0.icon) }
-        case .connector: choices = ConnectorEntry.all.map {
-            .init(id: $0.id, name: $0.name, icon: $0.icon, connected: connectedConnectors.contains($0.id))
-        }
+        case .connector:
+            // Wait for the Keychain read, or connected rows act unconnected and reorder under the cursor.
+            guard let connectedConnectors else { return [] }
+            choices = ConnectorEntry.all.map {
+                .init(id: $0.id, name: $0.name, icon: $0.icon, connected: connectedConnectors.contains($0.id))
+            }
         }
         let matching = choices.filter {
             shortcut.query.isEmpty || $0.name.localizedCaseInsensitiveContains(shortcut.query) || $0.id.localizedCaseInsensitiveContains(shortcut.query)
@@ -156,15 +215,22 @@ struct ChatComposer: View {
         if value != dismissedShortcut { dismissedShortcut = nil }
         guard value != dismissedShortcut || value == nil else { return }
         if value?.kind == .connector && shortcut?.kind != .connector {
-            connectedConnectors = Set(ConnectorEntry.all.compactMap { entry in
-                (try? ConnectorAuth.isConnected(entry.id)) == true ? entry.id : nil
-            })
+            let ids = ConnectorEntry.all.map(\.id)
+            connectedConnectors = nil
+            // Off the main thread: a Keychain prompt would freeze typing while it waits.
+            Task { connectedConnectors = await Task.detached { Set(ids.filter { (try? ConnectorAuth.isConnected($0)) == true }) }.value }
         }
         shortcutCaret = nil
         shortcut = value; shortcutIndex = 0
     }
 
     private func handleShortcutKey(_ key: UInt16) -> Bool {
+        if key == 48, shortcut == nil, let followUp {
+            chat.draft = followUp
+            chat.inputFocusRequest += 1
+            shortcutCaret = (chat.inputFocusRequest, NSRange(location: (followUp as NSString).length, length: 0))
+            return true
+        }
         guard let shortcut, !busy else { return false }
         let choices = shortcutChoices
         switch key {
@@ -191,9 +257,9 @@ struct ChatComposer: View {
             if !chat.draftConnectors.contains(item.id) { chat.draftConnectors.append(item.id) }
         }
         chat.draft = (chat.draft as NSString).replacingCharacters(in: shortcut.range, with: "")
-        shortcutCaret = NSRange(location: shortcut.range.location, length: 0)
         self.shortcut = nil
         chat.inputFocusRequest += 1
+        shortcutCaret = (chat.inputFocusRequest, NSRange(location: shortcut.range.location, length: 0))
     }
 
     private var shortcutMenu: some View {
@@ -229,6 +295,8 @@ struct ChatComposer: View {
                         if choices.indices.contains(index) { proxy.scrollTo(choices[index].id) }
                     }
                 }
+            } else if shortcut?.kind == .connector && connectedConnectors == nil {
+                ProgressView().controlSize(.small).padding(8)
             } else {
                 Text(tr("일치하는 항목이 없어요")).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(8)
             }
@@ -242,35 +310,82 @@ struct ChatComposer: View {
     private var plusButton: some View {
         Button { showPlus = true } label: {
             Image(systemName: "plus").font(.system(size: 16)).foregroundStyle(Brand.tabText)
-                .frame(width: 20, height: 28).contentShape(Rectangle())
+                .frame(width: 28, height: 28)
+                .background(plusHover && !(busy || library.busy) ? ChatPalette.soft : .clear, in: Circle())
+                .contentShape(Circle())
         }
-        .buttonStyle(.plain).disabled(busy || library.busy)
+        .buttonStyle(.plain).onHover { plusHover = $0 }.disabled(busy || library.busy)
         .help(tr("자료 추가")).accessibilityLabel(tr("자료 추가"))
         .popover(isPresented: $showPlus, arrowEdge: .bottom) { plusMenu }
         .background { Color.clear.popover(isPresented: $showFocus, arrowEdge: .bottom) { ChatFocusPicker(chat: chat) } }
     }
 
+    private var placeholder: String {
+        dictation.listening ? tr("듣고 있어요…") : followUp ?? Self.placeholder(chat.current.scope)
+    }
+
+    private var micButton: some View {
+        let on = dictation.listening
+        return Button {
+            // The caret only counts while the input has focus; otherwise speech is appended.
+            let caret = (NSApp.keyWindow?.firstResponder as? ChatTextView)?.selectedRange()
+            dictation.toggle(draft: $chat.draft, selection: caret, permissions: state.recordingPermissions)
+        } label: {
+            Group {
+                if dictation.transcribing { ProgressView().controlSize(.small) }
+                else { Image(systemName: on ? "mic.fill" : "mic").font(.system(size: 14)).foregroundStyle(on ? Color.white : Brand.tabText) }
+            }
+            .frame(width: 28, height: 28)
+            .background(on ? Brand.accent : micHover && !dictation.unavailable ? ChatPalette.soft : .clear, in: Circle())
+            .overlay {
+                if on && !reduceMotion {
+                    Circle().strokeBorder(Brand.accent.opacity(0.35), lineWidth: 2)
+                        .scaleEffect(1 + dictation.level * 0.35).animation(.easeOut(duration: 0.12), value: dictation.level)
+                }
+            }
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain).onHover { micHover = $0 }
+        .disabled(dictation.unavailable || dictation.transcribing)
+        .help(dictation.unavailable ? tr("이 Mac에서는 이 언어를 기기 안에서 받아쓸 수 없어요") : dictation.transcribing ? tr("받아쓰는 중…") : on ? tr("받아쓰기 멈추기") : tr("음성으로 입력"))
+        .accessibilityLabel(on ? tr("받아쓰기 멈추기") : tr("음성으로 입력"))
+    }
+
     private var sendButton: some View {
         let empty = chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        // Only this conversation's answer can be stopped here; another one running just blocks sending.
+        let elsewhere = chat.running && !busy
+        let blocked = elsewhere || !state.chatConnected
         return Button {
-            if chat.running { chat.cancel() } else { send() }
+            if busy { chat.cancel() } else { send() }
         } label: {
-            Image(systemName: chat.running ? "stop.fill" : "arrow.up")
-                .font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+            let enabled = busy || (!empty && !blocked)
+            Image(systemName: busy ? "stop.fill" : "arrow.up")
+                .font(.system(size: 14, weight: .semibold)).foregroundStyle(enabled ? Color.white : Brand.gray)
                 .frame(width: 28, height: 28)
-                .background(Brand.accent.opacity(chat.running || !empty ? 1 : 0.3), in: Circle())
+                .background(enabled ? Brand.accent : Brand.line, in: Circle())
         }
-        .buttonStyle(.plain).disabled(!chat.running && empty)
-        .help(chat.running ? tr("응답 중단") : tr("전송 (Enter)")).accessibilityLabel(chat.running ? tr("응답 중단") : tr("전송"))
+        .buttonStyle(.plain).disabled(!busy && (empty || blocked))
+        .help(busy ? tr("응답 중단 (Esc, ⌘.)") : !state.chatConnected ? tr("AI를 먼저 연결해 주세요") : elsewhere ? tr("다른 대화의 응답이 끝나면 보낼 수 있어요") : tr("전송 (Enter)"))
+        .accessibilityLabel(busy ? tr("응답 중단") : tr("전송"))
     }
 
     // MARK: 칩 (웹 검색, 첨부)
 
     /// 첨부 칩(CH-18): 옅은 바탕, 1pt 테두리, 둥글기 4, 높이 22
-    private func attachmentChip(icon: String, text: String, help: String, remove: (() -> Void)? = nil) -> some View {
+    private func attachmentChip(icon: String, text: String, help: String, item: ChatLibraryItem? = nil, remove: (() -> Void)? = nil) -> some View {
         HStack(spacing: 5) {
-            Image(systemName: icon).font(.system(size: 10))
-            Text(text).font(Brand.font(.tag)).lineLimit(1)
+            if let item {
+                Button { previewItem = item } label: {
+                    HStack(spacing: 5) {
+                        ChatAttachmentThumb(url: library.store.url(for: item))
+                        Text(text).font(Brand.font(.tag)).lineLimit(1)
+                    }.contentShape(Rectangle())
+                }.buttonStyle(.plain)
+            } else {
+                Image(systemName: icon).font(.system(size: 10))
+                Text(text).font(Brand.font(.tag)).lineLimit(1)
+            }
             if let remove {
                 Button(action: remove) { Image(systemName: "xmark").font(.system(size: 8, weight: .semibold)) }
                     .buttonStyle(.plain).disabled(busy).help(tr("빼기")).accessibilityLabel(tr("\(text) 빼기"))
@@ -378,37 +493,46 @@ struct ChatComposer: View {
     // MARK: 스킬 칩 (CH-01, CH-33)
 
     private var skillChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(chat.pinnedSkills) { skill in
-                    let on = chat.current.skillIDs.contains(skill.id)
-                    Button {
-                        if on { chat.current.skillIDs.removeAll { $0 == skill.id } } else { chat.current.skillIDs.append(skill.id) }
-                    } label: {
-                        Text(skill.displayTitle).font(Brand.font(.tag)).lineLimit(1)
-                            .foregroundStyle(on ? Brand.chipSelectedText : Brand.tabText)
-                            .padding(.horizontal, 9).frame(height: 22)
-                            .background(on ? Brand.chipSelectedFill : ChatPalette.soft, in: Capsule())
-                            .overlay(Capsule().strokeBorder(on ? Brand.chipSelectedBorder : Brand.line))
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain).disabled(busy).accessibilityLabel("\(skill.displayTitle) \(on ? tr("끄기") : tr("켜기"))")
-                }
-                Button { showSkillPins = true } label: {
-                    Image(systemName: "pencil").font(.system(size: 10, weight: .medium))
-                        .frame(width: 22, height: 22).background(ChatPalette.soft, in: Circle())
-                }
-                .buttonStyle(.plain).disabled(busy).help(tr("표시할 스킬 편집")).accessibilityLabel(tr("표시할 스킬 편집"))
-                .popover(isPresented: $showSkillPins, arrowEdge: .top) {
-                    PinnedSkillPicker(chat: chat) {
-                        showSkillPins = false
-                        state.customizeSection = .skills
-                        state.selectedTab = .connectors
-                    }
-                }
-            }
+        // Pencil sits outside the scroll so overflowing chips never hide it.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) { skillRow; skillPencil }
+            HStack(spacing: 6) { ScrollView(.horizontal, showsIndicators: false) { skillRow }; skillPencil }
         }
         .frame(height: 22)
+    }
+
+    private var skillRow: some View {
+        HStack(spacing: 6) {
+            ForEach(chat.pinnedSkills) { skill in
+                let on = chat.current.skillIDs.contains(skill.id)
+                Button {
+                    if on { chat.current.skillIDs.removeAll { $0 == skill.id } } else { chat.current.skillIDs.append(skill.id) }
+                } label: {
+                    Text(skill.displayTitle).font(Brand.font(.tag)).lineLimit(1)
+                        .foregroundStyle(on ? Brand.chipSelectedText : Brand.tabText)
+                        .padding(.horizontal, 9).frame(height: 22)
+                        .background(on ? Brand.chipSelectedFill : ChatPalette.soft, in: Capsule())
+                        .overlay(Capsule().strokeBorder(on ? Brand.chipSelectedBorder : Brand.line))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain).disabled(busy).accessibilityLabel(skill.displayTitle).accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+    }
+
+    private var skillPencil: some View {
+        Button { showSkillPins = true } label: {
+            Image(systemName: "pencil").font(.system(size: 10, weight: .medium))
+                .frame(width: 22, height: 22).background(ChatPalette.soft, in: Circle())
+        }
+        .buttonStyle(.plain).disabled(busy).help(tr("표시할 스킬 편집")).accessibilityLabel(tr("표시할 스킬 편집"))
+        .popover(isPresented: $showSkillPins, arrowEdge: .top) {
+            PinnedSkillPicker(chat: chat) {
+                showSkillPins = false
+                state.customizeSection = .skills
+                state.selectedTab = .connectors
+            }
+        }
     }
 
     // MARK: 연결과 모델 (CH-08)
@@ -473,6 +597,25 @@ struct ChatComposer: View {
             openSettings()
         } trailing: {
             if on { Image(systemName: "checkmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(Brand.tabText) }
+        }
+    }
+
+    /// An image attachment shows its picture; anything else, or an unreadable image, the doc icon.
+    private struct ChatAttachmentThumb: View {
+        let url: URL
+        @State private var image: NSImage?
+        var body: some View {
+            Group {
+                if let image {
+                    Image(nsImage: image).resizable().scaledToFill().frame(width: 16, height: 16).clipShape(RoundedRectangle(cornerRadius: 2))
+                } else {
+                    Image(systemName: "doc").font(.system(size: 10))
+                }
+            }
+            // Load once per file, not on every keystroke that redraws the composer.
+            .task(id: url) {
+                image = ["png", "jpg", "jpeg", "gif", "heic", "webp", "tiff"].contains(url.pathExtension.lowercased()) ? NSImage(contentsOf: url) : nil
+            }
         }
     }
 

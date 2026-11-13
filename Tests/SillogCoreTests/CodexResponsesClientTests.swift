@@ -112,7 +112,8 @@ final class CodexResponsesClientTests: XCTestCase {
 
     func testListsOnlyVisibleModelsInServerPriorityOrder() async throws {
         StubURLProtocol.reset([.init(status: 200, body: #"""
-        {"models":[{"slug":"gpt-5.6-luna","display_name":"GPT-5.6-Luna","default_reasoning_level":"medium","visibility":"list","priority":8},
+        {"models":[{"slug":"gpt-5.6-luna","display_name":"GPT-5.6-Luna","default_reasoning_level":"medium","visibility":"list","priority":8,
+                    "supported_reasoning_levels":[{"effort":"low","description":"Fast responses with lighter reasoning"},{"effort":"medium","description":"Balanced"},{"effort":"xhigh","description":"Deepest"}]},
                    {"slug":"gpt-reserve","display_name":"GPT-Reserve","visibility":"hide","priority":3},
                    {"slug":"gpt-6-astra","display_name":"GPT-6-Astra","default_reasoning_level":"low","visibility":"list","priority":1}]}
         """#)])
@@ -121,9 +122,29 @@ final class CodexResponsesClientTests: XCTestCase {
         let models = try await CodexResponsesClient.listModels(auth: StubCredentials(), session: URLSession(configuration: config))
         XCTAssertEqual(models.map(\.slug), ["gpt-6-astra", "gpt-5.6-luna"])
         XCTAssertEqual(models.last?.displayName, "GPT-5.6-Luna")
+        XCTAssertEqual(models.last?.efforts.map(\.value), ["low", "medium", "xhigh"], "kept in the server's order")
+        XCTAssertEqual(models.last?.efforts.first?.description, "Fast responses with lighter reasoning")
+        XCTAssertEqual(models.first?.efforts, [], "a model that lists no efforts offers none")
         let request = try XCTUnwrap(StubURLProtocol.requests.first)
         XCTAssertTrue(request.url.absoluteString.hasPrefix("https://chatgpt.com/backend-api/codex/models?client_version="))
         XCTAssertEqual(request.headers["Authorization"], "Bearer token_old")
+    }
+
+    func testEffortFallsBackToWhatTheModelTakes() {
+        let model = CodexModel(slug: "m", displayName: "m", defaultEffort: "low", efforts: ["low", "high", "max"].map { CodexEffort(value: $0) })
+        XCTAssertEqual(CodexEffort.resolve("max", model: model), "max")
+        XCTAssertEqual(CodexEffort.resolve("xhigh", model: model), "low", "an effort the model doesn't take goes to its default")
+        XCTAssertEqual(CodexEffort.resolve(nil, model: model), "low")
+        XCTAssertNil(CodexEffort.resolve("high", model: CodexModel(slug: "m", displayName: "m", defaultEffort: nil)), "a model without efforts gets none")
+        let noDefault = CodexModel(slug: "m", displayName: "m", defaultEffort: nil, efforts: ["high", "xhigh"].map { CodexEffort(value: $0) })
+        XCTAssertEqual(CodexEffort.resolve(nil, model: noDefault), "high", "no default falls to the model's first effort, not medium")
+        XCTAssertNil(CodexEffort.resolve("max", model: nil), "before the list loads a saved effort isn't sent unchecked")
+        XCTAssertNil(CodexEffort.resolve(nil, model: nil))
+    }
+
+    func testEffortTitlesUseTheModelNames() {
+        XCTAssertEqual(["low", "medium", "high", "xhigh", "max", "ultra", "minimal"].map(CodexEffort.title),
+                       ["Low", "Medium", "High", "XHigh", "Max", "Ultra", "Minimal"])
     }
 
     func testVerificationExcludesListedModelsRejectedByTheConnection() async throws {

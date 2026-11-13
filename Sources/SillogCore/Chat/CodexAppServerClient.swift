@@ -5,11 +5,15 @@ import Foundation
 public struct CodexAppServerClient: Sendable {
     private let auth: any CodexCredentialProviding
     let model: String
+    var effort: String?
+    let defaultEffort: String?
 
-    /// Args: auth는 앱이 관리하는 로그인, model은 채팅 설정에서 선택한 모델이다.
+    /// Args: auth는 앱이 관리하는 로그인, model은 채팅 설정에서 선택한 모델, effort is the reasoning effort for each turn and defaultEffort the one for short calls, nil to leave it to the model.
     /// Returns: Codex App Server 연결.
     /// Raises: 없음. CLI·인증 확인은 실행 시 수행한다.
-    public init(auth: any CodexCredentialProviding, model: String) { self.auth = auth; self.model = model }
+    public init(auth: any CodexCredentialProviding, model: String, effort: String? = "medium", defaultEffort: String? = "medium") {
+        self.auth = auth; self.model = model; self.effort = effort; self.defaultEffort = defaultEffort
+    }
 
     /// Args: timeout은 연결 검사의 제한 시간(초)이다.
     /// Returns: 없음. 개인 자료 없이 실제 도구 호출과 최종 답변을 확인한다.
@@ -25,12 +29,12 @@ public struct CodexAppServerClient: Sendable {
             }
             group.addTask {
                 try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                throw ChatToolError.unavailable("채팅 모델 연결 확인 시간이 초과되었습니다.")
+                throw ChatToolError.unavailable(tr("채팅 모델 연결 확인 시간이 초과되었습니다."))
             }
             defer { group.cancelAll() }
             return try await group.next()!
         }
-        guard text.contains(marker) else { throw ChatToolError.unavailable("Codex 도구 연결 확인에 실패했습니다.") }
+        guard text.contains(marker) else { throw ChatToolError.unavailable(tr("Codex 도구 연결 확인에 실패했습니다.")) }
     }
 
     /// Args: system·messages는 대화, tools·execute는 허용된 앱 도구, useWeb은 외부 검색 허용, onEvent는 화면 업데이트이다.
@@ -51,7 +55,7 @@ public struct CodexAppServerClient: Sendable {
             ])
             try connection.send(["method": "initialized"])
             var credentials = try await auth.credentials()
-            guard let accountID = credentials.accountId else { throw ChatToolError.unavailable("Codex 계정 정보가 없습니다. 설정에서 다시 로그인하세요.") }
+            guard let accountID = credentials.accountId else { throw ChatToolError.unavailable(tr("Codex 계정 정보가 없습니다. 설정에서 다시 로그인하세요.")) }
             _ = try await connection.request("account/login/start", [
                 "type": "chatgptAuthTokens", "accessToken": .string(credentials.accessToken), "chatgptAccountId": .string(accountID),
             ])
@@ -62,16 +66,18 @@ public struct CodexAppServerClient: Sendable {
                 "config": .object(["web_search": .string(useWeb ? "live" : "disabled")]),
                 "dynamicTools": .array(tools.map { .object(["type": "function", "name": .string($0.name), "description": .string($0.description), "inputSchema": $0.parameters]) }),
             ])
-            guard let threadID = thread["thread"]?.objectValue?["id"]?.stringValue else { throw ChatToolError.unavailable("Codex 대화를 시작하지 못했습니다.") }
+            guard let threadID = thread["thread"]?.objectValue?["id"]?.stringValue else { throw ChatToolError.unavailable(tr("Codex 대화를 시작하지 못했습니다.")) }
             // 새 런타임에는 완료된 대화만 전달한다. 서버의 별도 대화 저장은 사용하지 않는다.
             let input = messages.map { "<message role=\"\($0.role)\">\n\($0.text)\n</message>" }.joined(separator: "\n")
-            _ = try await connection.request("turn/start", [
+            var turn: [String: JSONValue] = [
                 "threadId": .string(threadID), "input": .array([.object(["type": "text", "text": .string(input)])]
                     + messages.flatMap(\.images).map { .object(["type": "localImage", "path": .string($0.path)]) }),
-                "effort": "medium", "approvalPolicy": "never",
+                "approvalPolicy": "never",
                 "environments": .array([]),
                 "sandboxPolicy": .object(["type": "readOnly", "networkAccess": false]),
-            ])
+            ]
+            if let effort { turn["effort"] = .string(effort) }
+            _ = try await connection.request("turn/start", turn)
             var finalText = ""
             var toolCount = 0
             while let event = try await connection.next() {
@@ -83,7 +89,7 @@ public struct CodexAppServerClient: Sendable {
                     case "item/tool/call":
                         toolCount += 1
                         guard toolCount <= 32, let name = params["tool"]?.stringValue, tools.contains(where: { $0.name == name }) else {
-                            throw ChatToolError.unavailable("Codex의 허용된 도구 실행 범위를 초과했습니다.")
+                            throw ChatToolError.unavailable(tr("Codex의 허용된 도구 실행 범위를 초과했습니다."))
                         }
                         let arguments = try JSONEncoder().encode(params["arguments"] ?? .object([:]))
                         let call = ChatToolCall(id: params["callId"]?.stringValue ?? UUID().uuidString, name: name, arguments: String(decoding: arguments, as: UTF8.self))
@@ -111,21 +117,34 @@ public struct CodexAppServerClient: Sendable {
                 case "turn/completed":
                     let turn = params["turn"]?.objectValue ?? [:]
                     guard turn["status"]?.stringValue == "completed" else {
-                        throw ChatToolError.unavailable(turn["error"]?.objectValue?["message"]?.stringValue ?? "Codex 응답이 중단되었습니다.")
+                        throw ChatToolError.unavailable(turn["error"]?.objectValue?["message"]?.stringValue ?? tr("Codex 응답이 중단되었습니다."))
                     }
-                    guard !finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ChatToolError.unavailable("Codex가 최종 답변을 반환하지 않았습니다.") }
+                    guard !finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ChatToolError.unavailable(tr("Codex가 최종 답변을 반환하지 않았습니다.")) }
                     return finalText
                 default: break
                 }
             }
             try Task.checkCancellation()
-            throw ChatToolError.unavailable("Codex 연결이 종료되었습니다. CLI 설치·네트워크 상태를 확인하세요.")
+            throw ChatToolError.unavailable(tr("Codex 연결이 종료되었습니다. CLI 설치·네트워크 상태를 확인하세요."))
         } onCancel: { connection.close() }
     }
 }
 
 /// 채팅 실행과 모델 목록 조회에서 같은 Codex 실행기·버전을 사용한다.
-enum CodexRuntime {
+public enum CodexRuntime {
+    /// Args: folder is where runs make their folders; the system temp dir unless a test passes its own.
+    /// Returns: none. Deletes run folders a crash or force quit left behind.
+    /// Raises: none. A folder that can't be read or deleted is skipped.
+    public static func removeStaleDirectories(in folder: URL = FileManager.default.temporaryDirectory) {
+        // A day spares a run in progress, including one from a concurrent sillogctl.
+        let cutoff = Date().addingTimeInterval(-86_400)
+        let children = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        for child in children where child.lastPathComponent.hasPrefix("sillog-codex-") {
+            guard let modified = try? child.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate, modified < cutoff else { continue }
+            try? FileManager.default.removeItem(at: child)
+        }
+    }
+
     static var paths: [String] {
         (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init) + ["/opt/homebrew/bin", "/usr/local/bin"]
     }
@@ -137,7 +156,7 @@ enum CodexRuntime {
         let bundled = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.openai.codex")?.appendingPathComponent("Contents/Resources/codex")
         let candidates = [bundled].compactMap { $0 } + paths.map { URL(fileURLWithPath: $0).appendingPathComponent("codex") }
         guard let executable = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) else {
-            throw ChatToolError.unavailable("Codex CLI가 필요합니다. Codex CLI를 설치한 뒤 앱을 다시 실행하세요.")
+            throw ChatToolError.unavailable(tr("Codex CLI가 필요합니다. Codex CLI를 설치한 뒤 앱을 다시 실행하세요."))
         }
         return executable
     }
@@ -254,11 +273,11 @@ private final class CodexServerConnection: @unchecked Sendable {
         try send(["id": id, "method": .string(method), "params": .object(params)])
         while let event = try await readLine() {
             if event["id"] == id, event["method"] == nil {
-                if let error = event["error"]?.objectValue { throw ChatToolError.unavailable(error["message"]?.stringValue ?? "Codex 연결 오류") }
+                if let error = event["error"]?.objectValue { throw ChatToolError.unavailable(error["message"]?.stringValue ?? tr("Codex 연결 오류")) }
                 return event["result"]?.objectValue ?? [:]
             }
             pending.append(event)
         }
-        throw ChatToolError.unavailable("Codex 초기화 중 연결이 종료되었습니다. Codex CLI를 업데이트하세요.")
+        throw ChatToolError.unavailable(tr("Codex 초기화 중 연결이 종료되었습니다. Codex CLI를 업데이트하세요."))
     }
 }

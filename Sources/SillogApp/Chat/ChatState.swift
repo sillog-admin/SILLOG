@@ -7,7 +7,15 @@ import SillogCore
 final class ChatState: ObservableObject {
     @Published var conversations: [ChatConversation] = []
     @Published var conversationPreviews: [String: String] = [:]
-    @Published var current = ChatConversation()
+    @Published var current = ChatConversation() {
+        didSet {
+            if current.id != oldValue.id || current.projectID != oldValue.projectID {
+                library.showAttachments(conversationID: current.id, projectID: current.projectID)
+            }
+            // An unsaved new chat's id is stored too; reopening it finds nothing and stays on a new chat.
+            if current.id != oldValue.id { UserDefaults.standard.set(current.id, forKey: Self.lastConversationKey) }
+        }
+    }
     @Published var messages: [ConversationMessage] = []
     @Published var skills: [ChatSkill] = []
     @Published private(set) var pinnedSkillIDs: [String] = []
@@ -16,6 +24,7 @@ final class ChatState: ObservableObject {
     @Published var draft = ""
     @Published var draftConnectors: [String] = []
     @Published var error: String?
+    @Published var openArtifactID: String?
     @Published var activeMessage: ConversationMessage?
     /// 범위 단추의 고를 거리: 이 대화에서 볼 수 있는 분야·업무
     @Published var focusChoices = ChatFocusChoices()
@@ -26,10 +35,18 @@ final class ChatState: ObservableObject {
     private let db: SillogDatabase
     private let store: ChatStore
     private let makeClient: () -> ChatBackend
+    var userInstructions: () -> String = { "" }
     private var runTask: Task<Void, Never>?
     private var scheduler: Task<Void, Never>?
     private var titleTask: Task<Void, Never>?
+    // shortcut: in memory only, lost on quit; persist if users ask for it.
+    private var drafts: [String: String] = [:]
+    private var pendingText = ""
+    private var textFlush: Task<Void, Never>?
     var running: Bool { activeMessage != nil }
+    // shortcut: fixed 20 min cap, make it per-job if long scheduled jobs appear
+    static var scheduledRunLimit: Duration = .seconds(1200)
+    static let lastConversationKey = "sillog.chat.lastConversationID"
 
     /// Args: db는 앱 DB, makeClient는 현재 설정으로 모델 연결을 생성한다.
     /// Returns: 저장된 대화와 스킬을 불러온 채팅 상태.
@@ -39,6 +56,7 @@ final class ChatState: ObservableObject {
         projects = ProjectState(db: db, makeClient: makeProjectClient)
         library = LibraryState(db: db)
         library.onChange = { [weak self] in self?.projects.reload() }
+        library.showAttachments(conversationID: current.id, projectID: current.projectID)
         projects.onChange = { [weak self] in
             guard let self else { return }
             do {
@@ -51,9 +69,20 @@ final class ChatState: ObservableObject {
             try store.recoverInterruptedRuns()
             skills = try store.skills()
             pinnedSkillIDs = try store.pinnedSkillIDs()
-            try reload()                                  // 처음엔 최근 대화가 아니라 새 대화(홈)로 시작
+            try reload()
+            reopenLast()
         } catch { self.error = error.localizedDescription }
         refreshFocusChoices()
+        // shortcut: crash still loses unflushed text, checkpoint in flushText if crashes matter.
+        _ = NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.flushText()
+                if let message = self.activeMessage { try? self.store.save(message) }
+                self.runTask?.cancel()
+            }
+        }
+        Task.detached(priority: .background) { CodexRuntime.removeStaleDirectories() }
     }
 
     /// Args: 없음.
@@ -74,6 +103,17 @@ final class ChatState: ObservableObject {
     func useNoRecords() {
         current.scope.focus = []
         current.scope.useActivity = false
+    }
+
+    /// First questions for an empty chat: two fixed ones, then the two most recently worked tasks.
+    var starterPrompts: [(prompt: String, focus: ChatFocus?)] {
+        [(tr("오늘 한 일 정리해 줘"), nil), (tr("이번 주 업무 보고서 만들어 줘"), nil)]
+            + focusChoices.tasks.prefix(2).map { (tr("\($0.focus.title) 진행 상황 정리해 줘"), $0.focus) }
+    }
+
+    func useStarter(_ prompt: String, focus: ChatFocus?) {
+        draft = prompt
+        if let focus { setFocus([focus]) } else { inputFocusRequest += 1 }
     }
 
     func refreshFocusChoices() {
@@ -120,19 +160,40 @@ final class ChatState: ObservableObject {
     }
 
     func newConversation(projectID: String? = nil, focus: [ChatFocus] = []) {
+        // Commits pending IME text into the old draft before the draft changes.
+        _ = NSApp?.keyWindow?.makeFirstResponder(nil)
         draftConnectors = []
-        current = ChatConversation(); current.projectID = projectID; current.scope.focus = focus; messages = []; draft = ""; error = nil
-        if !focus.isEmpty { refreshFocusChoices(); inputFocusRequest += 1 }   // 업무에서 '이 업무로 묻기'로 왔으면 바로 쓰게
+        openArtifactID = nil
+        // Coming back to the chat tab also lands here, so an unsent home draft is kept.
+        let kept = messages.isEmpty ? draft : (drafts.removeValue(forKey: "") ?? "")
+        if !messages.isEmpty { stashDraft() }
+        current = ChatConversation(); current.projectID = projectID; current.scope.focus = focus; messages = []; draft = kept; error = nil
+        if !focus.isEmpty { refreshFocusChoices() }
+        inputFocusRequest += 1
     }
+
+    /// Opens the conversation open last time, or a new chat when it was deleted.
+    func reopenLast() {
+        let id = UserDefaults.standard.string(forKey: Self.lastConversationKey)
+        if let saved = conversations.first(where: { $0.id == id }) { select(saved) }
+        else if !conversations.contains(where: { $0.id == current.id }), !messages.isEmpty { newConversation() }
+    }
+
+    // The unsaved home chat gets a new id each time, so its draft sits under one fixed key.
+    private func stashDraft() { drafts[messages.isEmpty ? "" : current.id] = draft.isEmpty ? nil : draft }
 
     /// Args: conversation은 선택한 대화이다.
     /// Returns: 없음. 저장된 메시지와 진행 중인 응답을 표시한다.
     /// Raises: 없음. 조회 오류는 화면에 표시한다.
     func select(_ conversation: ChatConversation) {
+        guard conversation.id != current.id else { return }
+        _ = NSApp?.keyWindow?.makeFirstResponder(nil)
         draftConnectors = []
         do {
             let loaded = try store.messages(conversation.id)
-            current = conversation; messages = loaded; draft = ""; error = nil
+            stashDraft()
+            current = conversation; messages = loaded; draft = drafts[conversation.id] ?? ""; error = nil; openArtifactID = nil
+            inputFocusRequest += 1
             let available = Set(skills.map(\.id))
             current.skillIDs.removeAll { !available.contains($0) }
             if let activeMessage, activeMessage.conversationID == conversation.id { replaceVisible(activeMessage) }
@@ -153,9 +214,14 @@ final class ChatState: ObservableObject {
     }
 
     /// Args: conversation은 사용자가 삭제를 확인한 대화이다.
-    /// Returns: 없음. 응답 생성 중인 대화는 삭제하지 않는다.
+    /// Returns: 없음. 답변 중이면 멈추고, 멈춘 답변의 마지막 저장이 끝난 뒤에 지운다.
     /// Raises: 없음. 삭제 오류는 화면에 표시한다.
     func delete(_ conversation: ChatConversation) {
+        if let runTask, activeMessage?.conversationID == conversation.id {
+            runTask.cancel()
+            Task { await runTask.value; self.delete(conversation) }
+            return
+        }
         do {
             try deleteConversations([conversation.id])
         } catch { self.error = error.localizedDescription }
@@ -166,9 +232,8 @@ final class ChatState: ObservableObject {
         try store.deleteConversations(Array(ids))
         try reload()
         projects.reload()
-        if ids.contains(current.id) {
-            if let next = conversations.first { select(next) } else { newConversation() }
-        }
+        if ids.contains(current.id) { newConversation() }
+        for id in ids { drafts[id] = nil }
     }
 
     func moveConversations(_ ids: Set<String>, to projectID: String?) throws {
@@ -244,11 +309,17 @@ final class ChatState: ObservableObject {
     @discardableResult
     func send() -> Bool {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !running else { return false }
+        guard !text.isEmpty else { return false }
+        if let activeMessage {
+            if activeMessage.conversationID != current.id { error = tr("다른 대화의 응답이 끝나면 보낼 수 있어요") }
+            return false
+        }
         guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
         guard begin(text, conversation: current, automationID: nil, draftConnectors: draftConnectors) else { return false }
         draft = ""
+        drafts[current.id] = nil
         draftConnectors = []
+        inputFocusRequest += 1     // the home input and the conversation input are different views
         return true
     }
 
@@ -258,7 +329,7 @@ final class ChatState: ObservableObject {
     }
 
     /// Args: message is the question to resend with `text`, or an answer to regenerate when text is nil.
-    /// Returns: 시작했으면 true. 그 질문부터 뒤의 메시지는 새 질문을 저장할 때 같이 지운다. 시작하지 못하면 아무것도 지우지 않는다.
+    /// Returns: true when started. That question and everything after it leave the active path when the new one is saved; an edit keeps them as a branch. Nothing changes when it can't start.
     /// Raises: 없음. 시작하지 못한 이유는 error에 남긴다.
     @discardableResult func resend(from message: ConversationMessage, text: String? = nil) -> Bool {
         let replaced = replacedMessages(from: message)
@@ -267,7 +338,72 @@ final class ChatState: ObservableObject {
         guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
         let request = (text ?? question.text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !request.isEmpty else { return false }
-        return begin(request, conversation: current, automationID: nil, replacing: replaced)
+        // Only a regenerate or an unchanged resend keeps the old answer; an edited question makes it answer something else.
+        // Failed runs are dropped and only the last 9 kept so the payload and the version picker stay small.
+        let edited = text.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) != question.text.trimmingCharacters(in: .whitespacesAndNewlines) } ?? false
+        let kept = !edited && replaced.count > 1 && replaced[1].role == "assistant" ? Array(replaced[1].versions.filter { $0.status != "failed" }.suffix(9)) : []
+        let earlier = kept.isEmpty ? nil : kept
+        guard begin(request, conversation: current, automationID: nil, replacing: replaced, earlierAnswers: earlier) else { return false }
+        inputFocusRequest += 1     // an inline edit had the focus
+        return true
+    }
+
+    /// Args: question is a question with branches, index the path to show among ConversationMessage.paths.
+    /// Returns: none. Makes that path the active one and stores it, so later sends use it as history.
+    /// Raises: none. A save failure goes to error and changes nothing.
+    func showBranch(_ question: ConversationMessage, at index: Int) {
+        guard activeMessage?.conversationID != current.id,
+              let switched = ConversationMessage.switching(question, to: index, in: messages) else { return }
+        let removed = replacedMessages(from: question)
+        let inserted = Array(switched[(messages.count - removed.count)...])
+        do {
+            try store.replaceMessages(in: current.id, removing: removed, inserting: inserted)
+            messages = switched
+            for message in inserted where !message.artifacts.isEmpty { library.collect(message) }
+            library.reload()
+            if let id = openArtifactID, !messages.contains(where: { $0.versions.contains { $0.artifacts.contains { $0.id == id } } }) { openArtifactID = nil }
+            try reload()
+        } catch { self.error = error.localizedDescription }
+    }
+
+    /// Args: artifact is the version the user edited in the panel, content its new text.
+    /// Returns: none. Saves the edit as the series' newest version, collects it like a generated one and opens it.
+    /// Raises: none. A save failure goes to error and changes nothing.
+    func saveEdit(of artifact: ChatArtifact, content: String) {
+        // The run's final save would overwrite an edit made on the answer still being written.
+        guard let (message, version) = ChatArtifact.edit(artifact, content: content, in: messages), message.id != activeMessage?.id else { return }
+        do { try store.save(message) } catch { self.error = error.localizedDescription; return }
+        replaceVisible(message)
+        openArtifactID = version.id
+        if let owner = message.versions.first(where: { $0.artifacts.contains { $0.id == version.id } }) { library.collect(owner) }
+    }
+
+    /// Puts a passage from a result into the composer as a quote, with the caret after it for the question.
+    func ask(about selection: String) {
+        guard !selection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let quote = ChatArtifact.quote(selection)
+        draft = draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? quote : draft + "\n\n" + quote
+        inputFocusRequest += 1
+    }
+
+    /// Asks for the rest of a stopped answer; ChatRunner keeps the partial text in the history.
+    // shortcut: adds a visible follow-up turn instead of extending the stopped answer, merge them if users want one answer.
+    @discardableResult func continueAnswer() -> Bool {
+        guard !running else { error = tr("응답이 끝난 뒤에 다시 보내 주세요."); return false }
+        guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
+        return begin(tr("앞 답변에 이어서 계속 써 줘"), conversation: current, automationID: nil)
+    }
+
+    /// Copies the conversation as Markdown with sources, or saves it to a file the user picks.
+    func exportMarkdown(_ conversation: ChatConversation, toFile: Bool) {
+        do {
+            let title = ChatConversation.display(conversation.title)
+            let text = ConversationMessage.markdown(title: title, messages: try store.messages(conversation.id))
+            guard toFile else { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string); return }
+            let panel = NSSavePanel(); panel.nameFieldStringValue = title.replacingOccurrences(of: "/", with: "-") + ".md"
+            guard panel.runModal() == .OK, let destination = panel.url else { return }
+            try Data(text.utf8).write(to: destination, options: .atomic)
+        } catch { self.error = error.localizedDescription }
     }
 
     /// 고정한 대화, 고정 시각 내림차순.
@@ -291,10 +427,10 @@ final class ChatState: ObservableObject {
     }
 
     /// 제목과 본문에서 찾는다. 빈 글이면 [].
-    /// DB 조회는 메인 스레드 밖에서 돈다.
     func search(_ query: String) async -> [ChatSearchHit] {
-        let store = store
-        do { return try await Task.detached { try store.searchConversations(query) }.value }
+        do { return try await store.searchConversations(query) }
+        // The panel cancels a query when the text changes or it closes; that is not an error.
+        catch is CancellationError { return [] }
         catch { self.error = error.localizedDescription; return [] }
     }
 
@@ -365,7 +501,7 @@ final class ChatState: ObservableObject {
     /// Args: text는 요청, conversation은 실행 범위, automationID가 있으면 승인된 예약 실행이다.
     /// Returns: 요청을 저장하고 시작했으면 true.
     /// Raises: 없음. 시작 실패는 화면에 표시한다.
-    @discardableResult private func begin(_ text: String, conversation: ChatConversation, automationID: String?, draftConnectors: [String] = [], replacing: [ConversationMessage] = []) -> Bool {
+    @discardableResult private func begin(_ text: String, conversation: ChatConversation, automationID: String?, draftConnectors: [String] = [], replacing: [ConversationMessage] = [], earlierAnswers: [ConversationMessage]? = nil) -> Bool {
         guard !running else { return false }
         do {
             var conversation = conversation
@@ -396,13 +532,18 @@ final class ChatState: ObservableObject {
             }
             conversation.projectID = scope.projectID
             let replacedIDs = Set(replacing.map(\.id))
-            let previous = try store.messages(conversation.id).filter { !replacedIDs.contains($0.id) }
-            let remoteConnectors = try ConnectorAuth.remoteIDs()
-            let needsTitle = previous.isEmpty && automationID == nil && conversation.title == tr("새 대화")
+            let previous = (current.id == conversation.id ? messages : try store.messages(conversation.id)).filter { !replacedIDs.contains($0.id) }
+            let remoteConnectors = ConnectorAuth.remoteIDs()
+            let firstText = previous.first { $0.role == "user" }?.text ?? text
+            let fallbackTitle = String(firstText.prefix(48))
+            // Retried on later turns too, so a stopped or failed first answer still gets a title.
+            let needsTitle = automationID == nil && (conversation.title == ChatConversation.defaultTitle || conversation.title == fallbackTitle)
             conversation.updatedAt = Date().timeIntervalSince1970
-            let user = ConversationMessage(conversationID: conversation.id, role: "user", text: text)
-            let answer = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "", status: "running")
+            var user = ConversationMessage(conversationID: conversation.id, role: "user", text: text)
+            user.branch(replacing: replacing)
             let backend = makeClient()
+            var answer = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "", status: "running")
+            answer.model = backend.modelName; answer.effort = backend.effort; answer.previous = earlierAnswers
             let searchKey: String, searchModel: String
             if case .model(let client as OpenAICompatClient) = backend,
                client.baseURL.host == "api.openai.com", scope.useWeb {
@@ -423,18 +564,31 @@ final class ChatState: ObservableObject {
                                   remoteConnectors: remoteConnectors)
             let runner = ChatRunner(backend: backend, tools: tools)
             let selectedCatalog = skills
-            activeMessage = answer; error = nil; library.chatImportError = nil
+            activeMessage = answer
+            // A scheduled run starts in the background and must not clear an error the user is reading.
+            if automationID == nil { error = nil; library.chatImportError = nil }
             // The turn is saved; a list refresh failure must not leave it running without a task.
             do { try reload() } catch { self.error = error.localizedDescription }
             if current.id == conversation.id { current = conversation; messages = previous + [user, answer] }
+            if let id = openArtifactID, !messages.contains(where: { $0.versions.contains { $0.artifacts.contains { $0.id == id } } }) { openArtifactID = nil }
+            if !replacing.isEmpty { library.reload() }    // startTurn unlinked the replaced answers' artifacts
+            if automationID != nil {
+                // Nobody is watching a scheduled run to stop it, and a hung one would block every later job.
+                Task { [weak self, id = answer.id] in
+                    try? await Task.sleep(for: Self.scheduledRunLimit)
+                    if self?.activeMessage?.id == id { self?.cancel() }
+                }
+            }
             runTask = Task { [weak self] in
                 guard let self else { return }
                 var succeeded = false
+                var failure: String?
                 do {
                     let project = self.projects.projects.first(where: { $0.id == conversation.projectID })
-                    let result = try await runner.run(history: previous + [user], skillIDs: conversation.skillIDs, skillCatalog: selectedCatalog, scheduled: automationID != nil, project: project) { [weak self] event in
+                    let result = try await runner.run(history: previous + [user], skillIDs: conversation.skillIDs, skillCatalog: selectedCatalog, scheduled: automationID != nil, project: project, memory: conversation.memory, userInstructions: self.userInstructions()) { [weak self] event in
                         await self?.receive(event)
                     }
+                    self.flushText()
                     try Task.checkCancellation()
                     self.activeMessage?.text = result.text
                     self.activeMessage?.sources = result.sources
@@ -442,55 +596,120 @@ final class ChatState: ObservableObject {
                     self.activeMessage?.automation = result.automation
                     self.activeMessage?.status = "complete"
                     succeeded = true
+                    if result.memory != conversation.memory { self.remember(result.memory, in: conversation.id) }
                 } catch {
+                    self.flushText()
                     let cancelled = Task.isCancelled || error is CancellationError
                     self.activeMessage?.status = cancelled ? "cancelled" : "failed"
                     if !cancelled {
-                        let description = error.localizedDescription
+                        AppLog.write("chat failed: \(error)")
+                        let description = ChatFailure.message(for: error).text
+                        failure = description
                         self.activeMessage?.text += tr("\n\n응답을 완료하지 못했습니다: \(description)")
                     }
                 }
+                self.activeMessage?.completedAt = Date().timeIntervalSince1970
                 if let message = self.activeMessage {
                     self.replaceVisible(message)
-                    do { try self.store.save(message) } catch { self.error = tr("응답 저장 실패: \(error.localizedDescription)"); succeeded = false }
+                    do { try self.store.save(message) } catch { self.error = tr("응답 저장 실패: \(error.localizedDescription)"); failure = self.error; succeeded = false }
                     if succeeded { self.library.collect(message) }
                 }
+                // Scheduled runs finish unattended, and a stopped run needs no news.
+                if automationID == nil, let spoken = succeeded ? tr("답변 완료") : failure {
+                    AccessibilityNotification.Announcement(spoken).post()
+                }
                 if let automationID, var job = self.automations.first(where: { $0.id == automationID }) {
-                    job.lastStatus = succeeded ? tr("완료") : tr("실패 또는 중단 — 다음 예약에 실행")
+                    job.lastStatus = succeeded ? "완료" : "실패 또는 중단 — 다음 예약에 실행"
                     do { try self.store.save(job) } catch { self.error = error.localizedDescription }
                 }
+                let finished = self.activeMessage
                 self.activeMessage = nil; self.runTask = nil
                 do { try self.reload() } catch { self.error = error.localizedDescription }
+                // Title first so the sidebar names the chat without waiting for the follow-up call.
                 if needsTitle, !Task.isCancelled {
                     do {
-                        let title = try await backend.conversationTitle(for: text)
-                        self.applyTitle(title, to: conversation.id, replacing: tr("새 대화"))
-                    } catch { self.error = tr("대화 제목 생성 실패: \(error.localizedDescription)") }
+                        let title = try await backend.conversationTitle(for: firstText)
+                        self.applyTitle(title, to: conversation.id, replacing: conversation.title)
+                    } catch {
+                        AppLog.write("chat title failed: \(error.localizedDescription)")
+                        // updateOldTitles retries chats titled with this prefix on a later launch.
+                        self.applyTitle(fallbackTitle, to: conversation.id, replacing: conversation.title)
+                    }
+                }
+                if succeeded, automationID == nil, let finished, !Task.isCancelled {
+                    do {
+                        let followUp = try await backend.followUpQuestion(question: text, answer: finished.text)
+                        // Re-read so a regenerated or deleted answer is not saved back and later edits are kept.
+                        if var stored = try self.store.messages(conversation.id).first(where: { $0.id == finished.id }) {
+                            stored.followUp = followUp
+                            try self.store.save(stored); self.replaceVisible(stored)
+                        }
+                    } catch { AppLog.write("chat follow-up failed: \(error.localizedDescription)") }
                 }
             }
             return true
         } catch { self.error = error.localizedDescription; return false }
     }
 
+    /// Stores the summary of older messages on the conversation as it is now, so a rename or scope change made meanwhile is kept.
+    private func remember(_ memory: ChatMemory?, in conversationID: String) {
+        guard var stored = (current.id == conversationID ? current : conversations.first { $0.id == conversationID }) else { return }
+        stored.memory = memory
+        do { try store.save(stored) } catch { AppLog.write("chat memory save failed: \(error)") }
+        if current.id == conversationID { current.memory = memory }
+    }
+
     /// Args: event는 실제 모델·도구 실행에서 발생한 이벤트이다.
     /// Returns: 없음. 현재 응답을 갱신하고 단계 변경 시 저장한다.
     /// Raises: 없음. 저장 오류는 화면에 표시한다.
     private func receive(_ event: ChatRunEvent) {
+        if case .text(let text) = event {
+            pendingText += text
+            // shortcut: fixed 40ms batches so each token doesn't redraw the whole chat; tune if streaming looks choppy.
+            if textFlush == nil {
+                textFlush = Task { [weak self] in
+                    do { try await Task.sleep(nanoseconds: 40_000_000) } catch { return }
+                    self?.flushText()
+                }
+            }
+            return
+        }
+        flushText()
         guard var message = activeMessage else { return }
         var checkpoint = true
         switch event {
-        case .textReset: message.text = ""; checkpoint = false
+        case .textReset: message.text = ""   // saving here keeps a crash from leaving the last step's preamble as the answer
         case .text(let text): message.text += text; checkpoint = false
-        case .step(let text): message.steps.append(text)
+        case .step(let text): message.trace = (message.trace ?? []) + [ChatStep(title: text, status: .done)]
+        case .stepStarted(let step): message.trace = (message.trace ?? []) + [step]
+        case .stepFinished(let id, let result, let failed):
+            if let index = message.trace?.firstIndex(where: { $0.id == id }) {
+                message.trace?[index].result = result
+                message.trace?[index].status = failed ? .failed : .done
+                message.trace?[index].endedAt = Date().timeIntervalSince1970
+            }
         case .source(let source):
-            message.sources.removeAll { $0.id == source.id }; message.sources.append(source)
-        case .artifact(let artifact): message.artifacts.append(artifact)
+            // The following stepFinished, textReset or final save writes it; saving here rewrote the row per source.
+            message.sources.removeAll { $0.id == source.id }; message.sources.append(source); checkpoint = false
+        case .artifact(let artifact):
+            message.artifacts.append(artifact)
+            if message.conversationID == current.id { openArtifactID = artifact.id }
         case .automation(let proposal): message.automation = proposal
         }
         activeMessage = message; replaceVisible(message)
         if checkpoint {
             do { try store.save(message) } catch { self.error = tr("진행 기록 저장 실패: \(error.localizedDescription)") }
         }
+    }
+
+    /// Publishes streamed text held back by receive, before any other change so the order stays the same.
+    private func flushText() {
+        textFlush?.cancel(); textFlush = nil
+        guard !pendingText.isEmpty else { return }
+        defer { pendingText = "" }
+        guard var message = activeMessage else { return }
+        message.text += pendingText
+        activeMessage = message; replaceVisible(message)
     }
 
     /// Args: message는 갱신된 응답이다.
@@ -540,7 +759,7 @@ final class ChatState: ObservableObject {
     /// Args: 없음.
     /// Returns: 없음. 기한이 지난 예약 하나를 실행하며 누락 횟수는 재생하지 않는다.
     /// Raises: 없음. 등록·실행 실패는 예약 상태에 표시한다.
-    private func runDueAutomation() {
+    func runDueAutomation() {
         guard !running else { return }
         let now = Date().timeIntervalSince1970
         guard var job = automations.filter({ $0.enabled && $0.nextRun <= now }).min(by: { $0.nextRun < $1.nextRun }) else { return }
@@ -548,11 +767,11 @@ final class ChatState: ObservableObject {
         conversation.title = tr("예약 · \(job.title)"); conversation.scope = job.scope; conversation.skillIDs = job.skillIDs
         conversation.projectID = job.scope.projectID
         job.nextRun = now + Double(job.intervalHours) * 3600
-        job.lastStatus = tr("실행 중"); job.lastConversationID = conversation.id
+        job.lastStatus = "실행 중"; job.lastConversationID = conversation.id
         do {
             try store.save(job); try reload()
             if !begin(job.prompt, conversation: conversation, automationID: job.id) {
-                job.lastStatus = tr("시작 실패 — 설정을 확인하세요"); try store.save(job); try reload()
+                job.lastStatus = "시작 실패 — 설정을 확인하세요"; try store.save(job); try reload()
             }
         } catch { self.error = error.localizedDescription }
     }

@@ -96,7 +96,7 @@ struct ConnectorCatalogView: View {
             .alert(tr("커넥터 연결"), isPresented: $showNotice) {
                 Button(tr("확인"), role: .cancel) {}
             } message: { Text(notice ?? "") }
-            .onAppear(perform: refresh)
+            .task { await refresh() }
     }
 
     // MARK: 목록 (CH-13, 70, 72, 73)
@@ -471,7 +471,7 @@ struct ConnectorCatalogView: View {
                 let tools = ChatTools(db: try SillogDatabase.inMemory(), scope: ChatScope(),
                                       connectorToken: { try await ConnectorAuth.accessToken($0) },
                                       connectorResource: { try ConnectorAuth.resource($0) },
-                                      remoteConnectors: try ConnectorAuth.remoteIDs())
+                                      remoteConnectors: ConnectorAuth.remoteIDs().union(RemoteReadConnector(rawValue: connector.id).map { [$0.rawValue] } ?? []))
                 let read = try await tools.checkConnector(connector.id)
                 let verified = connector.id == "github" ? tr("저장소 검색과 PR 목록 조회") : connector.summary
                 notify(read ? tr("\(connector.name)에서 \(verified) 응답을 확인했어요.")
@@ -512,11 +512,13 @@ struct ConnectorCatalogView: View {
         catch { notify(error.localizedDescription) }
     }
 
-    /// Args: 없음.
-    /// Returns: 없음. Keychain에서 설치 상태를 다시 읽는다.
-    /// Raises: 없음. Keychain 오류는 화면에 표시한다.
-    private func refresh() {
-        do { connected = Set(try ConnectorEntry.all.filter { try ConnectorAuth.isConnected($0.id) }.map(\.id)) }
+    /// Args: none.
+    /// Returns: nothing. Rereads which connectors have a saved account.
+    /// Raises: none. A Keychain error is shown on screen.
+    private func refresh() async {
+        let ids = ConnectorEntry.all.map(\.id)
+        // Off the main thread: a Keychain prompt would freeze the app while it waits.
+        do { connected = try await Task.detached { Set(try ids.filter { try ConnectorAuth.isConnected($0) }) }.value }
         catch { notify(error.localizedDescription) }
     }
 

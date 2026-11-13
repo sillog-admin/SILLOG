@@ -5,7 +5,7 @@ import SillogCore
 /// 스냅샷으로 그릴 화면 목록. 이름은 Figma 화면 번호를 따른다 (Figma 에서 내보낸 같은 이름의 PNG 와 나란히 본다)
 @MainActor
 enum SnapshotCatalog {
-    static var all: [Snapshot] { menus + windows + activity + chat + library + storage + [mathAnswer, codeAnswer] + recording }
+    static var all: [Snapshot] { menus + windows + activity + chat + library + storage + [mathAnswer, codeAnswer, workLog, citations, tableAnswer] + recording }
 
     /// Figma 창(760) 에서 제목 줄(44)을 뺀 내용 영역
     static let window = CGSize(width: 1180, height: 716)
@@ -174,6 +174,47 @@ enum SnapshotCatalog {
         return Snapshot(name: "CH-code", size: CGSize(width: 688, height: 560), view: AnyView(view.environmentObject(AppState(preview: { _ in }))))
     }
 
+    /// Tables: a narrow status column next to a long one, and an 8-column table that scrolls
+    static var tableAnswer: Snapshot {
+        let answer = """
+        | 업무 | 상태 | 설명 |
+        |---|---|---|
+        | 결과물 패널 | 완료 | 답변 옆에 결과물을 열고 버전을 오가며 Word, PowerPoint, Excel 파일로 내보낼 수 있게 했어요. |
+        | 버전 전환 | 진행 중 | 다시 생성한 답변을 지우지 않고 1/2처럼 넘겨 볼 수 있어요. |
+
+        | 월 | 화 | 수 | 목 | 금 | 토 | 일 | 합계 |
+        |---|---|---|---|---|---|---|---|
+        | 3시간 | 4시간 | 2시간 30분 | 5시간 | 6시간 | 0 | 1시간 | 21시간 30분 |
+        """
+        let view = ChatMessageText(text: answer, sources: [], onSource: { _ in }).frame(width: 640).padding(24).background(Color.white)
+        return Snapshot(name: "CH-table", size: CGSize(width: 688, height: 320), view: AnyView(view.environmentObject(AppState(preview: { _ in }))))
+    }
+
+    /// Citation chips hug a short title, cut a long one, and count the rest
+    static var citations: Snapshot {
+        let sources = [ChatSource(id: "chat:1", title: "Claude Code 사용자 메시지", location: "~/Developer/SILLOG", excerpt: "사용자의 요청 원문 (실행 완료 증거 아님)\n채팅 인용 칩 고치기"),
+                       ChatSource(id: "node:2", title: "Task · SILLOG 채팅 화면의 인용 칩과 출처 시트 다듬기", location: "task:chat-citations", excerpt: "")]
+        let answer = "인용 칩을 왼쪽 정렬로 바꾸기로 했어요. [chat:1][node:2]\n\n긴 제목만 따로 인용하면 이렇게 보여요. [node:2]"
+        let view = ChatMessageText(text: answer, sources: sources, onSource: { _ in }).frame(width: 640).padding(24).background(Color.white)
+        return Snapshot(name: "CH-citations", size: CGSize(width: 688, height: 200), view: AnyView(view.environmentObject(AppState(preview: { _ in }))))
+    }
+
+    /// A finished answer's work log, opened, with one result shown and one failed step
+    static var workLog: Snapshot {
+        var message = ConversationMessage(conversationID: "c", role: "assistant", text: "")
+        var steps = [ChatStep(title: "기록 검색", detail: "SILLOG 채팅 개선", status: .done),
+                     ChatStep(title: "기간 집계", detail: "2026-11-09 – 2026-11-13", status: .done),
+                     ChatStep(title: "웹 원문 확인", detail: "https://example.com/notes", status: .failed),
+                     ChatStep(title: "결과물 생성", detail: "주간 업무 보고", status: .done)]
+        let start = steps[0].startedAt
+        for i in steps.indices { steps[i].startedAt = start + Double(i) * 4; steps[i].endedAt = start + Double(i) * 4 + 3 }
+        steps[1].result = "11월 9일–13일 활동 41시간\n· SILLOG 채팅 개선 18시간\n· 삼일PwC 과제 9시간\n· 기타 14시간"
+        steps[2].result = "도구 실행 실패: 검색 결과나 사용자가 준 주소만 읽을 수 있습니다."
+        message.trace = steps
+        let view = WorkLogPreview(message: message).frame(width: 560, alignment: .leading).padding(24).background(Color.white)
+        return Snapshot(name: "CH-worklog", size: CGSize(width: 608, height: 420), view: AnyView(view.environmentObject(AppState(preview: { _ in }))))
+    }
+
     /// 채팅 답의 수식: 블록 행렬(\text{①}, \qquad), 글줄 수식, \text 안 한글, 분수
     static var mathAnswer: Snapshot {
         let answer = #"""
@@ -305,7 +346,8 @@ enum SnapshotCatalog {
             s.phase = .ready; s.status = collector(); s.selectedTab = .chat
             s.settings.chatProvider = "codex"; s.settings.chatCodexModel = "gpt-6-luna"; s.settings.chatSameAsOrganize = false
             s.codexStatus = .loggedIn(email: nil, plan: "plus", expiresAt: nil)
-            s.chatCodexModels = [CodexModel(slug: "gpt-6-luna", displayName: "GPT-6 Luna", defaultEffort: nil),
+            s.chatCodexModels = [CodexModel(slug: "gpt-6-luna", displayName: "GPT-6 Luna", defaultEffort: "medium",
+                                            efforts: ["low", "medium", "high", "xhigh"].map { CodexEffort(value: $0) }),
                                  CodexModel(slug: "gpt-6", displayName: "GPT-6", defaultEffort: nil)]
             let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)   // 그리기만 하고 부르지 않는다
             s.chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
@@ -319,7 +361,107 @@ enum SnapshotCatalog {
         return [Snapshot(name: "CH-01", size: window, view: AnyView(MainWindow().environmentObject(state))),
                 Snapshot(name: "CH-SKILL-PINS", size: nil, view: AnyView(PinnedSkillPicker(chat: state.chat!, onManage: {}).background(.white))),
                 Snapshot(name: "CH-13", size: window, view: AnyView(MainWindow().environmentObject(tab(.connectors)))),
-                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus
+                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus + artifactPanel + longQuestion + failedAnswer + regenerated + attachedImage + scheduledRun
+    }
+
+    /// A scheduled run answering in another chat: its name in the banner, with Move and Stop
+    private static var scheduledRun: [Snapshot] {
+        // The proposal's memberwise init is internal to SillogCore.
+        guard let database = try? SillogDatabase.inMemory(),
+              let proposal = try? JSONDecoder().decode(ChatAutomationProposal.self, from: Data(#"{"title":"주간 업무 정리","prompt":"p","intervalHours":24}"#.utf8))
+        else { return [] }
+        let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
+        let chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        let id = chat.current.id, other = ChatConversation()
+        var job = ChatAutomation(proposal: proposal, conversation: other)
+        job.lastConversationID = other.id
+        chat.automations = [job]
+        chat.activeMessage = ConversationMessage(conversationID: other.id, role: "assistant", text: "", status: "running")
+        chat.messages = [.init(conversationID: id, role: "user", text: "이번 주에 한 일을 정리해줘"),
+                         .init(conversationID: id, role: "assistant", text: "## 이번 주\n\n- `ChatView` 정리")]
+        let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })
+        return [Snapshot(name: "CH-scheduled-running", size: window, view: AnyView(MainWindow().environmentObject(state)))]
+    }
+
+    /// A regenerated answer: earlier answers behind a 2/2 stepper, the model that wrote it, and the model menu next to regenerate
+    private static var regenerated: [Snapshot] {
+        guard let database = try? SillogDatabase.inMemory() else { return [] }
+        let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
+        let chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        let id = chat.current.id
+        var first = ConversationMessage(conversationID: id, role: "assistant", text: "첫 답변"); first.model = "gpt-6"
+        var answer = ConversationMessage(conversationID: id, role: "assistant", text: "## 이번 주\n\n- `ChatView` 정리\n- 결과물 패널")
+        answer.model = "gpt-6-luna"; answer.previous = [first]
+        chat.messages = [.init(conversationID: id, role: "user", text: "이번 주에 한 일을 정리해줘"), answer]
+        let state = AppState(preview: { s in
+            s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat
+            s.settings.chatProvider = "codex"; s.settings.chatCodexModel = "gpt-6-luna"; s.settings.chatSameAsOrganize = false
+            s.chatCodexModels = [CodexModel(slug: "gpt-6-luna", displayName: "GPT-6 Luna", defaultEffort: nil),
+                                 CodexModel(slug: "gpt-6", displayName: "GPT-6", defaultEffort: nil)]
+        })
+        return [Snapshot(name: "CH-regenerated", size: window, view: AnyView(MainWindow().environmentObject(state)))]
+    }
+
+    /// A pasted image attached to the composer shows its thumbnail in the chip
+    private static var attachedImage: [Snapshot] {
+        guard let database = try? SillogDatabase.inMemory() else { return [] }
+        let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
+        let chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        let sample = Bundle.main.url(forResource: "github", withExtension: "png", subdirectory: "ConnectorIcons")
+            ?? Bundle.module.url(forResource: "github", withExtension: "png", subdirectory: "ConnectorIcons")
+        if let sample, let item = try? chat.library.store.importFile(sample) { chat.attachLibraryItem(item) }
+        let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })
+        return [Snapshot(name: "CH-attach-image", size: window, view: AnyView(MainWindow().environmentObject(state)))]
+    }
+
+    /// A failed answer that streamed some Markdown first: the received part, one error line, one retry button
+    private static var failedAnswer: [Snapshot] {
+        guard let database = try? SillogDatabase.inMemory() else { return [] }
+        let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
+        let chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        let id = chat.current.id
+        chat.messages = [.init(conversationID: id, role: "user", text: "이번 주에 한 일을 정리해줘"),
+                         .init(conversationID: id, role: "assistant", text: "## 이번 주\n\n- `ChatView` 정리\n- 결과물 패널\n\n응답을 완료하지 못했습니다: 연결이 끊겼습니다.", status: "failed")]
+        let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })
+        return [Snapshot(name: "CH-failed", size: window, view: AnyView(MainWindow().environmentObject(state)))]
+    }
+
+    /// An answer whose revised Word file is open in the side panel at version 2 of 2
+    private static var artifactPanel: [Snapshot] {
+        guard let database = try? SillogDatabase.inMemory() else { return [] }
+        let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
+        let chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        let draft = "# 주간 업무 보고\n\n## 이번 주\n- 채팅 결과물 패널 추가\n- Office 파일 내보내기\n\n| 업무 | 상태 |\n|---|---|\n| 결과물 패널 | 완료 |\n| 버전 전환 | 진행 중 |"
+        let v1 = ChatArtifact(title: "주간 업무 보고", format: "docx", content: draft)
+        var v2 = ChatArtifact(title: "주간 업무 보고", format: "docx", content: draft.replacingOccurrences(of: "진행 중", with: "완료"))
+        v2.baseID = v1.id
+        let id = chat.current.id
+        var a1 = ConversationMessage(conversationID: id, role: "assistant", text: "이번 주 기록으로 보고서를 만들었어요.")
+        a1.artifacts = [v1]
+        var a2 = ConversationMessage(conversationID: id, role: "assistant", text: "버전 전환을 완료로 바꿨어요.")
+        a2.artifacts = [v2]
+        chat.messages = [.init(conversationID: id, role: "user", text: "이번 주 업무 보고서를 Word로 만들어줘"), a1,
+                         .init(conversationID: id, role: "user", text: "버전 전환도 끝났어"), a2]
+        chat.openArtifactID = v2.id
+        // Collected like the app does at launch, so the composer must still show no chips for them.
+        try? ChatStore(database).save(chat.current)
+        try? chat.library.store.collectArtifacts(chat.messages)
+        chat.library.reload()
+        let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })
+        return [Snapshot(name: "CH-artifact", size: window, view: AnyView(MainWindow().environmentObject(state)))]
+    }
+
+    /// A 200-line pasted question clipped with 더 보기, and a stopped last answer with 이어서 쓰기
+    private static var longQuestion: [Snapshot] {
+        guard let database = try? SillogDatabase.inMemory() else { return [] }
+        let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
+        let chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        let id = chat.current.id
+        let pasted = (1...200).map { "로그 \($0): 배치 처리 중 판단 모델 응답 지연" }.joined(separator: "\n")
+        chat.messages = [.init(conversationID: id, role: "user", text: "이 로그에서 원인을 찾아줘\n" + pasted),
+                         .init(conversationID: id, role: "assistant", text: "로그를 보면 판단 모델 응답이 늦어지면서", status: "cancelled")]
+        let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })
+        return [Snapshot(name: "CH-long-question", size: window, view: AnyView(MainWindow().environmentObject(state)))]
     }
 
     /// 채팅 범위: 업무 하나로 좁힌 대화(정리 전 기록 안내 포함)와 범위 고르기 창
@@ -354,8 +496,13 @@ enum SnapshotCatalog {
             s.settings.chatProvider = "codex"; s.settings.chatCodexModel = "gpt-6-luna"
             s.chat = talking
         })
+        // The open chat in the sidebar shares the selected menu row's fill
+        let picked = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        if let first = picked.conversations.first { picked.select(first) }
+        let pickedState = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = picked })
         return [
             Snapshot(name: "CH-FOCUS", size: window, view: AnyView(MainWindow().environmentObject(state))),
+            Snapshot(name: "CH-selected", size: window, view: AnyView(MainWindow().environmentObject(pickedState))),
             Snapshot(name: "CH-FOCUS-HEADER", size: window, view: AnyView(MainWindow().environmentObject(talkingState))),
             Snapshot(name: "CH-FOCUS-PICKER", size: nil, view: AnyView(ChatFocusPicker(chat: chat).background(.white).environmentObject(state))),
         ]
@@ -621,4 +768,10 @@ enum SnapshotCatalog {
         DeviceCode(verificationURL: URL(string: "https://auth.openai.com/codex/device")!, userCode: "SILL-OG26",
                    deviceAuthId: "preview", interval: 5, expiresAt: Date().timeIntervalSince1970 + 900)
     }
+}
+
+private struct WorkLogPreview: View {
+    let message: ConversationMessage
+    @State private var open = true
+    var body: some View { ChatWorkLog(message: message, isExpanded: $open, openResults: [message.trace?[1].id ?? ""]) }
 }

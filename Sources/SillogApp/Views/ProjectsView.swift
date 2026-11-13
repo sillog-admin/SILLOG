@@ -70,6 +70,7 @@ struct ProjectOverview<Composer: View>: View {
                     }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                         .help(tr("프로젝트 메뉴")).accessibilityLabel(tr("프로젝트 메뉴"))
                 }
+                ProjectGoalCard(projects: projects, project: project, locked: chat.running)
                 composer
                 HStack(spacing: 8) {
                     ForEach([tr("채팅"), tr("소스")], id: \.self) { value in
@@ -100,7 +101,7 @@ struct ProjectOverview<Composer: View>: View {
                 else { ProjectSourcesView(library: chat.library, projects: projects, project: project, kind: $sourceKind, newestFirst: $newestFirst) }
                 if let error = projects.error { Text(error).font(Brand.font(.body)).foregroundStyle(.red).textSelection(.enabled) }
                 if let error = chat.error { Text(error).font(Brand.font(.body)).foregroundStyle(.red).textSelection(.enabled) }
-            }.frame(maxWidth: ChatPalette.columnWidth, alignment: .leading)
+            }.frame(maxWidth: ChatPalette.readingWidth, alignment: .leading)
                 .padding(.horizontal, 34).padding(.top, 40).padding(.bottom, 40)
                 .frame(maxWidth: .infinity)
         }.background(.white)
@@ -139,7 +140,7 @@ struct ProjectOverview<Composer: View>: View {
                 HStack(spacing: 12) {
                     Button { onConversation(conversation) } label: {
                         VStack(alignment: .leading, spacing: 5) {
-                            HoverScrollingText(text: conversation.title, rowHovered: hoveredConversation == conversation.id)
+                            HoverScrollingText(text: ChatConversation.display(conversation.title), rowHovered: hoveredConversation == conversation.id)
                                 .font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText)
                             let preview = chat.conversationPreviews[conversation.id, default: ""]
                             if !preview.isEmpty {
@@ -281,21 +282,7 @@ struct ProjectEditor: View {
         }
     }
 
-    private var details: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(tr("목표")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
-            TextField(tr("이 프로젝트에서 이루려는 목표"), text: $goal, axis: .vertical)
-                .textFieldStyle(.plain).font(Brand.font(.body)).foregroundStyle(Brand.text).lineLimit(2...3).padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 8).fill(ChatPalette.field))
-            Text(tr("공통 지침")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).padding(.top, 8)
-            Text(tr("답변 방식이나 작업 규칙을 적어주세요. 모든 프로젝트 채팅에 적용됩니다."))
-                .font(Brand.font(.tag)).foregroundStyle(Brand.gray)
-            TextEditor(text: $instructions).font(Brand.font(.body)).foregroundStyle(Brand.text).scrollContentBackground(.hidden)
-                .padding(6).frame(height: 120)
-                .background(RoundedRectangle(cornerRadius: 8).fill(ChatPalette.field))
-        }
-    }
+    private var details: some View { ProjectGoalFields(goal: $goal, instructions: $instructions) }
 
     private var memoryOptions: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -330,6 +317,112 @@ struct ProjectEditor: View {
         } else if let created = projects.create(title: title, goal: goal, instructions: instructions, memoryMode: memoryMode, paths: paths) {
             onSave(created); dismiss()
         }
+    }
+}
+
+struct ProjectGoalFields: View {
+    @Binding var goal: String
+    @Binding var instructions: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(tr("목표")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink)
+            TextField(tr("이 프로젝트에서 이루려는 목표"), text: $goal, axis: .vertical)
+                .textFieldStyle(.plain).font(Brand.font(.body)).foregroundStyle(Brand.text).lineLimit(2...3).padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 8).fill(ChatPalette.field))
+                .accessibilityLabel(tr("목표"))
+            Text(tr("공통 지침")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).padding(.top, 8)
+            Text(tr("답변 방식이나 작업 규칙을 적어주세요. 모든 프로젝트 채팅에 적용됩니다."))
+                .font(Brand.font(.tag)).foregroundStyle(Brand.gray)
+            TextEditor(text: $instructions).font(Brand.font(.body)).foregroundStyle(Brand.text).scrollContentBackground(.hidden)
+                .padding(6).frame(height: 120)
+                .background(RoundedRectangle(cornerRadius: 8).fill(ChatPalette.field))
+                .accessibilityLabel(tr("공통 지침"))
+        }
+    }
+}
+
+/// Goal and instructions on the project page, edited in place.
+struct ProjectGoalCard: View {
+    @ObservedObject var projects: ProjectState
+    var project: ChatProject
+    var locked: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var editing = false
+    @State private var expanded = false
+    @State private var goal = ""
+    @State private var instructions = ""
+
+    // shortcut: guesses the 2-line clamp from length, measure the text if the toggle shows needlessly
+    private var instructionsClamped: Bool { project.instructions.count > 90 || project.instructions.split(separator: "\n").count > 2 }
+
+    var body: some View {
+        Group {
+            if editing { editor }
+            else if project.goal.isEmpty && project.instructions.isEmpty {
+                Button(action: startEditing) {
+                    Label(tr("목표와 지침 추가"), systemImage: "plus").font(Brand.font(.body)).foregroundStyle(Brand.gray)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).frame(height: 40)
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(ChatPalette.cardLine))
+                        .contentShape(Rectangle())
+                }.buttonStyle(.plain)
+            } else { summary }
+        }
+        .onChange(of: project.id) { _, _ in editing = false; expanded = false }
+    }
+
+    private var summary: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if !project.goal.isEmpty { section(tr("목표"), project.goal) }
+            if !project.instructions.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    section(tr("공통 지침"), project.instructions, lines: expanded ? nil : 2)
+                    if instructionsClamped {
+                        Button(expanded ? tr("접기") : tr("더 보기")) { animate { expanded.toggle() } }
+                            .buttonStyle(.plain).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.gray)
+                    }
+                }
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(ChatPalette.cardLine))
+            .overlay(alignment: .topTrailing) {
+                ChatPillButton(title: tr("편집"), systemName: "pencil", action: startEditing)
+                    .padding(12).accessibilityLabel(tr("목표와 지침 편집"))
+            }
+    }
+
+    private func section(_ title: String, _ text: String, lines: Int? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.gray)
+            Text(text).font(Brand.font(.body)).foregroundStyle(Brand.text).lineSpacing(3).lineLimit(lines)
+                .textSelection(.enabled).padding(.trailing, 60)
+        }
+    }
+
+    private var editor: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ProjectGoalFields(goal: $goal, instructions: $instructions)
+            HStack(spacing: 8) {
+                Spacer()
+                Button(tr("취소")) { animate { editing = false } }.buttonStyle(ProjectPillStyle())
+                Button(tr("저장")) {
+                    if projects.update(project, title: project.title, goal: goal, instructions: instructions, memoryMode: project.memoryMode) {
+                        animate { editing = false }
+                    }
+                }.buttonStyle(ProjectPillStyle(kind: .primary)).disabled(locked)
+            }
+        }.padding(16)
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(ChatPalette.cardLine))
+    }
+
+    private func startEditing() {
+        goal = project.goal; instructions = project.instructions
+        animate { editing = true }
+    }
+
+    private func animate(_ change: () -> Void) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15), change)
     }
 }
 

@@ -16,6 +16,12 @@ struct AppSettings: Codable, Equatable {
     var chatBaseURL = "http://localhost:5010/v1"
     var chatModel = "gpt-5.4-mini"
     var chatAPIKey = ""
+    /// Reasoning effort for a ChatGPT chat model as Codex names it; nil uses the model's default.
+    var chatEffort: String?
+    /// Reasoning effort for an API server chat model; nil sends none.
+    var chatAPIEffort: String?
+    /// The user's own instructions added to every chat answer's system prompt.
+    var chatInstructions = ""
     /// Stored as "gpt" / "jev" / "decisions"; read through `judgeChoice`.
     var judgeProvider = "gpt"
     /// For the gpt judge: "codex", "openai" (the shared API server) or "custom" (its own URL and key).
@@ -44,6 +50,7 @@ struct AppSettings: Codable, Equatable {
     /// 정리 위치 후보를 찾을 폴더들 (~ 표기 허용)
     var folderRoots: [String] = ["~/Desktop", "~/Documents"]
     var language = AppLanguage.system
+    var textScale = 1.0
 
     private static let key = "sillog.settings.v1"
 
@@ -67,6 +74,9 @@ struct AppSettings: Codable, Equatable {
         chatBaseURL = try c.decodeIfPresent(String.self, forKey: .chatBaseURL) ?? llmBaseURL
         chatModel = try c.decodeIfPresent(String.self, forKey: .chatModel) ?? llmModel
         chatAPIKey = try c.decodeIfPresent(String.self, forKey: .chatAPIKey) ?? llmAPIKey
+        chatEffort = try c.decodeIfPresent(String.self, forKey: .chatEffort)
+        chatAPIEffort = try c.decodeIfPresent(String.self, forKey: .chatAPIEffort)
+        chatInstructions = try c.decodeIfPresent(String.self, forKey: .chatInstructions) ?? d.chatInstructions
         let oldJudge = try c.decodeIfPresent(String.self, forKey: .judgeProvider) ?? "gpt"
         judgeProvider = ["jev", "decisions"].contains(oldJudge) ? oldJudge : "gpt"
         judgeGPTProvider = try c.decodeIfPresent(String.self, forKey: .judgeGPTProvider) ?? llmProvider
@@ -102,6 +112,7 @@ struct AppSettings: Codable, Equatable {
         folderRoots = try c.decodeIfPresent([String].self, forKey: .folderRoots) ?? d.folderRoots
         // Saves from before the setting existed had a Korean UI.
         language = try c.decodeIfPresent(AppLanguage.self, forKey: .language) ?? .ko
+        textScale = TextScale.clamp(try c.decodeIfPresent(Double.self, forKey: .textScale) ?? d.textScale)
     }
 
     /// API keys go to the Keychain; the UserDefaults JSON keeps them blank.
