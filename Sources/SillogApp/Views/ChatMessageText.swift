@@ -45,7 +45,7 @@ struct ChatMessageText: View, Equatable {
         }
         guard var text = try? AttributedString(markdown: escaped, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) else { return AttributedString(value) }
         for run in text.runs where run.inlinePresentationIntent?.contains(.code) == true {
-            text[run.range].backgroundColor = ChatPalette.soft
+            text[run.range].backgroundColor = Brand.chipSelectedFill
             text[run.range].font = .system(size: 11, design: .monospaced)
         }
         return text
@@ -61,7 +61,7 @@ struct ChatMessageText: View, Equatable {
         switch segment {
         case .text(let text): return Text(inlineMarkdown(text))
         case .inline(let latex):
-            guard let rendered = ChatMath.render(latex, display: false, fontSize: 14.5) else { return Text(verbatim: "$\(latex)$") }
+            guard let rendered = ChatMath.render(latex, display: false, fontSize: 13) else { return Text(verbatim: "$\(latex)$") }
             return Text(Image(nsImage: rendered.image)).baselineOffset(-rendered.descent)
         case .block(let latex): return Text(verbatim: latex)
         }
@@ -122,11 +122,11 @@ private struct ChatParagraph: View, Equatable {
             paragraphView(value)
         } else {
             VStack(alignment: .leading, spacing: 10) {
-                ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                ForEach(Array(blocks.enumerated()), id: \.offset) { offset, block in
                     switch block {
                     case .heading(let level, let text):
-                        ChatMessageText.inlineText(text).font((level == 1 ? Brand.font(.sectionTitle, .semibold) : level == 2 ? Brand.font(.sectionTitle, .semibold) : Brand.font(.rowTitle, .semibold))).foregroundStyle(Brand.ink)
-                            .padding(.top, 4)
+                        ChatMessageText.inlineText(text).font(level == 1 ? Brand.font(.sectionTitle, .bold) : level == 2 ? Brand.font(.sectionTitle, .semibold) : Brand.font(.rowTitle, .semibold)).foregroundStyle(Brand.ink)
+                            .padding(.top, offset == 0 ? 0 : 10)
                     case .paragraph(let text): paragraphView(text)
                     case .list(let items): listView(items)
                     case .quote(let text):
@@ -146,13 +146,13 @@ private struct ChatParagraph: View, Equatable {
     /// 목록: 글머리(단계마다 • ◦ ▪︎)나 번호를 같은 폭에 두고, 내용은 그 오른쪽에 매달려 줄이 넘어가도 들여쓰기가 맞는다
     private func listView(_ items: [ChatBlocks.Item]) -> some View {
         let numbered = items.contains { $0.marker != "•" }
-        return VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(item.marker == "•" ? ["•", "◦", "▪︎", "▪︎"][min(item.level, 3)] : item.marker)
                         .font(Brand.font(.body)).foregroundStyle(Brand.gray).monospacedDigit()
                         .frame(width: numbered ? 20 : 10, alignment: .trailing)
-                    paragraphView(item.text, lineSpacing: 5)
+                    paragraphView(item.text, lineSpacing: 7)
                 }
                 .padding(.leading, CGFloat(item.level) * 18)
             }
@@ -198,6 +198,7 @@ struct ChatCodeBlock: View {
                 } label: {
                     Label(copied ? tr("복사됨") : tr("복사"), systemImage: copied ? "checkmark" : "doc.on.doc")
                         .font(Brand.font(.tag)).foregroundStyle(Brand.gray)
+                        .padding(.horizontal, 6).frame(height: 22).hoverHighlight(cornerRadius: 5)
                 }.buttonStyle(.plain).help(tr("코드 복사"))
             }
             .padding(.horizontal, 14).frame(height: 30)
@@ -209,8 +210,9 @@ struct ChatCodeBlock: View {
             } else {
                 ScrollView(.horizontal) {
                     Text(code.trimmingCharacters(in: .newlines)).font(.system(size: 12, design: .monospaced)).foregroundStyle(Brand.tabText)
+                        .lineSpacing(4)
                         .fixedSize(horizontal: true, vertical: false)
-                        .padding(14)
+                        .padding(.horizontal, 14).padding(.vertical, 12)
                 }
             }
         }
@@ -221,28 +223,28 @@ struct ChatCodeBlock: View {
 
 private struct ChatMarkdownTableView: View {
     let rows: [[String]]
-    private let columnWidth: CGFloat = 220
-    private let cellPadding: CGFloat = 12
 
     var body: some View {
         ScrollView(.horizontal) {
-            VStack(alignment: .leading, spacing: 0) {
+            Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
                 ForEach(rows.indices, id: \.self) { row in
-                    HStack(alignment: .top, spacing: 0) {
+                    GridRow {
                         ForEach(rows[row].indices, id: \.self) { column in
                             Text(ChatMessageText.inlineMarkdown(rows[row][column]))
                                 .font(Brand.font(.body, row == 0 ? .semibold : .regular)).foregroundStyle(row == 0 ? Brand.ink : Brand.tabText)
                                 .fixedSize(horizontal: false, vertical: true)
-                                .frame(width: columnWidth, alignment: .topLeading)
-                                .padding(.horizontal, cellPadding).padding(.vertical, 9)
+                                .frame(maxWidth: 260, alignment: .leading)
+                                .padding(.horizontal, 12).padding(.vertical, 9)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                                .background(row == 0 ? ChatPalette.soft : .clear)
                         }
                     }
-                    .background(row == 0 ? ChatPalette.soft : .clear)
-                    if row < rows.count - 1 { Rectangle().fill(Brand.line).frame(height: 1) }
+                    if row < rows.count - 1 { Rectangle().fill(Brand.line).frame(height: 1).gridCellUnsizedAxes(.horizontal) }
                 }
             }
-            .frame(width: CGFloat(rows[0].count) * (columnWidth + cellPadding * 2))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Brand.line))
+            .fixedSize(horizontal: false, vertical: true)   // header cells fill their row without stretching the table
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
         }
         .defaultScrollAnchor(.leading)
     }

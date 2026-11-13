@@ -23,6 +23,16 @@ final class ChatMessageViewTests: XCTestCase {
         XCTAssertNotEqual(a, ChatMessageText(text: "xy", sources: [], onSource: { _ in }))
     }
 
+    func testCopyingAnAnswerPutsMarkdownAndRichText() {
+        let board = NSPasteboard(name: .init("sillog-test-\(UUID().uuidString)"))
+        defer { board.releaseGlobally() }
+        ChatView.write("## x", html: ChatArtifactHTML.render(ChatArtifact(title: "", format: "markdown", content: "## x")), to: board)
+        XCTAssertEqual(board.string(forType: .string), "## x")
+        XCTAssertTrue(board.string(forType: .html)?.contains("<h2>") == true)
+        ChatView.write("plain", to: board)
+        XCTAssertNil(board.string(forType: .html), "a question copy leaves no stale rich text")
+    }
+
     func testInlineCodeHasABackground() {
         let text = ChatMessageText.inlineMarkdown("a `b` c")
         let code = text.runs.filter { $0.inlinePresentationIntent?.contains(.code) == true }

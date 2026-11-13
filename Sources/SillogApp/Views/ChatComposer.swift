@@ -29,6 +29,8 @@ struct ChatComposer: View {
     @State private var shortcutCaret: NSRange?
     @State private var connectedConnectors: Set<String> = []
     @State private var dropTargeted = false
+    @State private var plusHover = false
+    @State private var previewItem: ChatLibraryItem?
 
     /// 이 대화에 응답이 도는 중이면 자료 설정을 잠근다
     private var busy: Bool { chat.activeMessage?.conversationID == chat.current.id }
@@ -74,7 +76,7 @@ struct ChatComposer: View {
                 // CH-18: 첨부 칩은 입력 줄 위에 줄바꿈으로 놓이고 상자가 위로 커진다. 모두 x 로 연결 해제
                 ChatChipFlow(spacing: 6) {
                     ForEach(attachments) { item in
-                        attachmentChip(icon: "doc", text: item.title, help: item.title) { library.detach(item, conversationID: chat.current.id) }
+                        attachmentChip(icon: "doc", text: item.title, help: item.title, item: item) { library.detach(item, conversationID: chat.current.id) }
                     }
                     ForEach(paths, id: \.self) { path in
                         attachmentChip(icon: "folder", text: URL(fileURLWithPath: path).lastPathComponent, help: path) {
@@ -108,6 +110,7 @@ struct ChatComposer: View {
         .fixedSize(horizontal: false, vertical: true)   // 남는 세로 공간을 차지하지 않게: 글이 늘 때만 커진다 (Figma 96)
         .background(.white, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(dropTargeted ? Brand.ink : ChatPalette.inputLine, lineWidth: dropTargeted ? 1.5 : 1))
+        .sheet(item: $previewItem) { LibraryPreview(library: library, item: $0) }
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
             Task { @MainActor in
                 var urls: [URL] = []
@@ -242,9 +245,11 @@ struct ChatComposer: View {
     private var plusButton: some View {
         Button { showPlus = true } label: {
             Image(systemName: "plus").font(.system(size: 16)).foregroundStyle(Brand.tabText)
-                .frame(width: 20, height: 28).contentShape(Rectangle())
+                .frame(width: 28, height: 28)
+                .background(plusHover && !(busy || library.busy) ? ChatPalette.soft : .clear, in: Circle())
+                .contentShape(Circle())
         }
-        .buttonStyle(.plain).disabled(busy || library.busy)
+        .buttonStyle(.plain).onHover { plusHover = $0 }.disabled(busy || library.busy)
         .help(tr("자료 추가")).accessibilityLabel(tr("자료 추가"))
         .popover(isPresented: $showPlus, arrowEdge: .bottom) { plusMenu }
         .background { Color.clear.popover(isPresented: $showFocus, arrowEdge: .bottom) { ChatFocusPicker(chat: chat) } }
@@ -257,10 +262,11 @@ struct ChatComposer: View {
         return Button {
             if busy { chat.cancel() } else { send() }
         } label: {
+            let enabled = busy || (!empty && !elsewhere)
             Image(systemName: busy ? "stop.fill" : "arrow.up")
-                .font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+                .font(.system(size: 14, weight: .semibold)).foregroundStyle(enabled ? Color.white : Brand.gray)
                 .frame(width: 28, height: 28)
-                .background(Brand.accent.opacity(busy || (!empty && !elsewhere) ? 1 : 0.3), in: Circle())
+                .background(enabled ? Brand.accent : Brand.line, in: Circle())
         }
         .buttonStyle(.plain).disabled(!busy && (empty || elsewhere))
         .help(busy ? tr("응답 중단 (Esc)") : elsewhere ? tr("다른 대화의 응답이 끝나면 보낼 수 있어요") : tr("전송 (Enter)"))
@@ -270,10 +276,19 @@ struct ChatComposer: View {
     // MARK: 칩 (웹 검색, 첨부)
 
     /// 첨부 칩(CH-18): 옅은 바탕, 1pt 테두리, 둥글기 4, 높이 22
-    private func attachmentChip(icon: String, text: String, help: String, remove: (() -> Void)? = nil) -> some View {
+    private func attachmentChip(icon: String, text: String, help: String, item: ChatLibraryItem? = nil, remove: (() -> Void)? = nil) -> some View {
         HStack(spacing: 5) {
-            Image(systemName: icon).font(.system(size: 10))
-            Text(text).font(Brand.font(.tag)).lineLimit(1)
+            if let item {
+                Button { previewItem = item } label: {
+                    HStack(spacing: 5) {
+                        ChatAttachmentThumb(url: library.store.url(for: item))
+                        Text(text).font(Brand.font(.tag)).lineLimit(1)
+                    }.contentShape(Rectangle())
+                }.buttonStyle(.plain)
+            } else {
+                Image(systemName: icon).font(.system(size: 10))
+                Text(text).font(Brand.font(.tag)).lineLimit(1)
+            }
             if let remove {
                 Button(action: remove) { Image(systemName: "xmark").font(.system(size: 8, weight: .semibold)) }
                     .buttonStyle(.plain).disabled(busy).help(tr("빼기")).accessibilityLabel(tr("\(text) 빼기"))
@@ -476,6 +491,25 @@ struct ChatComposer: View {
             openSettings()
         } trailing: {
             if on { Image(systemName: "checkmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(Brand.tabText) }
+        }
+    }
+
+    /// An image attachment shows its picture; anything else, or an unreadable image, the doc icon.
+    private struct ChatAttachmentThumb: View {
+        let url: URL
+        @State private var image: NSImage?
+        var body: some View {
+            Group {
+                if let image {
+                    Image(nsImage: image).resizable().scaledToFill().frame(width: 16, height: 16).clipShape(RoundedRectangle(cornerRadius: 2))
+                } else {
+                    Image(systemName: "doc").font(.system(size: 10))
+                }
+            }
+            // Load once per file, not on every keystroke that redraws the composer.
+            .task(id: url) {
+                image = ["png", "jpg", "jpeg", "gif", "heic", "webp", "tiff"].contains(url.pathExtension.lowercased()) ? NSImage(contentsOf: url) : nil
+            }
         }
     }
 

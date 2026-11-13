@@ -5,7 +5,7 @@ import SillogCore
 /// 스냅샷으로 그릴 화면 목록. 이름은 Figma 화면 번호를 따른다 (Figma 에서 내보낸 같은 이름의 PNG 와 나란히 본다)
 @MainActor
 enum SnapshotCatalog {
-    static var all: [Snapshot] { menus + windows + activity + chat + library + storage + [mathAnswer, codeAnswer, workLog, citations] + recording }
+    static var all: [Snapshot] { menus + windows + activity + chat + library + storage + [mathAnswer, codeAnswer, workLog, citations, tableAnswer] + recording }
 
     /// Figma 창(760) 에서 제목 줄(44)을 뺀 내용 영역
     static let window = CGSize(width: 1180, height: 716)
@@ -172,6 +172,22 @@ enum SnapshotCatalog {
         let answer = "설치 순서예요.\n\n1. 패키지를 받아요.\n\n    ```bash\n    brew install sillog\n    ```\n\n2. 설정 파일을 열어요. 문장 안의 ```이건 코드가 아니에요``` 는 그대로 보여요.\n\n```swift\nlet answer = 42\nprint(answer)\n```\n\n스트리밍 중인 블록:\n\n```json\n{\"ok\": true"
         let view = ChatMessageText(text: answer, sources: [], onSource: { _ in }).frame(width: 640).padding(24).background(Color.white)
         return Snapshot(name: "CH-code", size: CGSize(width: 688, height: 560), view: AnyView(view.environmentObject(AppState(preview: { _ in }))))
+    }
+
+    /// Tables: a narrow status column next to a long one, and an 8-column table that scrolls
+    static var tableAnswer: Snapshot {
+        let answer = """
+        | 업무 | 상태 | 설명 |
+        |---|---|---|
+        | 결과물 패널 | 완료 | 답변 옆에 결과물을 열고 버전을 오가며 Word, PowerPoint, Excel 파일로 내보낼 수 있게 했어요. |
+        | 버전 전환 | 진행 중 | 다시 생성한 답변을 지우지 않고 1/2처럼 넘겨 볼 수 있어요. |
+
+        | 월 | 화 | 수 | 목 | 금 | 토 | 일 | 합계 |
+        |---|---|---|---|---|---|---|---|
+        | 3시간 | 4시간 | 2시간 30분 | 5시간 | 6시간 | 0 | 1시간 | 21시간 30분 |
+        """
+        let view = ChatMessageText(text: answer, sources: [], onSource: { _ in }).frame(width: 640).padding(24).background(Color.white)
+        return Snapshot(name: "CH-table", size: CGSize(width: 688, height: 320), view: AnyView(view.environmentObject(AppState(preview: { _ in }))))
     }
 
     /// Citation chips hug a short title, cut a long one, and count the rest
@@ -344,7 +360,7 @@ enum SnapshotCatalog {
         return [Snapshot(name: "CH-01", size: window, view: AnyView(MainWindow().environmentObject(state))),
                 Snapshot(name: "CH-SKILL-PINS", size: nil, view: AnyView(PinnedSkillPicker(chat: state.chat!, onManage: {}).background(.white))),
                 Snapshot(name: "CH-13", size: window, view: AnyView(MainWindow().environmentObject(tab(.connectors)))),
-                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus + artifactPanel + longQuestion + failedAnswer + regenerated
+                Snapshot(name: "CH-59", size: window, view: AnyView(MainWindow().environmentObject(tab(.skills))))] + chatFocus + artifactPanel + longQuestion + failedAnswer + regenerated + attachedImage
     }
 
     /// A regenerated answer: earlier answers behind a 2/2 stepper, the model that wrote it, and the model menu next to regenerate
@@ -364,6 +380,18 @@ enum SnapshotCatalog {
                                  CodexModel(slug: "gpt-6", displayName: "GPT-6", defaultEffort: nil)]
         })
         return [Snapshot(name: "CH-regenerated", size: window, view: AnyView(MainWindow().environmentObject(state)))]
+    }
+
+    /// A pasted image attached to the composer shows its thumbnail in the chip
+    private static var attachedImage: [Snapshot] {
+        guard let database = try? SillogDatabase.inMemory() else { return [] }
+        let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)
+        let chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })
+        let sample = Bundle.main.url(forResource: "github", withExtension: "png", subdirectory: "ConnectorIcons")
+            ?? Bundle.module.url(forResource: "github", withExtension: "png", subdirectory: "ConnectorIcons")
+        if let sample, let item = try? chat.library.store.importFile(sample) { chat.attachLibraryItem(item) }
+        let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })
+        return [Snapshot(name: "CH-attach-image", size: window, view: AnyView(MainWindow().environmentObject(state)))]
     }
 
     /// A failed answer that streamed some Markdown first: the received part, one error line, one retry button

@@ -424,12 +424,14 @@ struct ChatView: View {
                     LinearGradient(colors: [.white.opacity(0), .white], startPoint: .top, endPoint: .bottom).frame(height: 16).allowsHitTesting(false)
                 }
                 .overlay(alignment: .bottom) {
-                    if !atBottom {
+                    Group { if !atBottom {
                         Button { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) } } label: {
                             Image(systemName: "arrow.down").font(.system(size: 11)).foregroundStyle(Brand.tabText).frame(width: 30, height: 30).background(.white, in: Circle()).overlay(Circle().strokeBorder(Brand.line))
                                 .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
                         }.buttonStyle(.plain).help(tr("최근 응답으로")).accessibilityLabel(tr("최근 응답으로")).padding(16)
-                    }
+                            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    } }
+                    .animation(.easeOut(duration: 0.15), value: atBottom)
                 }
             }
         }
@@ -506,15 +508,15 @@ struct ChatView: View {
                         if expanded { expandedQuestions.remove(message.id) } else { expandedQuestions.insert(message.id) }
                     }.buttonStyle(.plain).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 }
-                HStack(spacing: 14) {
-                    Button { copy(message.text, id: message.id) } label: { Image(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc").font(.system(size: 12)) }
-                        .help(tr("질문 복사")).accessibilityLabel(tr("질문 복사"))
-                    Button { editText = message.text; editingMessageID = message.id } label: { Image(systemName: "pencil").font(.system(size: 12)) }
-                        .help(tr("질문 편집")).accessibilityLabel(tr("질문 편집")).disabled(chat.running)
+                let showsActions = hoveredMessageID == message.id || focusedActions == message.id
+                HStack(spacing: 2) {
+                    ChatIconButton(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc", help: tr("질문 복사"), color: Brand.gray) { copy(message.text, id: message.id) }
+                    ChatIconButton(systemName: "pencil", help: tr("질문 편집"), color: Brand.gray) { editText = message.text; editingMessageID = message.id }
+                        .disabled(chat.running)
                 }
-                .buttonStyle(.plain).foregroundStyle(Brand.gray)
                 .focused($focusedActions, equals: message.id)
-                .opacity(hoveredMessageID == message.id || focusedActions == message.id ? 1 : 0)
+                .opacity(showsActions ? 1 : 0)
+                .animation(.easeOut(duration: 0.12), value: showsActions)
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
             .contentShape(Rectangle())
@@ -562,8 +564,9 @@ struct ChatView: View {
                             }
                             Spacer(minLength: 24); Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(Brand.ink)
                         }.padding(.horizontal, 16).frame(maxWidth: 360, minHeight: 68, maxHeight: 68, alignment: .leading)
-                            .background(hoveredArtifactID == item.id ? ChatPalette.rowHover : .white, in: RoundedRectangle(cornerRadius: 6))
-                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(chat.openArtifactID == item.id ? Brand.ink : Brand.line))
+                            .background(hoveredArtifactID == item.id ? ChatPalette.rowHover : chat.openArtifactID == item.id ? Brand.chipSelectedFill : .white,
+                                        in: RoundedRectangle(cornerRadius: 6))
+                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(chat.openArtifactID == item.id ? Brand.chipSelectedBorder : Brand.line))
                             .contentShape(Rectangle())
                     }.buttonStyle(.plain)
                     .onHover { hovering in
@@ -584,7 +587,11 @@ struct ChatView: View {
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
                 }
                 if message.status != "running" {
-                    HStack(spacing: 16) {
+                    let showsActions = hoveredMessageID == message.id || focusedActions == message.id || chat.messages.last?.id == message.id
+                    HStack(spacing: 2) {
+                        if shown.status == "failed" {
+                            ChatPillButton(title: tr("다시 시도"), systemName: "arrow.clockwise") { requestResend(message) }.disabled(chat.running)
+                        }
                         if versions.count > 1 {
                             HStack(spacing: 2) {
                                 versionButton("chevron.left", tr("이전 답변"), message: message, to: shownIndex - 1, count: versions.count)
@@ -604,33 +611,30 @@ struct ChatView: View {
                                 }.foregroundStyle(Brand.gray)
                             }
                         }
-                        let showsActions = hoveredMessageID == message.id || focusedActions == message.id || chat.messages.last?.id == message.id
-                        Button { copy(shown.markdown, id: message.id) } label: {
-                            Image(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc").font(.system(size: 13))
-                        }.help(tr("답변 복사")).accessibilityLabel(tr("답변 복사")).opacity(showsActions ? 1 : 0)
-                        if shown.status != "failed" {
-                            HStack(spacing: 2) {
-                                Button { requestResend(message) } label: {
-                                    Image(systemName: "arrow.clockwise").font(.system(size: 13))
-                                }.help(tr("다시 생성")).accessibilityLabel(tr("다시 생성")).disabled(chat.running)
+                        HStack(spacing: 2) {
+                            ChatIconButton(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc", help: tr("답변 복사"), color: Brand.gray) {
+                                copy(shown.markdown, id: message.id,
+                                     html: ChatArtifactHTML.render(ChatArtifact(title: "", format: "markdown", content: shown.markdown)))
+                            }
+                            if shown.status != "failed" {
+                                ChatIconButton(systemName: "arrow.clockwise", help: tr("다시 생성"), color: Brand.gray) { requestResend(message) }
+                                    .disabled(chat.running)
                                 regenerateModelMenu(message)
-                            }.opacity(showsActions ? 1 : 0)
+                            }
+                            if let model = shown.model {
+                                Text(TitleConnection.modelTitle(model)).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1).padding(.leading, 4)
+                            }
                         }
-                        if let model = shown.model {
-                            Text(TitleConnection.modelTitle(model)).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
-                                .opacity(showsActions ? 1 : 0)
-                        }
+                        .opacity(showsActions ? 1 : 0)
+                        .animation(.easeOut(duration: 0.12), value: showsActions)
                         if ["cancelled", "interrupted"].contains(shown.status) {
                             HStack(spacing: 4) {
                                 Image(systemName: "record.circle").font(.system(size: 11))
                                 Text(tr("중단됨")).font(Brand.font(.caption))
-                            }.foregroundStyle(Brand.tabText)
+                            }.foregroundStyle(Brand.tabText).padding(.horizontal, 6)
                             if chat.messages.last?.id == message.id && shownIndex == versions.count - 1 {
-                                Button(tr("이어서 쓰기")) { chat.continueAnswer() }.font(Brand.font(.tag)).disabled(chat.running)
+                                ChatPillButton(title: tr("이어서 쓰기"), systemName: "arrow.right") { chat.continueAnswer() }.disabled(chat.running)
                             }
-                        }
-                        if shown.status == "failed" {
-                            Button(tr("다시 시도")) { requestResend(message) }.font(Brand.font(.tag)).disabled(chat.running)
                         }
                     }.buttonStyle(.plain).foregroundStyle(Brand.gray).font(Brand.font(.caption))
                     .focused($focusedActions, equals: message.id)
@@ -686,15 +690,20 @@ struct ChatView: View {
         }
     }
 
-    private func copy(_ text: String, id: String) {
-        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
+    private func copy(_ text: String, id: String, html: String? = nil) {
+        Self.write(text, html: html)
         copiedID = id
         Task { try? await Task.sleep(for: .seconds(1.5)); if copiedID == id { copiedID = nil } }
     }
 
+    static func write(_ text: String, html: String? = nil, to board: NSPasteboard = .general) {
+        board.clearContents(); board.setString(text, forType: .string)
+        if let html { board.setString(html, forType: .html) }
+    }
+
     private func versionButton(_ symbol: String, _ label: String, message: ConversationMessage, to index: Int, count: Int) -> some View {
         Button { shownVersions[message.id] = index } label: {
-            Image(systemName: symbol).font(.system(size: 10)).frame(width: 18, height: 18).contentShape(Rectangle())
+            Image(systemName: symbol).font(.system(size: 10)).frame(width: 24, height: 24).contentShape(Rectangle())
         }.buttonStyle(.plain).foregroundStyle(Brand.tabText).disabled(!(0..<count).contains(index))
             .help(label).accessibilityLabel(label)
     }
@@ -709,7 +718,7 @@ struct ChatView: View {
                     Button(option.title) { requestResend(message, model: option.slug) }
                 }
             } label: {
-                Image(systemName: "chevron.down").font(.system(size: 8)).frame(width: 12, height: 18).contentShape(Rectangle())
+                Image(systemName: "chevron.down").font(.system(size: 8)).frame(width: 16, height: 28).contentShape(Rectangle())
             }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
             .disabled(chat.running)
@@ -792,17 +801,36 @@ struct ChatTag: View {
 struct ChatIconButton: View {
     let systemName: String
     let help: String
+    var color: Color = Brand.tabText
     let action: () -> Void
     @State private var hovering = false
     @Environment(\.isEnabled) private var enabled
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemName).font(.system(size: 13)).foregroundStyle(Brand.tabText)
+            Image(systemName: systemName).font(.system(size: 13)).foregroundStyle(color)
                 .frame(width: 28, height: 28)
                 .background(hovering && enabled ? ChatPalette.soft : .clear, in: RoundedRectangle(cornerRadius: 5))
                 .opacity(enabled ? 1 : 0.4)
                 .contentShape(Rectangle())
         }.buttonStyle(.plain).onHover { hovering = $0 }.help(help).accessibilityLabel(help)
+    }
+}
+
+struct ChatPillButton: View {
+    let title: String
+    let systemName: String
+    let action: () -> Void
+    @State private var hovering = false
+    @Environment(\.isEnabled) private var enabled
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: systemName).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink)
+                .padding(.horizontal, 10).frame(height: 24)
+                .background(hovering && enabled ? ChatPalette.rowHover : .white, in: Capsule())
+                .overlay(Capsule().strokeBorder(Brand.line))
+                .opacity(enabled ? 1 : 0.4)
+                .contentShape(Capsule())
+        }.buttonStyle(.plain).onHover { hovering = $0 }
     }
 }
 
