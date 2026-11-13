@@ -193,11 +193,15 @@ public struct ChatRunner: Sendable {
             await ledger.record(remembered)
             for source in remembered { await onEvent(.source(source)) }
         }
-        let messages = history.filter { $0.role == "user" || ($0.role == "assistant" && $0.status == "complete") }.suffix(16).map { message in
+        var messages = history.filter { $0.role == "user" || ($0.role == "assistant" && $0.status == "complete") }.suffix(16).map { message in
             var text = String(message.text.prefix(12000))
             for artifact in message.artifacts.suffix(2) { text += "\n<previous_artifact title=\"\(artifact.title)\">\n\(String(artifact.content.prefix(18000)))\n</previous_artifact>" }
             if !message.sources.isEmpty { text += "\n이전 조회 출처:\n" + message.sources.prefix(12).map { "[\($0.id)] \($0.title) \($0.location)\n\(String($0.excerpt.prefix(500)))" }.joined(separator: "\n") }
             return ChatModelMessage(role: message.role, text: text)
+        }
+        if !scheduled, let last = messages.indices.last, messages[last].role == "user" {
+            let since = history.dropLast().last(where: { $0.role == "user" })?.createdAt ?? 0
+            messages[last].images = try tools.newImages(since: since)
         }
         let text = try await loop(messages: messages, prompt: prompt, role: nil, allowAutomation: !scheduled, ledger: ledger, onEvent: onEvent)
         return await ledger.result(text)

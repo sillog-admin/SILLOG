@@ -59,6 +59,42 @@ public enum ChatBlocks {
         return out
     }
 
+    public enum Part: Equatable, Sendable {
+        case prose(String)
+        /// closed is false while the answer is still streaming the block.
+        case code(language: String, body: String, closed: Bool)
+    }
+
+    // Any indent: models nest fences under list items with 4+ spaces.
+    private static let fencePattern = try! NSRegularExpression(pattern: #"^([ \t]*)(`{3,}|~{3,})[ \t]*([^`\s]*)[^`]*$"#)
+
+    /// Args: text 는 답변 전체다.
+    /// Returns: 줄 맨 앞의 ``` 또는 ~~~ 펜스로 나눈 글과 코드 조각. 닫히지 않은 펜스는 끝까지 코드로 본다.
+    /// Raises: 없음.
+    public static func parts(_ text: String) -> [Part] {
+        var out: [Part] = [], prose: [String] = [], code: [String] = []
+        var fence: (mark: Character, count: Int, language: String, indent: Int)?
+        for line in text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n") {
+            if let open = fence {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.count >= open.count, trimmed.allSatisfy({ $0 == open.mark }) {
+                    out.append(.code(language: open.language, body: code.joined(separator: "\n"), closed: true))
+                    fence = nil; code = []
+                } else {
+                    // Drop the opener's indent from body lines so nested code isn't shifted right.
+                    let indent = min(open.indent, line.prefix(while: { $0 == " " || $0 == "\t" }).count)
+                    code.append(String(line.dropFirst(indent)))
+                }
+            } else if let groups = match(fencePattern, line) {
+                if !prose.isEmpty { out.append(.prose(prose.joined(separator: "\n"))); prose = [] }
+                fence = (groups[2].first!, groups[2].count, groups[3], groups[1].count)
+            } else { prose.append(line) }
+        }
+        if let open = fence { out.append(.code(language: open.language, body: code.joined(separator: "\n"), closed: false)) }
+        else if !prose.isEmpty { out.append(.prose(prose.joined(separator: "\n"))) }
+        return out
+    }
+
     private static func match(_ pattern: NSRegularExpression, _ line: String) -> [String]? {
         guard let m = pattern.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) else { return nil }
         return (0..<m.numberOfRanges).map { i in Range(m.range(at: i), in: line).map { String(line[$0]) } ?? "" }

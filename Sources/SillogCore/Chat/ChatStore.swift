@@ -136,6 +136,17 @@ public struct ConversationMessage: Codable, Identifiable, Sendable {
     }
 }
 
+extension ConversationMessage {
+    /// Args: message is a question to edit or an answer to regenerate, messages the conversation in order.
+    /// Returns: the messages to replace, from that turn's question to the end. Empty if message isn't there.
+    /// Raises: 없음.
+    public static func replaced(from message: ConversationMessage, in messages: [ConversationMessage]) -> [ConversationMessage] {
+        guard let index = messages.firstIndex(where: { $0.id == message.id }) else { return [] }
+        let start = message.role == "user" ? index : (messages[..<index].lastIndex(where: { $0.role == "user" }) ?? index)
+        return Array(messages[start...])
+    }
+}
+
 public struct ChatAutomation: Codable, Identifiable, Sendable {
     public var id = UUID().uuidString
     public var title: String
@@ -538,11 +549,19 @@ public struct ChatStore: Sendable {
     /// Args: conversation은 대화, user·answer는 새 요청과 응답 자리이다.
     /// Returns: 없음. 한 요청을 이루는 세 레코드를 함께 저장한다.
     /// Raises: 인코딩·DB 오류. 실패하면 모두 반영하지 않는다.
-    public func startTurn(conversation: ChatConversation, user: ConversationMessage, answer: ConversationMessage) throws {
+    /// Args: replacing are messages an edit or regenerate drops in the same write, along with the conversation links of their artifacts.
+    public func startTurn(conversation: ChatConversation, user: ConversationMessage, answer: ConversationMessage, replacing: [ConversationMessage] = []) throws {
         let encoder = JSONEncoder()
         let payload = String(decoding: try encoder.encode(conversation), as: UTF8.self)
         let records = try [user, answer].map { ($0, String(decoding: try encoder.encode($0), as: UTF8.self)) }
         try db.writer.write { conn in
+            for old in replacing {
+                try conn.execute(sql: "DELETE FROM app_messages WHERE id = ? AND conversation_id = ?", arguments: [old.id, conversation.id])
+                for artifact in old.artifacts {
+                    try conn.execute(sql: "DELETE FROM library_conversation_sources WHERE conversation_id = ? AND item_id IN (SELECT id FROM app_library WHERE origin_id = ?)",
+                                     arguments: [conversation.id, artifact.id])
+                }
+            }
             try conn.execute(sql: "INSERT INTO app_conversations (id, updated_at, payload, project_id) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload", arguments: [conversation.id, conversation.updatedAt, payload, conversation.projectID])
             for (message, json) in records {
                 try conn.execute(sql: "INSERT INTO app_messages VALUES (?, ?, ?, ?)", arguments: [message.id, message.conversationID, message.createdAt, json])

@@ -33,7 +33,7 @@ let package = Package(
             dependencies: ["SillogCore", "SillogCollectors", .product(name: "SwiftMath", package: "SwiftMath"),
                            .product(name: "WhisperKit", package: "WhisperKit")],
             exclude: ["Resources/AppIcon.icns"],            // .app 번들에는 scripts/make-app.sh 가 직접 넣는다
-            resources: [.copy("Resources/graph"), .copy("Resources/calendar"), .copy("Resources/ConnectorIcons"), .copy("Resources/Brand")]
+            resources: [.copy("Resources/graph"), .copy("Resources/calendar"), .copy("Resources/mermaid"), .copy("Resources/ConnectorIcons"), .copy("Resources/Brand")]
         ),
         .executableTarget(
             name: "sillogctl",

@@ -32,6 +32,17 @@ struct ChatView: View {
     @State private var expandedSources: Set<String> = []
     @State private var expandedSteps: Set<String> = []     // 끝난 답변의 단계 목록: 기본 접힘
     @State private var collapsedSteps: Set<String> = []    // 실행 중 답변의 단계 목록: 기본 펼침(CH-15)
+    @State private var editingMessageID: String?
+    @State private var editText = ""
+    @State private var hoveredMessageID: String?
+    @State private var pendingResend: PendingResend?
+
+    private struct PendingResend: Identifiable {
+        let message: ConversationMessage
+        let text: String?
+        let dropped: Int
+        var id: String { message.id }
+    }
 
     /// 목록(261, 고정 폭) + 1pt 선 + 본문. 목록을 접으면(CH-30) 본문만 남는다.
     private var layout: some View {
@@ -85,6 +96,14 @@ struct ChatView: View {
         .sheet(item: $pendingAutomation) { message in automationApproval(message) }
         .sheet(isPresented: $showSchedules) { ChatSchedulesView(chat: chat) }
         .sheet(item: $previewItem) { LibraryPreview(library: library, item: $0) }
+        .alert(tr("뒤의 대화를 지우고 다시 보낼까요?"), isPresented: Binding(get: { pendingResend != nil }, set: { if !$0 { pendingResend = nil } }), presenting: pendingResend) { pending in
+            Button(tr("지우고 보내기"), role: .destructive) {
+                if chat.resend(from: pending.message, text: pending.text) { editingMessageID = nil }
+            }
+            Button(tr("취소"), role: .cancel) {}
+        } message: { pending in
+            Text(tr("이 질문 뒤에 있는 메시지 \(pending.dropped)개가 지워져요."))
+        }
     }
 
     var body: some View {
@@ -161,7 +180,7 @@ struct ChatView: View {
             } else {
                 conversation
             }
-            if let error = chat.error {
+            if let error = chat.error ?? library.chatImportError {
                 // CH-17: 입력칸과 같은 600 열, 위아래 줄, 입력칸 위 8 간격
                 Label(error, systemImage: "exclamationmark.circle")
                     .font(Brand.font(.caption)).foregroundStyle(Brand.ink).textSelection(.enabled)
@@ -373,13 +392,42 @@ struct ChatView: View {
     /// Returns: 사용자 질문 또는 출처, 실행 상태를 포함한 답변.
     /// Raises: 없음.
     @ViewBuilder private func messageView(_ message: ConversationMessage) -> some View {
-        if message.role == "user" {
-            // 내 질문: 오른쪽 말풍선 (이름표 없이)
-            Text(message.text).font(Brand.font(.body)).foregroundStyle(Brand.text).lineSpacing(5).textSelection(.enabled)
-                .padding(.horizontal, 14).padding(.vertical, 10)
-                .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 12))
-                .frame(maxWidth: 560, alignment: .trailing)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+        if message.role == "user", editingMessageID == message.id {
+            VStack(alignment: .trailing, spacing: 8) {
+                TextEditor(text: $editText)
+                    .font(Brand.font(.body)).foregroundStyle(Brand.text).scrollContentBackground(.hidden)
+                    .frame(minHeight: 60, maxHeight: 240).fixedSize(horizontal: false, vertical: true)
+                    .padding(10)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Brand.line))
+                HStack(spacing: 8) {
+                    Button(tr("취소")) { editingMessageID = nil }.keyboardShortcut(.cancelAction)
+                    Button(tr("보내기")) { requestResend(message, text: editText) }
+                        .buttonStyle(BrandButtonStyle())
+                        .disabled(chat.running || editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }.font(Brand.font(.caption))
+            }
+            .frame(maxWidth: 560).frame(maxWidth: .infinity, alignment: .trailing)
+        } else if message.role == "user" {
+            // 내 질문: 오른쪽 말풍선 (이름표 없이). 올리면 복사·편집
+            VStack(alignment: .trailing, spacing: 6) {
+                Text(message.text).font(Brand.font(.body)).foregroundStyle(Brand.text).lineSpacing(5).textSelection(.enabled)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 12))
+                    .frame(maxWidth: 560, alignment: .trailing)
+                HStack(spacing: 14) {
+                    Button { copy(message.text) } label: { Image(systemName: "doc.on.doc").font(.system(size: 12)) }.help(tr("질문 복사"))
+                    Button { editText = message.text; editingMessageID = message.id } label: { Image(systemName: "pencil").font(.system(size: 12)) }
+                        .help(tr("질문 편집")).disabled(chat.running)
+                }
+                .buttonStyle(.plain).foregroundStyle(Brand.gray)
+                .opacity(hoveredMessageID == message.id ? 1 : 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                if hovering { hoveredMessageID = message.id } else if hoveredMessageID == message.id { hoveredMessageID = nil }
+            }
         } else {
             // 답변: 아바타 없이 본문 그대로
             VStack(alignment: .leading, spacing: 12) {
@@ -456,9 +504,12 @@ struct ChatView: View {
                                 }.foregroundStyle(Brand.gray)
                             }
                         }
-                        Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(message.text, forType: .string) } label: {
+                        Button { copy(message.text) } label: {
                             Image(systemName: "doc.on.doc").font(.system(size: 13))
                         }.help(tr("답변 복사"))
+                        Button { requestResend(message) } label: {
+                            Image(systemName: "arrow.clockwise").font(.system(size: 13))
+                        }.help(tr("다시 생성")).disabled(chat.running)
                         if ["cancelled", "interrupted"].contains(message.status) {
                             HStack(spacing: 4) {
                                 Image(systemName: "record.circle").font(.system(size: 11))
@@ -466,10 +517,7 @@ struct ChatView: View {
                             }.foregroundStyle(Brand.tabText)
                         }
                         if message.status == "failed" {
-                            Button(tr("요청 다시 입력")) {
-                                if let index = chat.messages.firstIndex(where: { $0.id == message.id }),
-                                   let request = chat.messages[..<index].last(where: { $0.role == "user" }) { chat.draft = request.text }
-                            }.font(Brand.font(.tag))
+                            Button(tr("다시 시도")) { requestResend(message) }.font(Brand.font(.tag)).disabled(chat.running)
                         }
                     }.buttonStyle(.plain).foregroundStyle(Brand.gray).font(Brand.font(.caption))
                 }
@@ -491,6 +539,19 @@ struct ChatView: View {
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private func copy(_ text: String) {
+        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    /// Resends at once when only this turn is replaced; asks first when later turns would be deleted too.
+    private func requestResend(_ message: ConversationMessage, text: String? = nil) {
+        let replaced = chat.replacedMessages(from: message)
+        let thisTurn = replaced.count > 1 && replaced[1].role == "assistant" ? 2 : 1
+        let dropped = replaced.count - thisTurn
+        if dropped > 0 { pendingResend = PendingResend(message: message, text: text, dropped: dropped); return }
+        if chat.resend(from: message, text: text) { editingMessageID = nil }
     }
 
     /// Args: message는 승인할 예약안을 포함한 답변이다.

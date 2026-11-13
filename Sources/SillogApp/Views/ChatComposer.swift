@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import SillogCore
 
 /// 채팅 입력: 입력 상자(+ 메뉴, 칩, 보내기) + 아래 줄(범위, 모델) + 안내문. 폭은 ChatPalette.columnWidth
@@ -27,6 +28,7 @@ struct ChatComposer: View {
     @State private var shortcutMenuHeight: CGFloat = 0
     @State private var shortcutCaret: NSRange?
     @State private var connectedConnectors: Set<String> = []
+    @State private var dropTargeted = false
 
     /// 이 대화에 응답이 도는 중이면 자료 설정을 잠근다
     private var busy: Bool { chat.activeMessage?.conversationID == chat.current.id }
@@ -88,7 +90,8 @@ struct ChatComposer: View {
                         .padding(.top, 8).padding(.leading, 5).allowsHitTesting(false)
                 }
                 ChatInput(text: $chat.draft, height: $inputHeight, minimumHeight: 38, focusRequest: chat.inputFocusRequest,
-                          selectionOnFocus: shortcutCaret, onShortcut: updateShortcut, shortcutKey: handleShortcutKey, onSend: send)
+                          selectionOnFocus: shortcutCaret, onShortcut: updateShortcut, shortcutKey: handleShortcutKey,
+                          onFiles: { chat.attach($0) }, onSend: send)
                     .frame(height: inputHeight)
             }
             .padding(.top, 18).padding(.horizontal, 13)
@@ -104,7 +107,18 @@ struct ChatComposer: View {
         .frame(minHeight: 96)
         .fixedSize(horizontal: false, vertical: true)   // 남는 세로 공간을 차지하지 않게: 글이 늘 때만 커진다 (Figma 96)
         .background(.white, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(ChatPalette.inputLine))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(dropTargeted ? Brand.ink : ChatPalette.inputLine, lineWidth: dropTargeted ? 1.5 : 1))
+        .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
+            Task { @MainActor in
+                var urls: [URL] = []
+                for provider in providers {
+                    if let data = try? await provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier) as? Data,
+                       let url = URL(dataRepresentation: data, relativeTo: nil) { urls.append(url) }
+                }
+                chat.attach(urls)
+            }
+            return true
+        }
         .overlay(alignment: .topLeading) {
             if shortcut != nil && !busy {
                 shortcutMenu

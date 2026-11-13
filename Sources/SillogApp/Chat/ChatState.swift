@@ -213,6 +213,23 @@ final class ChatState: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
 
+    /// Args: urls are files and folders dropped or pasted into the chat.
+    /// Returns: 없음. 폴더는 읽을 경로로 연결하고, 파일은 보관함에 복사해 이 대화에 붙인다.
+    /// Raises: 없음. 오류는 error에 남긴다.
+    func attach(_ urls: [URL]) {
+        let folders = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
+        if !folders.isEmpty {
+            for url in folders where !current.scope.paths.contains(url.path) { current.scope.paths.append(url.path) }
+            saveScope()
+        }
+        let files = urls.filter { !folders.contains($0) }
+        guard !files.isEmpty else { return }
+        do {
+            try store.save(current); try reload()
+            library.importFiles(files, conversationID: current.id)
+        } catch { self.error = error.localizedDescription }
+    }
+
     func attachLibraryItem(_ item: ChatLibraryItem, projectWide: Bool = false) {
         do {
             try store.save(current); try reload()
@@ -228,10 +245,29 @@ final class ChatState: ObservableObject {
     func send() -> Bool {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !running else { return false }
+        guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
         guard begin(text, conversation: current, automationID: nil, draftConnectors: draftConnectors) else { return false }
         draft = ""
         draftConnectors = []
         return true
+    }
+
+    /// Messages an edit of `message` or a regenerate of its answer would replace, from its question to the end.
+    func replacedMessages(from message: ConversationMessage) -> [ConversationMessage] {
+        ConversationMessage.replaced(from: message, in: messages)
+    }
+
+    /// Args: message is the question to resend with `text`, or an answer to regenerate when text is nil.
+    /// Returns: 시작했으면 true. 그 질문부터 뒤의 메시지는 새 질문을 저장할 때 같이 지운다. 시작하지 못하면 아무것도 지우지 않는다.
+    /// Raises: 없음. 시작하지 못한 이유는 error에 남긴다.
+    @discardableResult func resend(from message: ConversationMessage, text: String? = nil) -> Bool {
+        let replaced = replacedMessages(from: message)
+        guard let question = replaced.first, question.role == "user" else { return false }
+        guard !running else { error = tr("응답이 끝난 뒤에 다시 보내 주세요."); return false }
+        guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
+        let request = (text ?? question.text).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !request.isEmpty else { return false }
+        return begin(request, conversation: current, automationID: nil, replacing: replaced)
     }
 
     /// 고정한 대화, 고정 시각 내림차순.
@@ -329,7 +365,7 @@ final class ChatState: ObservableObject {
     /// Args: text는 요청, conversation은 실행 범위, automationID가 있으면 승인된 예약 실행이다.
     /// Returns: 요청을 저장하고 시작했으면 true.
     /// Raises: 없음. 시작 실패는 화면에 표시한다.
-    @discardableResult private func begin(_ text: String, conversation: ChatConversation, automationID: String?, draftConnectors: [String] = []) -> Bool {
+    @discardableResult private func begin(_ text: String, conversation: ChatConversation, automationID: String?, draftConnectors: [String] = [], replacing: [ConversationMessage] = []) -> Bool {
         guard !running else { return false }
         do {
             var conversation = conversation
@@ -359,7 +395,9 @@ final class ChatState: ObservableObject {
                 else if !scope.connectors.contains(connector) { scope.connectors.append(connector) }
             }
             conversation.projectID = scope.projectID
-            let previous = try store.messages(conversation.id)
+            let replacedIDs = Set(replacing.map(\.id))
+            let previous = try store.messages(conversation.id).filter { !replacedIDs.contains($0.id) }
+            let remoteConnectors = try ConnectorAuth.remoteIDs()
             let needsTitle = previous.isEmpty && automationID == nil && conversation.title == tr("새 대화")
             conversation.updatedAt = Date().timeIntervalSince1970
             let user = ConversationMessage(conversationID: conversation.id, role: "user", text: text)
@@ -370,7 +408,7 @@ final class ChatState: ObservableObject {
                client.baseURL.host == "api.openai.com", scope.useWeb {
                 searchKey = client.apiKey ?? ""; searchModel = client.model
             } else { searchKey = ""; searchModel = "" }
-            try store.startTurn(conversation: conversation, user: user, answer: answer)
+            try store.startTurn(conversation: conversation, user: user, answer: answer, replacing: replacing)
             if automationID != nil {
                 let existing = Set(try library.store.items().map(\.id))
                 for id in conversation.scope.libraryIDs where existing.contains(id) { try library.store.attach(id, conversationID: conversation.id) }
@@ -382,12 +420,13 @@ final class ChatState: ObservableObject {
                                       if id == "github" { return (try? await ConnectorAuth.accessToken(id)) ?? "" }
                                       return try await ConnectorAuth.accessToken(id)
                                   }, connectorResource: ConnectorAuth.resource,
-                                  remoteConnectors: try ConnectorAuth.remoteIDs())
+                                  remoteConnectors: remoteConnectors)
             let runner = ChatRunner(backend: backend, tools: tools)
             let selectedCatalog = skills
-            try reload()
+            activeMessage = answer; error = nil; library.chatImportError = nil
+            // The turn is saved; a list refresh failure must not leave it running without a task.
+            do { try reload() } catch { self.error = error.localizedDescription }
             if current.id == conversation.id { current = conversation; messages = previous + [user, answer] }
-            activeMessage = answer; error = nil
             runTask = Task { [weak self] in
                 guard let self else { return }
                 var succeeded = false

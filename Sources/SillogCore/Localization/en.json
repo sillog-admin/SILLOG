@@ -593,6 +593,8 @@
   "보존 해제": "Stop preserving",
   "보존한 기록": "Preserved records",
   "복사": "Copy",
+  "복사됨": "Copied",
+  "코드": "Code",
   "복습": "Review",
   "본 시간": "Time viewed",
   "본 자료": "Viewed resources",
@@ -906,7 +908,6 @@
   "요약 확인 뒤 기다리는 날": "Days to wait after summary check",
   "요약·사용 시간 기록": "Summaries & usage time",
   "요청 내용": "Request",
-  "요청 다시 입력": "Re-enter request",
   "용도별 모델": "Models by use",
   "워크스페이스에서 랜딩 페이지 프로젝트를 찾아 진행 상황을 알려 줘.": "Find the landing page project in the workspace and tell me how it's going.",
   "원문 기록은 %@부터 남아 있어요. 그 전은 요약과 사용 시간만 있어요.": "Raw records are kept from %@. Before that, only summaries and time spent remain.",
@@ -1402,5 +1403,15 @@
   "Discord 사용자 설정 → 고급에서 개발자 모드를 켜고, 읽을 채널을 오른쪽 클릭해 ‘채널 ID 복사’를 누르세요.": "In Discord, turn on Developer Mode under User Settings → Advanced, then right-click the channel to read and click Copy Channel ID.",
   "Discord 개발자 포털 열기": "Open the Discord Developer Portal",
   "Repository 선택": "Choose repositories",
-  "GitHub 계정을 연결했어요. 브라우저에서 SILLOG이 읽을 Repository를 선택해 주세요. 나중에 바꾸려면 ‘Repository 선택’을 누르세요.": "Your GitHub account is connected. In your browser, choose the repositories SILLOG can read. To change them later, click Choose repositories."
+  "GitHub 계정을 연결했어요. 브라우저에서 SILLOG이 읽을 Repository를 선택해 주세요. 나중에 바꾸려면 ‘Repository 선택’을 누르세요.": "Your GitHub account is connected. In your browser, choose the repositories SILLOG can read. To change them later, click Choose repositories.",
+  "질문 복사": "Copy question",
+  "질문 편집": "Edit question",
+  "다시 생성": "Regenerate",
+  "보내기": "Send",
+  "뒤의 대화를 지우고 다시 보낼까요?": "Delete the rest of the chat and resend?",
+  "지우고 보내기": "Delete and resend",
+  "이 질문 뒤에 있는 메시지 %@개가 지워져요.": "%@ messages after this question will be deleted.",
+  "붙여넣은 이미지": "Pasted image",
+  "첨부 파일을 넣는 중이에요. 끝나면 보내 주세요.": "Attachments are still being added. Send once they're done.",
+  "응답이 끝난 뒤에 다시 보내 주세요.": "Send again after the current answer finishes."
 }

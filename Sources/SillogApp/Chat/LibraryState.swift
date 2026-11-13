@@ -7,9 +7,16 @@ final class LibraryState: ObservableObject {
     @Published var items: [ChatLibraryItem] = []
     /// 보관 자료 id -> 연결 대화의 초점 (홈의 분야 기준). 없으면 "분야 없음"
     @Published var itemFocuses: [String: [ChatFocus]] = [:]
-    @Published var busy = false
+    @Published var busy = false {
+        didSet { if !busy, !queued.isEmpty { let next = queued.removeFirst(); importFiles(next.urls, projectID: next.projectID, conversationID: next.conversationID, keepingError: true) } }
+    }
     @Published var error: String?
+    /// Import failure of files dropped or pasted into a chat; shown in the chat until the next send or import.
+    @Published var chatImportError: String?
     var onChange: (() -> Void)?
+    /// Pasted screenshots are written here first and removed once imported.
+    static let pasteFolder = FileManager.default.temporaryDirectory.appendingPathComponent("SillogPaste", isDirectory: true)
+    private var queued: [(urls: [URL], projectID: String?, conversationID: String?)] = []
     let store: LibraryStore
     private let db: SillogDatabase
     init(db: SillogDatabase) { self.db = db; store = LibraryStore(db); reload() }
@@ -44,8 +51,16 @@ final class LibraryState: ObservableObject {
         panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = true
         panel.message = tr("파일을 SILLOG 보관함에 복사합니다. 연결한 대화와 프로젝트에서 필요한 내용이 설정된 LLM에 전달됩니다.")
         guard panel.runModal() == .OK else { return }
-        let urls = panel.urls, store = store
-        busy = true; error = nil
+        importFiles(panel.urls, projectID: projectID, conversationID: conversationID)
+    }
+
+    /// Args: urls are files to copy into the library; a call made while another import runs waits for it.
+    func importFiles(_ urls: [URL], projectID: String? = nil, conversationID: String? = nil, keepingError: Bool = false) {
+        guard !urls.isEmpty else { return }
+        if busy { queued.append((urls, projectID, conversationID)); return }
+        let store = store
+        if !keepingError { error = nil; chatImportError = nil }
+        busy = true
         Task {
             do {
                 try await Task.detached {
@@ -55,8 +70,12 @@ final class LibraryState: ObservableObject {
                         if let conversationID { try store.attach(item.id, conversationID: conversationID) }
                     }
                 }.value
-            } catch { self.error = error.localizedDescription }
-            busy = false; reload(); onChange?()
+            } catch {
+                self.error = error.localizedDescription
+                if conversationID != nil { chatImportError = error.localizedDescription }
+            }
+            for url in urls where url.path.hasPrefix(Self.pasteFolder.path) { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+            reload(); onChange?(); busy = false
         }
     }
 

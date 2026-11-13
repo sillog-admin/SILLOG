@@ -125,9 +125,10 @@ struct ChatMessageText: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            ForEach(Array(text.components(separatedBy: "```").enumerated()), id: \.offset) { index, part in
-                if index.isMultiple(of: 2) {
-                    ForEach(Array(part.components(separatedBy: "\n\n").enumerated()), id: \.offset) { _, paragraph in
+            ForEach(Array(ChatBlocks.parts(text).enumerated()), id: \.offset) { _, part in
+                switch part {
+                case .prose(let prose):
+                    ForEach(Array(prose.components(separatedBy: "\n\n").enumerated()), id: \.offset) { _, paragraph in
                         let (value, cited, missing) = Self.citations(in: paragraph, sources: sources)
                         if !value.isEmpty || !cited.isEmpty || missing {
                             VStack(alignment: .leading, spacing: 6) {
@@ -141,19 +142,55 @@ struct ChatMessageText: View {
                             }
                         }
                     }
-                } else {
-                    let lines = part.components(separatedBy: "\n")
-                    VStack(alignment: .leading, spacing: 10) {
-                        if let language = lines.first, !language.isEmpty { Text(language).font(Brand.font(.tag)).foregroundStyle(Brand.gray) }
-                        ScrollView(.horizontal) {
-                            Text(lines.dropFirst().joined(separator: "\n").trimmingCharacters(in: .newlines))
-                                .font(.system(size: 12, design: .monospaced)).foregroundStyle(Brand.tabText)
-                        }
-                    }.padding(14).background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 6))
-                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
+                case .code(let language, let body, let closed):
+                    ChatCodeBlock(language: language, code: body, closed: closed)
                 }
             }
         }.textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct ChatCodeBlock: View {
+    let language: String
+    let code: String
+    var closed = true
+    @State private var copied = false
+    @State private var diagramHeight: CGFloat = 160
+    @State private var diagramFailed = false
+
+    /// Draw only finished mermaid blocks; while streaming the source would fail to parse on every token.
+    private var diagram: Bool { closed && !diagramFailed && language.lowercased() == "mermaid" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(language.isEmpty ? tr("코드") : language).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
+                Spacer()
+                Button {
+                    NSPasteboard.general.clearContents(); NSPasteboard.general.setString(code, forType: .string)
+                    copied = true
+                    Task { try? await Task.sleep(for: .seconds(1.5)); copied = false }
+                } label: {
+                    Label(copied ? tr("복사됨") : tr("복사"), systemImage: copied ? "checkmark" : "doc.on.doc")
+                        .font(Brand.font(.tag)).foregroundStyle(Brand.gray)
+                }.buttonStyle(.plain).help(tr("코드 복사"))
+            }
+            .padding(.horizontal, 14).frame(height: 30)
+            Rectangle().fill(Brand.line).frame(height: 1)
+            if diagram {
+                ChatMermaidView(code: code, height: $diagramHeight, failed: $diagramFailed)
+                    .frame(height: diagramHeight)
+                    .background(.white)
+            } else {
+                ScrollView(.horizontal) {
+                    Text(code.trimmingCharacters(in: .newlines)).font(.system(size: 12, design: .monospaced)).foregroundStyle(Brand.tabText)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .padding(14)
+                }
+            }
+        }
+        .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 6))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
     }
 }
 

@@ -5,7 +5,7 @@ import SillogCore
 /// 스냅샷으로 그릴 화면 목록. 이름은 Figma 화면 번호를 따른다 (Figma 에서 내보낸 같은 이름의 PNG 와 나란히 본다)
 @MainActor
 enum SnapshotCatalog {
-    static var all: [Snapshot] { menus + windows + activity + chat + library + storage + [mathAnswer] + recording }
+    static var all: [Snapshot] { menus + windows + activity + chat + library + storage + [mathAnswer, codeAnswer] + recording }
 
     /// Figma 창(760) 에서 제목 줄(44)을 뺀 내용 영역
     static let window = CGSize(width: 1180, height: 716)
@@ -165,6 +165,13 @@ enum SnapshotCatalog {
             batchShot("LG-W4", ActivityLogView(section: .batches, showReceived: true)),
             batchShot("LG-W7", ActivityLogView(section: .batches), failedFirst: true),
         ]
+    }
+
+    /// 채팅 답의 코드 블록: 언어 표시와 복사 버튼, 목록 안에 들여 쓴 펜스, 스트리밍 중 닫히지 않은 펜스
+    static var codeAnswer: Snapshot {
+        let answer = "설치 순서예요.\n\n1. 패키지를 받아요.\n\n    ```bash\n    brew install sillog\n    ```\n\n2. 설정 파일을 열어요. 문장 안의 ```이건 코드가 아니에요``` 는 그대로 보여요.\n\n```swift\nlet answer = 42\nprint(answer)\n```\n\n스트리밍 중인 블록:\n\n```json\n{\"ok\": true"
+        let view = ChatMessageText(text: answer, sources: [], onSource: { _ in }).frame(width: 640).padding(24).background(Color.white)
+        return Snapshot(name: "CH-code", size: CGSize(width: 688, height: 560), view: AnyView(view.environmentObject(AppState(preview: { _ in }))))
     }
 
     /// 채팅 답의 수식: 블록 행렬(\text{①}, \qquad), 글줄 수식, \text 안 한글, 분수

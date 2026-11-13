@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- mermaid 11.4.1 (MIT). Renders one diagram from a chat answer; the app passes the source with callAsyncJavaScript. -->
+<style>
+  html, body { margin: 0; overflow: hidden; background: transparent; }
+  #out { display: flex; justify-content: center; padding: 16px; }
+  #out svg { max-width: 100%; height: auto; }
+</style>
+<script src="mermaid.min.js"></script>
+</head>
+<body>
+<div id="out"></div>
+<script>
+  // strict: model-written diagrams cannot run scripts or add click handlers.
+  mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral', fontFamily: 'SUIT, -apple-system, sans-serif' });
+  function post(message) { window.webkit.messageHandlers.sillog.postMessage(message); }
+  window.renderDiagram = async function (code) {
+    const out = document.getElementById('out');
+    try {
+      const { svg } = await mermaid.render('diagram', code);
+      out.innerHTML = svg;
+      post({ height: Math.ceil(out.getBoundingClientRect().height) });
+    } catch (error) {
+      post({ error: String((error && error.message) || error) });
+    }
+  };
+</script>
+</body>
+</html>
