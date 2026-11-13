@@ -498,11 +498,19 @@ struct ConnectorLogo: View {
         })
     }()
 
+    // Full-bleed app tiles read heavier than bare marks, and GitHub's file carries clearspace.
+    private static let tiles: Set<String> = ["notion", "higgsfield", "canva"]
+    private static let opticalScale: [String: CGFloat] = ["github": 1.3, "notion": 0.9, "higgsfield": 0.9, "canva": 0.9]
+
     var body: some View {
         let corner = size * 0.22
         let mark = boxed ? size * 0.64 : size
         Group {
-            if let image = Self.images[connector.id] { Image(nsImage: image).resizable().scaledToFit() }
+            if let image = Self.images[connector.id] {
+                let side = mark * (Self.opticalScale[connector.id] ?? 1)
+                Image(nsImage: image).resizable().scaledToFit().frame(width: side, height: side)
+                    .clipShape(RoundedRectangle(cornerRadius: Self.tiles.contains(connector.id) ? side * 0.22 : 0))
+            }
             else { Image(systemName: connector.icon).font(.system(size: size * 0.42)).foregroundStyle(Brand.tabText) }
         }
         .frame(width: mark, height: mark)
