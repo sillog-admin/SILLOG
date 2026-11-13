@@ -146,9 +146,37 @@ public struct ChatStep: Codable, Identifiable, Equatable, Sendable {
     public var status = Status.running
     public var startedAt = Date().timeIntervalSince1970
     public var endedAt: Double?
+    public enum Kind: String, Codable, Sendable { case reasoning }
+    /// Nil for a tool step and in steps saved before reasoning was shown.
+    public var kind: Kind?
     public init(title: String, detail: String = "", status: Status = .running) {
         self.title = title; self.detail = detail; self.status = status
         if status != .running { endedAt = startedAt }
+    }
+
+    /// Model reasoning is the model's own words, so only tool titles go through the stored-title table.
+    public var displayTitle: String {
+        guard kind == .reasoning else { return ChatRunner.displayTitle(title) }
+        return title.isEmpty ? tr("생각") : title
+    }
+}
+
+extension ConversationMessage {
+    /// Args: id is one reasoning summary part, text that part so far.
+    /// Returns: none. Adds or rewrites that part's step: a bold first line is the title and the rest the result.
+    /// Raises: none.
+    public mutating func setReasoning(id: String, text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let lines = trimmed.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+        // A summary without a heading stays whole in the result, so a paragraph never becomes the one-line title.
+        let heading = lines[0].hasPrefix("**") ? lines[0].replacingOccurrences(of: "**", with: "").trimmingCharacters(in: .whitespaces) : ""
+        var step = trace?.first { $0.id == id } ?? ChatStep(title: "", status: .done)
+        step.id = id; step.kind = .reasoning
+        step.title = heading
+        step.result = heading.isEmpty ? trimmed : lines.count > 1 ? lines[1].trimmingCharacters(in: .whitespacesAndNewlines) : ""
+        step.endedAt = Date().timeIntervalSince1970
+        if let index = trace?.firstIndex(where: { $0.id == id }) { trace?[index] = step } else { trace = (trace ?? []) + [step] }
     }
 }
 

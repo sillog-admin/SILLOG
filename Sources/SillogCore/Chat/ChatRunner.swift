@@ -55,6 +55,8 @@ public struct ChatSkill: Codable, Identifiable, Sendable {
 public enum ChatRunEvent: Sendable {
     case textReset
     case text(String)
+    /// The text so far of one reasoning summary part, sent at line and part ends.
+    case reasoning(id: String, text: String)
     case step(String)
     case stepStarted(ChatStep)
     case stepFinished(id: String, result: String, failed: Bool, detail: String?)
@@ -395,7 +397,7 @@ public struct ChatRunner: Sendable {
                                         useWeb: tools.scope.useWeb && role != "context" && role != "repository",
                                         execute: execute) { event in
                 switch event {
-                case .text, .textReset: if role == nil { await onEvent(event) }
+                case .text, .textReset, .reasoning: if role == nil { await onEvent(event) }
                 default: await onEvent(event)
                 }
             }
@@ -405,9 +407,11 @@ public struct ChatRunner: Sendable {
             try Task.checkCancellation()
             try await ledger.consume()
             if role == nil { await onEvent(.textReset) }
-            let reply = try await client.respond(system: system, messages: history, tools: available) { delta in
+            let reply = try await client.respond(system: system, messages: history, tools: available, onText: { delta in
                 if role == nil { await onEvent(.text(delta)) }
-            }
+            }, onReasoning: { id, text in
+                if role == nil { await onEvent(.reasoning(id: id, text: text)) }
+            })
             try Task.checkCancellation()
             if reply.droppedImages {
                 for index in history.indices { history[index].images = []; history[index].imageData = [] }

@@ -1427,6 +1427,8 @@
   "작성 중인 답변은 멈춘 뒤 삭제돼요.": "The answer being written is stopped first.",
   "작업 %@단계 · %@": "Steps: %@ · %@",
   "작업 %@단계": "Steps: %@",
+  "%@ 동안 생각함": "Thought for %@",
+  "생각": "Thinking",
   "%@분 %@초": "%@m %@s",
   "결과": "Result",
   "버전 %@/%@": "Version %@/%@",

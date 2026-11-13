@@ -684,6 +684,7 @@ final class ChatState: ObservableObject {
         switch event {
         case .textReset: message.text = ""   // saving here keeps a crash from leaving the last step's preamble as the answer
         case .text(let text): message.text += text; checkpoint = false
+        case .reasoning(let id, let text): message.setReasoning(id: id, text: text); checkpoint = false   // the next step or the final save keeps it
         case .step(let text): message.trace = (message.trace ?? []) + [ChatStep(title: text, status: .done)]
         case .stepStarted(let step): message.trace = (message.trace ?? []) + [step]
         case .stepFinished(let id, let result, let failed, let detail):

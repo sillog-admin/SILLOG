@@ -62,6 +62,45 @@ public protocol ChatModelClient: Sendable {
     /// Raises: 인증·HTTP·전송·응답 형식 오류 및 취소.
     func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec],
                  onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply
+
+    /// Args: as above, and onReasoning gets a reasoning step id and its summary so far.
+    /// Returns: the finished text and tool calls.
+    /// Raises: auth, HTTP, transport and response-format errors, and cancellation.
+    func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec],
+                 onText: @escaping @Sendable (String) async -> Void,
+                 onReasoning: @escaping @Sendable (String, String) async -> Void) async throws -> ChatModelReply
+}
+
+extension ChatModelClient {
+    /// A client without reasoning summaries answers as before.
+    /// Args: as the requirement; onReasoning is never called.
+    /// Returns: the reply from respond(system:messages:tools:onText:).
+    /// Raises: whatever that call throws.
+    public func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec],
+                        onText: @escaping @Sendable (String) async -> Void,
+                        onReasoning: @escaping @Sendable (String, String) async -> Void) async throws -> ChatModelReply {
+        try await respond(system: system, messages: messages, tools: tools, onText: onText)
+    }
+}
+
+/// Reasoning summary text per summary part, released at line and part ends so the answer isn't redrawn per token.
+/// Each part is its own step because each starts with its own heading.
+struct ReasoningSummaries {
+    private var parts: [String: String] = [:]
+
+    /// Returns: the part's step id and text so far when delta ends a line, else nil.
+    mutating func add(_ delta: String, item: String, part: Int) -> (id: String, text: String)? {
+        let id = "\(item)#\(part)"
+        parts[id, default: ""] += delta
+        return delta.contains("\n") ? (id, parts[id] ?? "") : nil
+    }
+
+    /// Returns: the part's step id and finished text; value nil keeps the text streamed so far.
+    mutating func finish(_ value: String?, item: String, part: Int) -> (id: String, text: String) {
+        let id = "\(item)#\(part)"
+        if let value { parts[id] = value }
+        return (id, parts[id] ?? "")
+    }
 }
 
 /// 두 연결 방식의 스트림 해석을 공유한다. 완료되지 않은 도구 인자는 실행하지 않는다.
@@ -73,6 +112,9 @@ struct ChatStreamParser {
     var items: [JSONValue] = []
     var finishedItems: [Int: JSONValue] = [:]
     var completed = false
+    var summaries = ReasoningSummaries()
+    /// A reasoning item's id and summary to show, set by accept and cleared by its reader.
+    var reasoning: (id: String, text: String)?
 
     /// Args: payload는 하나의 SSE data 이벤트이다.
     /// Returns: 이번 이벤트에서 추가된 본문.
@@ -88,6 +130,10 @@ struct ChatStreamParser {
                 let delta = root["delta"]?.stringValue ?? ""
                 text += delta
                 return delta
+            case "response.reasoning_summary_text.delta", "response.reasoning_summary_text.done":
+                let item = root["item_id"]?.stringValue ?? "", part = Int(root["summary_index"]?.doubleValue ?? 0)
+                if let done = root["text"]?.stringValue { reasoning = summaries.finish(done, item: item, part: part) }
+                else if let summary = summaries.add(root["delta"]?.stringValue ?? "", item: item, part: part) { reasoning = summary }
             case "response.output_item.done":
                 if let item = root["item"], let index = root["output_index"]?.doubleValue {
                     finishedItems[Int(index)] = item
@@ -183,7 +229,8 @@ enum ChatStream {
     /// Returns: 스트림에서 완성한 모델 응답.
     /// Raises: HTTP·전송·파싱 오류와 취소. 자동 재시도하지 않는다.
     static func read(_ request: URLRequest, session: URLSession, format: ChatStreamParser.Format,
-                     onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply {
+                     onText: @escaping @Sendable (String) async -> Void,
+                     onReasoning: @escaping @Sendable (String, String) async -> Void = { _, _ in }) async throws -> ChatModelReply {
         let (bytes, response) = try await session.bytes(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
@@ -205,6 +252,7 @@ enum ChatStream {
                 let delta = try parser.accept(payload.joined(separator: "\n"))
                 payload = []
                 if !delta.isEmpty { await onText(delta) }
+                if let reasoning = parser.reasoning { parser.reasoning = nil; await onReasoning(reasoning.id, reasoning.text) }
                 if parser.completed { break }
             }
         }
@@ -224,6 +272,15 @@ extension CodexResponsesClient: ChatModelClient {
     /// Raises: 인증·HTTP·전송 오류. 401일 때만 기존 인증 방식대로 한 번 갱신한다.
     public func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec],
                         onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply {
+        try await respond(system: system, messages: messages, tools: tools, onText: onText, onReasoning: { _, _ in })
+    }
+
+    /// Args: chat input as above; onText gets text deltas, onReasoning reasoning summaries.
+    /// Returns: the Responses reply with its reasoning items kept.
+    /// Raises: auth, HTTP and transport errors. Refreshes the login once, on a 401 only.
+    public func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec],
+                        onText: @escaping @Sendable (String) async -> Void,
+                        onReasoning: @escaping @Sendable (String, String) async -> Void) async throws -> ChatModelReply {
         var credentials = try await auth.credentials()
         for attempt in 0...1 {
             var body: [String: JSONValue] = [
@@ -241,12 +298,13 @@ extension CodexResponsesClient: ChatModelClient {
                 }),
                 "tools": .array(tools.map { .object(["type": "function", "name": .string($0.name), "description": .string($0.description), "parameters": $0.parameters, "strict": false]) }),
             ]
-            if let reasoningEffort { body["reasoning"] = .object(["effort": .string(reasoningEffort)]) }
+            // Summaries ride on the reasoning object, sent only when an effort is, so a call without one stays as it was.
+            if let reasoningEffort { body["reasoning"] = .object(["effort": .string(reasoningEffort), "summary": "auto"]) }
             var request = URLRequest(url: endpoint)
             request.httpMethod = "POST"; request.timeoutInterval = timeout
             request.setCodexHeaders(credentials, streaming: true)
             request.httpBody = try JSONEncoder().encode(JSONValue.object(body))
-            do { return try await ChatStream.read(request, session: session, format: .responses, onText: onText) }
+            do { return try await ChatStream.read(request, session: session, format: .responses, onText: onText, onReasoning: onReasoning) }
             catch LLMError.http(let status, _) where status == 401 && attempt == 0 {
                 credentials = try await auth.refreshAfterRejection(of: credentials.accessToken)
             }
