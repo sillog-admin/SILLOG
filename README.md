@@ -66,7 +66,7 @@ All records are stored in SQLite on your Mac. The only things that leave it are 
 2. Open the dmg and drag SILLOG to Applications.
 3. The first time you open SILLOG, macOS says *"SILLOG" Not Opened*, because the app isn't notarized. Click **Done**, go to System Settings → Privacy & Security, click **Open Anyway** near the bottom, and then click **Open**. Since macOS 15, Control-click → Open no longer works for this.
 
-The current builds are ad-hoc signed, so macOS may treat an update as a different app. If that happens, repeat step 3 and grant Accessibility and Screen Recording again. Developer ID signing will fix this.
+Releases are signed with the same certificate every time, so updates keep your keychain access and permissions. If you installed a build from before that change, the first update asks once more: allow keychain access, then grant Accessibility and Screen Recording again.
 
 ### First launch
 

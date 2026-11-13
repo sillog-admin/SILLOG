@@ -1,8 +1,8 @@
 #!/bin/bash
 # release 빌드 → 코드 서명 → ~/Applications/SILLOG.app 설치.
 # 서명 인증서를 고정해 두면 다시 빌드해도 macOS 권한(손쉬운 사용·화면 기록)이 유지된다.
-#   SIGN_IDENTITY="Apple Development: ..." scripts/make-app.sh   # 인증서 지정
-#   SIGN_IDENTITY=- scripts/make-app.sh                          # ad-hoc (빌드할 때마다 권한을 다시 줘야 함)
+#   SIGN_IDENTITY="SILLOG Release" scripts/make-app.sh   # 인증서 지정. 지정한 인증서로 서명하지 못하면 멈춘다
+#   SIGN_IDENTITY=- scripts/make-app.sh                  # ad-hoc (빌드할 때마다 권한을 다시 줘야 함)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -91,11 +91,12 @@ done
 # File Provider의 Finder 메타데이터가 서명을 깨므로 번들에서 제거한다.
 xattr -cr "$APP"
 
-# 서명: 지정값 → "Apple Development" → ad-hoc 순으로 고른다.
+# 서명: 지정값 → "SILLOG Release" → "Apple Development" → ad-hoc 순으로 고른다.
+# SILLOG Release 는 릴리스와 같은 자체 서명 인증서라 신뢰 목록(-v)에 없으므로 -v 없이 찾는다.
 IDENTITY="${SIGN_IDENTITY:-}"
 if [ -z "$IDENTITY" ]; then
-  AVAILABLE="$(security find-identity -v -p codesigning 2>/dev/null || true)"
-  for candidate in "Apple Development"; do
+  AVAILABLE="$(security find-identity -p codesigning 2>/dev/null || true)"
+  for candidate in "SILLOG Release" "Apple Development"; do
     if echo "$AVAILABLE" | grep -q "\"$candidate"; then
       IDENTITY="$(echo "$AVAILABLE" | grep "\"$candidate" | head -1 | sed -E 's/.*"(.*)".*/\1/')"
       break
@@ -117,6 +118,10 @@ sign() {   # 키체인 확인 창에서 멈추는 경우를 대비해 25초 제�
 
 if [ "$IDENTITY" != "-" ] && sign "$IDENTITY"; then
   echo "서명: $IDENTITY"
+elif [ -n "${SIGN_IDENTITY:-}" ] && [ "$SIGN_IDENTITY" != "-" ]; then
+  # A release must never fall back to ad-hoc, or every user is asked for keychain access and permissions again.
+  echo "'$SIGN_IDENTITY' 로 서명하지 못했습니다" >&2
+  exit 1
 else
   [ "$IDENTITY" != "-" ] && echo "'$IDENTITY' 서명 실패 → ad-hoc 으로 서명합니다 (다시 빌드하면 권한을 다시 줘야 합니다)"
   codesign --force --sign - "$APP"
