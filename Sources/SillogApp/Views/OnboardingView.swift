@@ -375,7 +375,7 @@ struct OnboardingSheet: View {
                     ArtImage(name: "jev", size: 72)
                 } action: { go(.judgeJev) }
                 MethodTile(title: "OpenAI Decisions", detail: tr("OpenAI API 키를 붙여 넣어요")) {
-                    Image(systemName: "checklist").font(.system(size: 52)).foregroundStyle(Brand.ink)
+                    ArtImage(name: "openai_logo", size: 72)
                 } action: { go(.judgeDecisions) }
             }
             .frame(maxWidth: 700)
