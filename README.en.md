@@ -230,8 +230,6 @@ For now, Apple silicon Macs on macOS 14 or later. Windows and mobile aren't read
 
 ## Build from source
 
-<img src="docs/readme/section-source-en.webp" alt="">
-
 You need Xcode 26 (Swift 6.2). Command Line Tools can build the app but can't run the tests. An app you build yourself wasn't downloaded from the internet, so you won't see the "Not Opened" dialog.
 
 ```bash
