@@ -64,13 +64,7 @@ SILLOG(실록)는 Mac에서 쓰는 앱과 창, 웹페이지, 화면 글자, 파�
 
 SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 연결한 AI 계정으로 해요.
 
-<table align="center">
-  <tr>
-    <td align="center"><img src="landing/assets/icon3d-mac.webp" width="120" alt=""><br><b>저장</b><br>기록은 내 Mac에 저장해요</td>
-    <td align="center"><img src="landing/assets/icon3d-lens.webp" width="120" alt=""><br><b>확인</b><br>보낸 내용과 받은 결과를 활동 로그에서 봐요</td>
-    <td align="center"><img src="landing/assets/icon3d-toggle.webp" width="120" alt=""><br><b>제어</b><br>기능별로 전송을 끌 수 있어요</td>
-  </tr>
-</table>
+<img src="docs/readme/privacy-icons.webp" alt="저장: 기록은 내 Mac에 저장해요. 확인: 보낸 내용과 받은 결과를 활동 로그에서 봐요. 제어: 기능별로 전송을 끌 수 있어요.">
 
 비밀번호 입력칸은 기록하지 않아요. 비밀번호 관리자와 키체인 같은 앱은 이름과 시간만 남겨요. 자세한 내용은 [개인정보와 데이터](#개인정보와-데이터)에 있습니다.
 
