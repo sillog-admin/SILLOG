@@ -4,7 +4,7 @@ import Foundation
 ///   - 같은 앱·창 제목·주소이고 차이 해시 거리가 가까운 사진은 같은 화면으로 묶는다 (스크롤로 내용이 바뀌면 다른 화면)
 ///   - 묶음의 머문 시간 = 사진이 속한 행의 체류 / 그 행의 사진 수 의 합
 ///   - 대표 = 묶음에서 시간상 가운데 사진
-///   - 머문 시간 minSeconds 이상, 내용 없는 화면(잠금·시스템·Sillog·빈 탭·로그인) 제외. 이건 이미지 예산 규칙이지 업무 기준이 아니다
+///   - 머문 시간 minSeconds 이상, 내용 없는 화면(잠금·시스템·SILLOG·빈 탭·로그인) 제외. 이건 이미지 예산 규칙이지 업무 기준이 아니다
 public enum KeyframeSelector {
     public struct Shot: Equatable, Sendable {
         public var observationId: Int64

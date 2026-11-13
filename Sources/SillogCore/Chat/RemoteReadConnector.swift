@@ -212,7 +212,7 @@ public actor RemoteReadSession {
         guard !initialized else { return }
         let result = try await request("initialize", params: [
             "protocolVersion": .string(protocolVersion), "capabilities": .object([:]),
-            "clientInfo": .object(["name": "Sillog", "version": "1.0"])
+            "clientInfo": .object(["name": "SILLOG", "version": "1.0"])
         ])
         guard let version = result["protocolVersion"]?.stringValue,
               ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"].contains(version) else {
@@ -232,7 +232,7 @@ public actor RemoteReadSession {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Sillog/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("SILLOG/1.0", forHTTPHeaderField: "User-Agent")
         if method != "initialize" { request.setValue(protocolVersion, forHTTPHeaderField: "MCP-Protocol-Version") }
         if let sessionID { request.setValue(sessionID, forHTTPHeaderField: "Mcp-Session-Id") }
         request.httpBody = try JSONEncoder().encode(JSONValue.object(body))

@@ -4,7 +4,7 @@ import Foundation
 /// 앱 자체는 SQLite 만 쓰고, Cypher 질의를 실제 데이터로 보여주고 싶을 때 이 파일을 Neo4j Browser 에 붙여 넣는다.
 public enum CypherExporter {
     public static func export(_ graph: Subgraph) -> String {
-        var lines: [String] = ["// Sillog export — Neo4j Browser 에 붙여 넣어 실행"]
+        var lines: [String] = ["// SILLOG export — Neo4j Browser 에 붙여 넣어 실행"]
         let byId = Dictionary(graph.nodes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for node in graph.nodes {
             var sets = ["n.title = \(quote(node.title))"]

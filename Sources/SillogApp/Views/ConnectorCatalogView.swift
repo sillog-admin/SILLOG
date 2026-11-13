@@ -434,6 +434,7 @@ struct ConnectorCatalogView: View {
                 notify(read ? tr("\(connector.name)에서 \(verified) 응답을 확인했어요.")
                        : tr("\(connector.name) 검색 응답을 받았어요. 읽을 내용은 확인되지 않았어요."))
             } catch {
+                if error is ConnectorReconnectError { connected.remove(connector.id) }
                 notify(tr("\(connector.name) 검사 실패 · \(error.localizedDescription)"))
             }
         }
@@ -471,7 +472,10 @@ struct ConnectorCatalogView: View {
             do {
                 let count = try await ConnectorAuth.pickDriveFiles()
                 if count > 0 { notify(tr("Drive 파일 \(count)개를 SILLOG이 읽을 수 있어요. 더 추가하려면 ‘Drive 파일 고르기’를 누르세요.")) }
-            } catch { notify(error.localizedDescription) }
+            } catch {
+                if error is ConnectorReconnectError { connected.remove("drive") }
+                notify(error.localizedDescription)
+            }
         }
     }
 
@@ -500,7 +504,7 @@ struct ConnectorCatalogView: View {
 }
 
 
-/// 서비스가 배포한 이미지의 색상과 비율을 유지한 채 Sillog의 타일에 배치한다.
+/// 서비스가 배포한 이미지의 색상과 비율을 유지한 채 SILLOG의 타일에 배치한다.
 struct ConnectorLogo: View {
     let connector: ConnectorEntry
     var size: CGFloat = 34
