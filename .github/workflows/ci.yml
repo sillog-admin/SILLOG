@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build-test:
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     permissions:
       contents: write
     steps:
@@ -91,7 +91,7 @@ jobs:
           key="$RUNNER_TEMP/notary.p8"
           printf '%s\n' "$NOTARY_KEY" > "$key"
           auth=(--key "$key" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID")
-          out="$(xcrun notarytool submit "$RUNNER_TEMP/SILLOG.dmg" "${auth[@]}" --wait --timeout 30m --output-format json)"
+          out="$(xcrun notarytool submit "$RUNNER_TEMP/SILLOG.dmg" "${auth[@]}" --wait --timeout 60m --output-format json)"
           echo "$out"
           if [ "$(plutil -extract status raw - <<< "$out")" != "Accepted" ]; then
             xcrun notarytool log "$(plutil -extract id raw - <<< "$out")" "${auth[@]}"
