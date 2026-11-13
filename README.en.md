@@ -249,7 +249,7 @@ swift run sillogctl --help
 
 Issues and pull requests are welcome. Please run `swift build` and `swift test` locally before you open a PR, since CI skips a few OCR-based UI tests. Commit messages are one line in the form `type: summary`, like `fix: handle expired token`. Don't commit `.env`, API keys, or dumps of your own records. Contributions are distributed under AGPL-3.0.
 
-Please report security issues through [private vulnerability reporting](https://github.com/sillog-admin/SILLOG/security/advisories/new) rather than a public issue.
+More details are in [CONTRIBUTING.md](CONTRIBUTING.md). Please report security issues by following the [security policy](SECURITY.md) rather than in a public issue.
 
 ## License
 
