@@ -12,7 +12,7 @@ def render(context, baseline):
     path = SKILLS / (values['skill'] + '.md')
     instruction = subprocess.check_output(['git', 'show', os.environ['SILLOG_SKILL_BASE_REF'] + ':' + str(path)], cwd=ROOT, text=True) if baseline else (ROOT / path).read_text()
     return json.dumps({
-        'system': 'You are Sillog. Answer the user in Korean. The user selected the following skill. In this evaluation, only the material in the request is available; no external tools are available.\n\n' + instruction,
+        'system': 'You are SILLOG. Answer the user in Korean. The user selected the following skill. In this evaluation, only the material in the request is available; no external tools are available.\n\n' + instruction,
         'user': values['request'],
     }, ensure_ascii=False)
 

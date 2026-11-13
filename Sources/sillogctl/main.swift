@@ -445,7 +445,7 @@ do {
 
     case "batch":
         let instance = InstanceLock(databasePath: dbPath)
-        guard instance.acquire() else { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱이 직접 정리하므로 CLI 배치는 앱을 끈 뒤에 실행하세요.") }
+        guard instance.acquire() else { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱이 직접 정리하므로 CLI 배치는 앱을 끈 뒤에 실행하세요.") }
         defer { instance.release() }
         let force = flag("--force"), all = flag("--all")
         let demo = flag("--demo-llm")
@@ -517,7 +517,7 @@ do {
 
     case "rebuild-graph" where flag("--from-assignments"):
         let instance = InstanceLock(databasePath: dbPath)
-        guard instance.acquire() else { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
+        guard instance.acquire() else { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
         defer { instance.release() }
         let stats = try GraphRebuilder(db: db, store: store).rebuildFromAssignments(now: Date().timeIntervalSince1970)
         print("세션 \(stats.sessions)개, 자료 \(stats.resources)개를 행 판단에서 다시 만들었습니다 (업무 \(stats.tasks)개, 행 \(stats.rows)개)")
@@ -526,7 +526,7 @@ do {
     case "rebuild-graph":
         guard flag("--yes") else { fail("그래프(파생 데이터)를 지우고 원시 행을 전부 미처리로 되돌립니다. 원시 행·스크린샷은 남습니다. 진행하려면 --yes 를 붙이세요.") }
         let instance = InstanceLock(databasePath: dbPath)
-        guard instance.acquire() else { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
+        guard instance.acquire() else { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
         try db.writer.write { conn in
             // 카드 연결(card_id)은 남긴다: 화면 카드는 판정과 무관한 사실이라 다시 만들 필요가 없다
             try conn.execute(sql: "UPDATE observations SET batch_id = NULL, task_id = NULL, resource_relevant = 1, off_task = 0, task_reason = NULL")
@@ -580,7 +580,7 @@ do {
         let texts = withText ? try store.texts(ids: rows.compactMap(\.textId)) : [:]
         let batches = try store.recentBatches(limit: 10_000).filter { $0.startedAt >= since }.reversed()
         let clock = Date.FormatStyle(date: .numeric, time: .standard)
-        var md = ["# Sillog 데이터 덤프 (\(Date().formatted(clock)))", "", "## 1. 원시 데이터 — 관측 행 \(rows.count)개", "",
+        var md = ["# SILLOG 데이터 덤프 (\(Date().formatted(clock)))", "", "## 1. 원시 데이터 — 관측 행 \(rows.count)개", "",
                   "| # | 시각 | 계기 | 앱 | 창 제목 | URL / 문서 | 텍스트 | 캡처 | 정리 |", "|---|---|---|---|---|---|---|---|---|"]
         func cell(_ text: String?) -> String { (text ?? "").replacingOccurrences(of: "|", with: "\\|").replacingOccurrences(of: "\n", with: " ") }
         for row in rows {
@@ -676,7 +676,7 @@ do {
         for (node, why) in victims { print("  \(node.title)  — \(why)") }
         guard apply else { print("\(victims.count)개. 지우려면 --yes 를 붙이세요 (앱을 끈 뒤)."); break }
         let instance = InstanceLock(databasePath: dbPath)
-        guard instance.acquire() else { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
+        guard instance.acquire() else { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
         try db.writer.write { conn in
             for (node, _) in victims {
                 try conn.execute(sql: "DELETE FROM edges WHERE src = ? OR dst = ?", arguments: [node.id, node.id])
@@ -690,7 +690,7 @@ do {
         let dry = flag("--dry")
         let days = option("--days").flatMap(Double.init) ?? 7
         let instance = InstanceLock(databasePath: dbPath)
-        guard dry || instance.acquire() else { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
+        guard dry || instance.acquire() else { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
         defer { if !dry { instance.release() } }
         let now = Date().timeIntervalSince1970
         let titles: [String: String] = try db.writer.read { conn in
@@ -709,7 +709,7 @@ do {
         let keys = args
         guard !keys.isEmpty else { fail("사용법: retire-task TASK_ID [TASK_ID…]") }
         let instance = InstanceLock(databasePath: dbPath)
-        guard instance.acquire() else { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
+        guard instance.acquire() else { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
         defer { instance.release() }
         let now = Date().timeIntervalSince1970
         for key in keys {
@@ -720,7 +720,7 @@ do {
 
     case "rebind-projects":
         let instance = InstanceLock(databasePath: dbPath)
-        guard instance.acquire() else { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
+        guard instance.acquire() else { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
         let chosen: [(String, String, Double)] = try db.writer.write { conn in
             let tx = GraphTx(conn)
             // 예전 방식(행마다 ON, 가중치 = 초)으로 쌓인 엣지를 시간 집계로 옮긴다
@@ -920,7 +920,7 @@ do {
         let ids = args.compactMap(Int64.init)
         guard !ids.isEmpty else { fail("사용법: rejudge BATCH_ID [BATCH_ID…]") }
         let instance = InstanceLock(databasePath: dbPath)
-        guard instance.acquire() else { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
+        guard instance.acquire() else { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
         defer { instance.release() }
         let (reopened, lastTs) = try store.reopenBatches(ids)
         guard let lastTs else { fail("그 배치들에 행이 없음") }
@@ -1075,7 +1075,7 @@ do {
             break
         }
         let instance = InstanceLock(databasePath: dbPath)
-        guard instance.acquire() else { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱이 직접 분야를 붙이므로 앱을 종료한 뒤 다시 실행하세요.") }
+        guard instance.acquire() else { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱이 직접 분야를 붙이므로 앱을 종료한 뒤 다시 실행하세요.") }
         defer { instance.release() }
         guard let outcome = try await ThemeStep.run(db: db, llm: client, now: Date().timeIntervalSince1970, retypeAll: retype) else {
             print("분야·종류를 붙일 업무가 없습니다"); break
@@ -1134,7 +1134,7 @@ do {
         guard let key = args.first, clear || args.count > 1 else { fail("사용법: set-theme TASK_ID 분야이름 | set-theme TASK_ID --clear") }
         let name = args.dropFirst().joined(separator: " ")
         let instance = InstanceLock(databasePath: dbPath)
-        guard instance.acquire() else { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
+        guard instance.acquire() else { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
         defer { instance.release() }
         let now = Date().timeIntervalSince1970
         do {
@@ -1192,7 +1192,7 @@ do {
         guard let title = args.first, !title.hasPrefix("--") else { fail("사용법: erase-theme 분야이름 [--yes]") }
         let yes = flag("--yes")
         let instance = InstanceLock(databasePath: dbPath)
-        if yes, !instance.acquire() { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
+        if yes, !instance.acquire() { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
         defer { if yes { instance.release() } }
         let now = Date().timeIntervalSince1970
         let report = yes ? try db.writer.write { try TaskEraser.erase(theme: title, conn: $0, now: now, dry: false) }
@@ -1222,7 +1222,7 @@ do {
         guard args.count >= 2, !args[0].hasPrefix("--") else { fail("사용법: erase-node 종류 키 [--yes]") }
         let (label, key, yes) = (args[0], args[1], flag("--yes"))
         let instance = InstanceLock(databasePath: dbPath)
-        if yes, !instance.acquire() { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
+        if yes, !instance.acquire() { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱을 종료한 뒤 다시 실행하세요.") }
         defer { if yes { instance.release() } }
         let now = Date().timeIntervalSince1970, started = Date()
         let report = yes ? try db.writer.write { try NodeEraser.erase(label: label, key: key, conn: $0, now: now, dry: false) }
@@ -1402,7 +1402,7 @@ do {
             if plan.consentNeeded { print("첫 정리 동의가 아직 없습니다. 실제로 지우려면 consolidate --consent") }
         } else {
             let instance = InstanceLock(databasePath: dbPath)
-            guard instance.acquire() else { fail("이 DB 를 쓰는 Sillog 앱이 실행 중입니다. 앱이 직접 정리하므로 앱을 끈 뒤에 실행하세요.") }
+            guard instance.acquire() else { fail("이 DB 를 쓰는 SILLOG 앱이 실행 중입니다. 앱이 직접 정리하므로 앱을 끈 뒤에 실행하세요.") }
             defer { instance.release() }
             if consent { try db.writer.write { try ConsolidationStore.set(ConsolidationStore.Key.firstPruneConsentedAt, String(now), $0) } }
             let consolidator = Consolidator(db: db, llm: noLLM ? nil : makeClient().client)

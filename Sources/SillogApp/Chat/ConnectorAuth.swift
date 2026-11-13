@@ -14,6 +14,18 @@ struct ConnectorToken: Codable {
     var remoteMCP: Bool? = nil
 }
 
+/// The provider rejected the saved refresh token, which is already deleted.
+struct ConnectorReconnectError: LocalizedError {
+    let id: String
+    var errorDescription: String? { tr("\(ConnectorEntry.all.first { $0.id == id }?.name ?? id) 로그인이 만료됐어요. 다시 연결해 주세요.") }
+}
+
+/// Keeps the provider's OAuth error code so a dead refresh token can be told apart from other failures.
+private struct OAuthRejection: LocalizedError {
+    let code: String
+    let errorDescription: String?
+}
+
 struct ConnectorOAuthClient: Codable {
     let id: String
     let tokenEndpoint: String
@@ -114,7 +126,7 @@ enum ConnectorAuth {
             registration.httpMethod = "POST"; registration.timeoutInterval = 30
             registration.setValue("application/json", forHTTPHeaderField: "Content-Type")
             registration.httpBody = try JSONSerialization.data(withJSONObject: [
-                "client_name": "Sillog", "redirect_uris": [callback],
+                "client_name": "SILLOG", "redirect_uris": [callback],
                 "grant_types": ["authorization_code", "refresh_token"], "response_types": ["code"],
                 "token_endpoint_auth_method": "none", "scope": connector.scopes
             ])
@@ -163,7 +175,7 @@ enum ConnectorAuth {
         let user = result["authed_user"] as? [String: Any] ?? result
         guard result["ok"] as? Bool == true, let access = user["access_token"] as? String,
               (user["scope"] as? String ?? "").split(separator: ",").contains("search:read") else {
-            throw ChatToolError.unavailable(tr("Slack 검색 권한을 승인하지 못했습니다: \(result["error"] as? String ?? tr("search:read 필요"))"))
+            throw OAuthRejection(code: result["error"] as? String ?? "", errorDescription: tr("Slack 검색 권한을 승인하지 못했습니다: \(result["error"] as? String ?? tr("search:read 필요"))"))
         }
         var value = token(from: user, accessToken: access)
         value.refreshToken = value.refreshToken ?? oldRefresh
@@ -202,7 +214,7 @@ enum ConnectorAuth {
                 request = formRequest(URL(string: "https://oauth2.googleapis.com/token")!, fields)
             } else if id == "github" {
                 fields["client_id"] = try configuration("github-client", environment: "GITHUB_CLIENT_ID")
-                // Sillog의 디바이스 인증으로 발급한 토큰은 비밀키 없이 갱신할 수 있다.
+                // Tokens from our device flow refresh without a client secret.
                 request = formRequest(URL(string: "https://github.com/login/oauth/access_token")!, fields)
             } else if id == "notion" {
                 request = jsonRequest(URL(string: "https://api.notion.com/v1/oauth/token")!, fields)
@@ -210,7 +222,19 @@ enum ConnectorAuth {
             } else {
                 throw ChatToolError.unavailable(tr("\(id) 커넥터를 다시 연결하세요."))
             }
-            var updated = try await id == "slack" ? slackExchange(request, oldRefresh: refresh) : exchange(request, oldRefresh: refresh)
+            var updated: ConnectorToken
+            do { updated = try await id == "slack" ? slackExchange(request, oldRefresh: refresh) : exchange(request, oldRefresh: refresh) }
+            catch let error as OAuthRejection where ["invalid_grant", "invalid_refresh_token", "bad_refresh_token", "token_expired", "token_revoked"].contains(error.code) {
+                AppLog.write("connector \(id) refresh rejected: \(error.code) \(error.errorDescription ?? "")")
+                // Only clear the token we tried, so a reconnect that landed meanwhile survives.
+                let cleared = try tokenChanges.withLock {
+                    guard try ChatSecrets.load("plugin-\(id)") == saved else { return false }
+                    try ChatSecrets.save("", account: "plugin-\(id)")
+                    return true
+                }
+                if cleared { markRemote(id, false) }
+                throw ConnectorReconnectError(id: id)
+            }
             updated.resource = token.resource
             updated.oauthClient = token.oauthClient
             updated.remoteMCP = token.remoteMCP
@@ -336,7 +360,7 @@ enum ConnectorAuth {
     private static func exchange(_ request: URLRequest, oldRefresh: String? = nil) async throws -> ConnectorToken {
         let result = try await response(request)
         guard let value = result["access_token"] as? String else {
-            throw ChatToolError.unavailable(result["error_description"] as? String ?? tr("커넥터 인증에 실패했습니다."))
+            throw OAuthRejection(code: result["error"] as? String ?? "", errorDescription: result["error_description"] as? String ?? tr("커넥터 인증에 실패했습니다."))
         }
         var token = token(from: result, accessToken: value)
         token.refreshToken = token.refreshToken ?? oldRefresh
@@ -399,11 +423,11 @@ enum ConnectorAuth {
     /// Raises: HTTP·네트워크·JSON 오류.
     private static func response(_ request: URLRequest) async throws -> [String: Any] {
         var request = request
-        request.setValue("Sillog/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("SILLOG/1.0", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await ConnectorHTTP.session.data(for: request)
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         guard (200..<300).contains((response as? HTTPURLResponse)?.statusCode ?? 0) else {
-            throw ChatToolError.unavailable(json["error_description"] as? String ?? tr("커넥터 인증 HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)"))
+            throw OAuthRejection(code: json["error"] as? String ?? "", errorDescription: json["error_description"] as? String ?? tr("커넥터 인증 HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)"))
         }
         return json
     }

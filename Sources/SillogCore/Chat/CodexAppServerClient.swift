@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-/// Codex가 검색·응답 루프를 실행하고, 앱의 자료·결과물 도구는 Sillog이 실행한다.
+/// Codex가 검색·응답 루프를 실행하고, 앱의 자료·결과물 도구는 SILLOG이 실행한다.
 public struct CodexAppServerClient: Sendable {
     private let auth: any CodexCredentialProviding
     let model: String
@@ -100,7 +100,7 @@ public struct CodexAppServerClient: Sendable {
                         try connection.send(["id": id, "result": .object(["accessToken": .string(credentials.accessToken), "chatgptAccountId": .string(credentials.accountId ?? accountID)])])
                     default:
                         // UI 밖의 권한 확대·명령 승인·사용자 입력 요청은 자동 승인하지 않는다.
-                        try connection.send(["id": id, "error": .object(["code": -32601, "message": "Sillog does not permit this request. Ask the user in your reply."])])
+                        try connection.send(["id": id, "error": .object(["code": -32601, "message": "SILLOG does not permit this request. Ask the user in your reply."])])
                     }
                     continue
                 }

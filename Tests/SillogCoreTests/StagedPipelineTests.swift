@@ -78,7 +78,7 @@ final class StageDecodeTests: XCTestCase {
 
     func testStagePromptsCarryTheRulesAndOnlyTheirRows() {
         XCTAssertTrue(StagePrompt.classifySystem.contains("Hobbies and entertainment are not goals"))
-        XCTAssertTrue(StagePrompt.classifySystem.contains("rows whose app is Sillog"))
+        XCTAssertTrue(StagePrompt.classifySystem.contains("rows whose app is SILLOG"))
         // No evidence means off; "choose work" once turned a bare title into a task named after a neighbouring row.
         XCTAssertFalse(StagePrompt.classifySystem.contains("choose work"))
         XCTAssertTrue(StagePrompt.classifySystem.contains("there is no basis to call it work"))

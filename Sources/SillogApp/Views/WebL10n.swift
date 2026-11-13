@@ -44,7 +44,10 @@ enum WebL10n {
       window.slT = t;
       const ATTRS = ['title', 'placeholder', 'aria-label', 'alt'];
       const walk = node => {
-        if (node.nodeType === 3) { const v = t(node.nodeValue); if (v !== node.nodeValue) node.nodeValue = v; return; }
+        if (node.nodeType === 3) {
+          // The parser adds inline script text as its own node; matching it against the patterns hangs the page.
+          const p = node.parentNode?.nodeName; if (p === 'SCRIPT' || p === 'STYLE') return;
+          const v = t(node.nodeValue); if (v !== node.nodeValue) node.nodeValue = v; return; }
         if (node.nodeType !== 1 || node.tagName === 'SCRIPT' || node.tagName === 'STYLE') return;
         for (const a of ATTRS) { const old = node.getAttribute(a); if (old) { const v = t(old); if (v !== old) node.setAttribute(a, v); } }
         node.childNodes.forEach(walk);

@@ -6,10 +6,10 @@
 
 ```bash
 ./scripts/make-app.sh
-open build/Sillog.app
+open build/SILLOG.app
 ```
 
-빌드 스크립트는 소스를 임시 경로에 복사해 컴파일하고 앱 번들을 서명합니다. 완성된 앱은 `~/Applications/Sillog.app`에 설치하며, `build/Sillog.app`은 설치된 앱으로 연결되는 심볼릭 링크입니다. 컴파일과 서명은 Documents 동기화의 영향을 피하면서, 실행과 권한 등록에는 일정한 설치 경로를 사용합니다.
+빌드 스크립트는 소스를 임시 경로에 복사해 컴파일하고 앱 번들을 서명합니다. 완성된 앱은 `~/Applications/SILLOG.app`에 설치하며, `build/SILLOG.app`은 설치된 앱으로 연결되는 심볼릭 링크입니다. 컴파일과 서명은 Documents 동기화의 영향을 피하면서, 실행과 권한 등록에는 일정한 설치 경로를 사용합니다.
 
 서명 인증서는 `SIGN_IDENTITY` 지정값 → `Developer ID Application` → `SILLOG Release` → `Apple Development` → ad-hoc 순서로 선택합니다. 직접 지정한 인증서로 서명하지 못하면 ad-hoc으로 넘어가지 않고 멈춥니다. 인증서로 서명할 때는 공증에 필요한 하드닝 런타임과 타임스탬프를 붙이고, 권한(entitlements)은 `scripts/SILLOG.entitlements`에서 읽습니다.
 
@@ -23,8 +23,8 @@ main 릴리스는 Developer ID 인증서로 서명하고, dmg를 Apple에 공증
 
 문제가 생겼을 때:
 
-- **화면 기록 목록에 앱이 없음**: 시스템 설정의 화면 기록 목록에 `~/Applications/Sillog.app`을 직접 추가하고 허용한 뒤 앱을 종료하고 다시 실행합니다.
-- **시스템 설정은 허용인데 앱은 권한 없음**: ad-hoc 서명으로 다시 빌드하면 기존 권한에 저장된 서명과 달라질 수 있습니다. 앱을 종료하고 화면 기록 목록의 Sillog 항목을 제거한 뒤, 설치된 앱을 다시 추가·허용하고 실행합니다. 재빌드 후에도 권한을 유지하려면 같은 개발자 인증서로 서명합니다.
+- **화면 기록 목록에 앱이 없음**: 시스템 설정의 화면 기록 목록에 `~/Applications/SILLOG.app`을 직접 추가하고 허용한 뒤 앱을 종료하고 다시 실행합니다.
+- **시스템 설정은 허용인데 앱은 권한 없음**: ad-hoc 서명으로 다시 빌드하면 기존 권한에 저장된 서명과 달라질 수 있습니다. 앱을 종료하고 화면 기록 목록의 SILLOG 항목을 제거한 뒤, 설치된 앱을 다시 추가·허용하고 실행합니다. 재빌드 후에도 권한을 유지하려면 같은 개발자 인증서로 서명합니다.
 - **이미 실행 중 안내**: 같은 DB를 사용하는 기존 앱 또는 `swift run SillogApp` 프로세스를 종료합니다. 수집 중인 DB에 두 인스턴스가 동시에 쓰지 않도록 잠금이 걸립니다.
 - **`no such module 'XCTest'`**: 전체 Xcode와 개발자 경로를 확인합니다. Command Line Tools만 설치한 환경에는 XCTest가 없을 수 있습니다. 앱 빌드 성공과 단위 테스트 통과는 별도로 확인해야 합니다.
 - **실행·권한·정리 오류 확인**: `~/Library/Application Support/Sillog/app.log`를 확인합니다. 로그에 화면 내용이나 토큰은 기록하지 않습니다.
@@ -42,7 +42,7 @@ main 릴리스는 Developer ID 인증서로 서명하고, dmg를 Apple에 공증
 | `SILLOG_SHOW_WINDOW=1` | 시작 시 메인 창 표시 |
 | `SILLOG_REQUEST_PERMISSIONS=1` | 시작 시 손쉬운 사용·화면 기록 권한 요청 |
 | (녹음 받아쓰기 모델) | Whisper large-v3-turbo 압축판(`openai_whisper-large-v3-v20240930_626MB`, 약 610MB)을 처음 받아쓸 때 데이터 폴더의 `models/` 아래로 내려받는다(WhisperKit, 기기 안). 녹음하는 동안 30초쯤마다 조용한 순간에 잘라 미리 받아써 두고(`LiveTranscription`), 끝나면 남은 조각만 받아쓴다(11분 녹음도 끝나고 약 2초). 앱을 다시 켰거나 미리 받아쓰기가 실패하면 파일 전체를 같은 30초 조각으로 받아쓴다. 내려받기·불러오기에 실패하면 애플 기기 안 음성 인식으로 받아쓴다. 모델은 90초 동안 안 쓰면 내려놓는다 |
-| `SILLOG_TRANSCRIBE_TRACE` | 개발용 받아쓰기 진단: `<녹음 파일>|<적을 파일>`. 앱과 같은 방식으로 받아쓰며 인식기 결과(마지막 결과·발화 끝 표시·끝 시각·글)를 하나하나 적고 끝난다. 음성 인식 권한이 앱 번들에만 있어 `open -n Sillog.app --env 'SILLOG_TRANSCRIBE_TRACE=…'` 로 띄운다. `SILLOG_TRANSCRIBE_ENGINE=apple` 이면 애플 음성 인식으로(기본은 Whisper 로 파일 전체), `SILLOG_TRANSCRIBE_GAIN=2` 로 애플 인식의 키울 배수를 직접 정할 수 있다. `SILLOG_TRANSCRIBE_ENGINE=live` 면 파일을 녹음기처럼 흘려보내며 녹음 중 미리 받아쓰기를 하고 끝난 뒤 글이 나오기까지 걸린 시간을 적는다(`SILLOG_TRANSCRIBE_SPEED=8` 로 8배 빨리) |
+| `SILLOG_TRANSCRIBE_TRACE` | 개발용 받아쓰기 진단: `<녹음 파일>|<적을 파일>`. 앱과 같은 방식으로 받아쓰며 인식기 결과(마지막 결과·발화 끝 표시·끝 시각·글)를 하나하나 적고 끝난다. 음성 인식 권한이 앱 번들에만 있어 `open -n SILLOG.app --env 'SILLOG_TRANSCRIBE_TRACE=…'` 로 띄운다. `SILLOG_TRANSCRIBE_ENGINE=apple` 이면 애플 음성 인식으로(기본은 Whisper 로 파일 전체), `SILLOG_TRANSCRIBE_GAIN=2` 로 애플 인식의 키울 배수를 직접 정할 수 있다. `SILLOG_TRANSCRIBE_ENGINE=live` 면 파일을 녹음기처럼 흘려보내며 녹음 중 미리 받아쓰기를 하고 끝난 뒤 글이 나오기까지 걸린 시간을 적는다(`SILLOG_TRANSCRIBE_SPEED=8` 로 8배 빨리) |
 | (숨은 설정 `frameLog`) | `defaults write com.sillog.app frameLog -bool true` 면 화면 갱신마다 메인 스레드가 늦은 프레임을 재서, 늦은 프레임이 있던 1초마다 화면 이름과 함께 app.log 에 `프레임 기록 자료 > 파일: 120장 중 늦음 3 (많이 늦음 1), 가장 긴 간격 40ms` 처럼 남긴다. 앱을 다시 켜야 적용, `defaults delete … frameLog` 로 끈다 |
 | `SILLOG_TAB` | 시작 탭: `graph`, `chat`, `records`(기록 자료), `calendar`, `settings`. `files`, `history`(지난 기록), `library` 는 기록 자료의 그 구역으로, `activity` 는 설정의 활동 로그로 연다 (업무 목록은 그래프 탭에만 있다) |
 
@@ -64,7 +64,7 @@ SILLOG_TEST_DB="$SILLOG_TEST_DIR/sillog.sqlite"
 swift run sillogctl --db "$SILLOG_TEST_DB" seed-demo
 swift run sillogctl --db "$SILLOG_TEST_DB" batch --all --demo-llm
 swift run sillogctl --db "$SILLOG_TEST_DB" stats
-SILLOG_DB="$SILLOG_TEST_DB" SILLOG_SHOW_WINDOW=1 build/Sillog.app/Contents/MacOS/Sillog
+SILLOG_DB="$SILLOG_TEST_DB" SILLOG_SHOW_WINDOW=1 build/SILLOG.app/Contents/MacOS/Sillog
 ```
 
 `--demo-llm`은 시드 데이터를 규칙으로 분류하는 가짜 모델입니다. 수집→분류→그래프 흐름을 확인하는 용도이며 실제 LLM 품질 평가에 사용할 수 없습니다. 앱의 로그인·온보딩을 우회하지는 않습니다.
