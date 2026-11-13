@@ -76,6 +76,8 @@ SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 �
 
 ## 할 수 있는 일
 
+<img src="docs/readme/section-features.webp" alt="">
+
 - 지금 쓰는 앱, 창 제목, 주소, 화면 글자, 스크린샷, 다운로드한 파일, Claude Code와 Codex에 보낸 요청을 자동으로 기록합니다. 기록하고 싶지 않은 앱은 이름과 시간만 남깁니다.
 - 5분마다 새 기록을 업무, 세션, 자료, 문제, 주제로 나눠 그래프로 보여 줍니다. 업무마다 썼던 파일과 페이지를 다시 열 수 있고, 필요 없는 노드는 원본 기록과 함께 지울 수 있습니다.
 - 채팅에서 "지난주 결제 버그 때 뭐 했지?", "이번 주 주간 보고 써 줘"처럼 물어보면 기록을 찾아 답합니다. 대화마다 특정 업무나 분야로 범위를 좁힐 수 있습니다.
@@ -87,6 +89,8 @@ SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 �
 - 오래된 원본 기록은 정해 둔 기간이 지나면 지우고, 그 자리는 주간·월간 요약이 대신합니다.
 
 ## 동작 방식
+
+<img src="docs/readme/section-how.webp" alt="">
 
 ```mermaid
 flowchart LR
@@ -104,6 +108,8 @@ flowchart LR
 기록은 모두 Mac 안의 SQLite에 저장됩니다. 밖으로 나가는 것은 정리와 채팅을 위해 설정한 LLM에 보내는 내용, 그리고 허용한 웹 검색과 커넥터 요청뿐입니다.
 
 ## 설치
+
+<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/section-install.webp" alt=""></a>
 
 ### 준비할 것
 
@@ -130,6 +136,8 @@ flowchart LR
 
 ## AI 연결
 
+<img src="docs/readme/section-ai.webp" alt="">
+
 | 연결 | 쓰는 곳 | 설명 |
 | --- | --- | --- |
 | ChatGPT 구독 | 정리, 채팅, 판단 | 앱 전용 ChatGPT 로그인으로 Codex 백엔드를 씁니다. 요금제 사용량 안에서 쓰므로 따로 요금이 나가지 않습니다. 공개 API가 아니어서 규격이 바뀔 수 있습니다. 채팅은 셸 실행과 파일 쓰기를 끈 로컬 `codex app-server`로 돌아갑니다. |
@@ -151,6 +159,8 @@ flowchart LR
 직접 빌드해서 커넥터를 설정하는 방법은 [docs/connectors.md](docs/connectors.md)에 있습니다.
 
 ## 개인정보와 데이터
+
+<img src="docs/readme/section-privacy.webp" alt="">
 
 기록은 Mac에 저장되지만, 정리와 채팅에 쓰는 내용은 설정한 모델로 보내집니다. 클라우드 모델을 쓰면 그 내용이 Mac 밖으로 나간다는 뜻입니다.
 
@@ -223,6 +233,8 @@ ChatGPT 구독과 API(OpenAI 호환) 가운데 하나를 연결해요. ChatGPT �
 - Gmail과 Drive는 Google 검수가 끝날 때까지 테스트 계정만 쓸 수 있습니다.
 
 ## 소스에서 빌드하기
+
+<img src="docs/readme/section-source.webp" alt="">
 
 Xcode 26(Swift 6.2)이 필요합니다. Command Line Tools만 있으면 빌드는 되지만 테스트는 돌릴 수 없습니다. 직접 빌드한 앱은 인터넷에서 받은 파일이 아니어서 위의 "열지 않음" 창이 뜨지 않습니다.
 
