@@ -4,13 +4,19 @@
 
 # SILLOG
 
-한 일을 기록해 두고, 그 기록으로 다시 일하는 macOS 앱
+### 쌓아 온 기록으로 다음 일을 시작해요
+
+한 일을 업무별로 정리하고 AI가 그 기록으로 일하게 하는 macOS 앱
 
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)](#준비할-것)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![CI](https://github.com/sillog-admin/SILLOG/actions/workflows/ci.yml/badge.svg)](https://github.com/sillog-admin/SILLOG/actions/workflows/ci.yml)
 
-[sillog.app](https://sillog.app) · [English](README.md)
+**[macOS용 다운로드](https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg)** · [sillog.app](https://sillog.app) · [English](README.md)
+
+<sub>macOS 14 이상, Apple 실리콘 Mac</sub>
+
+<img src="landing/assets/m3.webp" width="64"> <img src="landing/assets/m5.webp" width="64"> <img src="landing/assets/m1.webp" width="64"> <img src="landing/assets/m4.webp" width="64"> <img src="landing/assets/m2.webp" width="64">
 
 </div>
 
@@ -18,10 +24,54 @@ SILLOG(실록)는 Mac에서 쓰는 앱과 창, 웹페이지, 화면 글자, 파�
 
 아직 초기 프로토타입입니다. 배포 파일이 Apple 공증을 받지 않아 처음 열 때 한 단계가 더 필요하고(아래 [설치](#설치) 참고), 업무 기록을 꽤 많이 모으니 쓰기 전에 [개인정보와 데이터](#개인정보와-데이터)를 먼저 읽어 주세요.
 
-<p align="center">
-  <img src="landing/assets/screen-answer.webp" width="49%" alt="출처가 붙은 채팅 답변">
-  <img src="landing/assets/screen-log.webp" width="49%" alt="활동 로그">
-</p>
+## 둘러보기
+
+| | |
+| :---: | :---: |
+| <img src="landing/assets/screen-answer.webp" alt="보고서 작성"><br>**보고서 작성**<br>문서 작성 스킬로 부탁하면 업무 기록을 읽어 보고서를 만들어요. | <img src="landing/assets/screen-result.webp" alt="결과물 저장"><br>**결과물 저장**<br>만든 결과물은 파일로 저장하거나 PDF로 내보내요. |
+| <img src="landing/assets/screen-resume.webp" alt="다시 열기"><br>**다시 열기**<br>세션을 고르면 그때 쓰던 파일, 웹페이지, 앱을 다시 열어요. | <img src="landing/assets/screen-schedule.webp" alt="예약 작업"><br>**예약 작업**<br>반복할 일은 예약안을 먼저 보여 주고 승인하면 등록해요. |
+| <img src="landing/assets/screen-file.webp" alt="파일 위치 추천"><br>**파일 위치 추천**<br>새로 받은 파일을 옮길 폴더를 추천하고 승인하면 옮겨요. | <img src="landing/assets/screen-log.webp" alt="보낸 내용 확인"><br>**보낸 내용 확인**<br>AI 계정으로 보낸 내용과 받은 결과를 활동 로그에서 확인해요. |
+
+## 이렇게 부탁하면 돼요
+
+스킬을 고르고 평소 말하듯 부탁하면, SILLOG이 기록에서 필요한 자료를 찾아요.
+
+> 이번 주 업무 보고서 써 줘 · 이 프로젝트로 포트폴리오 항목 써 줘 · 어제 보던 자료를 비교표로 정리해 줘 · 남은 일 우선순위 정해 줘 · 최근 읽은 자료 개념 설명해 줘
+>
+> 발표자료 초안 만들어 줘 · 주간 보고서를 매주 만들어 줘 · 경력기술서 항목 정리해 줘 · 이 주제 자료 더 찾아서 출처 붙여 줘 · 다음 주 계획표 만들어 줘
+>
+> 복습 자료 만들어 줘 · 이번 작업으로 글 초안 써 줘 · 분기 보고서 써 줘 · 지난주에 찾은 자료 다시 보여 줘 · 매일 아침 어제 한 일 정리해 줘
+
+## 입력하지 않아도 업무별로 정리돼요
+
+처음 권한을 허용하면, 그 뒤로는 따로 입력하지 않아도 기록해요. 시장 조사 보고서.pdf, example.com, Word, 회의 메모, Keynote, Excel처럼 흩어진 기록이 이런 업무로 모여요.
+
+| 업무 | 분야 |
+| --- | --- |
+| 신제품 출시 준비 | 산출물작성 › 기획서작성 |
+| 경쟁사 가격 비교 | 정보수집 › 경쟁사조사 |
+| 출시 일정 점검 | 행정처리 › 일정관리 |
+| 공지 메일 작성 | 커뮤니케이션 › 메일처리 |
+| 발표 자료 구성 | 산출물작성 › 발표자료 |
+
+## 업무와 자료가 그래프로 이어져요
+
+업무, 세션, 자료, 주제를 서로 연결해 저장해요. 2D와 3D 연결망, 원형 차트, 생키 다이어그램으로 바꿔 볼 수 있어요.
+
+| 2D 연결망 | 3D 연결망 |
+| :---: | :---: |
+| <img src="docs/readme/graph-solar.gif" alt="2D 연결망"> | <img src="docs/readme/graph-3d.gif" alt="3D 연결망"> |
+| **원형 차트** | **생키 다이어그램** |
+| <img src="docs/readme/graph-sunburst.gif" alt="원형 차트"> | <img src="docs/readme/graph-branch.gif" alt="생키 다이어그램"> |
+
+## 기록 원본은 내 Mac에 저장하고 보낸 내용은 직접 확인해요
+
+SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 연결한 AI 계정으로 해요.
+
+| <img src="landing/assets/icon3d-mac.webp" width="120" alt=""><br>**저장**<br>기록은 내 Mac에 저장해요 | <img src="landing/assets/icon3d-lens.webp" width="120" alt=""><br>**확인**<br>보낸 내용과 받은 결과를 활동 로그에서 봐요 | <img src="landing/assets/icon3d-toggle.webp" width="120" alt=""><br>**제어**<br>기능별로 전송을 끌 수 있어요 |
+| :---: | :---: | :---: |
+
+비밀번호 입력칸은 기록하지 않아요. 비밀번호 관리자와 키체인 같은 앱은 이름과 시간만 남겨요. 자세한 내용은 [개인정보와 데이터](#개인정보와-데이터)에 있습니다.
 
 ## 할 수 있는 일
 
@@ -119,6 +169,50 @@ flowchart LR
 └── app.log         # 실행 로그
 ```
 
+## 자주 묻는 질문
+
+<details>
+<summary><b>SILLOG은 무엇을 기록하나요?</b></summary>
+
+앱, 창 제목, 주소, 파일 경로, 화면 글자, 스크린샷, 다운로드한 파일, AI 코딩 도구(Claude Code, Codex CLI)에 입력한 메시지를 기록해요. 2분 넘게 입력이 없으면 자리 비움으로 기록해요. 녹음은 직접 시작했을 때만 하고 Mac 안에서 글로 받아써요.
+</details>
+
+<details>
+<summary><b>기록은 어디에 저장되나요?</b></summary>
+
+내 Mac에 저장해요. SILLOG은 자체 서버를 두지 않아요.
+</details>
+
+<details>
+<summary><b>밖으로 나가는 내용은 무엇인가요?</b></summary>
+
+업무를 정리하고 채팅에 답하려고 기록 내용을 내가 연결한 AI 계정으로 보내요. 대표 화면의 스크린샷도 함께 보내요. 채팅에서 찾아본 자료, 허용한 웹 검색과 커넥터 통신도 밖으로 나가요. 보낸 내용은 활동 로그에서 확인하고 기능별로 전송을 끌 수 있어요.
+</details>
+
+<details>
+<summary><b>어떤 AI 계정이 필요한가요?</b></summary>
+
+ChatGPT 구독과 API(OpenAI 호환) 가운데 하나를 연결해요. ChatGPT 구독으로 채팅하려면 Codex CLI나 Codex 앱이 설치되어 있어야 해요. API로 연결하면 호출 요금이 나와요.
+</details>
+
+<details>
+<summary><b>기록하고 싶지 않은 앱이 있어요.</b></summary>
+
+기록하지 않을 앱을 추가하면 그 앱은 이름과 시간만 남겨요. 비밀번호 관리자와 키체인은 처음부터 제외되어 있고 비밀번호 입력칸은 기록하지 않아요.
+</details>
+
+<details>
+<summary><b>스크린샷은 얼마나 보관하나요?</b></summary>
+
+기본 7일이고 1일에서 90일 사이로 바꿀 수 있어요.
+</details>
+
+<details>
+<summary><b>어떤 컴퓨터에서 쓸 수 있나요?</b></summary>
+
+지금은 macOS 14 이상의 Apple 실리콘 Mac에서 쓸 수 있어요. Windows와 모바일은 아직 준비 중이에요.
+</details>
+
 ## 아직 안 되는 것
 
 - macOS에서만 돌아가고, 배포 파일은 아직 공증 전입니다.
@@ -164,3 +258,15 @@ swift run sillogctl --help
 SILLOG는 [GNU Affero General Public License v3.0](LICENSE)으로 배포합니다. 누구나 쓰고 고치고 다시 배포할 수 있습니다. 다만 고친 버전을 배포하거나 웹 서비스처럼 네트워크로 제공한다면, 그 버전의 소스 코드 전체를 같은 라이선스로 공개해야 합니다.
 
 함께 쓰는 라이브러리는 각자의 라이선스를 따릅니다. [GRDB.swift](https://github.com/groue/GRDB.swift), [WhisperKit](https://github.com/argmaxinc/WhisperKit), [SwiftMath](https://github.com/mgriebling/SwiftMath), [LangGraph-Swift](https://github.com/bsorrentino/LangGraph-Swift), [force-graph](https://github.com/vasturiano/force-graph), [FullCalendar](https://github.com/fullcalendar/fullcalendar), [Mermaid](https://github.com/mermaid-js/mermaid)는 MIT이고, SUIT와 Jost 글꼴은 [SIL OFL 1.1](Sources/SillogApp/Resources/Brand/Fonts)입니다. 그 밖의 고지는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)에 있습니다.
+
+---
+
+<div align="center">
+
+<img src="landing/assets/m2.webp" width="56"> <img src="landing/assets/m3.webp" width="56"> <img src="landing/assets/m1.webp" width="56"> <img src="landing/assets/m5.webp" width="56"> <img src="landing/assets/m4.webp" width="56">
+
+### 지금 SILLOG을 만나 보세요
+
+**[macOS용 다운로드](https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg)** · [sillog.app](https://sillog.app)
+
+</div>

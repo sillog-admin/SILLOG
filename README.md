@@ -4,13 +4,19 @@
 
 # SILLOG
 
-A macOS app that keeps a record of your work, so you can build on it later
+### Start your next task from the records you've built
+
+A macOS app that sorts what you've done by task and lets AI work from those records
 
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)](#requirements)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![CI](https://github.com/sillog-admin/SILLOG/actions/workflows/ci.yml/badge.svg)](https://github.com/sillog-admin/SILLOG/actions/workflows/ci.yml)
 
-[sillog.app](https://sillog.app) · [한국어](README.ko.md)
+**[Download for macOS](https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg)** · [sillog.app](https://sillog.app) · [한국어](README.ko.md)
+
+<sub>macOS 14 or later, Apple silicon Mac</sub>
+
+<img src="landing/assets/m3.webp" width="64"> <img src="landing/assets/m5.webp" width="64"> <img src="landing/assets/m1.webp" width="64"> <img src="landing/assets/m4.webp" width="64"> <img src="landing/assets/m2.webp" width="64">
 
 </div>
 
@@ -18,10 +24,56 @@ SILLOG records what you do on your Mac: the apps and windows you use, the pages 
 
 It's an early prototype. The download isn't notarized by Apple yet, so the first launch takes one extra step (see [Install](#install)). It also collects a lot about your work, so please read [Privacy and data](#privacy-and-data) before you turn it on.
 
-<p align="center">
-  <img src="landing/assets/screen-answer.webp" width="49%" alt="Chat answer with sources">
-  <img src="landing/assets/screen-log.webp" width="49%" alt="Activity log">
-</p>
+## A quick tour
+
+The app is in Korean for now.
+
+| | |
+| :---: | :---: |
+| <img src="landing/assets/screen-answer.webp" alt="Write a report"><br>**Write a report**<br>Pick the writing skill and ask, and SILLOG reads your task records to write the report. | <img src="landing/assets/screen-result.webp" alt="Save results"><br>**Save results**<br>Save what you make as a file or export it to PDF. |
+| <img src="landing/assets/screen-resume.webp" alt="Reopen"><br>**Reopen**<br>Pick a session to reopen the files, pages, and apps you were using. | <img src="landing/assets/screen-schedule.webp" alt="Scheduled tasks"><br>**Scheduled tasks**<br>For recurring work, SILLOG shows a draft schedule first and adds it once you approve. |
+| <img src="landing/assets/screen-file.webp" alt="Folder suggestions"><br>**Folder suggestions**<br>Suggests a folder for new downloads and moves them once you approve. | <img src="landing/assets/screen-log.webp" alt="See what was sent"><br>**See what was sent**<br>Check what went to your AI account, and what came back, in the activity log. |
+
+## Just ask
+
+Pick a skill and ask the way you normally would. SILLOG finds what it needs in your records.
+
+> Write this week's work report · Write a portfolio entry for this project · Put what I was reading yesterday into a comparison table · Prioritize what's left · Explain the concepts in what I read recently
+>
+> Draft a slide deck · Make the weekly report every week · Sort out entries for my career history · Find more on this topic and cite sources · Make next week's plan
+>
+> Make review notes · Draft a post from this work · Write the quarterly report · Show me what I found last week · Every morning, sum up what I did yesterday
+
+## Sorted by task, no typing needed
+
+Once you grant permissions the first time, SILLOG records on its own. Scattered records like a market research PDF, a web page, Word, meeting notes, Keynote, and Excel come together into tasks like these.
+
+| Task | Area |
+| --- | --- |
+| Prepare a product launch | Deliverables › Planning doc |
+| Compare competitor pricing | Research › Competitor research |
+| Check the launch schedule | Admin › Scheduling |
+| Write an announcement email | Communication › Email |
+| Build the presentation | Deliverables › Slides |
+
+## Tasks and sources, connected in a graph
+
+Tasks, sessions, sources, and topics are stored with their links. You can switch between a 2D network, a 3D network, a sunburst chart, and a Sankey diagram.
+
+| 2D network | 3D network |
+| :---: | :---: |
+| <img src="docs/readme/graph-solar.gif" alt="2D network"> | <img src="docs/readme/graph-3d.gif" alt="3D network"> |
+| **Sunburst chart** | **Sankey diagram** |
+| <img src="docs/readme/graph-sunburst.gif" alt="Sunburst chart"> | <img src="docs/readme/graph-branch.gif" alt="Sankey diagram"> |
+
+## Your raw records stay on your Mac, and you can check what's sent
+
+SILLOG has no server of its own. Organizing and chat go through the AI account you connect.
+
+| <img src="landing/assets/icon3d-mac.webp" width="120" alt=""><br>**Store**<br>Records stay on your Mac | <img src="landing/assets/icon3d-lens.webp" width="120" alt=""><br>**Check**<br>See what was sent and what came back in the activity log | <img src="landing/assets/icon3d-toggle.webp" width="120" alt=""><br>**Control**<br>Turn off sending for each feature |
+| :---: | :---: | :---: |
+
+Password fields are never recorded. For apps like password managers and Keychain, only the app name and time are kept. Details are in [Privacy and data](#privacy-and-data).
 
 ## What it does
 
@@ -119,6 +171,50 @@ Your records are stored on your Mac, but whatever is used for organizing and cha
 └── app.log         # run log
 ```
 
+## FAQ
+
+<details>
+<summary><b>What does SILLOG record?</b></summary>
+
+Apps, window titles, URLs, file paths, on-screen text, screenshots, downloaded files, and the messages you type into AI coding tools (Claude Code, Codex CLI). If there's no input for more than two minutes, it records you as away. It records audio only when you start a recording, and transcribes it on your Mac.
+</details>
+
+<details>
+<summary><b>Where are my records stored?</b></summary>
+
+On your Mac. SILLOG has no server of its own.
+</details>
+
+<details>
+<summary><b>What leaves my Mac?</b></summary>
+
+To organize tasks and answer in chat, SILLOG sends record contents to the AI account you connect, along with screenshots of key screens. Sources looked up in chat, web searches you allow, and connector requests also leave your Mac. You can check what was sent in the activity log and turn off sending for each feature.
+</details>
+
+<details>
+<summary><b>Which AI account do I need?</b></summary>
+
+Connect either a ChatGPT subscription or an OpenAI-compatible API. To chat through ChatGPT, the Codex CLI or Codex app must be installed. With an API, you pay per call.
+</details>
+
+<details>
+<summary><b>There are apps I don't want recorded.</b></summary>
+
+Add them to the excluded apps, and only their name and time are kept. Password managers and Keychain are excluded from the start, and password fields are never recorded.
+</details>
+
+<details>
+<summary><b>How long are screenshots kept?</b></summary>
+
+Seven days by default. You can set anywhere from 1 to 90 days.
+</details>
+
+<details>
+<summary><b>Which computers does it run on?</b></summary>
+
+For now, Apple silicon Macs on macOS 14 or later. Windows and mobile aren't ready yet.
+</details>
+
 ## Known limitations
 
 - It runs only on macOS, and the download isn't notarized yet.
@@ -164,3 +260,15 @@ Please report security issues through [private vulnerability reporting](https://
 SILLOG is released under the [GNU Affero General Public License v3.0](LICENSE). Anyone can use, modify, and redistribute it. If you distribute a modified version, or offer it to others over a network like a web service, you have to publish that version's full source code under the same license.
 
 Bundled libraries keep their own licenses. [GRDB.swift](https://github.com/groue/GRDB.swift), [WhisperKit](https://github.com/argmaxinc/WhisperKit), [SwiftMath](https://github.com/mgriebling/SwiftMath), [LangGraph-Swift](https://github.com/bsorrentino/LangGraph-Swift), [force-graph](https://github.com/vasturiano/force-graph), [FullCalendar](https://github.com/fullcalendar/fullcalendar), and [Mermaid](https://github.com/mermaid-js/mermaid) are MIT, and the SUIT and Jost fonts are [SIL OFL 1.1](Sources/SillogApp/Resources/Brand/Fonts). Other notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+---
+
+<div align="center">
+
+<img src="landing/assets/m2.webp" width="56"> <img src="landing/assets/m3.webp" width="56"> <img src="landing/assets/m1.webp" width="56"> <img src="landing/assets/m5.webp" width="56"> <img src="landing/assets/m4.webp" width="56">
+
+### Meet SILLOG
+
+**[Download for macOS](https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg)** · [sillog.app](https://sillog.app)
+
+</div>
