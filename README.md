@@ -1,12 +1,6 @@
 <div align="center">
 
-<img src="landing/assets/icon-256.png" width="96" alt="SILLOG 아이콘">
-
-# SILLOG
-
-### 쌓아 온 기록으로 다음 일을 시작해요
-
-한 일을 업무별로 정리하고 AI가 그 기록으로 일하게 하는 macOS 앱
+<a href="https://sillog.app"><img src="docs/readme/banner.png" alt="SILLOG, 쌓아 온 기록으로 다음 일을 시작해요. sillog.app 바로가기"></a>
 
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)](#준비할-것)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
