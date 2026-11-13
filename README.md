@@ -6,7 +6,9 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![CI](https://github.com/sillog-admin/SILLOG/actions/workflows/ci.yml/badge.svg)](https://github.com/sillog-admin/SILLOG/actions/workflows/ci.yml)
 
-**[macOS용 다운로드](https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg)** · [sillog.app](https://sillog.app) · [English](README.en.md)
+<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/btn-download-ko.png" height="40" alt="macOS용 다운로드"></a>&nbsp;
+<a href="https://sillog.app"><img src="docs/readme/btn-site.png" height="40" alt="sillog.app"></a>&nbsp;
+<a href="README.en.md"><img src="docs/readme/btn-lang-en.png" height="40" alt="English"></a>
 
 <sub>macOS 14 이상, Apple 실리콘 Mac</sub>
 
@@ -83,8 +85,6 @@ SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 �
 - 오래된 원본 기록은 정해 둔 기간이 지나면 지우고, 그 자리는 주간·월간 요약이 대신합니다.
 
 ## 동작 방식
-
-<img src="docs/readme/section-how.webp" alt="">
 
 <img src="docs/readme/how-it-works.webp" alt="내 Mac 안에서 수집, SQLite 저장, 5분마다 정리, 업무 그래프, 채팅과 결과물로 이어지고, 기록 요약과 질문만 설정한 LLM으로, 허용한 경우에만 웹 검색과 커넥터로 나갑니다.">
 
@@ -245,9 +245,7 @@ swift run sillogctl --help
 
 ## 기여하기
 
-이슈와 PR 모두 환영합니다. PR을 올리기 전에 로컬에서 `swift build`와 `swift test`를 돌려 주세요. CI에서는 OCR로 확인하는 UI 테스트 몇 개를 건너뛰기 때문입니다. 커밋 메시지는 `fix: 로그인 오류 수정`처럼 `태그: 요약` 한 줄로 씁니다. `.env`나 API 키, 내 기록을 덤프한 파일은 올리지 마세요. 보내 주신 코드는 AGPL-3.0으로 배포됩니다.
-
-자세한 내용은 [CONTRIBUTING.md](CONTRIBUTING.md)에 있습니다. 보안 문제는 공개 이슈 대신 [보안 정책](SECURITY.md)을 따라 알려 주세요.
+이슈와 PR 모두 환영합니다. 올리기 전에 확인할 것과 커밋 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md), 보안 문제는 공개 이슈 대신 [보안 정책](SECURITY.md)을 봐 주세요.
 
 ## 라이선스
 
@@ -263,6 +261,7 @@ SILLOG는 [GNU Affero General Public License v3.0](LICENSE)으로 배포합니�
 
 ### 지금 SILLOG을 만나 보세요
 
-**[macOS용 다운로드](https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg)** · [sillog.app](https://sillog.app)
+<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/btn-download-ko.png" height="40" alt="macOS용 다운로드"></a>&nbsp;
+<a href="https://sillog.app"><img src="docs/readme/btn-site.png" height="40" alt="sillog.app"></a>
 
 </div>

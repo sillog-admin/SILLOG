@@ -6,7 +6,9 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![CI](https://github.com/sillog-admin/SILLOG/actions/workflows/ci.yml/badge.svg)](https://github.com/sillog-admin/SILLOG/actions/workflows/ci.yml)
 
-**[Download for macOS](https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg)** · [sillog.app](https://sillog.app) · [한국어](README.md)
+<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/btn-download-en.png" height="40" alt="Download for macOS"></a>&nbsp;
+<a href="https://sillog.app"><img src="docs/readme/btn-site.png" height="40" alt="sillog.app"></a>&nbsp;
+<a href="README.md"><img src="docs/readme/btn-lang-ko.png" height="40" alt="한국어"></a>
 
 <sub>macOS 14 or later, Apple silicon Mac</sub>
 
@@ -85,8 +87,6 @@ Password fields are never recorded. For apps like password managers and Keychain
 - Deletes old raw records after a period you set and keeps weekly and monthly digests in their place.
 
 ## How it works
-
-<img src="docs/readme/section-how-en.webp" alt="">
 
 <img src="docs/readme/how-it-works-en.webp" alt="On your Mac: collect, store in SQLite, organize every 5 minutes, task graph, then chat and artifacts. Only activity summaries and questions go to your chosen LLM, and web search and connectors run only when you allow them.">
 
@@ -247,9 +247,7 @@ swift run sillogctl --help
 
 ## Contributing
 
-Issues and pull requests are welcome. Please run `swift build` and `swift test` locally before you open a PR, since CI skips a few OCR-based UI tests. Commit messages are one line in the form `type: summary`, like `fix: handle expired token`. Don't commit `.env`, API keys, or dumps of your own records. Contributions are distributed under AGPL-3.0.
-
-More details are in [CONTRIBUTING.md](CONTRIBUTING.md). Please report security issues by following the [security policy](SECURITY.md) rather than in a public issue.
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for what to check before you open one and how to write commits, and follow the [security policy](SECURITY.md) for security issues instead of opening a public issue.
 
 ## License
 
@@ -265,6 +263,7 @@ Bundled libraries keep their own licenses. [GRDB.swift](https://github.com/groue
 
 ### Meet SILLOG
 
-**[Download for macOS](https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg)** · [sillog.app](https://sillog.app)
+<a href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg"><img src="docs/readme/btn-download-en.png" height="40" alt="Download for macOS"></a>&nbsp;
+<a href="https://sillog.app"><img src="docs/readme/btn-site.png" height="40" alt="sillog.app"></a>
 
 </div>
