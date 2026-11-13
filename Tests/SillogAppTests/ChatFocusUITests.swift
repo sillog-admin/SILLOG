@@ -239,4 +239,21 @@ final class ChatFocusUITests: XCTestCase {
         XCTAssertEqual(chat.draft, "요약해 줘", "쓴 글은 남긴다")
         XCTAssertTrue(chat.error?.contains("사라진 업무") == true, chat.error ?? "")
     }
+
+    func testUpInAnEmptyInputEditsTheLastQuestion() {
+        let editor = ChatTextView()
+        var edits = 0, menuKeys = 0
+        editor.onEditLast = { edits += 1 }
+        let up = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
+                                  characters: "\u{F700}", charactersIgnoringModifiers: "\u{F700}", isARepeat: false, keyCode: 126)!
+        editor.keyDown(with: up)
+        XCTAssertEqual(edits, 1)
+        editor.string = "쓰는 중"
+        editor.keyDown(with: up)
+        XCTAssertEqual(edits, 1, "with text, Up moves the caret")
+        editor.string = ""
+        editor.shortcutKey = { _ in menuKeys += 1; return true }
+        editor.keyDown(with: up)
+        XCTAssertEqual([edits, menuKeys], [1, 1], "an open slash menu takes Up first")
+    }
 }

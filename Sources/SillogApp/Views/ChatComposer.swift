@@ -12,6 +12,7 @@ struct ChatComposer: View {
     var tidyNow: () -> Void = {}
     var onOpenConnectors: () -> Void = {}
     var onSent: () -> Void = {}
+    var onEditLast: (() -> Void)? = nil
     var showsNotice: Bool = true
 
     @EnvironmentObject private var state: AppState
@@ -93,7 +94,7 @@ struct ChatComposer: View {
                 }
                 ChatInput(text: $chat.draft, height: $inputHeight, minimumHeight: 38, focusRequest: chat.inputFocusRequest,
                           selectionOnFocus: shortcutCaret, onShortcut: updateShortcut, shortcutKey: handleShortcutKey,
-                          onFiles: { chat.attach($0) }, onEscape: { if busy { chat.cancel() } }, onSend: send)
+                          onFiles: { chat.attach($0) }, onEscape: { if busy { chat.cancel() } }, onEditLast: onEditLast, onSend: send)
                     .frame(height: inputHeight)
             }
             .padding(.top, 18).padding(.horizontal, 13)
@@ -269,7 +270,7 @@ struct ChatComposer: View {
                 .background(enabled ? Brand.accent : Brand.line, in: Circle())
         }
         .buttonStyle(.plain).disabled(!busy && (empty || elsewhere))
-        .help(busy ? tr("응답 중단 (Esc)") : elsewhere ? tr("다른 대화의 응답이 끝나면 보낼 수 있어요") : tr("전송 (Enter)"))
+        .help(busy ? tr("응답 중단 (Esc, ⌘.)") : elsewhere ? tr("다른 대화의 응답이 끝나면 보낼 수 있어요") : tr("전송 (Enter)"))
         .accessibilityLabel(busy ? tr("응답 중단") : tr("전송"))
     }
 

@@ -531,6 +531,21 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(markdown, "# 보고\n\n## 질문\n\n정리해줘\n\n## 답변\n\n정리했습니다 [observation:1]\n\n**출처**\n\n- [observation:1] 주간 회의 — https://example.com/a\n- [card:2] 메모\n\n## 질문\n\n더\n")
         XCTAssertEqual(ConversationMessage(conversationID: "c", role: "assistant", text: "a").markdown, "a")
     }
+
+    func testOnlyStaleCodexFoldersAreRemoved() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let old = root.appendingPathComponent("sillog-codex-old"), new = root.appendingPathComponent("sillog-codex-new")
+        let other = root.appendingPathComponent("other")
+        for folder in [old, new, other] { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
+        for folder in [old, other] {
+            try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-2 * 86_400)], ofItemAtPath: folder.path)
+        }
+        CodexRuntime.removeStaleDirectories(in: root)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: old.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: new.path), "a run in progress keeps its folder")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: other.path))
+    }
 }
 
 /// Answers the memory prompt with numbered summaries and records what each call got.

@@ -45,6 +45,7 @@ struct ChatView: View {
     /// Which earlier answer a regenerated answer shows, by message id; missing means the latest.
     @State private var shownVersions: [String: Int] = [:]
     @FocusState private var focusedActions: String?
+    @State private var artifactExpanded = false
 
     private struct PendingResend: Identifiable {
         let message: ConversationMessage
@@ -140,6 +141,8 @@ struct ChatView: View {
         // The 1064pt minimum window leaves too little room for the conversation beside both the list and the panel, so they take turns.
         .onChange(of: chat.openArtifactID, initial: true) { old, new in
             if new != nil, pane == .chat, old == nil || old == new { sidebarVisible = false } else if new == nil, old != nil { sidebarVisible = true }
+            // Switching versions keeps the size; closing starts the next panel at 480.
+            if new == nil { artifactExpanded = false }
         }
         .onChange(of: chat.current.scope) { old, new in if old != new { chat.saveScope() } }
         .onChange(of: chat.current.skillIDs) { old, new in if old != new { chat.saveScope() } }
@@ -148,6 +151,14 @@ struct ChatView: View {
             Group {
                 Button("") { chat.newConversation(); pane = .chat }.keyboardShortcut("n").disabled(editingMessageID != nil)
                 Button("") { showSearch = true }.keyboardShortcut("k")
+                Button("") { chat.cancel() }.keyboardShortcut(".").disabled(!chat.running)
+                Button("") { sidebarVisible.toggle(); if sidebarVisible { chat.openArtifactID = nil } }.keyboardShortcut("\\")
+                Button("") { copyLastAnswer() }.keyboardShortcut("c", modifiers: [.command, .shift])
+                    .disabled(!chat.messages.contains { $0.role == "assistant" })
+                // Search, inline edit and the source sheet have their own Esc.
+                if openArtifact != nil, !showSearch, editingMessageID == nil, source == nil {
+                    Button("") { chat.openArtifactID = nil }.keyboardShortcut(.cancelAction)
+                }
             }.opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
         }
     }
@@ -156,13 +167,17 @@ struct ChatView: View {
         Group {
             switch pane {
             case .chat:
+                let open = openArtifact
                 HStack(spacing: 0) {
-                    chatContent
-                    if let id = chat.openArtifactID, let open = chat.messages.flatMap({ $0.versions.flatMap(\.artifacts) }).first(where: { $0.id == id }) {
-                        Rectangle().fill(Brand.line).frame(width: 1)
+                    if open == nil || !artifactExpanded {
+                        chatContent
+                        if open != nil { Rectangle().fill(Brand.line).frame(width: 1) }
+                    }
+                    if let open {
                         ArtifactPreview(artifact: open, versions: ChatArtifact.versions(of: open, in: chat.messages),
-                                        onSelect: { chat.openArtifactID = $0.id }, onClose: { chat.openArtifactID = nil })
-                            .id(open.id).frame(width: 480)
+                                        onSelect: { chat.openArtifactID = $0.id }, onClose: { chat.openArtifactID = nil },
+                                        onExpand: { artifactExpanded.toggle() }, expanded: artifactExpanded)
+                            .id(open.id).frame(width: artifactExpanded ? nil : 480).frame(maxWidth: artifactExpanded ? .infinity : nil)
                     }
                 }
             case .projects:
@@ -183,6 +198,10 @@ struct ChatView: View {
                 LibraryView(library: library, initialKind: "", title: tr("결과물"))
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity).background(.white)
+    }
+
+    private var openArtifact: ChatArtifact? {
+        chat.openArtifactID.flatMap { id in chat.messages.flatMap { $0.versions.flatMap(\.artifacts) }.first { $0.id == id } }
     }
 
     private var chatContent: some View {
@@ -235,7 +254,10 @@ struct ChatView: View {
 
     private var composer: some View {
         ChatComposer(chat: chat, library: library, modelName: modelName, openSettings: openSettings,
-                     pendingRecords: pendingRecords, tidyNow: tidyNow, onOpenConnectors: { state.selectedTab = .connectors })
+                     pendingRecords: pendingRecords, tidyNow: tidyNow, onOpenConnectors: { state.selectedTab = .connectors },
+                     onEditLast: {
+                         if !chat.running, let last = chat.messages.last(where: { $0.role == "user" }) { editText = last.text; editingMessageID = last.id }
+                     })
             .frame(maxWidth: ChatPalette.columnWidth).frame(maxWidth: .infinity)     // 대화 본문과 같은 폭
             .padding(.horizontal, 32).padding(.top, 8).padding(.bottom, 14)
             .padding(.leading, showsQuestionMarks ? 44 : 0)     // 질문 눈금(44)만큼 밀린 대화 본문과 같은 열
@@ -298,7 +320,7 @@ struct ChatView: View {
             if !sidebarVisible {
                 // CH-30: 아이콘 중심 35, 64, 제목 시작 87 (아이콘 28 폭, 간격 1)
                 HStack(spacing: 1) {
-                    ChatIconButton(systemName: "sidebar.left", help: tr("대화 목록 표시 전환")) { sidebarVisible = true; chat.openArtifactID = nil }
+                    ChatIconButton(systemName: "sidebar.left", help: tr("대화 목록 표시 전환 (⌘\\)")) { sidebarVisible = true; chat.openArtifactID = nil }
                     ChatIconButton(systemName: "square.and.pencil", help: tr("새 대화 (⌘N)")) { chat.newConversation(); pane = .chat }
                 }
             }
@@ -487,6 +509,7 @@ struct ChatView: View {
                 HStack(spacing: 8) {
                     Button(tr("취소")) { editingMessageID = nil }.keyboardShortcut(.cancelAction)
                     Button(tr("보내기")) { requestResend(message, text: editText) }
+                        .keyboardShortcut(.return, modifiers: .command).help(tr("보내기 (⌘↩)"))
                         .buttonStyle(BrandButtonStyle())
                         .disabled(chat.running || editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }.font(Brand.font(.caption))
@@ -612,7 +635,8 @@ struct ChatView: View {
                             }
                         }
                         HStack(spacing: 2) {
-                            ChatIconButton(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc", help: tr("답변 복사"), color: Brand.gray) {
+                            ChatIconButton(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc",
+                                           help: chat.messages.last(where: { $0.role == "assistant" })?.id == message.id ? tr("답변 복사 (⌘⇧C)") : tr("답변 복사"), color: Brand.gray) {
                                 copy(shown.markdown, id: message.id,
                                      html: ChatArtifactHTML.render(ChatArtifact(title: "", format: "markdown", content: shown.markdown)))
                             }
@@ -688,6 +712,13 @@ struct ChatView: View {
         case "html", "svg": return "chevron.left.forwardslash.chevron.right"
         default: return "doc.plaintext"
         }
+    }
+
+    private func copyLastAnswer() {
+        guard let message = chat.messages.last(where: { $0.role == "assistant" }) else { return }
+        let versions = message.versions
+        let shown = versions[min(shownVersions[message.id] ?? versions.count - 1, versions.count - 1)]
+        copy(shown.markdown, id: message.id, html: ChatArtifactHTML.render(ChatArtifact(title: "", format: "markdown", content: shown.markdown)))
     }
 
     private func copy(_ text: String, id: String, html: String? = nil) {
@@ -857,6 +888,8 @@ struct ChatDialogFrame<Content: View, Footer: View>: View {
     var height: CGFloat? = nil
     /// Smaller head and foot for the 480pt side panel.
     var compact = false
+    var onExpand: (() -> Void)? = nil
+    var expanded = false
     let onClose: () -> Void
     @ViewBuilder var content: () -> Content
     @ViewBuilder var footer: () -> Footer
@@ -865,20 +898,29 @@ struct ChatDialogFrame<Content: View, Footer: View>: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(title).font(compact ? Brand.font(.sectionTitle, .semibold) : Brand.font(.screenTitle)).tracking(compact ? 0 : -0.77)
-                    .foregroundStyle(Brand.ink).lineLimit(1).padding(.trailing, 30)
+                    .foregroundStyle(Brand.ink).lineLimit(1).padding(.trailing, onExpand == nil ? 30 : 60)
                 if let detail { Text(detail).font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 9) }
             }.padding(.horizontal, 27).padding(.top, compact ? 14 : 25).padding(.bottom, compact ? 12 : 22)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(ChatPalette.soft)
                 .overlay(alignment: .bottom) { Rectangle().fill(Brand.hairline).frame(height: 1) }
                 .overlay(alignment: .topTrailing) {
-                    Button(action: onClose) {
-                        Image(systemName: "xmark").font(.system(size: 13)).foregroundStyle(Brand.tabText).frame(width: 28, height: 28).contentShape(Rectangle())
-                    }.buttonStyle(.plain).help(tr("닫기")).accessibilityLabel(tr("닫기")).padding(.top, compact ? 8 : 19).padding(.trailing, 16)
+                    HStack(spacing: 4) {
+                        if let onExpand {
+                            let label = expanded ? tr("원래 크기로") : tr("크게 보기")
+                            Button(action: onExpand) {
+                                Image(systemName: expanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                                    .font(.system(size: 12)).foregroundStyle(Brand.tabText).frame(width: 28, height: 28).contentShape(Rectangle())
+                            }.buttonStyle(.plain).help(label).accessibilityLabel(label)
+                        }
+                        Button(action: onClose) {
+                            Image(systemName: "xmark").font(.system(size: 13)).foregroundStyle(Brand.tabText).frame(width: 28, height: 28).contentShape(Rectangle())
+                        }.buttonStyle(.plain).help(tr("닫기")).accessibilityLabel(tr("닫기"))
+                    }.padding(.top, compact ? 8 : 19).padding(.trailing, 16)
                 }
             content().frame(maxWidth: .infinity, maxHeight: .infinity).background(.white)
-            HStack(spacing: 10) { footer() }
-                .padding(.horizontal, 24).frame(height: compact ? 56 : 73)
+            HStack(spacing: compact ? 8 : 10) { footer() }
+                .padding(.horizontal, compact ? 20 : 24).frame(height: compact ? 56 : 73)
                 .background(ChatPalette.soft)
                 .overlay(alignment: .top) { Rectangle().fill(Brand.hairline).frame(height: 1) }
         }.frame(width: width, height: height)

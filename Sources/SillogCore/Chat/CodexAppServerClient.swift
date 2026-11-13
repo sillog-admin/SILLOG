@@ -125,7 +125,20 @@ public struct CodexAppServerClient: Sendable {
 }
 
 /// 채팅 실행과 모델 목록 조회에서 같은 Codex 실행기·버전을 사용한다.
-enum CodexRuntime {
+public enum CodexRuntime {
+    /// Args: folder is where runs make their folders; the system temp dir unless a test passes its own.
+    /// Returns: none. Deletes run folders a crash or force quit left behind.
+    /// Raises: none. A folder that can't be read or deleted is skipped.
+    public static func removeStaleDirectories(in folder: URL = FileManager.default.temporaryDirectory) {
+        // A day spares a run in progress, including one from a concurrent sillogctl.
+        let cutoff = Date().addingTimeInterval(-86_400)
+        let children = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        for child in children where child.lastPathComponent.hasPrefix("sillog-codex-") {
+            guard let modified = try? child.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate, modified < cutoff else { continue }
+            try? FileManager.default.removeItem(at: child)
+        }
+    }
+
     static var paths: [String] {
         (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init) + ["/opt/homebrew/bin", "/usr/local/bin"]
     }

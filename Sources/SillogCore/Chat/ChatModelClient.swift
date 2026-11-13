@@ -15,18 +15,21 @@ public struct ChatModelMessage: Sendable {
     public var responseItems: [JSONValue] = []
     /// Image files sent as pictures with this message.
     public var images: [URL] = []
+    /// The images as data URLs, encoded once so each request of a tool loop doesn't read the files again.
+    public var imageData: [String] = []
 
     /// Args: role·text는 메시지, calls·callID는 도구 대화, responseItems는 Responses 재전송 항목, images는 함께 보낼 이미지 파일이다.
     /// Returns: 모델에 전달할 대화 항목.
     /// Raises: 없음.
     public init(role: String, text: String, calls: [ChatToolCall] = [], callID: String? = nil, responseItems: [JSONValue] = [], images: [URL] = []) {
         self.role = role; self.text = text; self.calls = calls; self.callID = callID; self.responseItems = responseItems; self.images = images
+        imageData = Self.dataURLs(images)
     }
 
     static let imageTypes = ["png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "gif": "image/gif", "webp": "image/webp"]
 
     /// Data URLs of the images that could be read; unreadable files are skipped and logged.
-    var imageDataURLs: [String] {
+    static func dataURLs(_ images: [URL]) -> [String] {
         images.compactMap { url in
             guard let mime = Self.imageTypes[url.pathExtension.lowercased()] else { return nil }
             do { return "data:\(mime);base64,\(try Data(contentsOf: url).base64EncodedString())" }
@@ -39,6 +42,8 @@ public struct ChatModelReply: Sendable {
     public var text: String
     public var calls: [ChatToolCall]
     public var responseItems: [JSONValue]
+    /// The server refused the images and the request went again without them.
+    public var droppedImages = false
 
     /// Args: text는 본문, calls는 완료된 도구 호출, responseItems는 후속 요청에 보존할 항목이다.
     /// Returns: 한 번의 모델 응답.
@@ -229,7 +234,7 @@ extension CodexResponsesClient: ChatModelClient {
                     if let id = message.callID {
                         return [.object(["type": "function_call_output", "call_id": .string(id), "output": .string(message.text)])]
                     }
-                    let images = message.imageDataURLs
+                    let images = message.imageData
                     if images.isEmpty { return [.object(["role": .string(message.role), "content": .string(message.text)])] }
                     return [.object(["role": .string(message.role), "content": .array([.object(["type": "input_text", "text": .string(message.text)])]
                         + images.map { .object(["type": "input_image", "image_url": .string($0)]) })])]
@@ -259,7 +264,7 @@ extension OpenAICompatClient: ChatModelClient {
         var values: [JSONValue] = [.object(["role": "system", "content": .string(system)])]
         values += messages.map { message in
             var value: [String: JSONValue] = ["role": .string(message.role), "content": .string(message.text)]
-            let images = message.imageDataURLs
+            let images = message.imageData
             if !images.isEmpty {
                 value["content"] = .array([.object(["type": "text", "text": .string(message.text)])]
                     + images.map { .object(["type": "image_url", "image_url": .object(["url": .string($0)])]) })
@@ -285,10 +290,12 @@ extension OpenAICompatClient: ChatModelClient {
         if let apiKey, !apiKey.isEmpty { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
         request.httpBody = try JSONEncoder().encode(JSONValue.object(body))
         do { return try await ChatStream.read(request, session: session, format: .completions, onText: onText) }
-        catch LLMError.http(let status, let detail) where [400, 415, 422].contains(status) && messages.contains(where: { !$0.images.isEmpty }) {
+        catch LLMError.http(let status, let detail) where [400, 415, 422].contains(status) && messages.contains(where: { !$0.imageData.isEmpty }) {
             // Text-only models reject image parts; the files stay readable as OCR text through read_library.
             AppLog.write("chat model rejected images (\(status)): \(detail.prefix(200)); retrying without them")
-            return try await respond(system: system, messages: messages.map { var m = $0; m.images = []; return m }, tools: tools, onText: onText)
+            var reply = try await respond(system: system, messages: messages.map { var m = $0; m.images = []; m.imageData = []; return m }, tools: tools, onText: onText)
+            reply.droppedImages = true
+            return reply
         }
     }
 }

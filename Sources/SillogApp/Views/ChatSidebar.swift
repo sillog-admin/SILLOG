@@ -83,7 +83,7 @@ struct ChatSidebar: View {
             Button(action: onCollapse) {
                 Image(systemName: "sidebar.left").font(.system(size: 15)).foregroundStyle(Brand.tabText)
                     .frame(width: 24, height: 24).contentShape(Rectangle())
-            }.buttonStyle(.plain).help(tr("목록 접기")).accessibilityLabel(tr("목록 접기"))
+            }.buttonStyle(.plain).help(tr("목록 접기 (⌘\\)")).accessibilityLabel(tr("목록 접기"))
             Text(tr("채팅")).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink)
             Spacer(minLength: 0)
             Button {

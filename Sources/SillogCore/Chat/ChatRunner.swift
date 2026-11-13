@@ -233,6 +233,7 @@ public struct ChatRunner: Sendable {
         if !scheduled, let last = messages.indices.last, messages[last].role == "user" {
             let since = history.dropLast().last(where: { $0.role == "user" })?.createdAt ?? 0
             messages[last].images = try tools.newImages(since: since)
+            messages[last].imageData = ChatModelMessage.dataURLs(messages[last].images)
         }
         let text = try await loop(messages: messages, prompt: prompt, role: nil, allowAutomation: !scheduled, ledger: ledger, onEvent: onEvent)
         return await ledger.result(text, memory: memory)
@@ -369,6 +370,9 @@ public struct ChatRunner: Sendable {
                 if role == nil { await onEvent(.text(delta)) }
             }
             try Task.checkCancellation()
+            if reply.droppedImages {
+                for index in history.indices { history[index].images = []; history[index].imageData = [] }
+            }
             history.append(.init(role: "assistant", text: reply.text, calls: reply.calls, responseItems: reply.responseItems))
             if reply.calls.isEmpty {
                 guard !reply.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ChatToolError.unavailable(tr("모델이 빈 응답을 반환했습니다.")) }

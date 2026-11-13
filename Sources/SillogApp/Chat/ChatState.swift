@@ -41,6 +41,8 @@ final class ChatState: ObservableObject {
     private var pendingText = ""
     private var textFlush: Task<Void, Never>?
     var running: Bool { activeMessage != nil }
+    // shortcut: fixed 20 min cap, make it per-job if long scheduled jobs appear
+    static var scheduledRunLimit: Duration = .seconds(1200)
 
     /// Args: db는 앱 DB, makeClient는 현재 설정으로 모델 연결을 생성한다.
     /// Returns: 저장된 대화와 스킬을 불러온 채팅 상태.
@@ -72,8 +74,10 @@ final class ChatState: ObservableObject {
                 guard let self else { return }
                 self.flushText()
                 if let message = self.activeMessage { try? self.store.save(message) }
+                self.runTask?.cancel()
             }
         }
+        Task.detached(priority: .background) { CodexRuntime.removeStaleDirectories() }
     }
 
     /// Args: 없음.
@@ -503,6 +507,13 @@ final class ChatState: ObservableObject {
             do { try reload() } catch { self.error = error.localizedDescription }
             if current.id == conversation.id { current = conversation; messages = previous + [user, answer] }
             if !replacing.isEmpty { library.reload() }    // startTurn unlinked the replaced answers' artifacts
+            if automationID != nil {
+                // Nobody is watching a scheduled run to stop it, and a hung one would block every later job.
+                Task { [weak self, id = answer.id] in
+                    try? await Task.sleep(for: Self.scheduledRunLimit)
+                    if self?.activeMessage?.id == id { self?.cancel() }
+                }
+            }
             runTask = Task { [weak self] in
                 guard let self else { return }
                 var succeeded = false
@@ -659,7 +670,7 @@ final class ChatState: ObservableObject {
     /// Args: 없음.
     /// Returns: 없음. 기한이 지난 예약 하나를 실행하며 누락 횟수는 재생하지 않는다.
     /// Raises: 없음. 등록·실행 실패는 예약 상태에 표시한다.
-    private func runDueAutomation() {
+    func runDueAutomation() {
         guard !running else { return }
         let now = Date().timeIntervalSince1970
         guard var job = automations.filter({ $0.enabled && $0.nextRun <= now }).min(by: { $0.nextRun < $1.nextRun }) else { return }

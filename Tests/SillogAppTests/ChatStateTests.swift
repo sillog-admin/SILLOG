@@ -233,4 +233,21 @@ final class ChatStateTests: XCTestCase {
         chat.select(first)
         XCTAssertEqual(chat.library.attached.map(\.id), [item.id])
     }
+
+    func testAHungScheduledRunStopsAtTheCap() async throws {
+        let db = try SillogDatabase.inMemory()
+        var conversation = ChatConversation(); conversation.scope.useActivity = false
+        var job = ChatAutomation(proposal: .init(title: "예약", prompt: "wait", intervalHours: 1), conversation: conversation, now: 0)
+        job.nextRun = 0
+        try ChatStore(db).save(job)
+        let chat = try chatState(db: db)
+        let limit = ChatState.scheduledRunLimit
+        ChatState.scheduledRunLimit = .milliseconds(200)
+        defer { ChatState.scheduledRunLimit = limit }
+        chat.runDueAutomation()
+        XCTAssertTrue(chat.running)
+        try await waitUntil { !chat.running }
+        let answer = try ChatStore(db).messages(try XCTUnwrap(chat.automations.first?.lastConversationID)).last
+        XCTAssertEqual(answer?.status, "cancelled")
+    }
 }
