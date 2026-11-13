@@ -72,8 +72,13 @@ Once you grant permissions the first time, SILLOG records on its own. Scattered 
 
 SILLOG has no server of its own. Organizing and chat go through the AI account you connect.
 
-| <img src="landing/assets/icon3d-mac.webp" width="120" alt=""><br>**Store**<br>Records stay on your Mac | <img src="landing/assets/icon3d-lens.webp" width="120" alt=""><br>**Check**<br>See what was sent and what came back in the activity log | <img src="landing/assets/icon3d-toggle.webp" width="120" alt=""><br>**Control**<br>Turn off sending for each feature |
-| :---: | :---: | :---: |
+<table align="center">
+  <tr>
+    <td align="center"><img src="landing/assets/icon3d-mac.webp" width="120" alt=""><br><b>Store</b><br>Records stay on your Mac</td>
+    <td align="center"><img src="landing/assets/icon3d-lens.webp" width="120" alt=""><br><b>Check</b><br>See what was sent and what came back in the activity log</td>
+    <td align="center"><img src="landing/assets/icon3d-toggle.webp" width="120" alt=""><br><b>Control</b><br>Turn off sending for each feature</td>
+  </tr>
+</table>
 
 Password fields are never recorded. For apps like password managers and Keychain, only the app name and time are kept. Details are in [Privacy and data](#privacy-and-data).
 
