@@ -103,8 +103,8 @@ SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 �
 ### 다운로드
 
 1. [sillog.app](https://sillog.app)에서 **macOS용 다운로드**를 누릅니다. GitHub [최신 릴리스](https://github.com/sillog-admin/SILLOG/releases/latest)의 `SILLOG.dmg`가 받아집니다.
-2. dmg를 열고 SILLOG를 응용 프로그램 폴더로 옮깁니다.
-3. SILLOG를 엽니다. 인터넷에서 받은 앱이라 처음 한 번 열지 묻는데, **열기**를 누르면 됩니다.
+2. dmg를 열고 SILLOG을 응용 프로그램 폴더로 옮깁니다.
+3. SILLOG을 엽니다. 인터넷에서 받은 앱이라 처음 한 번 열지 묻는데, **열기**를 누르면 됩니다.
 
 배포 파일은 Developer ID로 서명하고 Apple 공증을 받습니다. 매번 같은 인증서로 서명하므로, 업데이트해도 키체인 접근과 권한이 그대로 유지됩니다. 서명 방식을 바꾸기 전 버전을 쓰고 있었다면 첫 업데이트에서 한 번 더 묻습니다. 키체인 접근을 허용하고, 손쉬운 사용·화면 기록 권한을 다시 허용해 주세요.
 
@@ -211,7 +211,7 @@ ChatGPT 구독과 API(OpenAI 호환) 가운데 하나를 연결해요. ChatGPT �
 
 - macOS에서만 돌아갑니다.
 - 결과물은 텍스트 형식과 PDF 내보내기까지만 됩니다. DOCX, PPTX, XLSX는 읽을 수는 있지만 만들지는 못합니다.
-- 예약 작업은 몇 시간마다 반복하는 방식이고 SILLOG가 켜져 있을 때만 돕니다. 요일이나 시각은 지정할 수 없습니다.
+- 예약 작업은 몇 시간마다 반복하는 방식이고 SILLOG이 켜져 있을 때만 돕니다. 요일이나 시각은 지정할 수 없습니다.
 - 스캔한 PDF는 글자를 인식하지 않고, 이미지는 안에 있는 글자만 읽습니다.
 - Drive는 Google 검수가 끝날 때까지 테스트 계정만 쓸 수 있습니다. Gmail 커넥터는 없습니다.
 
@@ -249,7 +249,7 @@ swift run sillogctl --help
 
 ## 라이선스
 
-SILLOG는 [GNU Affero General Public License v3.0](LICENSE)으로 배포합니다. 누구나 쓰고 고치고 다시 배포할 수 있습니다. 다만 고친 버전을 배포하거나 웹 서비스처럼 네트워크로 제공한다면, 그 버전의 소스 코드 전체를 같은 라이선스로 공개해야 합니다.
+SILLOG은 [GNU Affero General Public License v3.0](LICENSE)으로 배포합니다. 누구나 쓰고 고치고 다시 배포할 수 있습니다. 다만 고친 버전을 배포하거나 웹 서비스처럼 네트워크로 제공한다면, 그 버전의 소스 코드 전체를 같은 라이선스로 공개해야 합니다.
 
 함께 쓰는 라이브러리는 각자의 라이선스를 따릅니다. [GRDB.swift](https://github.com/groue/GRDB.swift), [WhisperKit](https://github.com/argmaxinc/WhisperKit), [SwiftMath](https://github.com/mgriebling/SwiftMath), [LangGraph-Swift](https://github.com/bsorrentino/LangGraph-Swift), [force-graph](https://github.com/vasturiano/force-graph), [FullCalendar](https://github.com/fullcalendar/fullcalendar), [Mermaid](https://github.com/mermaid-js/mermaid)는 MIT이고, SUIT와 Jost 글꼴은 [SIL OFL 1.1](Sources/SillogApp/Resources/Brand/Fonts)입니다. 그 밖의 고지는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)에 있습니다.
 

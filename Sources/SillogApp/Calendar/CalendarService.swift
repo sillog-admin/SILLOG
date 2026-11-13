@@ -10,6 +10,8 @@ import SillogCore
 final class CalendarService: ObservableObject {
     static let shared = CalendarService()
     static let calendarName = tr("실록")
+    // English builds before the rename created the calendar as "Sillog".
+    static let calendarNames: Set<String> = [calendarName, "Sillog"]
     static let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")
 
     struct TodayEvent: Identifiable, Equatable {
@@ -86,7 +88,7 @@ final class CalendarService: ObservableObject {
         var byDay: [Date: [EventFinder.Known]] = [:]
         func calendarEvents(on day: Date) -> [EventFinder.Known] {
             if let cached = byDay[day] { return cached }
-            let found = events(from: day, to: day.addingTimeInterval(86_400), excludingCalendar: Self.calendarName)
+            let found = events(from: day, to: day.addingTimeInterval(86_400), excludingCalendars: Self.calendarNames)
             byDay[day] = found
             return found
         }
@@ -113,11 +115,11 @@ final class CalendarService: ObservableObject {
             .map { TodayEvent(id: $0.eventIdentifier ?? UUID().uuidString, title: $0.title ?? tr("제목 없음"), time: $0.isAllDay ? tr("종일") : clock.string(from: $0.startDate)) }
     }
 
-    /// 캘린더에 있는 일정 (권한이 없으면 빈 목록). excludingCalendar 는 빼고 읽을 캘린더 이름
-    func events(from start: Date, to end: Date, excludingCalendar: String? = nil) -> [EventFinder.Known] {
+    /// 캘린더에 있는 일정 (권한이 없으면 빈 목록). excludingCalendars 는 빼고 읽을 캘린더 이름들
+    func events(from start: Date, to end: Date, excludingCalendars: Set<String> = []) -> [EventFinder.Known] {
         guard Self.isGranted, end > start else { return [] }
         return store.events(matching: store.predicateForEvents(withStart: start, end: end, calendars: nil))
-            .filter { excludingCalendar == nil || $0.calendar?.title != excludingCalendar }
+            .filter { !excludingCalendars.contains($0.calendar?.title ?? "") }
             .map { EventFinder.Known(title: $0.title ?? "", start: $0.startDate ?? start, allDay: $0.isAllDay) }
     }
 
@@ -187,7 +189,7 @@ final class CalendarService: ObservableObject {
 
     /// "실록" 캘린더: 있으면 그것, 없으면 만든다 (iCloud 가 있으면 iCloud, 없으면 이 Mac)
     private func sillogCalendar() throws -> EKCalendar {
-        if let found = store.calendars(for: .event).first(where: { $0.title == Self.calendarName && $0.allowsContentModifications }) { return found }
+        if let found = store.calendars(for: .event).first(where: { Self.calendarNames.contains($0.title) && $0.allowsContentModifications }) { return found }
         let calendar = EKCalendar(for: .event, eventStore: store)
         calendar.title = Self.calendarName
         let sources = store.sources

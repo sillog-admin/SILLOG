@@ -5,8 +5,8 @@ import SillogCore
 /// 개발용 진단: 녹음 파일 하나를 앱과 같은 방식으로 받아쓰며 과정을 적고 끝난다. DB·실행 잠금·수집기는 만들지 않는다.
 /// 엔진: 기본은 Whisper 로 파일 전체, apple 은 애플 기기 안 인식(결과마다 마지막 결과인지·발화 끝 표시·끝 시각·글),
 /// live 는 녹음 중 미리 받아쓰기(파일을 녹음기처럼 CaptureWriter 로 흘려보내며 조각마다 받아쓰고, 다 흘려보낸 뒤 글이 나오기까지 걸린 시간).
-/// 음성 인식 권한은 앱 번들에만 있어서 Sillog 번들로 띄운다:
-///   open -n Sillog.app --env 'SILLOG_TRANSCRIBE_TRACE=<녹음 파일>|<적을 파일>' [--env SILLOG_TRANSCRIBE_ENGINE=apple|live]
+/// 음성 인식 권한은 앱 번들에만 있어서 SILLOG 번들로 띄운다:
+///   open -n SILLOG.app --env 'SILLOG_TRANSCRIBE_TRACE=<녹음 파일>|<적을 파일>' [--env SILLOG_TRANSCRIBE_ENGINE=apple|live]
 ///     [--env SILLOG_TRANSCRIBE_GAIN=2] (apple) [--env SILLOG_TRANSCRIBE_SPEED=1] (live: 녹음보다 몇 배 빨리 흘려보낼지, 기본 1)
 enum TranscribeTrace {
     static func run(_ spec: String) -> Never {

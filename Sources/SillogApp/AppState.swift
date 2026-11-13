@@ -159,7 +159,7 @@ final class AppState: ObservableObject {
         PIIMasker.enabled = settings.maskPII
         guard instanceLock.acquire() else {
             startupError = Self.alreadyRunningMessage
-            AppLog.write("이미 실행 중인 Sillog 이 있어 시작하지 않음 (터미널에서 swift run 으로 띄운 실행도 확인)")
+            AppLog.write("이미 실행 중인 SILLOG이 있어 시작하지 않음 (터미널에서 swift run 으로 띄운 실행도 확인)")
             return
         }
         do {

@@ -24,7 +24,7 @@
 
 ## 평가 방법
 
-Promptfoo의 Python provider와 `llm-rubric`을 사용합니다. 12개 합성 문항을 이전·변경 지침으로 각각 실행하고 같은 기준으로 채점합니다. 실행기는 Sillog의 인증·Responses 클라이언트를 재사용하며 개인 자료를 읽거나 실제 예약·커넥터 도구를 실행하지 않습니다. Promptfoo 공유·업로드는 사용하지 않습니다.
+Promptfoo의 Python provider와 `llm-rubric`을 사용합니다. 12개 합성 문항을 이전·변경 지침으로 각각 실행하고 같은 기준으로 채점합니다. 실행기는 SILLOG의 인증·Responses 클라이언트를 재사용하며 개인 자료를 읽거나 실제 예약·커넥터 도구를 실행하지 않습니다. Promptfoo 공유·업로드는 사용하지 않습니다.
 
 ```sh
 python3 scripts/skill-evals/build-runner.py
@@ -36,7 +36,7 @@ PROMPTFOO_DISABLE_TELEMETRY=1 npx promptfoo@0.125.1 eval \
   -o build/skill-evals/results.json
 ```
 
-기존 Sillog ChatGPT 로그인이 필요하며 모델 사용량이 발생합니다. 인증값은 평가 출력에 기록하지 않습니다. `SILLOG_EVAL_SCRATCH`로 SwiftPM 빌드 경로를 지정할 수 있습니다.
+기존 SILLOG ChatGPT 로그인이 필요하며 모델 사용량이 발생합니다. 인증값은 평가 출력에 기록하지 않습니다. `SILLOG_EVAL_SCRATCH`로 SwiftPM 빌드 경로를 지정할 수 있습니다.
 
 이 평가는 제공 자료에 대한 답변 품질을 비교합니다. 실제 앱 도구 연동·모든 모델·모든 사용자 요청을 검증하는 테스트는 아닙니다. 모델 채점에는 변동과 편향이 있으므로 답변과 채점 이유도 확인합니다.
 

@@ -382,12 +382,29 @@ private struct WindowGlassBackground: ViewModifier {
     }
 }
 
-/// 창이 붙으면 개발용 프레임 측정을 시작한다 (숨은 설정 frameLog)
+/// Starts the dev frame monitor and handles title bar double-clicks for the main window.
 private struct FrameMonitorHook: NSViewRepresentable {
     final class View: NSView {
+        private var monitor: Any?
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             if let content = window?.contentView { FrameMonitor.shared.start(on: content) }
+            if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
+            guard window != nil else { return }
+            // .toolbarBackground makes the title bar transparent, and AppKit then skips its double-click action.
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                guard let window = self?.window, event.window === window, event.clickCount == 2,
+                      event.locationInWindow.y > window.contentLayoutRect.maxY else { return event }
+                let hit = window.contentView?.superview?.hitTest(event.locationInWindow)
+                // shortcut: every toolbar item is skipped, so on macOS 14-15 the Spacer item's middle stays dead; upgrade if those users ask.
+                if hit is NSControl || window.toolbar?.items.contains(where: { item in item.view.map { hit?.isDescendant(of: $0) == true } ?? false }) == true { return event }
+                switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
+                case "Minimize": window.performMiniaturize(nil)
+                case "None": break
+                default: window.performZoom(nil)
+                }
+                return nil
+            }
         }
     }
     func makeNSView(context: Context) -> View { View() }

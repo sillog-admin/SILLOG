@@ -97,7 +97,7 @@ final class HobbyRuleTests: XCTestCase {
     }
 
     func testOnlyTheRecorderWindowItselfIsContentless() {
-        XCTAssertTrue(OntologyPrompt.system.contains("rows whose app is Sillog"), "실록 프로젝트 문서까지 '없음'으로 보던 문장")
+        XCTAssertTrue(OntologyPrompt.system.contains("rows whose app is SILLOG"), "실록 프로젝트 문서까지 '없음'으로 보던 문장")
         XCTAssertFalse(OntologyPrompt.system.contains("the Sillog app itself"))
     }
 }

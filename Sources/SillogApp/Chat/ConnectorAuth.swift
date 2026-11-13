@@ -14,6 +14,18 @@ struct ConnectorToken: Codable {
     var remoteMCP: Bool? = nil
 }
 
+/// The provider rejected the saved refresh token, which is already deleted.
+struct ConnectorReconnectError: LocalizedError {
+    let id: String
+    var errorDescription: String? { tr("\(ConnectorEntry.all.first { $0.id == id }?.name ?? id) 로그인이 만료됐어요. 다시 연결해 주세요.") }
+}
+
+/// Keeps the provider's OAuth error code so a dead refresh token can be told apart from other failures.
+private struct OAuthRejection: LocalizedError {
+    let code: String
+    let errorDescription: String?
+}
+
 struct ConnectorOAuthClient: Codable {
     let id: String
     let tokenEndpoint: String
@@ -114,7 +126,7 @@ enum ConnectorAuth {
             registration.httpMethod = "POST"; registration.timeoutInterval = 30
             registration.setValue("application/json", forHTTPHeaderField: "Content-Type")
             registration.httpBody = try JSONSerialization.data(withJSONObject: [
-                "client_name": "Sillog", "redirect_uris": [callback],
+                "client_name": "SILLOG", "redirect_uris": [callback],
                 "grant_types": ["authorization_code", "refresh_token"], "response_types": ["code"],
                 "token_endpoint_auth_method": "none", "scope": connector.scopes
             ])
@@ -163,7 +175,7 @@ enum ConnectorAuth {
         let user = result["authed_user"] as? [String: Any] ?? result
         guard result["ok"] as? Bool == true, let access = user["access_token"] as? String,
               (user["scope"] as? String ?? "").split(separator: ",").contains("search:read") else {
-            throw ChatToolError.unavailable(tr("Slack 검색 권한을 승인하지 못했습니다: \(result["error"] as? String ?? tr("search:read 필요"))"))
+            throw OAuthRejection(code: result["error"] as? String ?? "", errorDescription: tr("Slack 검색 권한을 승인하지 못했습니다: \(result["error"] as? String ?? tr("search:read 필요"))"))
         }
         var value = token(from: user, accessToken: access)
         value.refreshToken = value.refreshToken ?? oldRefresh
@@ -202,7 +214,7 @@ enum ConnectorAuth {
                 request = formRequest(URL(string: "https://oauth2.googleapis.com/token")!, fields)
             } else if id == "github" {
                 fields["client_id"] = try configuration("github-client", environment: "GITHUB_CLIENT_ID")
-                // Sillog의 디바이스 인증으로 발급한 토큰은 비밀키 없이 갱신할 수 있다.
+                // Tokens from our device flow refresh without a client secret.
                 request = formRequest(URL(string: "https://github.com/login/oauth/access_token")!, fields)
             } else if id == "notion" {
                 request = jsonRequest(URL(string: "https://api.notion.com/v1/oauth/token")!, fields)
@@ -210,7 +222,19 @@ enum ConnectorAuth {
             } else {
                 throw ChatToolError.unavailable(tr("\(id) 커넥터를 다시 연결하세요."))
             }
-            var updated = try await id == "slack" ? slackExchange(request, oldRefresh: refresh) : exchange(request, oldRefresh: refresh)
+            var updated: ConnectorToken
+            do { updated = try await id == "slack" ? slackExchange(request, oldRefresh: refresh) : exchange(request, oldRefresh: refresh) }
+            catch let error as OAuthRejection where ["invalid_grant", "invalid_refresh_token", "bad_refresh_token", "token_expired", "token_revoked"].contains(error.code) {
+                AppLog.write("connector \(id) refresh rejected: \(error.code) \(error.errorDescription ?? "")")
+                // Only clear the token we tried, so a reconnect that landed meanwhile survives.
+                let cleared = try tokenChanges.withLock {
+                    guard try ChatSecrets.load("plugin-\(id)") == saved else { return false }
+                    try ChatSecrets.save("", account: "plugin-\(id)")
+                    return true
+                }
+                if cleared { markRemote(id, false) }
+                throw ConnectorReconnectError(id: id)
+            }
             updated.resource = token.resource
             updated.oauthClient = token.oauthClient
             updated.remoteMCP = token.remoteMCP
@@ -249,9 +273,9 @@ enum ConnectorAuth {
     }
 
     /// Args: none.
-    /// Returns: how many files the user picked in Google Picker; 0 if they cancelled.
-    /// Raises: missing Picker key, Drive not connected, port busy or timeout.
-    static func pickDriveFiles() async throws -> Int {
+    /// Returns: the files the user picked in Google Picker in the browser; empty if they cancelled.
+    /// Raises: missing Picker key, Drive not connected or refresh rejected, port busy, timeout or Drive API errors.
+    static func pickDriveFiles() async throws -> [ChatDriveFile] {
         let apiKey = try configuration("google-api-key", environment: "GOOGLE_API_KEY")
         guard !apiKey.isEmpty else {
             throw ChatToolError.unavailable(tr("이 빌드에는 Google Picker 키가 없습니다. 앱 제공자가 SILLOG_GOOGLE_API_KEY를 넣어야 파일을 고를 수 있습니다."))
@@ -259,13 +283,15 @@ enum ConnectorAuth {
         let state = randomURLSafe(16)
         let page = DrivePicker.page(token: try await accessToken("drive"), apiKey: apiKey,
                                     clientID: try configuration("google-client", environment: "GOOGLE_CLIENT_ID"), state: state)
-        return try await LoopbackOAuth.serve(open: URL(string: "http://127.0.0.1:8765\(DrivePicker.pagePath)?state=\(state)")!) { path in
+        let ids: [String] = try await LoopbackOAuth.serve(open: URL(string: "http://127.0.0.1:8765\(DrivePicker.pagePath)?state=\(state)")!) { path in
             if path == "\(DrivePicker.pagePath)?state=\(state)" { return (200, page, nil) }
             let values = URLComponents(string: "http://127.0.0.1\(path)")?.queryItems ?? []
             guard path.hasPrefix("\(DrivePicker.donePath)?"), values.first(where: { $0.name == "state" })?.value == state,
-                  let count = values.first(where: { $0.name == "count" })?.value.flatMap(Int.init) else { return (404, "", nil) }
-            return (200, tr("<h2>파일을 골랐습니다. SILLOG 앱으로 돌아가세요.</h2>"), .success(count))
+                  let ids = values.first(where: { $0.name == "ids" })?.value else { return (404, "", nil) }
+            return (200, tr("<h2>파일을 골랐습니다. SILLOG 앱으로 돌아가세요.</h2>"), .success(ids.split(separator: ",").map(String.init)))
         }
+        guard !ids.isEmpty else { return [] }
+        return try await DrivePicker.files(ids: ids, token: try await accessToken("drive"))
     }
 
     /// Google sign-in connectors: Drive for chat, gcal for the calendar tab.
@@ -336,7 +362,7 @@ enum ConnectorAuth {
     private static func exchange(_ request: URLRequest, oldRefresh: String? = nil) async throws -> ConnectorToken {
         let result = try await response(request)
         guard let value = result["access_token"] as? String else {
-            throw ChatToolError.unavailable(result["error_description"] as? String ?? tr("커넥터 인증에 실패했습니다."))
+            throw OAuthRejection(code: result["error"] as? String ?? "", errorDescription: result["error_description"] as? String ?? tr("커넥터 인증에 실패했습니다."))
         }
         var token = token(from: result, accessToken: value)
         token.refreshToken = token.refreshToken ?? oldRefresh
@@ -399,11 +425,11 @@ enum ConnectorAuth {
     /// Raises: HTTP·네트워크·JSON 오류.
     private static func response(_ request: URLRequest) async throws -> [String: Any] {
         var request = request
-        request.setValue("Sillog/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("SILLOG/1.0", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await ConnectorHTTP.session.data(for: request)
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         guard (200..<300).contains((response as? HTTPURLResponse)?.statusCode ?? 0) else {
-            throw ChatToolError.unavailable(json["error_description"] as? String ?? tr("커넥터 인증 HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)"))
+            throw OAuthRejection(code: json["error"] as? String ?? "", errorDescription: json["error_description"] as? String ?? tr("커넥터 인증 HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)"))
         }
         return json
     }
@@ -504,6 +530,8 @@ private final class LoopbackOAuth {
                 let count = recv(connection, &buffer, buffer.count, 0)
                 let line = String(decoding: buffer.prefix(max(0, count)), as: UTF8.self).components(separatedBy: "\r\n").first ?? ""
                 let path = line.hasPrefix("GET ") ? line.split(separator: " ").dropFirst().first.map(String.init) ?? "" : ""
+                // Chrome preconnects sockets that stay silent; a reply on one is shown as the answer to the next navigation.
+                guard !path.isEmpty else { continue }
                 let (status, html, result) = handle(path)
                 let body = Data(html.utf8)
                 let reason = [200: "OK", 400: "Bad Request"][status] ?? "Not Found"

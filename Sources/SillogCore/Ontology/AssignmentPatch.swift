@@ -222,7 +222,7 @@ public enum AssignmentSchema {
                     "type": "object",
                     "properties": .object([
                         "rows": .object(["type": "string", "description": "행 번호 \"7\" 또는 범위 \"5-12\""]),
-                        "task": .object(["type": "string", "description": "tasks 의 ref. 어떤 목표에도 기여하지 않는 행(오락, 목적 없는 탐색)은 \"off\". 아무것도 아닌 행(잠금 화면, 앱 전환, 앱 이름이 Sillog 인 기록 앱 창)은 null"]),
+                        "task": .object(["type": "string", "description": "tasks 의 ref. 어떤 목표에도 기여하지 않는 행(오락, 목적 없는 탐색)은 \"off\". 아무것도 아닌 행(잠금 화면, 앱 전환, 앱 이름이 SILLOG(예전 기록은 Sillog)인 기록 앱 창)은 null"]),
                         "resource": .object(["type": "boolean", "description": "이 행의 파일·페이지를 그 업무의 자료로 남길지. true: 읽거나 쓰거나 만든 것, 나중에 다시 찾을 것 (문서, 코드, 노트북, 문서 페이지, 논문, Q&A, 영상, AI 대화). false: 보이기만 한 탭·창, 검색 결과, 빈 탭, 로그인, 스쳐 간 목록·프로필·탐색 페이지, 알림·설정·사용량 페이지, 잠깐 본 채널. 애매하면 false"]),
                         "reason": .object(["type": "string", "description": .string("이 행이 그 목표에 무엇으로 기여하는지 \(L10n.current.nameInKorean) 몇 단어 (예: 템플릿 문법 확인). 이탈이면 왜 어떤 목표에도 안 쓰이는지, 없음이면 '\(tr("내용 없음"))'")]),
                     ]),

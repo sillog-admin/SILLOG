@@ -68,6 +68,9 @@ public enum ExternalReadConnector: String, CaseIterable, Identifiable, Sendable 
             let response = try await get("https://slack.com/api/search.messages",
                                          ["query": term.isEmpty ? "after:2000-01-01" : term, "count": "\(limit)"], token: token)
             guard response["ok"] == .bool(true) else {
+                if ["token_expired", "token_revoked", "invalid_auth"].contains(response["error"]?.stringValue) {
+                    throw ChatToolError.unavailable(tr("Slack 로그인이 만료됐어요. 커넥터에서 다시 연결해 주세요."))
+                }
                 throw ChatToolError.unavailable(tr("Slack 검색에 실패했습니다. 사용자 토큰에 search:read 권한이 있는지 확인하세요."))
             }
             return (response["messages"]?.objectValue?["matches"]?.arrayValue ?? []).compactMap { value in

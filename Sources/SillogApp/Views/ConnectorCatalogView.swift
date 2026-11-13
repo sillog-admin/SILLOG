@@ -194,10 +194,6 @@ struct ConnectorCatalogView: View {
                             if connector.id == "github", let url = githubInstallURL {
                                 Button(tr("Repository 선택")) { NSWorkspace.shared.open(url) }.buttonStyle(BrandButtonStyle(kind: .secondary))
                             }
-                            if connector.id == "drive" {
-                                Button(tr("Drive 파일 고르기")) { pickDriveFiles() }
-                                    .buttonStyle(BrandButtonStyle(kind: .secondary)).disabled(connecting)
-                            }
                             Button(tr("검색·읽기 확인")) { checkConnection(connector) }
                                 .buttonStyle(BrandButtonStyle(kind: .secondary)).disabled(connecting)
                         }.padding(.top, 16)
@@ -434,13 +430,14 @@ struct ConnectorCatalogView: View {
                 notify(read ? tr("\(connector.name)에서 \(verified) 응답을 확인했어요.")
                        : tr("\(connector.name) 검색 응답을 받았어요. 읽을 내용은 확인되지 않았어요."))
             } catch {
+                if error is ConnectorReconnectError { connected.remove(connector.id) }
                 notify(tr("\(connector.name) 검사 실패 · \(error.localizedDescription)"))
             }
         }
     }
 
     /// Args: none.
-    /// Returns: nothing. Signs in to Google Drive, then opens the file picker.
+    /// Returns: nothing. Signs in to Google Drive; files are picked per chat.
     /// Raises: none. OAuth errors are shown on screen.
     private func connectDrive() {
         do {
@@ -456,22 +453,8 @@ struct ConnectorCatalogView: View {
                 try await ConnectorAuth.connectGoogle(["drive"], clientID: client)
                 connected.insert("drive")
                 connecting = false
-                pickDriveFiles()
+                notify(tr("Google Drive를 연결했어요. 채팅의 + 메뉴에서 ‘Google Drive에서 선택’으로 파일을 고르세요."))
             } catch { notify(error.localizedDescription); connecting = false }
-        }
-    }
-
-    /// Args: none.
-    /// Returns: nothing. Opens Google Picker in the browser; only picked files are readable with drive.file.
-    /// Raises: none. Errors are shown on screen.
-    private func pickDriveFiles() {
-        connecting = true
-        Task {
-            defer { connecting = false }
-            do {
-                let count = try await ConnectorAuth.pickDriveFiles()
-                if count > 0 { notify(tr("Drive 파일 \(count)개를 SILLOG이 읽을 수 있어요. 더 추가하려면 ‘Drive 파일 고르기’를 누르세요.")) }
-            } catch { notify(error.localizedDescription) }
         }
     }
 
@@ -500,7 +483,7 @@ struct ConnectorCatalogView: View {
 }
 
 
-/// 서비스가 배포한 이미지의 색상과 비율을 유지한 채 Sillog의 타일에 배치한다.
+/// 서비스가 배포한 이미지의 색상과 비율을 유지한 채 SILLOG의 타일에 배치한다.
 struct ConnectorLogo: View {
     let connector: ConnectorEntry
     var size: CGFloat = 34
@@ -515,11 +498,19 @@ struct ConnectorLogo: View {
         })
     }()
 
+    // Full-bleed app tiles read heavier than bare marks, and GitHub's file carries clearspace.
+    private static let tiles: Set<String> = ["notion", "higgsfield", "canva"]
+    private static let opticalScale: [String: CGFloat] = ["github": 1.3, "notion": 0.9, "higgsfield": 0.9, "canva": 0.9]
+
     var body: some View {
         let corner = size * 0.22
         let mark = boxed ? size * 0.64 : size
         Group {
-            if let image = Self.images[connector.id] { Image(nsImage: image).resizable().scaledToFit() }
+            if let image = Self.images[connector.id] {
+                let side = mark * (Self.opticalScale[connector.id] ?? 1)
+                Image(nsImage: image).resizable().scaledToFit().frame(width: side, height: side)
+                    .clipShape(RoundedRectangle(cornerRadius: Self.tiles.contains(connector.id) ? side * 0.22 : 0))
+            }
             else { Image(systemName: connector.icon).font(.system(size: size * 0.42)).foregroundStyle(Brand.tabText) }
         }
         .frame(width: mark, height: mark)

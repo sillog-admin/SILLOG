@@ -1,4 +1,4 @@
-"""Promptfoo adapter: uses Sillog's existing ChatGPT authentication without exporting tokens."""
+"""Promptfoo adapter: uses SILLOG's existing ChatGPT authentication without exporting tokens."""
 import json
 import os
 import subprocess
@@ -14,5 +14,5 @@ def call_api(prompt, options, context):
     run = subprocess.run([os.environ['SILLOG_EVAL_BINARY'], os.environ['SILLOG_EVAL_MODEL']],
                          input=json.dumps(payload, ensure_ascii=False), text=True, capture_output=True, timeout=180)
     if run.returncode:
-        return {'error': 'Sillog evaluation request failed; check authentication and model access.'}
+        return {'error': 'SILLOG evaluation request failed; check authentication and model access.'}
     return json.loads(run.stdout)
