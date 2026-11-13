@@ -530,6 +530,8 @@ private final class LoopbackOAuth {
                 let count = recv(connection, &buffer, buffer.count, 0)
                 let line = String(decoding: buffer.prefix(max(0, count)), as: UTF8.self).components(separatedBy: "\r\n").first ?? ""
                 let path = line.hasPrefix("GET ") ? line.split(separator: " ").dropFirst().first.map(String.init) ?? "" : ""
+                // Chrome preconnects sockets that stay silent; a reply on one is shown as the answer to the next navigation.
+                guard !path.isEmpty else { continue }
                 let (status, html, result) = handle(path)
                 let body = Data(html.utf8)
                 let reason = [200: "OK", 400: "Bad Request"][status] ?? "Not Found"
