@@ -11,6 +11,8 @@ final class AppState: ObservableObject {
         didSet {
             guard !isPreview else { return }
             if settings.language != L10n.current { L10n.current = settings.language }
+            // Every write redraws all text, so only a real change is written.
+            if Brand.scale != settings.textScale { Brand.scale = settings.textScale }
             PIIMasker.enabled = settings.maskPII
         }
     }
@@ -151,6 +153,7 @@ final class AppState: ObservableObject {
     init() {
         settings = AppSettings.load()
         L10n.current = settings.language
+        Brand.scale = settings.textScale
         PIIMasker.enabled = settings.maskPII
         guard instanceLock.acquire() else {
             startupError = Self.alreadyRunningMessage
@@ -417,7 +420,7 @@ final class AppState: ObservableObject {
             let url = URL(string: e.url.trimmingCharacters(in: .whitespaces)) ?? URL(string: "http://localhost:5010/v1")!
             return .model(OpenAICompatClient(baseURL: url, model: e.model, apiKey: e.key.isEmpty ? nil : e.key))
         }
-        return .codex(CodexAppServerClient(auth: codexAuth, model: settings.effectiveChatCodexModel))
+        return .codex(CodexAppServerClient(auth: codexAuth, model: settings.effectiveChatCodexModel, effort: settings.chatEffort))
     }
 
     /// Args: 없음.
@@ -699,6 +702,20 @@ final class AppState: ObservableObject {
         // '정리 모델과 같이'였으면 채팅에서 다른 모델을 고르는 순간 '따로 고르기'로 바뀐다
         if settings.chatSameAsOrganize { settings.chatProvider = settings.llmProvider; settings.chatSameAsOrganize = false }
         settings.chatCodexModel = slug
+        if !isPreview { settings.save() }
+    }
+
+    /// Picked in the chat model menu, which skips the settings screen, so it saves here.
+    func selectChatEffort(_ effort: ChatEffort) {
+        guard settings.chatEffort != effort else { return }
+        settings.chatEffort = effort
+        if !isPreview { settings.save() }
+    }
+
+    /// View-menu zoom skips the settings screen, so it saves here.
+    func setTextScale(_ scale: Double) {
+        guard settings.textScale != scale else { return }
+        settings.textScale = scale
         if !isPreview { settings.save() }
     }
 

@@ -174,8 +174,11 @@ final class ChatTests: XCTestCase {
         let old = #"{"id":"m","conversationID":"c","role":"assistant","text":"답","status":"complete","createdAt":1,"sources":[],"artifacts":[],"steps":[]}"#
         let message = try JSONDecoder().decode(ConversationMessage.self, from: Data(old.utf8))
         XCTAssertNil(message.model)
+        XCTAssertNil(message.effort)
         XCTAssertNil(message.previous)
         XCTAssertEqual(message.versions.map(\.id), ["m"])
+        var answer = message; answer.effort = .high
+        XCTAssertEqual(try JSONDecoder().decode(ConversationMessage.self, from: JSONEncoder().encode(answer)).effort, .high)
     }
 
     func testEditAndRegenerateReplaceFromTheQuestion() throws {

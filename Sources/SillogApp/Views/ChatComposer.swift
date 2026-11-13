@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import SillogCore
 
-/// 채팅 입력: 입력 상자(+ 메뉴, 칩, 보내기) + 아래 줄(범위, 모델) + 안내문. 폭은 ChatPalette.columnWidth
+/// 채팅 입력: 입력 상자(+ 메뉴, 칩, 보내기) + 아래 줄(범위, 모델) + 안내문. 폭은 ChatPalette.readingWidth
 struct ChatComposer: View {
     @ObservedObject var chat: ChatState
     @ObservedObject var library: LibraryState
@@ -54,7 +54,7 @@ struct ChatComposer: View {
                     .frame(maxWidth: .infinity).padding(.top, 8)
             }
         }
-        .frame(maxWidth: ChatPalette.columnWidth).frame(maxWidth: .infinity)
+        .frame(maxWidth: ChatPalette.readingWidth).frame(maxWidth: .infinity)
         .sheet(isPresented: $showLibraryPicker) { LibraryPicker(library: library) { chat.attachLibraryItem($0) } }
         .onChange(of: chat.current.id) { _, _ in shortcut = nil; dismissedShortcut = nil }
     }
@@ -96,7 +96,7 @@ struct ChatComposer: View {
             ZStack(alignment: .topLeading) {
                 if chat.draft.isEmpty {
                     Text(Self.placeholder(chat.current.scope))
-                        .font(Brand.font(.body)).foregroundStyle(Brand.text.opacity(0.5)).lineLimit(1)
+                        .font(Brand.font(.sectionTitle, .regular)).foregroundStyle(Brand.text.opacity(0.5)).lineLimit(1)
                         .padding(.top, 8).padding(.leading, 5).allowsHitTesting(false).accessibilityHidden(true)
                 }
                 ChatInput(text: $chat.draft, height: $inputHeight, minimumHeight: 38, focusRequest: chat.inputFocusRequest,

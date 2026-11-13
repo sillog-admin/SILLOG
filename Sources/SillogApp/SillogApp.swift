@@ -37,9 +37,27 @@ struct SillogApp: App {
 
         Window("SILLOG", id: "main") {
             MainWindow().environmentObject(state).localized(state.settings.language)
+                .background {
+                    // ⌘+ (⇧=) as well as the menu's ⌘=.
+                    Button("") { zoom(1) }.keyboardShortcut("+", modifiers: .command)
+                        .opacity(0).frame(width: 0, height: 0).accessibilityHidden(true)
+                }
         }
         .defaultSize(width: 1180, height: 760)
+        .commands {
+            CommandGroup(after: .toolbar) {
+                Divider()
+                Button(tr("확대")) { zoom(1) }.keyboardShortcut("=", modifiers: .command)
+                    .disabled(state.settings.textScale >= TextScale.steps[TextScale.steps.count - 1])
+                Button(tr("축소")) { zoom(-1) }.keyboardShortcut("-", modifiers: .command)
+                    .disabled(state.settings.textScale <= TextScale.steps[0])
+                Button(tr("실제 크기")) { state.setTextScale(1) }.keyboardShortcut("0", modifiers: .command)
+                    .disabled(state.settings.textScale == 1)
+            }
+        }
     }
+
+    private func zoom(_ delta: Int) { state.setTextScale(TextScale.step(state.settings.textScale, by: delta)) }
 }
 
 enum Launch {
@@ -186,7 +204,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 extension View {
-    /// Rebuilds the tree when the language changes so every `tr()` string is read again.
+    /// Rebuilds the tree when the language changes so every `tr()` string is read again; zoom redraws through Brand.zoom instead.
     func localized(_ language: AppLanguage) -> some View {
         id(language).environment(\.locale, Locale(identifier: language.rawValue))
     }

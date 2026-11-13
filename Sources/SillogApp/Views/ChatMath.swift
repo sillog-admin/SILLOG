@@ -125,7 +125,7 @@ struct ChatMathBlock: View {
     let latex: String
 
     var body: some View {
-        if let rendered = ChatMath.render(latex, display: true, fontSize: 17) {
+        if let rendered = ChatMath.render(latex, display: true, fontSize: 21 * Brand.scale) {
             ViewThatFits(in: .horizontal) {
                 Image(nsImage: rendered.image).frame(maxWidth: .infinity)
                 ScrollView(.horizontal, showsIndicators: false) { Image(nsImage: rendered.image) }
@@ -133,7 +133,7 @@ struct ChatMathBlock: View {
             .padding(.vertical, 4)
             .help(latex)
         } else {
-            Text(verbatim: latex).font(.system(size: 12, design: .monospaced)).foregroundStyle(Brand.tabText)
+            Text(verbatim: latex).font(.system(size: 14 * Brand.scale, design: .monospaced)).foregroundStyle(Brand.tabText)
         }
     }
 }

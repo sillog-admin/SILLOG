@@ -49,7 +49,6 @@ struct ChatInput: NSViewRepresentable {
         let scroll = NSScrollView()
         let editor = ChatTextView()
         editor.isRichText = false; editor.allowsUndo = true
-        editor.font = NSFont(name: "SUIT-Regular", size: 12) ?? .systemFont(ofSize: 12)
         let ink = NSColor(srgbRed: 20 / 255, green: 18 / 255, blue: 16 / 255, alpha: 1)
         editor.textColor = ink; editor.insertionPointColor = ink
         editor.drawsBackground = false; editor.textContainerInset = NSSize(width: 0, height: 8)
@@ -72,6 +71,9 @@ struct ChatInput: NSViewRepresentable {
         context.coordinator.parent = self; editor.onSend = onSend
         editor.shortcutKey = shortcutKey; editor.onFiles = onFiles; editor.onEscape = onEscape; editor.onEditLast = onEditLast
         editor.setAccessibilityPlaceholderValue(placeholder)
+        // Set here, not only at creation, so zoom reaches the live editor.
+        let size = 15 * Brand.scale
+        if editor.font?.pointSize != size { editor.font = NSFont(name: "SUIT-Regular", size: size) ?? .systemFont(ofSize: size) }
         if editor.string != text, !editor.hasMarkedText() { editor.string = text }
         context.coordinator.resize(editor)
         if context.coordinator.focusRequest != focusRequest {

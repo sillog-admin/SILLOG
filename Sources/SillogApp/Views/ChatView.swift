@@ -210,7 +210,7 @@ struct ChatView: View {
         VStack(spacing: 0) {
             if !chat.messages.isEmpty || !sidebarVisible { header }
             if let active = chat.activeMessage, active.conversationID != chat.current.id {
-                // CH-14: 본문 600 열 안, 머리에서 떨어진 47 높이 띠, 아래 줄 하나, '이동'은 글자 링크
+                // CH-14: 본문 열 안, 머리에서 떨어진 47 높이 띠, 아래 줄 하나, '이동'은 글자 링크
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
                     if let job = chat.automations.first(where: { $0.lastConversationID == active.conversationID && $0.lastStatus == "실행 중" }) {
@@ -228,7 +228,7 @@ struct ChatView: View {
                 }.padding(.horizontal, 28).frame(height: 47)
                     .background(ChatPalette.soft)
                     .overlay(alignment: .bottom) { Rectangle().fill(Brand.line).frame(height: 1) }
-                    .frame(maxWidth: ChatPalette.columnWidth).frame(maxWidth: .infinity)
+                    .frame(maxWidth: ChatPalette.readingWidth).frame(maxWidth: .infinity)
                     .padding(.horizontal, 32).padding(.top, 24).padding(.leading, showsQuestionMarks ? 44 : 0)
             }
             if chat.messages.isEmpty {
@@ -237,7 +237,7 @@ struct ChatView: View {
                 conversation
             }
             if let error = chat.error ?? library.chatImportError {
-                // CH-17: 입력칸과 같은 600 열, 위아래 줄, 입력칸 위 8 간격
+                // CH-17: 입력칸과 같은 열, 위아래 줄, 입력칸 위 8 간격
                 HStack(alignment: .top, spacing: 8) {
                     Label(error, systemImage: "exclamationmark.circle")
                         .font(Brand.font(.caption)).foregroundStyle(Brand.ink).textSelection(.enabled)
@@ -251,7 +251,7 @@ struct ChatView: View {
                     .background(ChatPalette.soft)
                     .overlay(alignment: .top) { Rectangle().fill(Brand.line).frame(height: 1) }
                     .overlay(alignment: .bottom) { Rectangle().fill(Brand.line).frame(height: 1) }
-                    .frame(maxWidth: ChatPalette.columnWidth).frame(maxWidth: .infinity)
+                    .frame(maxWidth: ChatPalette.readingWidth).frame(maxWidth: .infinity)
                     .padding(.horizontal, 32).padding(.top, 8)
                     .padding(.leading, showsQuestionMarks ? 44 : 0)
             }
@@ -266,7 +266,7 @@ struct ChatView: View {
                      onEditLast: {
                          if !chat.running, let last = chat.messages.last(where: { $0.role == "user" }) { editText = last.text; editingMessageID = last.id }
                      })
-            .frame(maxWidth: ChatPalette.columnWidth).frame(maxWidth: .infinity)     // 대화 본문과 같은 폭
+            .frame(maxWidth: ChatPalette.readingWidth).frame(maxWidth: .infinity)     // 대화 본문과 같은 폭
             .padding(.horizontal, 32).padding(.top, 8).padding(.bottom, 14)
             .padding(.leading, showsQuestionMarks ? 44 : 0)     // 질문 눈금(44)만큼 밀린 대화 본문과 같은 열
             .background(.white)
@@ -315,7 +315,7 @@ struct ChatView: View {
                         }
                     }.padding(.top, 12)
                 }
-            }.frame(width: ChatPalette.columnWidth)
+            }.frame(maxWidth: ChatPalette.readingWidth).padding(.horizontal, 32)     // same width as the conversation's composer
             Spacer(minLength: 0)
             Text(tr("질문과 조회한 자료는 연결한 AI로 전송돼요. 웹 검색과 커넥터는 허용한 범위만 사용해요."))
                 .font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1).padding(.bottom, 14)
@@ -422,7 +422,7 @@ struct ChatView: View {
                         }
                         Color.clear.frame(height: 1).id("bottom")
                             .onAppear { atBottom = true }.onDisappear { atBottom = false }
-                    }.frame(maxWidth: ChatPalette.columnWidth).frame(maxWidth: .infinity).padding(.horizontal, 32).padding(.vertical, 24)
+                    }.frame(maxWidth: ChatPalette.readingWidth).frame(maxWidth: .infinity).padding(.horizontal, 32).padding(.vertical, 24)
                 }
                 .coordinateSpace(name: "chatTranscript")
                 .defaultScrollAnchor(.bottom)
@@ -509,7 +509,7 @@ struct ChatView: View {
         if message.role == "user", editingMessageID == message.id {
             VStack(alignment: .trailing, spacing: 8) {
                 TextEditor(text: $editText)
-                    .font(Brand.font(.body)).foregroundStyle(Brand.text).scrollContentBackground(.hidden)
+                    .font(Brand.font(.sectionTitle, .regular)).foregroundStyle(Brand.text).scrollContentBackground(.hidden)
                     .focused($editFocused).onAppear { editFocused = true }
                     .frame(minHeight: 60, maxHeight: 240).fixedSize(horizontal: false, vertical: true)
                     .padding(10)
@@ -523,18 +523,18 @@ struct ChatView: View {
                         .disabled(chat.running || editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }.font(Brand.font(.caption))
             }
-            .frame(maxWidth: 480).frame(maxWidth: .infinity, alignment: .trailing)
+            .frame(maxWidth: ChatPalette.bubbleWidth).frame(maxWidth: .infinity, alignment: .trailing)
         } else if message.role == "user" {
             // 내 질문: 오른쪽 말풍선 (이름표 없이). 올리면 복사·편집
             let expanded = expandedQuestions.contains(message.id)
             // shortcut: guesses "long" from lines and length instead of measuring the laid-out text.
             let long = message.text.count > 600 || message.text.split(separator: "\n", omittingEmptySubsequences: false).count > 12
             VStack(alignment: .trailing, spacing: 6) {
-                Text(message.text).font(Brand.font(.body)).foregroundStyle(Brand.text).lineSpacing(5).textSelection(.enabled)
+                Text(message.text).font(Brand.font(.sectionTitle, .regular)).foregroundStyle(Brand.text).lineSpacing(5).textSelection(.enabled)
                     .lineLimit(long && !expanded ? 12 : nil)
                     .padding(.horizontal, 14).padding(.vertical, 10)
                     .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 16))
-                    .frame(maxWidth: 480, alignment: .trailing)
+                    .frame(maxWidth: ChatPalette.bubbleWidth, alignment: .trailing)
                 if long {
                     Button(expanded ? tr("접기") : tr("더 보기")) {
                         if expanded { expandedQuestions.remove(message.id) } else { expandedQuestions.insert(message.id) }
@@ -618,58 +618,60 @@ struct ChatView: View {
                     }.padding(14).background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 6))
                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
                 }
-                if message.status == "running" && versions.count > 1 {
-                    versionStepper(message, shownIndex: shownIndex, count: versions.count)
-                }
-                if message.status != "running" {
+                if message.status != "running" || versions.count > 1 {
                     let showsActions = hoveredMessageID == message.id || focusedActions == message.id || chat.messages.last?.id == message.id
+                    let showsMeta = hoveredMessageID == message.id || focusedActions == message.id
                     HStack(spacing: 2) {
-                        if shown.status == "failed" {
-                            ChatPillButton(title: tr("다시 시도"), systemName: "arrow.clockwise") { requestResend(message) }.disabled(chat.running)
-                            if ChatFailure.needsSettings(Self.failureParts(shown.text).error) {
-                                ChatPillButton(title: tr("설정 열기"), systemName: "gearshape") { openSettings() }
-                            }
-                        }
-                        if versions.count > 1 { versionStepper(message, shownIndex: shownIndex, count: versions.count) }
-                        if !shown.sources.isEmpty {
-                            Button {
-                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
-                                    if expandedSources.contains(message.id) { expandedSources.remove(message.id) } else { expandedSources.insert(message.id) }
+                        if message.status != "running" {
+                            HStack(spacing: 2) {
+                                ChatIconButton(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc",
+                                               help: chat.messages.last(where: { $0.role == "assistant" })?.id == message.id ? tr("답변 복사 (⌘⇧C)") : tr("답변 복사"), label: tr("답변 복사"), color: Brand.gray) {
+                                    copy(shown.markdown, id: message.id,
+                                         html: ChatArtifactHTML.render(ChatArtifact(title: "", format: "markdown", content: shown.markdown)))
                                 }
-                            } label: {
+                                if shown.status != "failed" {
+                                    ChatIconButton(systemName: "arrow.clockwise", help: tr("다시 생성"), color: Brand.gray) { requestResend(message) }
+                                        .disabled(chat.running)
+                                    regenerateModelMenu(message)
+                                }
+                            }
+                            .opacity(showsActions ? 1 : 0)
+                            .animation(.easeOut(duration: 0.12), value: showsActions)
+                            if shown.status == "failed" {
+                                ChatPillButton(title: tr("다시 시도"), systemName: "arrow.clockwise") { requestResend(message) }.disabled(chat.running)
+                                if ChatFailure.needsSettings(Self.failureParts(shown.text).error) {
+                                    ChatPillButton(title: tr("설정 열기"), systemName: "gearshape") { openSettings() }
+                                }
+                            }
+                            if !shown.sources.isEmpty {
+                                Button {
+                                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+                                        if expandedSources.contains(message.id) { expandedSources.remove(message.id) } else { expandedSources.insert(message.id) }
+                                    }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(tr("출처 \(shown.sources.count)개"))
+                                        Image(systemName: expandedSources.contains(message.id) ? "chevron.down" : "chevron.right").font(.system(size: 8))
+                                    }.foregroundStyle(Brand.gray).padding(.horizontal, 6).frame(height: 28).contentShape(Rectangle())
+                                }
+                                .accessibilityValue(expandedSources.contains(message.id) ? tr("펼침") : tr("접힘"))
+                            }
+                            if ["cancelled", "interrupted"].contains(shown.status) {
                                 HStack(spacing: 4) {
-                                    Text(tr("출처 \(shown.sources.count)개"))
-                                    Image(systemName: expandedSources.contains(message.id) ? "chevron.down" : "chevron.right").font(.system(size: 8))
-                                }.foregroundStyle(Brand.gray)
+                                    Image(systemName: "record.circle").font(.system(size: 11))
+                                    Text(tr("중단됨")).font(Brand.font(.caption))
+                                }.foregroundStyle(Brand.tabText).padding(.horizontal, 6)
+                                if chat.messages.last?.id == message.id && shownIndex == versions.count - 1 {
+                                    ChatPillButton(title: tr("이어서 쓰기"), systemName: "arrow.right") { chat.continueAnswer() }.disabled(chat.running)
+                                }
                             }
-                            .accessibilityValue(expandedSources.contains(message.id) ? tr("펼침") : tr("접힘"))
+                            Text(Self.answerMeta(shown)).foregroundStyle(Brand.gray).lineLimit(1).truncationMode(.tail).padding(.leading, 6)
+                                .help(Self.answerMeta(shown))
+                                .opacity(showsMeta ? 1 : 0)
+                                .animation(.easeOut(duration: 0.12), value: showsMeta)
                         }
-                        HStack(spacing: 2) {
-                            ChatIconButton(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc",
-                                           help: chat.messages.last(where: { $0.role == "assistant" })?.id == message.id ? tr("답변 복사 (⌘⇧C)") : tr("답변 복사"), label: tr("답변 복사"), color: Brand.gray) {
-                                copy(shown.markdown, id: message.id,
-                                     html: ChatArtifactHTML.render(ChatArtifact(title: "", format: "markdown", content: shown.markdown)))
-                            }
-                            if shown.status != "failed" {
-                                ChatIconButton(systemName: "arrow.clockwise", help: tr("다시 생성"), color: Brand.gray) { requestResend(message) }
-                                    .disabled(chat.running)
-                                regenerateModelMenu(message)
-                            }
-                            if let model = shown.model {
-                                Text(TitleConnection.modelTitle(model)).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1).padding(.leading, 4)
-                            }
-                        }
-                        .opacity(showsActions ? 1 : 0)
-                        .animation(.easeOut(duration: 0.12), value: showsActions)
-                        if ["cancelled", "interrupted"].contains(shown.status) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "record.circle").font(.system(size: 11))
-                                Text(tr("중단됨")).font(Brand.font(.caption))
-                            }.foregroundStyle(Brand.tabText).padding(.horizontal, 6)
-                            if chat.messages.last?.id == message.id && shownIndex == versions.count - 1 {
-                                ChatPillButton(title: tr("이어서 쓰기"), systemName: "arrow.right") { chat.continueAnswer() }.disabled(chat.running)
-                            }
-                        }
+                        Spacer(minLength: 8)
+                        if versions.count > 1 { versionStepper(message, shownIndex: shownIndex, count: versions.count).fixedSize() }
                     }.buttonStyle(.plain).foregroundStyle(Brand.gray).font(Brand.font(.caption))
                     .focused($focusedActions, equals: message.id)
                 }
@@ -726,6 +728,13 @@ struct ChatView: View {
             }
         }
         return ("", text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    /// Finish time, model and effort of an answer for its hover line; an API server answer stores no effort.
+    static func answerMeta(_ answer: ConversationMessage, timeZone: TimeZone = .current) -> String {
+        // Time first, so a narrow row cuts the model name rather than the time.
+        ([ChatDateText.dateTime(answer.completedAt ?? answer.createdAt, timeZone: timeZone)]
+            + [answer.model.map(TitleConnection.modelTitle), answer.effort?.title].compactMap { $0 }).joined(separator: " · ")
     }
 
     static func artifactIcon(_ format: String) -> String {
@@ -842,7 +851,10 @@ struct ChatView: View {
 enum ChatPalette {
     static let soft = Brand.paper       // 말풍선, 칩, 대화 상자 머리글 바탕
     static let inputLine = Color(hex: 0xD8D2CD)  // 입력 상자 테두리
-    static let columnWidth: CGFloat = 600        // 대화 본문, 입력칸, 시작 화면이 함께 쓰는 폭 (Figma 600)
+    static let columnWidth: CGFloat = 600        // 시작 화면과 프로젝트 화면 폭 (Figma 600)
+    /// Transcript and composer width; grows with the text zoom so lines keep their length.
+    static var readingWidth: CGFloat { 760 * Brand.scale }
+    static var bubbleWidth: CGFloat { readingWidth * 0.7 }
     static let sidebarWidth: CGFloat = 261
     static let navSelected = Color(hex: 0xEAE5DF)   // 사이드바 메뉴 고른 줄 (둥글기 7)
     static let cardLine = Color(hex: 0xE9E7E5)      // 카드 테두리, 목록 줄 구분선

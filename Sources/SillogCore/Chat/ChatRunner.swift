@@ -137,6 +137,12 @@ public enum ChatBackend: Sendable {
         }
     }
 
+    /// The reasoning effort sent with each turn; nil for an API server, which gets none.
+    public var effort: ChatEffort? {
+        if case .codex(let client) = self { return client.effort }
+        return nil
+    }
+
     /// Args: firstQuery는 대화의 첫 사용자 요청이다.
     /// Returns: 요청의 주제를 나타내는 짧은 명사형 제목.
     /// Raises: 모델·연결 오류 또는 빈 제목 응답. 별도 재시도는 하지 않는다.
@@ -157,7 +163,9 @@ public enum ChatBackend: Sendable {
         switch self {
         case .model(let client):
             return try await client.respond(system: system, messages: messages, tools: []) { _ in }.text
-        case .codex(let client):
+        case .codex(var client):
+            // Titles and memory summaries are short; they keep medium whatever effort the user picked for answers.
+            client.effort = .medium
             return try await client.run(system: system, messages: messages, tools: [], useWeb: false, execute: { _ in "" }, onEvent: { _ in })
         }
     }

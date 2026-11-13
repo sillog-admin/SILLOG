@@ -487,7 +487,7 @@ final class ChatState: ObservableObject {
             let user = ConversationMessage(conversationID: conversation.id, role: "user", text: text)
             let backend = makeClient()
             var answer = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "", status: "running")
-            answer.model = backend.modelName; answer.previous = earlierAnswers
+            answer.model = backend.modelName; answer.effort = backend.effort; answer.previous = earlierAnswers
             let searchKey: String, searchModel: String
             if case .model(let client as OpenAICompatClient) = backend,
                client.baseURL.host == "api.openai.com", scope.useWeb {

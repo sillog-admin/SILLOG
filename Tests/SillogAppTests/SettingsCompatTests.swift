@@ -51,6 +51,14 @@ final class SettingsCompatTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s)).language, .en)
     }
 
+    func testChatEffortDefaultsToMediumAndRoundTrips() throws {
+        XCTAssertEqual(try decode("{}").chatEffort, .medium, "saves from before the setting sent medium")
+        XCTAssertEqual(try decode(#"{"chatEffort":"max","retentionDays":3}"#).retentionDays, 3, "an unknown effort keeps the other settings")
+        var s = AppSettings()
+        s.chatEffort = .high
+        XCTAssertEqual(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s)).chatEffort, .high)
+    }
+
     func testLegacyDefaultsKeysMoveOnce() throws {
         let suite = "sillog-tests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

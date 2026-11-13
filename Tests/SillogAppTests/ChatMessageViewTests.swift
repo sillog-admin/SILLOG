@@ -17,6 +17,35 @@ final class ChatMessageViewTests: XCTestCase {
         XCTAssertEqual(ChatView.failureParts("unexpected").error, "unexpected")
     }
 
+    func testZoomRedrawsTextWithoutRebuildingTheView() {
+        // Equatable like ChatMessageText, so only the zoom itself can redraw it.
+        struct Leaf: View, Equatable {
+            var body: some View { Text("SILLOG zoom").font(Brand.font(.body)).fixedSize() }
+        }
+        let host = NSHostingView(rootView: Leaf().equatable())
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 100), styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        let before = host.fittingSize.width
+        defer { Brand.scale = 1 }
+        Brand.scale = 1.5
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        host.layoutSubtreeIfNeeded()
+        XCTAssertGreaterThan(host.fittingSize.width, before * 1.3, "a view with no input that changed still picks up the new size")
+        XCTAssertEqual(Brand.font(.body, scale: 1), Brand.suit(12, scale: 1), "the menu bar panel can opt out of zoom")
+    }
+
+    func testTheHoverLineShowsModelEffortAndFinishTime() {
+        let seoul = TimeZone(identifier: "Asia/Seoul")!
+        var answer = ConversationMessage(conversationID: "c", role: "assistant", text: "x")
+        answer.createdAt = 1_794_540_000; answer.completedAt = 1_794_545_000
+        XCTAssertEqual(ChatView.answerMeta(answer, timeZone: seoul), "11월 13일 오후 1:43", "an old answer shows only its time")
+        answer.model = "gpt-5.5"; answer.effort = .high
+        XCTAssertEqual(ChatView.answerMeta(answer, timeZone: seoul), "11월 13일 오후 1:43 · \(TitleConnection.modelTitle("gpt-5.5")) · 높음")
+        answer.completedAt = nil
+        XCTAssertTrue(ChatView.answerMeta(answer, timeZone: seoul).hasPrefix("11월 13일 오후 12:20"), "falls back to when it started")
+    }
+
     func testMessageTextRedrawsOnlyWhenTextOrSourcesChange() {
         let a = ChatMessageText(text: "x", sources: [], onSource: { _ in })
         XCTAssertEqual(a, ChatMessageText(text: "x", sources: [], onSource: { _ in print("other") }), "a new closure is not a change")

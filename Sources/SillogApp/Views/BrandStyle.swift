@@ -30,26 +30,39 @@ enum Brand {
 
     enum Weight: String { case regular = "Regular", medium = "Medium", semibold = "SemiBold", bold = "Bold" }
     /// 한글 본문 글꼴 SUIT (없으면 시스템 글꼴로 대체된다)
-    static func suit(_ size: CGFloat, _ weight: Weight = .regular) -> Font { .custom("SUIT-\(weight.rawValue)", size: size) }
+    static func suit(_ size: CGFloat, _ weight: Weight = .regular, scale: CGFloat = Brand.scale) -> Font { .custom("SUIT-\(weight.rawValue)", size: size * scale) }
+    /// Observable so every body that reads a Brand size redraws on zoom without being rebuilt and losing its state.
+    /// Hand-written @Observable: the macro's `Observation.` prefix hits SillogCore's Observation type.
+    final class Zoom: Observable {
+        private let registrar = ObservationRegistrar()
+        private var stored: CGFloat = 1
+        var scale: CGFloat {
+            get { registrar.access(self, keyPath: \.scale); return stored }
+            set { registrar.withMutation(of: self, keyPath: \.scale) { stored = newValue } }
+        }
+    }
+    nonisolated(unsafe) static let zoom = Zoom()
+    /// View-menu zoom of the main window.
+    static var scale: CGFloat { get { zoom.scale } set { zoom.scale = newValue } }
     /// The only place text sizes are set; pick by role, not by size.
     enum TextRole { case screenTitle, sectionTitle, rowTitle, body, caption, tag }
-    static func font(_ role: TextRole, _ weight: Weight? = nil) -> Font {
+    static func font(_ role: TextRole, _ weight: Weight? = nil, scale: CGFloat = Brand.scale) -> Font {
         switch role {
-        case .screenTitle: return suit(22, weight ?? .bold)
-        case .sectionTitle: return suit(15, weight ?? .medium)
-        case .rowTitle: return suit(13, weight ?? .medium)
-        case .body: return suit(12, weight ?? .regular)
-        case .caption: return suit(11, weight ?? .regular)
-        case .tag: return suit(10, weight ?? .regular)
+        case .screenTitle: return suit(22, weight ?? .bold, scale: scale)
+        case .sectionTitle: return suit(15, weight ?? .medium, scale: scale)
+        case .rowTitle: return suit(13, weight ?? .medium, scale: scale)
+        case .body: return suit(12, weight ?? .regular, scale: scale)
+        case .caption: return suit(11, weight ?? .regular, scale: scale)
+        case .tag: return suit(10, weight ?? .regular, scale: scale)
         }
     }
     static let paper = Color(hex: 0xF6F5F4)        // 칩과 오류 상자 바탕, 예전 스타일 창 바탕 (OUT-W1)
     static let blue = Color(hex: 0x5E97C8)         // 켜짐 체크, 폴더, 성공 표시, 사용량 막대
 
     /// 영문 눈썹 글씨와 숫자 Jost 400. 앱에 넣은 Jost* 판에서 400 의 이름은 "Jost-Book" (FontRegistryTests 가 확인)
-    static func jost(_ size: CGFloat) -> Font { .custom("Jost-Book", size: size) }
+    static func jost(_ size: CGFloat) -> Font { .custom("Jost-Book", size: size * scale) }
     /// 큰 숫자 Jost 200 (Figma 의 ExtraLight, 앱에 넣은 판의 이름은 "Jost-Thin")
-    static func jostLight(_ size: CGFloat) -> Font { .custom("Jost-Thin", size: size) }
+    static func jostLight(_ size: CGFloat) -> Font { .custom("Jost-Thin", size: size * scale) }
 
     /// Resources/Brand 안 PNG 한 장 (없으면 nil)
     private static func brandImage(_ name: String) -> NSImage? {

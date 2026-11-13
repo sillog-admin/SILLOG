@@ -1,15 +1,31 @@
 import AppKit
 import Foundation
 
+/// How hard the chat model reasons; raw values are what Codex takes and what settings and messages store.
+public enum ChatEffort: String, Codable, CaseIterable, Sendable {
+    case low, medium, high
+
+    public var title: String {
+        switch self {
+        case .low: tr("낮음")
+        case .medium: tr("보통")
+        case .high: tr("높음")
+        }
+    }
+}
+
 /// Codex가 검색·응답 루프를 실행하고, 앱의 자료·결과물 도구는 Sillog이 실행한다.
 public struct CodexAppServerClient: Sendable {
     private let auth: any CodexCredentialProviding
     let model: String
+    var effort: ChatEffort
 
-    /// Args: auth는 앱이 관리하는 로그인, model은 채팅 설정에서 선택한 모델이다.
+    /// Args: auth는 앱이 관리하는 로그인, model은 채팅 설정에서 선택한 모델, effort is the reasoning effort for each turn.
     /// Returns: Codex App Server 연결.
     /// Raises: 없음. CLI·인증 확인은 실행 시 수행한다.
-    public init(auth: any CodexCredentialProviding, model: String) { self.auth = auth; self.model = model }
+    public init(auth: any CodexCredentialProviding, model: String, effort: ChatEffort = .medium) {
+        self.auth = auth; self.model = model; self.effort = effort
+    }
 
     /// Args: timeout은 연결 검사의 제한 시간(초)이다.
     /// Returns: 없음. 개인 자료 없이 실제 도구 호출과 최종 답변을 확인한다.
@@ -68,7 +84,7 @@ public struct CodexAppServerClient: Sendable {
             _ = try await connection.request("turn/start", [
                 "threadId": .string(threadID), "input": .array([.object(["type": "text", "text": .string(input)])]
                     + messages.flatMap(\.images).map { .object(["type": "localImage", "path": .string($0.path)]) }),
-                "effort": "medium", "approvalPolicy": "never",
+                "effort": .string(effort.rawValue), "approvalPolicy": "never",
                 "environments": .array([]),
                 "sandboxPolicy": .object(["type": "readOnly", "networkAccess": false]),
             ])

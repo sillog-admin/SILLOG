@@ -46,7 +46,7 @@ struct ChatMessageText: View, Equatable {
         guard var text = try? AttributedString(markdown: escaped, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) else { return AttributedString(value) }
         for run in text.runs where run.inlinePresentationIntent?.contains(.code) == true {
             text[run.range].backgroundColor = Brand.chipSelectedFill
-            text[run.range].font = .system(size: 11, design: .monospaced)
+            text[run.range].font = .system(size: 14 * Brand.scale, design: .monospaced)
         }
         return text
     }
@@ -61,7 +61,7 @@ struct ChatMessageText: View, Equatable {
         switch segment {
         case .text(let text): return Text(inlineMarkdown(text))
         case .inline(let latex):
-            guard let rendered = ChatMath.render(latex, display: false, fontSize: 13) else { return Text(verbatim: "$\(latex)$") }
+            guard let rendered = ChatMath.render(latex, display: false, fontSize: 16 * Brand.scale) else { return Text(verbatim: "$\(latex)$") }
             return Text(Image(nsImage: rendered.image)).baselineOffset(-rendered.descent)
         case .block(let latex): return Text(verbatim: latex)
         }
@@ -112,7 +112,7 @@ private struct ChatParagraph: View, Equatable {
     }
 
     private func bodyText(_ text: Text, color: Color = Brand.tabText, lineSpacing: CGFloat = 9) -> some View {
-        text.font(Brand.font(.body)).foregroundStyle(color).lineSpacing(lineSpacing)
+        text.font(Brand.font(.sectionTitle, .regular)).foregroundStyle(color).lineSpacing(lineSpacing)
     }
 
     /// 빈 줄 사이 덩어리 안의 블록을 차례로: 제목은 그 줄만, 목록은 글머리·번호에 매달린 들여쓰기, 인용은 왼쪽 세로줄, 구분선은 가는 가로줄
@@ -125,7 +125,7 @@ private struct ChatParagraph: View, Equatable {
                 ForEach(Array(blocks.enumerated()), id: \.offset) { offset, block in
                     switch block {
                     case .heading(let level, let text):
-                        ChatMessageText.inlineText(text).font(level == 1 ? Brand.font(.sectionTitle, .bold) : level == 2 ? Brand.font(.sectionTitle, .semibold) : Brand.font(.rowTitle, .semibold)).foregroundStyle(Brand.ink)
+                        ChatMessageText.inlineText(text).font(level == 1 ? Brand.font(.screenTitle, .semibold) : level == 2 ? Brand.font(.sectionTitle, .bold) : Brand.font(.sectionTitle, .semibold)).foregroundStyle(Brand.ink)
                             .padding(.top, offset == 0 ? 0 : 10)
                     case .paragraph(let text): paragraphView(text)
                     case .list(let items): listView(items)
@@ -150,8 +150,8 @@ private struct ChatParagraph: View, Equatable {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(item.marker == "•" ? ["•", "◦", "▪︎", "▪︎"][min(item.level, 3)] : item.marker)
-                        .font(Brand.font(.body)).foregroundStyle(Brand.gray).monospacedDigit()
-                        .frame(width: numbered ? 20 : 10, alignment: .trailing)
+                        .font(Brand.font(.sectionTitle, .regular)).foregroundStyle(Brand.gray).monospacedDigit()
+                        .frame(width: (numbered ? 24 : 12) * Brand.scale, alignment: .trailing)
                     paragraphView(item.text, lineSpacing: 7)
                 }
                 .padding(.leading, CGFloat(item.level) * 18)
@@ -209,7 +209,7 @@ struct ChatCodeBlock: View {
                     .background(.white)
             } else {
                 ScrollView(.horizontal) {
-                    Text(code.trimmingCharacters(in: .newlines)).font(.system(size: 12, design: .monospaced)).foregroundStyle(Brand.tabText)
+                    Text(code.trimmingCharacters(in: .newlines)).font(.system(size: 14 * Brand.scale, design: .monospaced)).foregroundStyle(Brand.tabText)
                         .lineSpacing(4)
                         .fixedSize(horizontal: true, vertical: false)
                         .padding(.horizontal, 14).padding(.vertical, 12)
@@ -231,9 +231,9 @@ private struct ChatMarkdownTableView: View {
                     GridRow {
                         ForEach(rows[row].indices, id: \.self) { column in
                             Text(ChatMessageText.inlineMarkdown(rows[row][column]))
-                                .font(Brand.font(.body, row == 0 ? .semibold : .regular)).foregroundStyle(row == 0 ? Brand.ink : Brand.tabText)
+                                .font(Brand.font(.sectionTitle, row == 0 ? .semibold : .regular)).foregroundStyle(row == 0 ? Brand.ink : Brand.tabText)
                                 .fixedSize(horizontal: false, vertical: true)
-                                .frame(maxWidth: 260, alignment: .leading)
+                                .frame(maxWidth: 320 * Brand.scale, alignment: .leading)
                                 .padding(.horizontal, 12).padding(.vertical, 9)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                                 .background(row == 0 ? ChatPalette.soft : .clear)
