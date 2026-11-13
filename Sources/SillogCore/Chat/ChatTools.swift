@@ -74,12 +74,8 @@ public struct ChatTools: Sendable {
             tools.append(Self.spec("github_read", "GitHub 커넥터에서 저장소·PR·코드 파일을 읽는다.", ["repository": "owner/repository", "path": "저장소 안 파일 경로. 빈 문자열이면 저장소와 최근 PR 목록", "pull": "PR 번호. 파일을 읽을 때는 빈 문자열"]))
             tools.append(Self.spec("github_list", "GitHub 커넥터에서 저장소 루트 또는 하위 폴더의 파일 목록을 확인한다.", ["repository": "owner/repository", "path": "폴더 경로. 빈 문자열이면 저장소 루트"]))
         }
-        if scope.connectors.contains("gmail") {
-            tools.append(Self.spec("gmail_search", "Gmail 커넥터에서 관련 메일을 검색한다. 본문은 필요한 메일만 읽는다.", ["query": "Gmail 검색어"]))
-            tools.append(Self.spec("gmail_read", "Gmail 커넥터에서 검색 결과 메일의 본문을 읽는다.", ["id": "메일 ID"]))
-        }
         if scope.connectors.contains("drive") {
-            tools.append(Self.spec("drive_search", "Google Drive 커넥터에서 파일 이름을 검색한다.", ["query": "파일 이름 검색어"]))
+            tools.append(Self.spec("drive_search", "Google Drive 커넥터에서 사용자가 SILLOG에 고른 파일만 이름으로 검색한다. 찾는 파일이 없으면 커넥터 화면의 'Drive 파일 고르기'로 추가하라고 안내한다.", ["query": "파일 이름 검색어. 고른 파일 전체면 빈 문자열"]))
             tools.append(Self.spec("drive_read", "Google Drive 커넥터에서 텍스트 또는 Google 문서의 내용을 읽는다.", ["id": "파일 ID"]))
         }
         if scope.connectors.contains("notion") && !remoteConnectors.contains("notion") {
@@ -160,8 +156,6 @@ public struct ChatTools: Sendable {
         case "github_read": return try await github(repository: args["repository"] ?? "", path: args["path"] ?? "", pull: args["pull"] ?? "")
         case "github_search": return try await githubSearch(args["query"] ?? "")
         case "github_list": return try await githubList(repository: args["repository"] ?? "", path: args["path"] ?? "")
-        case "gmail_search": return try await gmailSearch(args["query"] ?? "")
-        case "gmail_read": return try await gmailRead(args["id"] ?? "")
         case "drive_search": return try await driveSearch(args["query"] ?? "")
         case "drive_read": return try await driveRead(args["id"] ?? "")
         case "notion_search": return try await notionSearch(args["query"] ?? "")
@@ -186,13 +180,6 @@ public struct ChatTools: Sendable {
         case "github":
             guard let repository = try await githubSearch("").sources.first else { return false }
             sources = try await github(repository: repository.title, path: "", pull: "").sources
-        case "gmail":
-            let recent = try await gmailSearch("", limit: 3).sources
-            for mail in recent {
-                let body = try await gmailRead(mail.id, allowSnippet: false).sources
-                if body.contains(where: { !$0.excerpt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) { return true }
-            }
-            return false
         case "drive":
             guard let file = try await driveSearch("", onlyReadable: true).sources.first else { return false }
             sources = try await driveRead(file.id).sources

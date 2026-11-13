@@ -135,8 +135,8 @@ SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 �
 | --- | --- | --- |
 | Notion, Lovable, Higgsfield, Canva | 브라우저에서 로그인하고 승인 | 키를 따로 만들 필요 없이 연결됩니다 |
 | Slack | 브라우저에서 로그인하고 승인 | 워크스페이스 설정에 따라 관리자 승인이 필요할 수 있습니다 |
-| Gmail, Google Drive | Google 로그인 후 승인 | Google 앱이 테스트 상태라 초대된 계정만 쓸 수 있고, 7일마다 다시 연결해야 합니다 |
-| GitHub | 기기 코드 입력 | 배포 버전에서는 아직 쓸 수 없습니다 |
+| Google Drive | Google 로그인 후 읽을 파일 고르기 | 직접 고른 파일만 읽습니다. Google 앱이 테스트 상태라 초대된 계정만 쓸 수 있고, 7일마다 다시 연결해야 합니다 |
+| GitHub | 기기 코드 입력 후 읽을 Repository 고르기 | 고른 Repository만 읽습니다 |
 | Figma, Discord | 직접 발급한 토큰 입력 | 연결 창의 안내대로 토큰을 만들어야 합니다 |
 
 직접 빌드해서 커넥터를 설정하는 방법은 [docs/connectors.md](docs/connectors.md)에 있습니다.
@@ -213,7 +213,7 @@ ChatGPT 구독과 API(OpenAI 호환) 가운데 하나를 연결해요. ChatGPT �
 - 결과물은 텍스트 형식과 PDF 내보내기까지만 됩니다. DOCX, PPTX, XLSX는 읽을 수는 있지만 만들지는 못합니다.
 - 예약 작업은 몇 시간마다 반복하는 방식이고 SILLOG가 켜져 있을 때만 돕니다. 요일이나 시각은 지정할 수 없습니다.
 - 스캔한 PDF는 글자를 인식하지 않고, 이미지는 안에 있는 글자만 읽습니다.
-- Gmail과 Drive는 Google 검수가 끝날 때까지 테스트 계정만 쓸 수 있습니다.
+- Drive는 Google 검수가 끝날 때까지 테스트 계정만 쓸 수 있습니다. Gmail 커넥터는 없습니다.
 
 ## 소스에서 빌드하기
 

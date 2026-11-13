@@ -430,7 +430,7 @@ public struct ChatRunner: Sendable {
             switch role {
             case "context": names = ["search_context", "read_context", "summarize_period"]
             case "repository": names = ["search_library", "read_library", "list_files", "read_file", "inspect_repository", "read_revision", "github_search", "github_read", "github_list", "drive_search", "drive_read", "notion_search", "notion_read", "notion_tools"]
-            case "research": names = ["search_context", "read_context", "summarize_period", "search_library", "read_library", "list_files", "read_file", "web_search", "web_read", "gmail_search", "gmail_read", "drive_search", "drive_read", "notion_search", "notion_read"]
+            case "research": names = ["search_context", "read_context", "summarize_period", "search_library", "read_library", "list_files", "read_file", "web_search", "web_read", "drive_search", "drive_read", "notion_search", "notion_read"]
             default: return specs
             }
             if role == "research" {
@@ -480,7 +480,7 @@ public struct ChatRunner: Sendable {
     private static func roleTitle(_ role: String) -> String { roleTitles[role] ?? role }
 
     static let roleTitles = ["context": "활동 조사", "repository": "코드·문서 조사", "research": "자료 조사", "review": "근거 검토"]
-    static let toolTitles = ["search_context": "기록 검색", "read_context": "기록 상세 확인", "summarize_period": "기간 집계", "search_library": "보관 자료 검색", "read_library": "보관 자료 읽기", "list_files": "파일 찾기", "read_file": "파일 읽기", "inspect_repository": "Git 이력 확인", "read_revision": "커밋 파일 확인", "github_search": "GitHub 저장소 검색", "github_read": "GitHub 확인", "github_list": "GitHub 파일 목록", "gmail_search": "메일 검색", "gmail_read": "메일 읽기", "drive_search": "Drive 검색", "drive_read": "Drive 읽기", "notion_search": "Notion 검색", "notion_read": "Notion 읽기", "web_search": "웹 검색", "web_read": "웹 원문 확인", "delegate": "작업 분담", "create_artifact": "결과물 생성", "propose_automation": "예약안 작성"]
+    static let toolTitles = ["search_context": "기록 검색", "read_context": "기록 상세 확인", "summarize_period": "기간 집계", "search_library": "보관 자료 검색", "read_library": "보관 자료 읽기", "list_files": "파일 찾기", "read_file": "파일 읽기", "inspect_repository": "Git 이력 확인", "read_revision": "커밋 파일 확인", "github_search": "GitHub 저장소 검색", "github_read": "GitHub 확인", "github_list": "GitHub 파일 목록", "drive_search": "Drive 검색", "drive_read": "Drive 읽기", "notion_search": "Notion 검색", "notion_read": "Notion 읽기", "web_search": "웹 검색", "web_read": "웹 원문 확인", "delegate": "작업 분담", "create_artifact": "결과물 생성", "propose_automation": "예약안 작성"]
 
     /// Args: title is a stored step title such as "활동 조사 · 기록 검색" or "Slack 읽기".
     /// Returns: the title in the app language, a part repeating the one before it dropped. Titles are saved in Korean, so old answers follow a language change too.

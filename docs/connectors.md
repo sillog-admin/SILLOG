@@ -12,28 +12,28 @@ Sillog의 커넥터는 외부 서비스의 자료를 검색하고 읽기 위한 
 
 ChatGPT의 앱 연결은 별개입니다. 해당 권한이나 토큰을 Sillog에 복사할 수 없습니다.
 
-Gmail·Google Drive·Slack은 설치형 OAuth로, Notion·Higgsfield·Lovable·Canva는 공급자가 운영하는 MCP의 OAuth로 연결합니다. 이 경로에는 Sillog 운영 서버가 필요하지 않습니다. 계정 연결 성공과 실제 자료 조회 성공은 별도로 확인합니다. 연결 상세의 **검색·읽기 확인**은 검색 결과를 바탕으로 원문을 읽으며, 자료가 없으면 읽기 성공으로 표시하지 않습니다.
+Google Drive·Slack은 설치형 OAuth로, Notion·Higgsfield·Lovable·Canva는 공급자가 운영하는 MCP의 OAuth로 연결합니다. 이 경로에는 Sillog 운영 서버가 필요하지 않습니다. 계정 연결 성공과 실제 자료 조회 성공은 별도로 확인합니다. 연결 상세의 **검색·읽기 확인**은 검색 결과를 바탕으로 원문을 읽으며, 자료가 없으면 읽기 성공으로 표시하지 않습니다.
 
-## Google: Gmail · Google Drive · Google Calendar
+## Google: Google Drive · Google Calendar
 
-**진행 보류 (2026-11-09 사용자 결정):** Gmail·Drive 일반 공개를 위한 홈페이지·개인정보 안내 게시, 도메인 등록·구매, Google 검증·심사, 관련 AI 연결 제한 변경은 보류합니다. 사용자가 다시 요청하기 전에는 진행하거나 추가 결정을 요청하지 않습니다. 현재 테스트 계정의 기존 연결은 유지합니다. 미완료한 커넥터 검수의 추가 로그인·승인 요청도 중단합니다.
+Gmail 커넥터는 없습니다. `gmail.readonly`는 제한 권한이라 매년 유료 보안 평가(CASA)를 받아야 해서 뺐습니다. 예전에 저장한 Gmail 연결은 쓰지 않고 남아 있기만 합니다.
 
 - [데스크톱 앱용 OAuth 클라이언트](https://developers.google.com/identity/protocols/oauth2/native-app)를 등록합니다.
-- Gmail·Drive·Calendar API를 사용할 수 있도록 프로젝트를 설정합니다. Gmail·Drive는 읽기 전용, 캘린더(캘린더 탭의 [구글 계정 연결])는 캘린더 목록 읽기(`calendar.calendarlist.readonly`)와 일정 읽기·쓰기(`calendar.events`)를 요청합니다. 캘린더 권한은 구글이 민감한 권한으로 분류해, 앱 검수 전에는 OAuth 동의 화면에 등록한 테스트 사용자만 로그인할 수 있습니다.
+- Drive·Calendar·Google Picker API를 사용할 수 있도록 프로젝트를 설정합니다. Drive는 `drive.file`(사용자가 고른 파일만 읽음, 비민감 권한), 캘린더(캘린더 탭의 [구글 계정 연결])는 캘린더 목록 읽기(`calendar.calendarlist.readonly`)와 일정 읽기·쓰기(`calendar.events`)를 요청합니다. 캘린더 권한은 구글이 민감한 권한으로 분류해, 앱 검수 전에는 OAuth 동의 화면에 등록한 테스트 사용자만 로그인할 수 있습니다.
 - 빌드할 때 `SILLOG_GOOGLE_CLIENT_ID`를 설정합니다. 데스크톱 앱 클라이언트는 토큰 교환에 클라이언트 시크릿도 요구하므로 `SILLOG_GOOGLE_CLIENT_SECRET`도 함께 넣습니다(설치형 앱의 시크릿은 비밀로 취급되지 않습니다).
 - 캘린더 탭에서 연결하면 맥 캘린더에 이미 같은 구글 계정이 있을 때 같은 이름의 캘린더는 맥 쪽만 보여 줍니다. [등록할 캘린더]에서 구글 캘린더를 고르면 [등록]이 구글 API로 바로 넣습니다.
-- 사용자는 필요한 Gmail·Drive 항목만 고르고 Google에서 승인합니다. 선택한 항목에 해당하는 권한을 요청합니다.
+- Drive를 연결하면 브라우저에 Google Picker가 열리고, 사용자가 고른 파일만 SILLOG이 읽을 수 있습니다. 나중에는 커넥터 상세의 **Drive 파일 고르기**로 더 추가합니다. Picker에는 브라우저용 API 키가 필요하므로 Cloud Console에서 API 키를 만들고(사용 API를 Google Picker API로 제한, 웹사이트 제한을 쓰면 `http://127.0.0.1:8765/*` 허용) 빌드할 때 `SILLOG_GOOGLE_API_KEY`로 넣습니다. Picker의 앱 ID(프로젝트 번호)는 클라이언트 ID 앞부분에서 읽습니다.
 - 로컬 콜백은 `http://127.0.0.1:8765/callback`입니다. 승인 중 앱이 실행되고 포트를 사용할 수 있어야 합니다.
 
 TODO (정식 게시 전):
 - [ ] 브랜드 인증: sillog.app에 개인정보처리방침 추가, Search Console 도메인 확인, Google Auth Platform → 브랜딩에서 신청. 권한 수정과 상관없이 먼저 할 수 있습니다.
-- [ ] Gmail: 제한 권한이라 매년 유료 보안 평가(CASA)가 필요해 배포 버전에서 숨깁니다.
-- [ ] Drive: `drive.readonly`를 `drive.file`과 파일 선택창으로 바꿉니다.
+- [x] Gmail: 커넥터를 뺐습니다. OAuth 동의 화면의 데이터 액세스에서 `gmail.readonly`도 지웁니다.
+- [x] Drive: `drive.file`과 Google Picker로 바꿨습니다. 동의 화면에서 `drive.readonly`를 지우고 `drive.file`을 넣습니다. Picker용 API 키를 만들어 `Config/OAuthClients.plist` 또는 `SILLOG_GOOGLE_API_KEY`에 넣습니다.
 - [ ] 캘린더: 권한 심사 동안 Google 연결 버튼을 숨깁니다(`CalendarService.googleAvailable`).
 - [ ] 권한 심사: 브랜드 인증과 Drive 변경을 마친 뒤 캘린더·Drive 권한으로 신청합니다.
 
 ```bash
-SILLOG_GOOGLE_CLIENT_ID="등록한 클라이언트 ID" SILLOG_GOOGLE_CLIENT_SECRET="클라이언트 시크릿" ./scripts/make-app.sh
+SILLOG_GOOGLE_CLIENT_ID="등록한 클라이언트 ID" SILLOG_GOOGLE_CLIENT_SECRET="클라이언트 시크릿" SILLOG_GOOGLE_API_KEY="Picker API 키" ./scripts/make-app.sh
 ```
 
 ## GitHub
@@ -91,4 +91,4 @@ SILLOG_GITHUB_CLIENT_ID="Client ID" SILLOG_GITHUB_APP_SLUG="앱 slug" ./scripts/
 - 공급자 앱 등록과 필요한 검증·권한 설정이 끝나기 전에는 실제 연결을 사용할 수 없습니다.
 - Google·Notion·Higgsfield·Lovable·Canva는 승인 중 로컬 포트 8765를 사용합니다. 같은 포트를 쓰는 다른 실행이 있으면 먼저 종료해야 합니다. Slack은 앱 전용 URL로 돌아오므로 이 포트를 사용하지 않습니다.
 
-Google의 테스트 모드 연결 성공은 일반 사용자용 공개 검수 완료를 뜻하지 않습니다. Gmail·Drive의 읽기 범위와 조회 자료를 AI에 전달하는 흐름을 포함해 공개 배포 요건을 확인해야 합니다. Figma·Discord는 사용자가 직접 발급한 토큰으로 연결하고, 연결 창에 발급 순서를 안내합니다.
+Google의 테스트 모드 연결 성공은 일반 사용자용 공개 검수 완료를 뜻하지 않습니다. Drive·캘린더 권한과 조회 자료를 AI에 전달하는 흐름을 포함해 공개 배포 요건을 확인해야 합니다. Figma·Discord는 사용자가 직접 발급한 토큰으로 연결하고, 연결 창에 발급 순서를 안내합니다.

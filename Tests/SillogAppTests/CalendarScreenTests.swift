@@ -124,8 +124,8 @@ final class CalendarScreenTests: XCTestCase {
     func testGoogleSignInAsksOnlyForTheCalendarScopesItNeeds() {
         XCTAssertEqual(ConnectorAuth.googleScopes(["gcal"]), ["https://www.googleapis.com/auth/calendar.calendarlist.readonly",
                                                            "https://www.googleapis.com/auth/calendar.events"])
-        XCTAssertEqual(ConnectorAuth.googleScopes(["gmail", "drive"]), ["https://www.googleapis.com/auth/drive.readonly",
-                                                                     "https://www.googleapis.com/auth/gmail.readonly"])
+        XCTAssertEqual(ConnectorAuth.googleScopes(["gmail", "drive"]), ["https://www.googleapis.com/auth/drive.file"],
+                       "no restricted scopes, and a saved gmail ID asks for nothing")
     }
 
     func testHiddenCalendarsAreRemembered() throws {
