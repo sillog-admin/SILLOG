@@ -67,6 +67,7 @@ jobs:
         env:
           SIGN_IDENTITY: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'Developer ID Application' || '-' }}
           SILLOG_GOOGLE_CLIENT_SECRET: ${{ secrets.SILLOG_GOOGLE_CLIENT_SECRET }}
+          SILLOG_GOOGLE_API_KEY: ${{ secrets.SILLOG_GOOGLE_API_KEY }}
         run: ./scripts/make-app.sh
 
       # On main, publish the dmg as this repo's latest release; the landing links to releases/latest/download/SILLOG.dmg.
