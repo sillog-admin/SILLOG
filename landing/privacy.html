@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>개인정보 처리방침 · SILLOG</title>
-<meta name="description" content="SILLOG이 기록하는 정보, Google 데이터 사용 방식, 삭제 방법을 안내합니다. SILLOG privacy policy.">
+<meta name="description" content="SILLOG 개인정보 처리방침. SILLOG privacy policy.">
 <link rel="icon" type="image/png" href="/assets/icon-256.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
@@ -36,14 +36,21 @@ h1{font-size:44px;line-height:1.3;letter-spacing:-.88px}
 h2{margin-top:56px;font-size:24px;line-height:1.4;letter-spacing:-.48px}
 h3{margin-top:28px;font-size:18px;line-height:1.5}
 p,li{font-size:17px;line-height:1.75;letter-spacing:-.17px}
-h2+p,h3+p,h2+ul,h3+ul{margin-top:14px}
-p+p,p+ul,ul+p{margin-top:14px}
-ul{padding-left:1.2em}
+h2+*{margin-top:14px}
+p+:not(h2),ol+:not(h2),table+:not(h2),.box+:not(h2){margin-top:14px}
+ol{padding-left:1.6em}
+li{padding-left:.2em}
 li+li{margin-top:6px}
 li::marker{color:var(--mute)}
-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em;padding:.1em .35em;border-radius:6px;background:#EAE3DC}
-.box{margin-top:16px;padding:20px 24px;border-radius:14px;background:#fff;border:1px solid var(--line)}
-.box p{margin:0}
+.cl{padding-left:1.3em;text-indent:-1.3em}
+.cl+ol{margin-left:1.3em}
+.scope{display:block;margin-top:4px;font-size:.88em;color:var(--mute)}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em;padding:.1em .35em;border-radius:6px;background:#EAE3DC;white-space:nowrap}
+table{border-collapse:collapse;width:100%;max-width:420px;font-size:16px}
+td{padding:9px 0;border-bottom:1px solid var(--line);line-height:1.5}
+td+td{text-align:right;white-space:nowrap;padding-left:16px}
+.box{padding:20px 24px;border-radius:14px;background:#fff;border:1px solid var(--line)}
+.end{margin-top:56px;color:var(--mute)}
 
 footer{background:var(--bg);color:#fff}
 footer>div{width:min(993px,100% - 80px);margin:0 auto;padding:40px 0;display:flex;justify-content:space-between;align-items:center;gap:20px}
@@ -64,6 +71,7 @@ footer nav a:hover{opacity:.6}
   .intro{font-size:16px}
   h2{margin-top:44px;font-size:21px}
   p,li{font-size:15px}
+  table{font-size:15px}
   .box{padding:16px 18px}
   .doc+.doc{margin-top:64px;padding-top:56px}
   footer>div{width:calc(100% - 32px);flex-direction:column;align-items:center;text-align:center}
@@ -88,105 +96,161 @@ footer nav a:hover{opacity:.6}
 <article class="doc" id="ko">
   <h1>개인정보 처리방침</h1>
   <p class="meta">시행일 2026년 11월 13일 · <a href="#en" lang="en">English</a></p>
-  <p class="intro">SILLOG은 Mac에서 한 일을 기록하고 업무별로 정리하는 macOS 앱입니다. 이 문서는 SILLOG이 어떤 정보를 기록하고, 어디에 저장하고, 무엇을 밖으로 보내는지 설명합니다.</p>
 
-  <h2>SILLOG 서버는 없습니다</h2>
-  <p>SILLOG은 자체 서버를 운영하지 않습니다. 기록, 그래프, 대화, 결과물은 내 Mac에만 저장되고, SILLOG 개발자가 이 정보를 받거나 볼 수 없습니다. 계정 가입도 없고 사용 통계도 수집하지 않습니다.</p>
+  <h2>제1조 (목적)</h2>
+  <p>SILLOG 개발팀(이하 “개발팀”)은 macOS 앱 SILLOG(이하 “앱”)이 이용자의 정보를 어떻게 처리하는지 알리기 위해 이 방침을 둡니다.</p>
+  <p>앱은 개발팀이 운영하는 서버 없이 이용자의 Mac에서 동작합니다. 앱이 기록한 정보는 이용자의 Mac에 저장되며, 개발팀은 이를 전달받거나 열람하지 않습니다. 회원 가입 절차는 없고, 앱은 이용 통계나 오류 보고도 개발팀에 보내지 않습니다.</p>
 
-  <h2>Mac에 기록하는 정보</h2>
-  <ul>
-    <li>지금 쓰는 앱 이름, 창 제목, 브라우저 주소, 파일 경로</li>
-    <li>화면 글자, 켜 둔 경우 스크린샷</li>
-    <li>다운로드 폴더에 새로 들어온 파일</li>
-    <li>Claude Code와 Codex에 보낸 요청</li>
-    <li>직접 시작한 녹음과 Mac 안에서 받아쓴 글</li>
-  </ul>
-  <p>비밀번호 입력칸은 기록하지 않습니다. 비밀번호 관리자와 키체인, 기록에서 제외한 앱, SILLOG 자신은 앱 이름과 시간만 남깁니다.</p>
-  <p>모든 기록은 <code>~/Library/Application Support/Sillog/</code>에 저장됩니다. API 키와 커넥터 토큰은 macOS 키체인에 보관합니다.</p>
+  <h2>제2조 (처리하는 정보)</h2>
+  <p class="cl">① 앱은 이용자가 macOS에서 허용한 권한 범위 안에서 다음 정보를 기록합니다.</p>
+  <ol>
+    <li>사용 중인 앱의 이름, 창 제목, 웹 브라우저 주소, 파일 경로</li>
+    <li>화면에 표시된 글자와, 이용자가 켠 경우 스크린샷</li>
+    <li>다운로드 폴더에 새로 저장된 파일</li>
+    <li>Claude Code와 Codex에 입력한 요청</li>
+    <li>이용자가 직접 시작한 녹음과, 그 녹음을 Mac에서 글로 옮긴 내용</li>
+  </ol>
+  <p class="cl">② 비밀번호 입력란의 내용은 기록하지 않습니다. 비밀번호 관리자와 키체인, 이용자가 기록에서 제외한 앱에서는 앱 이름과 사용 시각만 기록합니다.</p>
+  <p class="cl">③ 기록은 이용자의 Mac에 있는 <code>~/Library/Application Support/Sillog/</code> 폴더에 저장됩니다.</p>
 
-  <h2>밖으로 보내는 정보</h2>
-  <p>업무를 정리하고 채팅에 답하려면 기록 내용과 대표 화면의 스크린샷을 <b>내가 설정한 AI 연결</b>(ChatGPT 구독이나 OpenAI 호환 API 서버 등)로 보냅니다. 클라우드 모델을 쓰면 그 내용이 Mac 밖으로 나가고, 해당 서비스의 개인정보 처리방침이 적용됩니다. Ollama 같은 로컬 모델을 쓰면 Mac 밖으로 나가지 않습니다.</p>
-  <p>채팅에서 허용한 웹 검색과 내가 연결한 커넥터 통신도 해당 서비스로 갑니다. 보낸 내용과 받은 결과는 앱의 활동 로그에서 확인하고, 기능별로 전송을 끌 수 있습니다. 도구 결과에서 찾은 주민등록번호 같은 식별 번호는 모델에 보내기 전에 가립니다.</p>
+  <h2>제3조 (이용 목적)</h2>
+  <p>앱은 기록한 정보를 다음 목적에만 사용합니다.</p>
+  <ol>
+    <li>기록을 업무별로 정리하고 그래프로 표시</li>
+    <li>채팅 답변과 보고서 등 결과물 작성</li>
+    <li>일정 등록이나 파일 보관 위치 같은 제안 작성. 제안은 이용자가 승인한 경우에만 반영됩니다.</li>
+    <li>이전에 쓰던 파일과 웹페이지를 다시 열기</li>
+  </ol>
 
-  <h2>Google 사용자 데이터</h2>
-  <p>Google 계정을 연결한 경우에만, 연결할 때 승인한 범위 안에서 아래 데이터를 읽습니다.</p>
-  <ul>
-    <li><b>Google Calendar</b>: 캘린더 목록을 읽고(<code>calendar.calendarlist.readonly</code>), 일정을 읽어 SILLOG 캘린더 화면에 보여 줍니다. 내가 제안을 승인하고 [등록]을 누른 일정만 만듭니다(<code>calendar.events</code>).</li>
-    <li><b>Google Drive</b>: 채팅에서 자료를 찾을 때 파일을 검색하고 읽기만 합니다(<code>drive.readonly</code>). 파일을 만들거나 고치거나 지우지 않습니다.</li>
-    <li><b>Gmail</b>: 채팅에서 자료를 찾을 때 메일을 검색하고 읽기만 합니다(<code>gmail.readonly</code>). 메일을 보내거나 지우거나 바꾸지 않습니다.</li>
-  </ul>
-  <p>Google 데이터는 내 Mac 안에서 처리합니다. 채팅 답변이나 일정 제안에 필요할 때만 내가 설정한 AI 연결로 보내고, 그 밖의 누구에게도 보내지 않습니다. SILLOG 개발자는 이 데이터를 받지 않습니다. Google 데이터를 팔거나 광고에 쓰거나 AI 모델 학습에 쓰지 않으며, 사람이 읽지 않습니다.</p>
-  <p>Google 토큰은 macOS 키체인에만 저장합니다. 채팅에 쓴 내용은 그 대화 기록과 함께 Mac에 남고, 대화를 지우면 함께 지워집니다.</p>
-  <div class="box"><p>SILLOG이 Google API에서 받은 정보를 사용하고 다른 앱으로 전송하는 방식은 <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API 서비스 사용자 데이터 정책</a>과 그 제한적 사용(Limited Use) 요구사항을 따릅니다.</p></div>
+  <h2>제4조 (제3자 제공과 외부 전송)</h2>
+  <p class="cl">① 개발팀은 이용자의 정보를 제3자에게 제공하거나 처리를 위탁하지 않습니다.</p>
+  <p class="cl">② 앱은 업무 정리와 채팅을 위해, 이용자가 설정에서 연결한 AI 서비스(ChatGPT 구독, OpenAI 호환 API 서버)로 기록 내용과 주요 화면의 스크린샷을 보냅니다. 앱은 이용자의 Mac에서 해당 서비스로 바로 보내며, 개발팀을 거치지 않습니다. 전송된 정보에는 그 서비스의 개인정보 처리방침이 적용됩니다.</p>
+  <p class="cl">③ Ollama처럼 Mac에서 실행되는 모델을 연결하면 정보는 Mac 밖으로 나가지 않습니다.</p>
+  <p class="cl">④ 이용자가 허용한 웹 검색이나 직접 연결한 커넥터를 쓸 때에는 검색어와 요청이 해당 서비스로 전송됩니다.</p>
+  <p class="cl">⑤ 이용자는 보낸 내용과 받은 결과를 앱의 활동 로그에서 확인하고, 기능별로 전송을 끌 수 있습니다. 앱이 찾은 자료에 주민등록번호 같은 식별번호가 있으면 AI 서비스로 보내기 전에 가립니다.</p>
 
-  <h2>보관과 삭제</h2>
-  <ul>
-    <li>보관 기간 기본값은 화면 글자 30일, 스크린샷 7일, 활동 기록 90일, 화면 카드 180일, AI 도구 요청과 파일 기록 365일입니다. 설정 → 일반에서 바꿀 수 있습니다.</li>
-    <li>업무, 분야, 그래프 노드를 오른쪽 클릭하면 원본 기록까지 함께 지울 수 있습니다.</li>
-    <li>커넥터 상세나 캘린더 화면에서 연결을 해제하면 키체인의 Google 토큰을 지웁니다. Google 쪽 권한까지 없애려면 <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google 계정의 서드파티 연결</a>에서 SILLOG을 삭제하세요.</li>
-    <li>모든 기록을 지우려면 앱을 끈 뒤 <code>~/Library/Application Support/Sillog/</code> 폴더를 삭제하세요.</li>
-  </ul>
+  <h2>제5조 (Google 사용자 데이터)</h2>
+  <p class="cl">① 이용자가 Google 계정을 연결하면, 앱은 연결할 때 동의받은 범위 안에서 다음 데이터에 접근합니다.</p>
+  <ol>
+    <li>Google Calendar: 캘린더 목록과 일정을 읽어 앱의 캘린더 화면에 표시합니다. 일정은 이용자가 앱의 일정 제안을 승인하고 등록을 누른 경우에만 만들며, 제목과 시각, 그 일정을 제안한 근거가 된 기록의 내용이 들어갑니다.<span class="scope">권한: <code>calendar.calendarlist.readonly</code> <code>calendar.events</code></span></li>
+    <li>Google Drive: 이용자가 Google 파일 선택 창에서 고른 파일만 검색하고 읽습니다. 파일을 만들거나 수정하거나 삭제하지 않습니다.<span class="scope">권한: <code>drive.file</code></span></li>
+  </ol>
+  <p class="cl">② 앱은 Gmail에 접근하지 않습니다.</p>
+  <p class="cl">③ 앱이 Google 데이터를 이용자가 연결한 AI 서비스로 보내는 경우는 두 가지입니다. 채팅에서 Drive 파일을 근거로 답할 때는 그 파일의 내용을 보내고, 일정 제안을 만들 때는 이미 있는 일정을 다시 제안하지 않도록 예정된 일정의 제목과 시각을 보냅니다. 그 밖에는 어디에도 전송하지 않으며, 개발팀도 전달받지 않습니다.</p>
+  <p class="cl">④ 개발팀은 Google 데이터를 판매하거나 광고에 쓰지 않으며, AI 모델 개발이나 학습에도 사용하지 않습니다. 개발팀이 Google 데이터를 열람하는 일도 없습니다.</p>
+  <p class="cl">⑤ Google 접근 토큰은 macOS 키체인에만 저장됩니다. 캘린더 일정은 화면에 표시하는 동안 메모리에 잠시 보관할 뿐 파일로 저장하지 않습니다. 채팅에서 읽은 Drive 파일 내용은 그 대화 기록에 남을 수 있으며, 대화를 삭제하면 함께 삭제됩니다.</p>
+  <div class="box"><p>앱은 Google API에서 받은 정보를 사용하거나 다른 앱으로 보낼 때 <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API 서비스 사용자 데이터 정책</a>을 따르며, 여기에는 제한적 사용(Limited Use) 요구사항도 포함됩니다.</p></div>
 
-  <h2>어린이</h2>
-  <p>SILLOG은 업무용 앱이며 만 14세 미만 아동을 대상으로 하지 않습니다.</p>
+  <h2>제6조 (보관 기간과 파기)</h2>
+  <p class="cl">① 앱은 아래 기간이 지난 기록을 Mac에서 자동으로 삭제합니다. 기간은 설정 › 일반에서 바꿀 수 있고, 처음 삭제하기 전에 한 번 확인을 받습니다.</p>
+  <table>
+    <tr><td>화면 글자</td><td>30일</td></tr>
+    <tr><td>스크린샷</td><td>7일</td></tr>
+    <tr><td>활동 기록</td><td>90일</td></tr>
+    <tr><td>화면 카드</td><td>180일</td></tr>
+    <tr><td>AI 도구 요청, 파일 기록</td><td>365일</td></tr>
+  </table>
+  <p class="cl">② 원본 기록이 삭제된 뒤에도 그 기간의 주간·월간 요약은 남습니다.</p>
+  <p class="cl">③ 이용자는 업무, 분야, 그래프 노드를 오른쪽 클릭해 원본 기록과 함께 언제든 삭제할 수 있습니다. 대화는 채팅 목록에서 삭제할 수 있습니다.</p>
+  <p class="cl">④ 모든 기록을 지우려면 앱을 종료한 뒤 <code>~/Library/Application Support/Sillog/</code> 폴더를 삭제하면 됩니다. 키체인에 저장된 API 키와 토큰은 키체인 접근 앱에서 <code>com.sillog.app.chat</code> 항목을 삭제하면 지워집니다.</p>
 
-  <h2>변경</h2>
-  <p>이 방침을 바꾸면 이 페이지의 시행일을 고칩니다. 변경 내역은 <a href="https://github.com/sillog-admin/sillog/commits/main/landing/privacy.html" target="_blank" rel="noopener">GitHub</a>에서 볼 수 있습니다.</p>
+  <h2>제7조 (이용자의 권리와 행사 방법)</h2>
+  <p class="cl">① 개발팀은 이용자의 정보를 보관하지 않습니다. 정보의 열람, 정정, 삭제는 이용자가 앱에서 직접 할 수 있습니다.</p>
+  <p class="cl">② 이용자는 앱 설정에서 기록하지 않을 앱을 지정하고, 스크린샷 기록과 기능별 외부 전송을 켜거나 끌 수 있습니다.</p>
+  <p class="cl">③ 커넥터 상세 화면이나 캘린더 화면에서 연결을 해제하면 Mac에 저장된 토큰이 삭제됩니다. Google 쪽 접근 권한까지 철회하려면 <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google 계정의 서드 파티 앱 및 서비스</a>에서 SILLOG을 삭제하시기 바랍니다.</p>
+  <p class="cl">④ 앱에 준 손쉬운 사용, 화면 기록 등의 권한은 macOS 시스템 설정 › 개인정보 보호 및 보안에서 언제든 철회할 수 있습니다.</p>
 
-  <h2>문의</h2>
-  <p>개인정보에 관한 문의는 <a href="https://github.com/sillog-admin/sillog/issues" target="_blank" rel="noopener">GitHub 이슈</a>로, 보안 문제는 <a href="https://github.com/sillog-admin/sillog/security/advisories/new" target="_blank" rel="noopener">비공개 취약점 신고</a>로 알려 주세요.</p>
+  <h2>제8조 (안전성 확보 조치)</h2>
+  <p>API 키와 커넥터 토큰은 macOS 키체인에 저장합니다. ChatGPT 로그인 정보는 이용자 계정만 읽을 수 있는 파일(권한 600)에 두고 백업 대상에서 제외합니다.</p>
+  <p>채팅 기능은 명령을 실행하거나, 파일을 수정·이동하거나, 메시지를 보내거나, 커넥터로 쓰기 작업을 하지 않도록 만들었습니다. 보안 취약점이 신고되면 최신 릴리스에서 수정합니다.</p>
+
+  <h2>제9조 (문의처)</h2>
+  <p>개인정보 처리에 관한 문의는 <a href="https://github.com/sillog-admin/sillog/issues" target="_blank" rel="noopener">GitHub 이슈</a>로, 보안 문제는 <a href="https://github.com/sillog-admin/sillog/security/advisories/new" target="_blank" rel="noopener">비공개 취약점 신고</a>로 접수해 주시기 바랍니다.</p>
+
+  <h2>제10조 (방침의 변경)</h2>
+  <p>이 방침을 바꿀 때에는 이 페이지에 바뀐 내용과 시행일을 게시합니다. 이전 내용은 <a href="https://github.com/sillog-admin/sillog/commits/main/landing/privacy.html" target="_blank" rel="noopener">GitHub 변경 이력</a>에서 확인할 수 있습니다.</p>
+
+  <p class="end">부칙<br>이 방침은 2026년 11월 13일부터 시행합니다.</p>
 </article>
 
 <article class="doc" id="en" lang="en">
   <h1>Privacy Policy</h1>
   <p class="meta">Effective November 13, 2026 · <a href="#ko" lang="ko">한국어</a></p>
-  <p class="intro">SILLOG is a macOS app that records what you do on your Mac and organizes it by task. This page explains what SILLOG records, where it is stored, and what leaves your Mac.</p>
 
-  <h2>There is no SILLOG server</h2>
-  <p>SILLOG does not run its own server. Your records, graph, conversations, and outputs are stored only on your Mac, and the SILLOG developers never receive or see them. There is no sign-up and no usage analytics.</p>
+  <h2>1. Purpose</h2>
+  <p>The SILLOG team (“we”) publishes this policy to explain how the macOS app SILLOG (the “app”) handles your information.</p>
+  <p>The app runs on your Mac without any server operated by us. What it records is stored on your Mac, and we never receive or view it. There is no sign-up, and the app sends us no usage statistics or error reports.</p>
 
-  <h2>What SILLOG records on your Mac</h2>
-  <ul>
-    <li>The app you are using, window titles, browser addresses, and file paths</li>
-    <li>On-screen text, and screenshots if you turn them on</li>
-    <li>New files in your Downloads folder</li>
-    <li>Prompts you send to Claude Code and Codex</li>
-    <li>Recordings you start yourself, transcribed on your Mac</li>
-  </ul>
-  <p>Password fields are never recorded. Password managers, Keychain, apps you exclude, and SILLOG itself are logged by app name and time only.</p>
-  <p>All records are stored in <code>~/Library/Application Support/Sillog/</code>. API keys and connector tokens are kept in the macOS Keychain.</p>
+  <h2>2. Information the app handles</h2>
+  <p class="cl">(1) Within the permissions you grant in macOS, the app records:</p>
+  <ol>
+    <li>The name of the app in use, window titles, web browser addresses, and file paths</li>
+    <li>Text shown on screen, and screenshots if you turn them on</li>
+    <li>New files saved to your Downloads folder</li>
+    <li>Requests you enter in Claude Code and Codex</li>
+    <li>Recordings you start yourself, and their transcription into text on your Mac</li>
+  </ol>
+  <p class="cl">(2) The content of password fields is never recorded. For password managers, Keychain, and apps you exclude, the app records only the app name and time of use.</p>
+  <p class="cl">(3) Records are stored in the <code>~/Library/Application Support/Sillog/</code> folder on your Mac.</p>
 
-  <h2>What leaves your Mac</h2>
-  <p>To organize your work and answer in chat, SILLOG sends record content and screenshots of key screens to <b>the AI connection you set up</b> (such as a ChatGPT subscription or an OpenAI-compatible API server). With a cloud model this content leaves your Mac and that provider's privacy policy applies. With a local model such as Ollama it stays on your Mac.</p>
-  <p>Web searches you allow in chat and the connectors you link also talk to those services. You can review what was sent and received in the app's activity log and turn sending off per feature. ID numbers found in tool results are masked before they reach the model.</p>
+  <h2>3. How the information is used</h2>
+  <p>The app uses what it records only to:</p>
+  <ol>
+    <li>Organize your records by task and show them as a graph</li>
+    <li>Answer you in chat and write outputs such as reports</li>
+    <li>Prepare suggestions such as calendar events or where to file a document. A suggestion takes effect only after you approve it.</li>
+    <li>Reopen the files and web pages you were working with</li>
+  </ol>
 
-  <h2>Google user data</h2>
-  <p>Only if you connect a Google account, and only within the scopes you approve, SILLOG accesses:</p>
-  <ul>
-    <li><b>Google Calendar</b>: lists your calendars (<code>calendar.calendarlist.readonly</code>) and reads events to show them in SILLOG's calendar view. It creates an event only when you approve a suggestion and click Add (<code>calendar.events</code>).</li>
-    <li><b>Google Drive</b>: searches and reads files when chat looks for material (<code>drive.readonly</code>). It never creates, edits, or deletes files.</li>
-    <li><b>Gmail</b>: searches and reads messages when chat looks for material (<code>gmail.readonly</code>). It never sends, deletes, or changes mail.</li>
-  </ul>
-  <p>Google data is processed on your Mac. It is sent only to the AI connection you set up, and only when needed for a chat answer or an event suggestion. It is not shared with anyone else, and the SILLOG developers never receive it. SILLOG does not sell Google data, use it for advertising, or use it to train AI models, and no human reads it.</p>
-  <p>Google tokens are stored only in the macOS Keychain. Content used in a chat stays on your Mac with that conversation and is deleted when you delete the conversation.</p>
-  <div class="box"><p>SILLOG's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements.</p></div>
+  <h2>4. Sharing with third parties and transfers off your Mac</h2>
+  <p class="cl">(1) We do not provide your information to third parties or outsource its processing.</p>
+  <p class="cl">(2) To organize your work and answer in chat, the app sends record content and screenshots of key screens to the AI service you connect in Settings, such as a ChatGPT subscription or an OpenAI-compatible API server. This goes directly from your Mac to that service and never passes through us. That service’s privacy policy applies to what it receives.</p>
+  <p class="cl">(3) If you connect a model that runs on your Mac, such as Ollama, the information does not leave your Mac.</p>
+  <p class="cl">(4) When you use web search you have allowed, or a connector you have linked, your queries and requests go to that service.</p>
+  <p class="cl">(5) You can review what was sent and received in the app’s activity log, and turn sending off feature by feature. ID numbers such as Korean resident registration numbers found in retrieved material are masked before anything is sent to an AI service.</p>
 
-  <h2>Retention and deletion</h2>
-  <ul>
-    <li>Default retention is 30 days for on-screen text, 7 days for screenshots, 90 days for activity, 180 days for screen cards, and 365 days for AI tool prompts and file records. You can change these in Settings → General.</li>
-    <li>Right-click a task, area, or graph node to delete it together with its source records.</li>
-    <li>Disconnecting in the connector details or the calendar view deletes the Google token from the Keychain. To remove SILLOG's access on Google's side too, remove SILLOG under <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">third-party connections in your Google Account</a>.</li>
-    <li>To delete everything, quit the app and delete the <code>~/Library/Application Support/Sillog/</code> folder.</li>
-  </ul>
+  <h2>5. Google user data</h2>
+  <p class="cl">(1) If you connect a Google account, the app accesses the following data only within the scopes you approve:</p>
+  <ol>
+    <li>Google Calendar: reads your calendar list and events to show them in the app’s calendar view. It creates an event only when you approve one of its suggestions and click Add. The event contains a title, a time, and the content of the record the suggestion was based on.<span class="scope">Scopes: <code>calendar.calendarlist.readonly</code> <code>calendar.events</code></span></li>
+    <li>Google Drive: searches and reads only the files you pick in Google’s file picker. It never creates, edits, or deletes files.<span class="scope">Scope: <code>drive.file</code></span></li>
+  </ol>
+  <p class="cl">(2) The app does not access Gmail.</p>
+  <p class="cl">(3) Google data reaches the AI service you connected in two cases only: when chat answers from a Drive file, that file’s content is sent; and when the app prepares event suggestions, the titles and times of scheduled events are sent so it does not suggest an event you already have. Google data is sent nowhere else, and we never receive it.</p>
+  <p class="cl">(4) We do not sell Google data, use it for advertising, or use it to develop or train AI models. We do not view Google data.</p>
+  <p class="cl">(5) Google access tokens are stored only in the macOS Keychain. Calendar events are held briefly in memory while they are on screen and are never written to disk. Drive content read in a chat may remain in that conversation’s history and is deleted when you delete the conversation.</p>
+  <div class="box"><p>The app’s use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements.</p></div>
 
-  <h2>Children</h2>
-  <p>SILLOG is a work app and is not directed at children under 14.</p>
+  <h2>6. Retention and deletion</h2>
+  <p class="cl">(1) The app automatically deletes records from your Mac after the periods below. You can change them in Settings › General, and the app asks you once before the first deletion.</p>
+  <table>
+    <tr><td>On-screen text</td><td>30 days</td></tr>
+    <tr><td>Screenshots</td><td>7 days</td></tr>
+    <tr><td>Activity</td><td>90 days</td></tr>
+    <tr><td>Screen cards</td><td>180 days</td></tr>
+    <tr><td>AI tool requests, file records</td><td>365 days</td></tr>
+  </table>
+  <p class="cl">(2) Weekly and monthly summaries of a period remain after its source records are deleted.</p>
+  <p class="cl">(3) You can delete a task, area, or graph node together with its source records at any time by right-clicking it. Conversations can be deleted from the chat list.</p>
+  <p class="cl">(4) To delete all records, quit the app and delete the <code>~/Library/Application Support/Sillog/</code> folder. API keys and tokens in the Keychain are removed by deleting the <code>com.sillog.app.chat</code> items in Keychain Access.</p>
 
-  <h2>Changes</h2>
-  <p>When this policy changes, the effective date above is updated. The history is on <a href="https://github.com/sillog-admin/sillog/commits/main/landing/privacy.html" target="_blank" rel="noopener">GitHub</a>.</p>
+  <h2>7. Your rights and how to exercise them</h2>
+  <p class="cl">(1) We do not hold your information. You can view, correct, and delete it yourself in the app.</p>
+  <p class="cl">(2) In the app’s settings you can choose apps not to record, and turn screenshot capture and each kind of transfer on or off.</p>
+  <p class="cl">(3) Disconnecting in a connector’s details or in the calendar view deletes the token stored on your Mac. To revoke access on Google’s side as well, remove SILLOG under <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Third-party apps &amp; services in your Google Account</a>.</p>
+  <p class="cl">(4) You can revoke the permissions you gave the app, such as Accessibility and Screen Recording, at any time in macOS System Settings › Privacy &amp; Security.</p>
 
-  <h2>Contact</h2>
-  <p>For privacy questions, open a <a href="https://github.com/sillog-admin/sillog/issues" target="_blank" rel="noopener">GitHub issue</a>. For security issues, use <a href="https://github.com/sillog-admin/sillog/security/advisories/new" target="_blank" rel="noopener">private vulnerability reporting</a>.</p>
+  <h2>8. Security measures</h2>
+  <p>API keys and connector tokens are stored in the macOS Keychain. The ChatGPT sign-in is kept in a file only your user account can read (mode 600) and is excluded from backups.</p>
+  <p>The chat feature is built not to run commands, edit or move files, send messages, or write through connectors. Reported security vulnerabilities are fixed in the latest release.</p>
+
+  <h2>9. Contact</h2>
+  <p>For questions about how your information is handled, please open a <a href="https://github.com/sillog-admin/sillog/issues" target="_blank" rel="noopener">GitHub issue</a>. Please report security issues through <a href="https://github.com/sillog-admin/sillog/security/advisories/new" target="_blank" rel="noopener">private vulnerability reporting</a>.</p>
+
+  <h2>10. Changes to this policy</h2>
+  <p>When this policy changes, we post the changes and the new effective date on this page. Earlier versions are in the <a href="https://github.com/sillog-admin/sillog/commits/main/landing/privacy.html" target="_blank" rel="noopener">GitHub history</a>.</p>
+
+  <p class="end">This policy takes effect on November 13, 2026.</p>
 </article>
 </main>
 
