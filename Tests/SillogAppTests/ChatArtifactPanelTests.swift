@@ -65,11 +65,14 @@ final class ChatArtifactPanelTests: XCTestCase {
     }
 
     func testTheHeaderCountsEachSeriesOnce() throws {
-        XCTAssertTrue(try text { _, _ in nil }.contains("결과물1"))
+        // XCTSkip thrown inside an assert's autoclosure counts as a failure, so read the text first.
+        let shown = try text { _, _ in nil }
+        XCTAssertTrue(shown.contains("결과물1"), shown)
     }
 
     func testAnIDThatNoLongerResolvesShowsNoPanel() throws {
-        XCTAssertNil(try text { _, _ in "gone" }.range(of: "버전2/?2", options: .regularExpression))     // cards still name their versions
+        let shown = try text { _, _ in "gone" }
+        XCTAssertNil(shown.range(of: "버전2/?2", options: .regularExpression))     // cards still name their versions
     }
 
     func testExpandingHidesTheChatUntilThePanelCloses() throws {
