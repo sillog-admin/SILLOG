@@ -7,6 +7,7 @@ struct ChatResultCard: View {
     let item: ChatLibraryItem
     var onOpen: (ChatLibraryItem) -> Void
     @State private var first = ""
+    private var versions: Int { library.versionCounts[item.id] ?? 1 }
 
     var body: some View {
         Button { onOpen(item) } label: {
@@ -20,7 +21,7 @@ struct ChatResultCard: View {
                     .background(.white, in: RoundedRectangle(cornerRadius: 6))
                     .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line, lineWidth: 1))
                 Text(item.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).lineLimit(1).padding(.top, 12)
-                Text(ChatDateText.relative(item.createdAt)).font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.top, 4)
+                Text(ChatDateText.relative(item.createdAt) + (versions > 1 ? "  ·  " + tr("버전 \(versions)개") : "")).font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.top, 4)
             }.padding(13).frame(width: 192, height: 156, alignment: .topLeading)
                 .background(Brand.paper, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(ChatPalette.cardLine, lineWidth: 1))

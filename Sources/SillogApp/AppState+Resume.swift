@@ -115,6 +115,17 @@ extension AppState {
         openTaskDetail(id: task.id)
     }
 
+    /// Opens a task cited in a chat answer: the graph tab with that task's drawer.
+    /// Returns: false when the task was merged or erased.
+    @discardableResult
+    func openTaskInGraph(key: String) -> Bool {
+        if !taskList.contains(where: { $0.key == key }) { refreshTasks() }
+        guard taskList.contains(where: { $0.key == key }) else { return false }
+        selectedTab = .graph
+        openTaskDetail(key: key)
+        return true
+    }
+
     /// 업무 드로어의 '이 업무로 묻기': 채팅 탭에서 그 업무만 보는 새 대화
     func askAbout(task: TaskSummary) {
         askAbout(ChatFocus(kind: .task, key: task.key, title: task.title))
@@ -133,7 +144,7 @@ extension AppState {
         chat.draft = text
         taskDetailOpen = false
         selectedTab = .chat
-        chat.send()
+        if chatConnected { chat.send() }   // otherwise the composer keeps the draft and shows the connect notice
     }
 
     private func askAbout(_ focus: ChatFocus) {

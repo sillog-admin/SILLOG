@@ -12,6 +12,7 @@ private struct StubChatModel: ChatModelClient {
             guard let title else { throw LLMError.backend("no title") }
             return .init(text: title)
         }
+        if system.hasPrefix("Write the one follow-up") { return .init(text: "다음 질문") }
         if messages.last(where: { $0.role == "user" })?.text.contains("wait") == true {
             try await Task.sleep(nanoseconds: 60_000_000_000)
         }
@@ -29,6 +30,7 @@ private final class ScriptedChatModel: ChatModelClient, @unchecked Sendable {
     func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec],
                  onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply {
         if system.hasPrefix("Write only a short") { return .init(text: "제목") }
+        if system.hasPrefix("Write the one follow-up") { return .init(text: "다음 질문") }
         if messages.last?.role == "tool" { return .init(text: "답") }
         let run: Int = lock.withLock { runs += 1; lastSent = messages; return runs }
         if run == failRun { throw LLMError.backend("down") }
@@ -109,6 +111,14 @@ final class ChatStateTests: XCTestCase {
         XCTAssertNil(chat.error)
     }
 
+    func testACompletedAnswerGetsAStoredFollowUp() async throws {
+        let db = try SillogDatabase.inMemory()
+        let chat = try chatState(db: db)
+        let conversation = try await finishedChat(chat, "q")
+        try await waitUntil { chat.messages.last?.followUp == "다음 질문" }
+        XCTAssertEqual(try ChatStore(db).messages(conversation.id).last?.followUp, "다음 질문")
+    }
+
     func testDeletingTheOpenChatOpensANewOne() async throws {
         let chat = try chatState()
         let other = try await finishedChat(chat, "a")
@@ -117,6 +127,53 @@ final class ChatStateTests: XCTestCase {
         XCTAssertTrue(chat.messages.isEmpty)
         XCTAssertNotEqual(chat.current.id, other.id)
         XCTAssertEqual(chat.conversations.map(\.id), [other.id])
+    }
+
+    func testDeletingAnAnsweringChatStopsItAndWritesNothingBack() async throws {
+        let db = try SillogDatabase.inMemory()
+        let chat = try chatState(db: db)
+        chat.newConversation(); chat.draft = "wait"
+        XCTAssertTrue(chat.send())
+        let answering = chat.current
+        chat.delete(answering)
+        try await waitUntil { !chat.running && chat.conversations.isEmpty }
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertTrue(try ChatStore(db).messages(answering.id).isEmpty)
+        XCTAssertTrue(try ChatStore(db).conversations().isEmpty)
+        XCTAssertNil(chat.error)
+        XCTAssertNotEqual(chat.current.id, answering.id)
+    }
+
+    func testReopensTheLastChatOrANewOneWhenItWasDeleted() async throws {
+        let db = try SillogDatabase.inMemory()
+        let chat = try chatState(db: db)
+        let first = try await finishedChat(chat, "a")
+        _ = try await finishedChat(chat, "b")
+        chat.select(first)
+        XCTAssertEqual(try chatState(db: db).current.id, first.id, "a launch reopens it")
+        try ChatStore(db).deleteConversation(first.id)
+        let relaunched = try chatState(db: db)
+        XCTAssertNotEqual(relaunched.current.id, first.id)
+        XCTAssertTrue(relaunched.messages.isEmpty)
+        chat.newConversation()
+        XCTAssertTrue(try chatState(db: db).messages.isEmpty, "a new chat stays new")
+    }
+
+    func testEditingAQuestionKeepsABranchAndSwitchingUsesItAsHistory() async throws {
+        let model = ScriptedChatModel()
+        let chat = try chatState(model: model)
+        _ = try await finishedChat(chat, "첫 질문")
+        chat.draft = "둘째 질문"; XCTAssertTrue(chat.send())
+        try await waitUntil { !chat.running }
+        XCTAssertTrue(chat.resend(from: chat.messages[0], text: "고친 질문"))
+        try await waitUntil { !chat.running }
+        XCTAssertEqual(chat.messages.filter { $0.role == "user" }.map(\.text), ["고친 질문"])
+        chat.showBranch(chat.messages[0], at: 0)
+        XCTAssertEqual(chat.messages.filter { $0.role == "user" }.map(\.text), ["첫 질문", "둘째 질문"])
+        chat.draft = "셋째 질문"; XCTAssertTrue(chat.send())
+        try await waitUntil { !chat.running }
+        XCTAssertEqual(model.sent.filter { $0.role == "user" }.map(\.text), ["첫 질문", "둘째 질문", "셋째 질문"])
+        XCTAssertEqual(ConversationMessage.paths(at: chat.messages[0], in: chat.messages).paths.count, 2)
     }
 
     func testEditingTheQuestionClosesItsAnswersArtifact() async throws {
@@ -128,6 +185,27 @@ final class ChatStateTests: XCTestCase {
         XCTAssertTrue(chat.resend(from: chat.messages[0], text: "edited"))
         XCTAssertNil(chat.openArtifactID)
         try await waitUntil { !chat.running }
+    }
+
+    func testAnEditedResultIsSavedAsTheOpenNewestVersionAndListedOnce() async throws {
+        let db = try SillogDatabase.inMemory()
+        let chat = try chatState(db: db)
+        _ = try await finishedChat(chat, "q")
+        let artifact = ChatArtifact(title: "t", format: "markdown", content: "x")
+        chat.messages[1].artifacts = [artifact]
+        try ChatStore(db).save(chat.messages[1])
+        chat.library.collect(chat.messages[1])
+        try await waitUntil { chat.library.items.count == 1 }
+        chat.saveEdit(of: artifact, content: "y")
+        let stored = try XCTUnwrap(ChatStore(db).messages(chat.current.id).last)
+        XCTAssertEqual(stored.artifacts.map(\.content), ["x", "y"])
+        XCTAssertEqual(chat.openArtifactID, stored.artifacts[1].id)
+        try await waitUntil { chat.library.items.count == 2 }
+        XCTAssertEqual(chat.library.results().map(\.originID), [stored.artifacts[1].id])
+        XCTAssertEqual(chat.library.versionCounts[chat.library.results()[0].id], 2)
+
+        chat.ask(about: "첫 줄\n둘째 줄")
+        XCTAssertEqual(chat.draft, "> 첫 줄\n> 둘째 줄\n\n")
     }
 
     func testDraftsStayWithTheirChat() async throws {

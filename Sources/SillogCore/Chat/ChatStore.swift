@@ -50,6 +50,10 @@ public struct ChatSource: Codable, Identifiable, Equatable, Sendable {
     public init(id: String, title: String, location: String, excerpt: String) {
         self.id = id; self.title = title; self.location = location; self.excerpt = excerpt
     }
+    /// The task node's key when this source is a task; ContextSearch titles nodes "<label> · <title>" and puts the key in location.
+    public var taskKey: String? {
+        id.hasPrefix("node:") && title.hasPrefix("\(NodeLabel.task) · ") && !location.isEmpty ? location : nil
+    }
 }
 
 public struct ChatArtifact: Codable, Identifiable, Equatable, Sendable {
@@ -69,6 +73,36 @@ public struct ChatArtifact: Codable, Identifiable, Equatable, Sendable {
     /// Raises: none.
     public static func versions(of artifact: ChatArtifact, in messages: [ConversationMessage]) -> [ChatArtifact] {
         messages.flatMap { $0.versions.flatMap(\.artifacts) }.filter { $0.seriesID == artifact.seriesID }
+    }
+
+    /// Args: artifacts are one answer's results in order.
+    /// Returns: the last version of each series, in the order each series first appears.
+    /// Raises: none.
+    public static func latestPerSeries(_ artifacts: [ChatArtifact]) -> [ChatArtifact] {
+        let last = Dictionary(artifacts.map { ($0.seriesID, $0) }, uniquingKeysWith: { $1 })
+        var seen = Set<String>()
+        return artifacts.compactMap { seen.insert($0.seriesID).inserted ? last[$0.seriesID] : nil }
+    }
+
+    /// Args: artifact is the version the user edited, content its new text, messages the conversation in order.
+    /// Returns: the answer holding the series' latest version with the edit appended after it, and the edit. Nil when the series isn't in messages.
+    /// Raises: none.
+    public static func edit(_ artifact: ChatArtifact, content: String, in messages: [ConversationMessage]) -> (message: ConversationMessage, version: ChatArtifact)? {
+        guard let last = versions(of: artifact, in: messages).last,
+              var message = messages.first(where: { $0.versions.contains { $0.artifacts.contains { $0.id == last.id } } }) else { return nil }
+        var version = ChatArtifact(title: artifact.title, format: artifact.format, content: content)
+        version.baseID = artifact.seriesID
+        // Appending to the answer version holding the latest keeps the edit last in the series order.
+        if message.artifacts.contains(where: { $0.id == last.id }) { message.artifacts.append(version) }
+        else if let index = message.previous?.firstIndex(where: { $0.artifacts.contains { $0.id == last.id } }) { message.previous?[index].artifacts.append(version) }
+        return (message, version)
+    }
+
+    /// Args: text is a passage the user selected in a result.
+    /// Returns: the passage as a Markdown quote followed by an empty line, ready for a question after it.
+    /// Raises: none.
+    public static func quote(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: .newlines).map { "> \($0)" }.joined(separator: "\n") + "\n\n"
     }
 }
 
@@ -185,6 +219,10 @@ public struct ConversationMessage: Codable, Identifiable, Sendable {
     public var completedAt: Double?
     /// Earlier answers to the same question, oldest first, kept when the answer was regenerated.
     public var previous: [ConversationMessage]?
+    /// A suggested next question shown as ghost text in the composer; nil until generated.
+    public var followUp: String?
+    /// The other paths from this question on, each starting with its own question; nil until the question is edited.
+    public var branches: [[ConversationMessage]]?
 
     /// Args: conversationID는 소속 대화, role·text·status는 메시지 내용과 상태이다.
     /// Returns: 저장 가능한 채팅 메시지.
@@ -208,6 +246,44 @@ extension ConversationMessage {
     public var versions: [ConversationMessage] {
         var latest = self; latest.previous = nil
         return (previous ?? []) + [latest]
+    }
+
+    /// Args: replaced is the question this new one replaces and every message after it.
+    /// Returns: none. An edit keeps the replaced path as a branch, newest 9 kept; resending the same text keeps the branches and the asking time so the branch order holds.
+    /// Raises: none.
+    public mutating func branch(replacing replaced: [ConversationMessage]) {
+        guard let old = replaced.first, old.role == "user" else { return }
+        var paths = old.branches ?? []
+        if old.text.trimmingCharacters(in: .whitespacesAndNewlines) == text.trimmingCharacters(in: .whitespacesAndNewlines) {
+            createdAt = old.createdAt
+        } else {
+            var path = replaced; path[0].branches = nil
+            paths.append(path)
+        }
+        branches = paths.isEmpty ? nil : Array(paths.suffix(9))
+    }
+
+    /// Args: question is a question in messages, the conversation's active path.
+    /// Returns: every path from that question on, oldest question first, and the index of the active one. Empty when it isn't a question there.
+    /// Raises: none.
+    public static func paths(at question: ConversationMessage, in messages: [ConversationMessage]) -> (paths: [[ConversationMessage]], active: Int) {
+        guard question.role == "user", let start = messages.firstIndex(where: { $0.id == question.id }) else { return ([], 0) }
+        var active = Array(messages[start...])
+        let others = active[0].branches ?? []
+        active[0].branches = nil
+        let all = (others + [active]).filter { !$0.isEmpty }.sorted { $0[0].createdAt < $1[0].createdAt }
+        return (all, all.firstIndex { $0[0].id == question.id } ?? 0)
+    }
+
+    /// Args: question is a question in messages, index a path of `paths(at:in:)`.
+    /// Returns: the conversation with that path from the question on, carrying the others as its branches. Nil when index is out of range.
+    /// Raises: none.
+    public static func switching(_ question: ConversationMessage, to index: Int, in messages: [ConversationMessage]) -> [ConversationMessage]? {
+        let all = paths(at: question, in: messages).paths
+        guard all.indices.contains(index), let start = messages.firstIndex(where: { $0.id == question.id }) else { return nil }
+        var path = all[index]
+        path[0].branches = all.indices.filter { $0 != index }.map { all[$0] }
+        return Array(messages[..<start]) + path
     }
 }
 
@@ -633,6 +709,26 @@ public struct ChatStore: Sendable {
             try conn.execute(sql: "INSERT INTO app_conversations (id, updated_at, payload, project_id) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, payload = excluded.payload", arguments: [conversation.id, conversation.updatedAt, payload, conversation.projectID])
             for (message, json) in records {
                 try conn.execute(sql: "INSERT INTO app_messages VALUES (?, ?, ?, ?)", arguments: [message.id, message.conversationID, message.createdAt, json])
+            }
+        }
+    }
+
+    /// Args: removing are messages leaving the conversation's active path, inserting the ones taking their place.
+    /// Returns: none. Swaps them in one write and unlinks the removed answers' artifacts like startTurn.
+    /// Raises: encoding or DB errors; nothing changes then.
+    public func replaceMessages(in conversationID: String, removing: [ConversationMessage], inserting: [ConversationMessage]) throws {
+        let records = try inserting.map { ($0, String(decoding: try JSONEncoder().encode($0), as: UTF8.self)) }
+        try db.writer.write { conn in
+            for old in removing {
+                try conn.execute(sql: "DELETE FROM app_messages WHERE id = ? AND conversation_id = ?", arguments: [old.id, conversationID])
+                for artifact in old.artifacts {
+                    try conn.execute(sql: "DELETE FROM library_conversation_sources WHERE conversation_id = ? AND item_id IN (SELECT id FROM app_library WHERE origin_id = ?)",
+                                     arguments: [conversationID, artifact.id])
+                }
+            }
+            for (message, json) in records {
+                try conn.execute(sql: "INSERT INTO app_messages VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET payload = excluded.payload",
+                                 arguments: [message.id, conversationID, message.createdAt, json])
             }
         }
     }

@@ -4,7 +4,12 @@ import SillogCore
 
 @MainActor
 final class LibraryState: ObservableObject {
-    @Published var items: [ChatLibraryItem] = []
+    @Published var items: [ChatLibraryItem] = [] {
+        didSet { (grouped, versionCounts) = ChatLibraryItem.latestOfEachSeries(items) }
+    }
+    /// items with each chat result's versions folded into its newest one, for lists that show one row per result.
+    private(set) var grouped: [ChatLibraryItem] = []
+    private(set) var versionCounts: [String: Int] = [:]
     /// 보관 자료 id -> 연결 대화의 초점 (홈의 분야 기준). 없으면 "분야 없음"
     @Published var itemFocuses: [String: [ChatFocus]] = [:]
     @Published var busy = false {
@@ -43,7 +48,7 @@ final class LibraryState: ObservableObject {
     }
 
     func results(limit: Int? = nil) -> [ChatLibraryItem] {
-        let all = items.filter { $0.kind == "generated" }.sorted { $0.createdAt > $1.createdAt }
+        let all = grouped.filter { $0.kind == "generated" }.sorted { $0.createdAt > $1.createdAt }
         return limit.map { Array(all.prefix($0)) } ?? all
     }
 
@@ -121,8 +126,12 @@ final class LibraryState: ObservableObject {
     func rename(_ item: ChatLibraryItem, title: String) {
         do { try store.rename(item.id, title: title); changed() } catch { self.error = error.localizedDescription }
     }
+    /// Deletes every version of a chat result, since lists show the series as one row.
     func delete(_ item: ChatLibraryItem) {
-        do { try store.delete(item); changed() } catch { self.error = error.localizedDescription }
+        do {
+            for version in items where version.seriesKey == item.seriesKey { try store.delete(version) }
+            changed()
+        } catch { self.error = error.localizedDescription; reload() }
     }
     func saveResponse(_ message: ConversationMessage, title: String, projectID: String) {
         do {

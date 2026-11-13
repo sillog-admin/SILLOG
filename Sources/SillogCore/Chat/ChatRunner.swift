@@ -155,6 +155,26 @@ public enum ChatBackend: Sendable {
         return String(title.prefix(25))
     }
 
+    /// Args: question is the user's request, answer the completed reply to it.
+    /// Returns: one short question the user is likely to ask next, written as the user.
+    /// Raises: model or connection errors, or an empty reply.
+    public func followUpQuestion(question: String, answer: String) async throws -> String {
+        let system = "Write the one follow-up question the user is most likely to ask next about this answer, as the user would type it, in \(L10n.current.promptName), on one line, within 40 characters. No quotes, list marks or explanation. Do not answer it."
+        let text = "Question:\n\(question.prefix(2000))\n\nAnswer:\n\(answer.prefix(4000))"
+        guard let line = Self.followUpLine(try await complete(system: system, text: text)) else { throw LLMError.backend("후속 질문이 비어 있습니다.") }
+        return line
+    }
+
+    /// Args: response is the model's raw reply.
+    /// Returns: its first non-empty line without quotes or list marks, at most 60 characters; nil if there is none.
+    /// Raises: 없음.
+    static func followUpLine(_ response: String) -> String? {
+        let marks = CharacterSet.whitespaces.union(CharacterSet(charactersIn: "\"'“”‘’#*-•>"))
+        let line = response.components(separatedBy: .newlines).lazy
+            .map { $0.trimmingCharacters(in: marks) }.first { !$0.isEmpty }
+        return line.map { String($0.prefix(60)) }
+    }
+
     /// Args: system is the instruction, text the single user message.
     /// Returns: the model's reply, with no tools.
     /// Raises: model, connection or cancellation errors.
@@ -197,16 +217,17 @@ public struct ChatRunner: Sendable {
     /// Raises: 없음.
     public init(backend: ChatBackend, tools: ChatTools) { self.backend = backend; self.tools = tools }
 
-    /// Args: history는 대화 기록, skillIDs는 직접 고른 스킬, scheduled는 승인된 예약 실행 여부(예약 제안을 막는다), memory는 저장된 앞부분 요약, onEvent는 UI 업데이트이다.
+    /// Args: history는 대화 기록, skillIDs는 직접 고른 스킬, scheduled는 승인된 예약 실행 여부(예약 제안을 막는다), memory는 저장된 앞부분 요약, userInstructions는 설정의 개인 답변 지침(비면 넣지 않음), onEvent는 UI 업데이트이다.
     /// Returns: 답변·조회 출처·결과물·미승인 예약안, and the summary to store when older messages no longer fit.
     /// Raises: 모델·리소스 오류, 실행 한도 초과, 취소. 도구 오류는 모델에 돌려준다.
     public func run(history: [ConversationMessage], skillIDs: [String], skillCatalog: [ChatSkill]? = nil, scheduled: Bool = false,
-                    project: ChatProject? = nil, memory: ChatMemory? = nil,
+                    project: ChatProject? = nil, memory: ChatMemory? = nil, userInstructions: String = "",
                     onEvent: @escaping @Sendable (ChatRunEvent) async -> Void) async throws -> ChatRunResult {
         let selected = skillIDs.isEmpty ? [] : try (skillCatalog ?? ChatSkill.load()).filter { skillIDs.contains($0.id) }
         let procedures = try selected.map { "## \($0.title)\n\(try $0.instructions())" }.joined(separator: "\n\n")
         var prompt = ChatSystemPrompt(template: try ChatSystemPrompt.template(), scope: tools.scope, chatModel: backend.modelName,
                                       scheduled: scheduled, skillInstructions: procedures, project: project)
+        prompt.userInstructions = userInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
         if tools.scope.useActivity { prompt.rawRecordsSince = (try? tools.search.rawRecordsSince()) ?? nil }
         if tools.scope.useActivity { prompt.focus = try tools.search.focusOutline() }
         let ledger = ChatRunLedger()

@@ -81,7 +81,7 @@ struct LibraryView: View {
     }
 
     private var filtered: [ChatLibraryItem] {
-        library.items.filter { item in
+        library.grouped.filter { item in
             (query.isEmpty || item.title.localizedCaseInsensitiveContains(query)) && (listKind.isEmpty || item.kind == listKind)
         }
     }
@@ -246,14 +246,14 @@ struct LibraryView: View {
             export: { library.export($0) }, delete: { deleting = $0 },
             rename: { editing = $0; editTitle = $0.title },
             url: { library.store.url(for: $0) }, modified: { modified($0) },
-            projectCount: { library.projectIDs($0).count })
+            projectCount: { library.projectIDs($0).count }, versions: { library.versionCounts[$0.id] ?? 1 })
     }
 
     @ViewBuilder private var kindContent: some View {
         let recs = entries.compactMap { entry -> Recording? in if case .recording(let r) = entry { r } else { nil } }
         let mine = entries.compactMap { entry -> ChatLibraryItem? in if case .item(let i) = entry { i } else { nil } }
         switch kind {
-        case "home": LibraryHome(items: library.items, recordings: state.recordings, tasks: state.taskList, itemFocuses: library.itemFocuses, actions: actions)
+        case "home": LibraryHome(items: library.grouped, recordings: state.recordings, tasks: state.taskList, itemFocuses: library.itemFocuses, actions: actions)
         case "recording": LibraryRecordingList(recordings: recs, actions: actions)
         case "upload": LibraryUploadList(items: mine, actions: actions)
         case "generated": LibraryGeneratedGrid(items: mine, actions: actions)

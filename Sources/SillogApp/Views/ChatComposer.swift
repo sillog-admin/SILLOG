@@ -27,14 +27,24 @@ struct ChatComposer: View {
     @State private var dismissedShortcut: ChatShortcut?
     @State private var shortcutIndex = 0
     @State private var shortcutMenuHeight: CGFloat = 0
-    @State private var shortcutCaret: NSRange?
+    /// Tied to the focus request it was set for, so a later focus from elsewhere ignores it.
+    @State private var shortcutCaret: (request: Int, range: NSRange)?
     @State private var connectedConnectors: Set<String>?
     @State private var dropTargeted = false
     @State private var plusHover = false
     @State private var previewItem: ChatLibraryItem?
+    /// The answer whose follow-up the user typed over; it stays hidden after the draft is cleared.
+    @State private var dismissedFollowUp: String?
 
     /// 이 대화에 응답이 도는 중이면 자료 설정을 잠근다
     private var busy: Bool { chat.activeMessage?.conversationID == chat.current.id }
+
+    /// Ghost text for the empty input: the latest answer's suggested next question.
+    private var followUp: String? {
+        guard chat.draft.isEmpty, !busy, let last = chat.messages.last, last.role == "assistant", last.status == "complete",
+              last.id != dismissedFollowUp else { return nil }
+        return last.followUp
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -48,7 +58,14 @@ struct ChatComposer: View {
             if !chat.current.scope.focus.isEmpty, chat.current.scope.useActivity, pendingRecords > 0 {
                 tidyHint.padding(.top, 8).padding(.leading, 12)
             }
-            if showsNotice {
+            if !state.chatConnected {
+                HStack(spacing: 8) {
+                    Text(tr("AI가 연결되지 않았어요. [설정 > AI 연결]에서 먼저 연결해 주세요."))
+                        .font(Brand.font(.caption)).foregroundStyle(Brand.ink).lineLimit(1)
+                    ChatPillButton(title: tr("설정 열기"), systemName: "gearshape", action: openSettings)
+                }
+                .frame(maxWidth: .infinity).padding(.top, 8)
+            } else if showsNotice {
                 Text(tr("질문과 조회한 자료는 연결한 AI로 전송돼요. 웹 검색과 커넥터는 허용한 범위만 사용해요."))
                     .font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
                     .frame(maxWidth: .infinity).padding(.top, 8)
@@ -56,11 +73,15 @@ struct ChatComposer: View {
         }
         .frame(maxWidth: ChatPalette.readingWidth).frame(maxWidth: .infinity)
         .sheet(isPresented: $showLibraryPicker) { LibraryPicker(library: library) { chat.attachLibraryItem($0) } }
-        .onChange(of: chat.current.id) { _, _ in shortcut = nil; dismissedShortcut = nil }
+        .onChange(of: chat.current.id) { _, _ in shortcut = nil; dismissedShortcut = nil; dismissedFollowUp = nil }
+        .onChange(of: chat.draft) { _, draft in if !draft.isEmpty { dismissedFollowUp = chat.messages.last?.id } }
     }
 
     /// 보내기가 시작됐을 때만 알린다 (프로젝트 상세에서 대화로 넘어가는 용도)
-    private func send() { if chat.send() { shortcut = nil; onSent() } }
+    private func send() {
+        guard state.chatConnected else { return }
+        if chat.send() { shortcut = nil; onSent() }
+    }
 
     static func placeholder(_ scope: ChatScope) -> String {
         guard scope.useActivity, !scope.focus.isEmpty else { return tr("기록을 바탕으로 무엇을 할까요?") }
@@ -95,13 +116,21 @@ struct ChatComposer: View {
             }
             ZStack(alignment: .topLeading) {
                 if chat.draft.isEmpty {
-                    Text(Self.placeholder(chat.current.scope))
-                        .font(Brand.font(.sectionTitle, .regular)).foregroundStyle(Brand.text.opacity(0.5)).lineLimit(1)
-                        .padding(.top, 8).padding(.leading, 5).allowsHitTesting(false).accessibilityHidden(true)
+                    HStack(spacing: 8) {
+                        Text(followUp ?? Self.placeholder(chat.current.scope))
+                            .font(Brand.font(.sectionTitle, .regular)).foregroundStyle(Brand.text.opacity(0.5)).lineLimit(1)
+                        if followUp != nil {
+                            Text("Tab").font(Brand.font(.tag, .medium)).foregroundStyle(Brand.gray)
+                                .padding(.horizontal, 5).frame(height: 16)
+                                .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Brand.line))
+                        }
+                    }
+                    .padding(.top, 8).padding(.leading, 5).allowsHitTesting(false).accessibilityHidden(true)
                 }
                 ChatInput(text: $chat.draft, height: $inputHeight, minimumHeight: 38, focusRequest: chat.inputFocusRequest,
-                          selectionOnFocus: shortcutCaret, onShortcut: updateShortcut, shortcutKey: handleShortcutKey,
-                          onFiles: { chat.attach($0) }, onEscape: { if busy { chat.cancel() } else { chat.openArtifactID = nil } }, onEditLast: onEditLast, placeholder: Self.placeholder(chat.current.scope), onSend: send)
+                          selectionOnFocus: shortcutCaret.flatMap { $0.request == chat.inputFocusRequest ? $0.range : nil }, onShortcut: updateShortcut, shortcutKey: handleShortcutKey,
+                          onFiles: { chat.attach($0) }, onEscape: { if busy { chat.cancel() } else { chat.openArtifactID = nil } }, onEditLast: onEditLast,
+                          placeholder: followUp.map { tr("추천 질문: \($0). Tab으로 입력") } ?? Self.placeholder(chat.current.scope), onSend: send)
                     .frame(height: inputHeight)
             }
             .padding(.top, 18).padding(.horizontal, 13)
@@ -180,6 +209,12 @@ struct ChatComposer: View {
     }
 
     private func handleShortcutKey(_ key: UInt16) -> Bool {
+        if key == 48, shortcut == nil, let followUp {
+            chat.draft = followUp
+            chat.inputFocusRequest += 1
+            shortcutCaret = (chat.inputFocusRequest, NSRange(location: (followUp as NSString).length, length: 0))
+            return true
+        }
         guard let shortcut, !busy else { return false }
         let choices = shortcutChoices
         switch key {
@@ -206,9 +241,9 @@ struct ChatComposer: View {
             if !chat.draftConnectors.contains(item.id) { chat.draftConnectors.append(item.id) }
         }
         chat.draft = (chat.draft as NSString).replacingCharacters(in: shortcut.range, with: "")
-        shortcutCaret = NSRange(location: shortcut.range.location, length: 0)
         self.shortcut = nil
         chat.inputFocusRequest += 1
+        shortcutCaret = (chat.inputFocusRequest, NSRange(location: shortcut.range.location, length: 0))
     }
 
     private var shortcutMenu: some View {
@@ -273,17 +308,18 @@ struct ChatComposer: View {
         let empty = chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         // Only this conversation's answer can be stopped here; another one running just blocks sending.
         let elsewhere = chat.running && !busy
+        let blocked = elsewhere || !state.chatConnected
         return Button {
             if busy { chat.cancel() } else { send() }
         } label: {
-            let enabled = busy || (!empty && !elsewhere)
+            let enabled = busy || (!empty && !blocked)
             Image(systemName: busy ? "stop.fill" : "arrow.up")
                 .font(.system(size: 14, weight: .semibold)).foregroundStyle(enabled ? Color.white : Brand.gray)
                 .frame(width: 28, height: 28)
                 .background(enabled ? Brand.accent : Brand.line, in: Circle())
         }
-        .buttonStyle(.plain).disabled(!busy && (empty || elsewhere))
-        .help(busy ? tr("응답 중단 (Esc, ⌘.)") : elsewhere ? tr("다른 대화의 응답이 끝나면 보낼 수 있어요") : tr("전송 (Enter)"))
+        .buttonStyle(.plain).disabled(!busy && (empty || blocked))
+        .help(busy ? tr("응답 중단 (Esc, ⌘.)") : !state.chatConnected ? tr("AI를 먼저 연결해 주세요") : elsewhere ? tr("다른 대화의 응답이 끝나면 보낼 수 있어요") : tr("전송 (Enter)"))
         .accessibilityLabel(busy ? tr("응답 중단") : tr("전송"))
     }
 

@@ -11,19 +11,60 @@ struct ArtifactPreview: View {
     var onClose: (() -> Void)? = nil
     var onExpand: (() -> Void)? = nil
     var expanded = false
+    /// Saves edited text as a new version; nil hides 편집.
+    var onEdit: ((String) -> Void)? = nil
+    /// Takes text selected in the preview to ask about; nil shows no 질문하기.
+    var onAsk: ((String) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @StateObject private var preview = ArtifactWebState()
     @State private var error: String?
     @State private var copied = false
+    /// The text being edited; nil while previewing.
+    @State private var draft: String?
 
     var body: some View {
         ChatDialogFrame(title: artifact.title, width: onClose == nil ? 760 : nil, height: onClose == nil ? 679 : nil,
                         compact: onClose != nil, onExpand: onExpand, expanded: expanded, onClose: onClose ?? { dismiss() }) {
             VStack(spacing: 0) {
-                ArtifactWebView(state: preview)
+                if let draft {
+                    // Code-like formats keep their columns in a fixed-width font.
+                    TextEditor(text: Binding(get: { draft }, set: { self.draft = $0 }))
+                        .font(["html", "csv", "json", "xlsx"].contains(artifact.format) ? .system(size: 12 * Brand.scale, design: .monospaced) : Brand.font(.body))
+                        .foregroundStyle(Brand.text).scrollContentBackground(.hidden).padding(16)
+                        .accessibilityLabel(tr("결과물 편집"))
+                } else {
+                    ArtifactWebView(state: preview).overlay { if onAsk != nil { askPill } }
+                }
                 if let error { Text(error).font(Brand.font(.body)).foregroundStyle(Brand.ink).padding(12) }
             }
         } footer: {
+            if let draft {
+                Spacer(minLength: 0)
+                Button(tr("취소")) { self.draft = nil }.buttonStyle(ChatDialogButtonStyle()).fixedSize()
+                Button(tr("새 버전으로 저장")) { onEdit?(draft) }.buttonStyle(ChatDialogButtonStyle(primary: true)).fixedSize()
+                    .disabled(draft == artifact.content || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } else {
+                normalFooter
+            }
+        }
+        .onAppear { preview.webView.loadHTMLString(ChatArtifactHTML.render(artifact), baseURL: nil) }
+    }
+
+    /// Floats under the selection; clamped so it stays inside the preview.
+    private var askPill: some View {
+        GeometryReader { geometry in
+            if !preview.selection.isEmpty {
+                ChatPillButton(title: tr("질문하기"), systemName: "text.bubble") {
+                    onAsk?(preview.selection)
+                    preview.clearSelection()
+                }.fixedSize().shadow(color: .black.opacity(0.08), radius: 4, y: 1)
+                    .position(x: min(max(preview.selectionPoint.x, 50), geometry.size.width - 50),
+                              y: min(preview.selectionPoint.y + 20, geometry.size.height - 16))
+            }
+        }
+    }
+
+    @ViewBuilder private var normalFooter: some View {
             if versions.count > 1, let index = versions.firstIndex(where: { $0.id == artifact.id }) {
                 // Tight groups keep the 480pt footer on one line.
                 HStack(spacing: 2) {
@@ -33,6 +74,9 @@ struct ArtifactPreview: View {
                 }.fixedSize()
             }
             HStack(spacing: 0) {
+                if onEdit != nil {
+                    ChatIconButton(systemName: "pencil", help: tr("편집")) { draft = artifact.content; preview.clearSelection() }
+                }
                 ChatIconButton(systemName: copied ? "checkmark" : "doc.on.doc", help: tr("복사")) {
                     Self.copy(artifact)
                     AccessibilityNotification.Announcement(tr("복사됨")).post()
@@ -49,8 +93,6 @@ struct ArtifactPreview: View {
                 HStack(spacing: 8) { Image(systemName: "arrow.down.to.line").font(.system(size: 11)); Text(tr("파일로 저장")) }
             }.buttonStyle(ChatDialogButtonStyle()).fixedSize()
             Button(tr("PDF로 내보내기")) { save(pdf: true) }.buttonStyle(ChatDialogButtonStyle(primary: true)).fixedSize().disabled(!preview.loaded)
-        }
-        .onAppear { preview.webView.loadHTMLString(ChatArtifactHTML.render(artifact), baseURL: nil) }
     }
 
     private func versionButton(_ symbol: String, _ label: String, to index: Int) -> some View {
@@ -123,6 +165,24 @@ extension ArtifactPreview {
 private final class ArtifactWebState: NSObject, ObservableObject, WKNavigationDelegate {
     let webView: WKWebView
     @Published var loaded = false
+    /// Text selected in the page and the point under it, in the web view's top-left coordinates.
+    @Published var selection = ""
+    @Published var selectionPoint = CGPoint.zero
+    /// Runs in the app's own script world, which the page's disabled JavaScript doesn't stop.
+    private static let selectionScript = """
+        (() => {
+          let timer;
+          const report = () => {
+            const s = document.getSelection(), text = s ? s.toString() : '';
+            if (!text.trim() || !s.rangeCount) { webkit.messageHandlers.selection.postMessage({ text: '' }); return; }
+            const r = s.getRangeAt(0).getBoundingClientRect();
+            webkit.messageHandlers.selection.postMessage({ text, x: r.left + r.width / 2, y: r.bottom });
+          };
+          const later = () => { clearTimeout(timer); timer = setTimeout(report, 120); };
+          document.addEventListener('selectionchange', later);
+          window.addEventListener('scroll', later, true);
+        })();
+        """
 
     /// Args: 없음.
     /// Returns: 스크립트와 지속 저장을 사용하지 않는 미리보기 상태.
@@ -131,9 +191,24 @@ private final class ArtifactWebState: NSObject, ObservableObject, WKNavigationDe
         let configuration = WKWebViewConfiguration()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = false
         configuration.websiteDataStore = .nonPersistent()
+        let bridge = SelectionBridge()
+        configuration.userContentController.addUserScript(WKUserScript(source: Self.selectionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: .defaultClient))
+        configuration.userContentController.add(bridge, contentWorld: .defaultClient, name: "selection")
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
+        bridge.state = self
         webView.navigationDelegate = self
+    }
+
+    func clearSelection() {
+        selection = ""
+        webView.evaluateJavaScript("getSelection().removeAllRanges()", in: nil, in: .defaultClient)
+    }
+
+    fileprivate func receive(_ body: Any) {
+        guard let body = body as? [String: Any] else { return }
+        selection = body["text"] as? String ?? ""
+        selectionPoint = CGPoint(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0)
     }
 
     /// Args: webView·navigation은 완료된 미리보기 탐색이다.
@@ -146,6 +221,14 @@ private final class ArtifactWebState: NSObject, ObservableObject, WKNavigationDe
     /// Raises: 없음.
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         decisionHandler(navigationAction.request.url?.absoluteString == "about:blank" ? .allow : .cancel)
+    }
+}
+
+/// Weak so the web view's content controller doesn't keep the panel's state alive.
+private final class SelectionBridge: NSObject, WKScriptMessageHandler {
+    weak var state: ArtifactWebState?
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        MainActor.assumeIsolated { state?.receive(message.body) }
     }
 }
 

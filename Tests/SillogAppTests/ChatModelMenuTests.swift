@@ -21,6 +21,19 @@ final class ChatModelMenuTests: XCTestCase {
         XCTAssertEqual(state.settings.codexModel, "gpt-batch", "업무 정리 모델은 그대로 (채팅 모델과 따로 저장)")
     }
 
+    func testChatConnectedOnlyFailsWhenSendingCannotWork() {
+        let state = AppState(preview: { s in s.settings.chatSameAsOrganize = false; s.settings.chatProvider = "codex" })
+        XCTAssertFalse(state.chatConnected, "logged out")
+        state.codexStatus = .loggedIn(email: nil, plan: nil, expiresAt: nil)
+        XCTAssertTrue(state.chatConnected, "model list not checked yet")
+        state.chatCodexModelsError = "timeout"
+        XCTAssertTrue(state.chatConnected, "a failed check may be transient")
+        state.settings.chatProvider = "openai"; state.settings.chatBaseURL = "http://localhost:5010/v1"; state.settings.chatModel = ""
+        XCTAssertFalse(state.chatConnected, "API server without a model")
+        state.settings.chatModel = "local"
+        XCTAssertTrue(state.chatConnected, "an API key is optional")
+    }
+
     func testChatHeaderShowsTheModelChip() throws {
         let database = try SillogDatabase.inMemory()
         let state = AppState(preview: { s in

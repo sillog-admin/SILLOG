@@ -174,6 +174,7 @@ final class AppState: ObservableObject {
             FrameMonitor.shared.screen = { [weak self] in self?.screenName ?? "" }   // 개발용 프레임 측정 로그의 화면 이름
             self.chat = ChatState(db: database, makeClient: { [unowned self] in self.makeChatClient() },
                                   makeProjectClient: { [unowned self] in self.makeClient() })
+            self.chat?.userInstructions = { [unowned self] in self.settings.chatInstructions }
             // 숨은 설정: defaults write com.sillog.app batchPipeline single (없으면 기본값인 3단계),
             // themes -bool true (없으면 분야 붙이기는 꺼짐), calendar -bool true (없으면 일정 찾기는 꺼짐, AppFeatures)
             let batchConfig = Self.batchConfig(themes: UserDefaults.standard.bool(forKey: "themes"), pipeline: UserDefaults.standard.string(forKey: "batchPipeline"),
@@ -411,6 +412,15 @@ final class AppState: ObservableObject {
         liveTranscriptions = live
         return RecordingPipeline(db: database, transcriber: LiveFirstTranscriber(live: live, fallback: WhisperTranscriber()), llm: makeQuickClient(),
                                  textFolder: RecordingPipeline.defaultTextFolder(home: NSHomeDirectory()))
+    }
+
+    /// False only when a send cannot work; a failed model check is not, since it may be transient and is not retried.
+    var chatConnected: Bool {
+        if settings.chatUsesAPI {
+            let endpoint = settings.chatEndpoint     // an API key is optional for local servers
+            return !endpoint.url.trimmingCharacters(in: .whitespaces).isEmpty && !endpoint.model.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        return codexStatus != .loggedOut
     }
 
     /// Args: 없음.

@@ -179,6 +179,28 @@ final class ChatFocusTests: XCTestCase {
         let system = await model.systems.first ?? ""
         XCTAssertTrue(system.contains("<focus>\nselected: 업무 Flask 웹앱 개발"), system.suffix(1200).description)
     }
+
+    func testPersonalInstructionsAreAddedOnlyWhenWrittenAndOnlyForTheMainAgent() async throws {
+        let db = try SillogDatabase.inMemory(); _ = try seed(db)
+        let model = FocusCapturingModel()
+        let runner = ChatRunner(client: model, tools: ChatTools(db: db, scope: ChatScope()))
+        let ask = [ConversationMessage(conversationID: "c", role: "user", text: "요약해 줘")]
+        _ = try await runner.run(history: ask, skillIDs: [], userInstructions: "  존댓말로, 표 대신 목록으로  ") { _ in }
+        _ = try await runner.run(history: ask, skillIDs: [], userInstructions: " \n ") { _ in }
+        let systems = await model.systems
+        XCTAssertTrue(systems[0].contains("those rules win."), "rules come before the user's text")
+        XCTAssertTrue(systems[0].contains("\n존댓말로, 표 대신 목록으로\n</user_instructions>"), systems[0].suffix(1600).description)
+        XCTAssertFalse(systems[1].contains("<user_instructions>\n"), "blank instructions add no block")
+        var prompt = ChatSystemPrompt(template: try ChatSystemPrompt.template(), scope: ChatScope(), chatModel: "gpt-test", scheduled: false)
+        prompt.userInstructions = "존댓말로"
+        XCTAssertFalse(prompt.render(role: "review").contains("<user_instructions>\n"), "sub-agents see only their task")
+    }
+
+    func testOnlyTaskNodeSourcesCarryATaskKey() {
+        XCTAssertEqual(ChatSource(id: "node:3", title: "Task · Flask 웹앱 개발", location: "t_abc", excerpt: "").taskKey, "t_abc")
+        XCTAssertNil(ChatSource(id: "node:4", title: "Resource · notes.md", location: "file:~/notes.md", excerpt: "").taskKey)
+        XCTAssertNil(ChatSource(id: "digest:1", title: "Task · x", location: "t_abc", excerpt: "").taskKey)
+    }
 }
 
 private actor FocusCapturingModel: ChatModelClient {

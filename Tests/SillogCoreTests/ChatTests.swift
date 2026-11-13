@@ -201,6 +201,53 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(try store.messages(conversation.id).map(\.id), [q1.id, a1.id, q3.id, a3.id])
     }
 
+    func testEditingAQuestionKeepsTheOldPathAsABranchToSwitchBackTo() throws {
+        let store = ChatStore(try .inMemory()), conversation = ChatConversation()
+        let q1 = ConversationMessage(conversationID: conversation.id, role: "user", text: "첫 질문")
+        let a1 = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "첫 답")
+        let q2 = ConversationMessage(conversationID: conversation.id, role: "user", text: "둘째 질문")
+        let a2 = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "둘째 답")
+        try store.startTurn(conversation: conversation, user: q1, answer: a1)
+        try store.startTurn(conversation: conversation, user: q2, answer: a2)
+        let old = try store.messages(conversation.id)
+        let replaced = ConversationMessage.replaced(from: q1, in: old)
+        var edited = ConversationMessage(conversationID: conversation.id, role: "user", text: "고친 질문")
+        edited.branch(replacing: replaced)
+        let answer = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "새 답")
+        try store.startTurn(conversation: conversation, user: edited, answer: answer, replacing: replaced)
+
+        let active = try store.messages(conversation.id)
+        XCTAssertEqual(active.map(\.id), [edited.id, answer.id], "only the active path is stored as rows, so search and export see just it")
+        XCTAssertEqual(active[0].branches?.first?.map(\.id), [q1.id, a1.id, q2.id, a2.id])
+        let paths = ConversationMessage.paths(at: active[0], in: active)
+        XCTAssertEqual(paths.paths.map { $0[0].text }, ["첫 질문", "고친 질문"])
+        XCTAssertEqual(paths.active, 1)
+
+        let switched = try XCTUnwrap(ConversationMessage.switching(active[0], to: 0, in: active))
+        try store.replaceMessages(in: conversation.id, removing: active, inserting: switched)
+        let restored = try store.messages(conversation.id)
+        XCTAssertEqual(restored.map(\.id), [q1.id, a1.id, q2.id, a2.id])
+        XCTAssertEqual(restored[0].branches?.map { $0.map(\.id) }, [[edited.id, answer.id]])
+        XCTAssertEqual(ConversationMessage.paths(at: restored[0], in: restored).active, 0)
+        XCTAssertNil(ConversationMessage.switching(restored[0], to: 2, in: restored))
+
+        // Regenerating keeps the branches and the asking time, so the order of the paths holds.
+        var resent = ConversationMessage(conversationID: conversation.id, role: "user", text: "첫 질문")
+        resent.branch(replacing: ConversationMessage.replaced(from: restored[1], in: restored))
+        XCTAssertEqual(resent.createdAt, q1.createdAt)
+        XCTAssertEqual(resent.branches?.count, 1)
+
+        var plain = ConversationMessage(conversationID: conversation.id, role: "user", text: "x")
+        plain.branch(replacing: [])
+        XCTAssertNil(plain.branches)
+        var many = old[0]
+        many.branches = (0..<12).map { _ in [ConversationMessage(conversationID: conversation.id, role: "user", text: "q")] }
+        var capped = ConversationMessage(conversationID: conversation.id, role: "user", text: "y")
+        capped.branch(replacing: [many])
+        XCTAssertEqual(capped.branches?.count, 9)
+        XCTAssertEqual(capped.branches?.last?.first?.id, many.id, "the path just replaced is never the one dropped")
+    }
+
     /// Args: 없음.
     /// Returns: 없음. 예약 승인 저장과 문서 출력의 스크립트 차단을 확인한다.
     /// Raises: 테스트 DB 오류.
@@ -388,6 +435,28 @@ final class ChatTests: XCTestCase {
         XCTAssertTrue(sub.contains("</material_scope>\n\n<runtime_context>"))
         XCTAssertTrue(sub.contains("agent_role: review"))
         XCTAssertFalse(sub.contains("테스트 절차") || sub.contains("졸업 프로젝트") || sub.contains("library:42"))
+    }
+
+    func testAnEditBecomesTheSeriesLatestVersionAndAnswersShowOneCardPerSeries() throws {
+        let v1 = ChatArtifact(title: "보고서", format: "markdown", content: "초안")
+        var v2 = ChatArtifact(title: "보고서", format: "markdown", content: "수정"); v2.baseID = v1.id
+        let other = ChatArtifact(title: "표", format: "csv", content: "a,b")
+        var first = ConversationMessage(conversationID: "t", role: "assistant", text: ""); first.artifacts = [v1, other]
+        var second = ConversationMessage(conversationID: "t", role: "assistant", text: ""); second.artifacts = [v2]
+        XCTAssertEqual(ChatArtifact.latestPerSeries([v1, other, v2]).map(\.id), [v2.id, other.id])
+
+        // Editing an older version still lands after the latest one, on the answer that holds it.
+        let edit = try XCTUnwrap(ChatArtifact.edit(v1, content: "직접 고침", in: [first, second]))
+        XCTAssertEqual(edit.message.id, second.id)
+        XCTAssertEqual(edit.version.baseID, v1.id)
+        XCTAssertEqual(ChatArtifact.versions(of: v1, in: [first, edit.message]).map(\.content), ["초안", "수정", "직접 고침"])
+        // An answer's earlier regenerated version keeps its own edits.
+        var regenerated = ConversationMessage(conversationID: "t", role: "assistant", text: ""); regenerated.previous = [second]
+        let inPrevious = try XCTUnwrap(ChatArtifact.edit(v2, content: "고침", in: [first, regenerated]))
+        XCTAssertEqual(inPrevious.message.previous?[0].artifacts.map(\.content), ["수정", "고침"])
+        XCTAssertNil(ChatArtifact.edit(v1, content: "x", in: []))
+
+        XCTAssertEqual(ChatArtifact.quote("  첫 줄\n둘째 줄 \n"), "> 첫 줄\n> 둘째 줄\n\n")
     }
 
     func testRevisedArtifactsJoinTheFirstVersionsSeries() async throws {
@@ -612,6 +681,17 @@ final class ChatTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: old.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: new.path), "a run in progress keeps its folder")
         XCTAssertTrue(FileManager.default.fileExists(atPath: other.path))
+    }
+
+    func testFollowUpQuestionKeepsFirstCleanLine() async throws {
+        XCTAssertEqual(ChatBackend.followUpLine("\n  \"- 다음 주 일정도 정리해 줘?\"\n설명"), "다음 주 일정도 정리해 줘?")
+        XCTAssertNil(ChatBackend.followUpLine(" \n\"\" "))
+        XCTAssertEqual(ChatBackend.followUpLine(String(repeating: "가", count: 80))?.count, 60)
+        let model = PromptCapture()
+        let question = try await ChatBackend.model(model).followUpQuestion(question: "오늘 한 일", answer: "정리했어요")
+        XCTAssertEqual(question, "완료")
+        let prompts = await model.prompts
+        XCTAssertTrue(prompts.first?.contains("follow-up question") == true)
     }
 }
 

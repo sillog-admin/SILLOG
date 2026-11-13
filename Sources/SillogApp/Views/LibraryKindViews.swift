@@ -86,6 +86,13 @@ struct LibraryActions {
     let url: (ChatLibraryItem) -> URL
     let modified: (LibraryEntry) -> Double
     let projectCount: (ChatLibraryItem) -> Int
+    let versions: (ChatLibraryItem) -> Int
+
+    /// " · 버전 n개" for a chat result saved in several versions, else "".
+    func versionText(_ entry: LibraryEntry) -> String {
+        guard case .item(let item) = entry, versions(item) > 1 else { return "" }
+        return "  ·  " + tr("버전 \(versions(item))개")
+    }
 }
 
 /// 저장한 답변의 첫 줄과 글자 수.
@@ -201,7 +208,7 @@ struct LibraryAllList: View {
                             Circle().fill(LibraryLook.color(entry.kind)).frame(width: 6, height: 6)
                             Text(LibraryLook.name(entry.kind)).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
                         }.frame(width: 112, alignment: .leading)
-                        cell(LibraryLook.when(actions.modified(entry)), 0, gray: true)
+                        cell(LibraryLook.when(actions.modified(entry)) + actions.versionText(entry), 0, gray: true)
                     }
                 }
             }
@@ -295,7 +302,7 @@ struct LibraryGeneratedGrid: View {
                             LibraryThumbnail(url: actions.url(item), size: CGSize(width: 228, height: 146))
                                 .frame(maxWidth: .infinity).background(Brand.paper)
                             Text(item.title).font(Brand.font(.body, .medium)).foregroundStyle(Brand.tabText).lineLimit(1).padding(.top, 14)
-                            Text("\(LibraryLook.format(LibraryLook.ext(item)))     \(LibraryLook.when(actions.modified(.item(item))))")
+                            Text("\(LibraryLook.format(LibraryLook.ext(item)))     \(LibraryLook.when(actions.modified(.item(item))))\(actions.versionText(.item(item)))")
                                 .font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.top, 6)
                         }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                     }.buttonStyle(.plain)

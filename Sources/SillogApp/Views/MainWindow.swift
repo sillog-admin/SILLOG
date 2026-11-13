@@ -27,7 +27,7 @@ struct NavRail: View {
     private func railTab(_ tab: MainWindow.Tab) -> some View {
         let on = state.selectedTab == tab
         return Button {
-            if tab == .chat, state.selectedTab != .chat { state.chat?.newConversation() }   // 다른 탭에서 채팅으로 오면 홈(새 대화)
+            if tab == .chat, state.selectedTab != .chat { state.chat?.reopenLast() }
             state.selectedTab = tab
         } label: {
             VStack(spacing: 4) {
@@ -482,7 +482,8 @@ struct MainWindow: View {
                 if showsTabs { NavRail() }                          // 맨 위: 이름표가 업무 목록 위로 나오게
             }
         }
-        .onChange(of: state.selectedTab) { _, _ in state.taskDetailOpen = false }   // 탭을 바꾸면 드로어를 접는다 (채팅 탭에는 업무 패널이 없다)
+        // Leaving the graph folds the drawer; arriving keeps one a caller opened (a task cited in chat).
+        .onChange(of: state.selectedTab) { _, tab in if tab != .graph { state.taskDetailOpen = false } }
         .disabled(sheetShown)
         .accessibilityHidden(sheetShown)
         .overlay {

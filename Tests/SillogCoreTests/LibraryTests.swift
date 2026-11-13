@@ -158,6 +158,28 @@ final class LibraryTests: XCTestCase {
         XCTAssertThrowsError(try library.read("library:", ids: ["other"]))
     }
 
+    func testVersionsFoldIntoOneItemAndUnfinishedAnswersAreSkipped() throws {
+        let db = try SillogDatabase.inMemory(), library = LibraryStore(db)
+        defer { try? FileManager.default.removeItem(at: library.directory) }
+        let conversation = try conversation(db)
+        let v1 = ChatArtifact(title: "보고서", format: "markdown", content: "초안")
+        var v2 = ChatArtifact(title: "보고서", format: "markdown", content: "수정본"); v2.baseID = v1.id
+        var first = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "초안"); first.artifacts = [v1]
+        var second = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "수정"); second.artifacts = [v2]
+        var failed = ConversationMessage(conversationID: conversation.id, role: "assistant", text: "", status: "failed")
+        failed.artifacts = [.init(title: "실패", format: "txt", content: "x")]
+        var stopped = failed; stopped.id = UUID().uuidString; stopped.status = "cancelled"
+        try library.collectArtifacts([first, failed, stopped])
+        // An item saved before series were stored learns its series on the next sweep.
+        var legacy = second; legacy.artifacts[0].baseID = nil
+        try library.collectArtifacts([legacy]); try library.collectArtifacts([second])
+        let items = try library.items()
+        XCTAssertEqual(items.map(\.title), ["보고서", "보고서"])
+        let grouped = ChatLibraryItem.latestOfEachSeries(items)
+        XCTAssertEqual(grouped.items.map(\.originID), [v2.id])
+        XCTAssertEqual(grouped.versions[grouped.items[0].id], 2)
+    }
+
     func testProjectOnlyMemoryBlocksSearchAndDirectReadsInBothDirections() throws {
         let db = try SillogDatabase.inMemory(), projects = ProjectStore(db)
         var privateProject = ChatProject(title: "전용", goal: "분리"); privateProject.memoryMode = .projectOnly

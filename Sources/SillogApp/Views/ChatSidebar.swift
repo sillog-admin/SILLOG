@@ -219,7 +219,7 @@ struct ChatSidebar: View {
         Button { chat.exportMarkdown(item, toFile: false) } label: { Label(tr("전체 복사"), systemImage: "doc.on.doc") }
         Button { chat.exportMarkdown(item, toFile: true) } label: { Label(tr("Markdown으로 내보내기"), systemImage: "square.and.arrow.up") }
         Divider()
-        Button(role: .destructive) { onDelete(item) } label: { Label(tr("삭제"), systemImage: "trash") }.disabled(busy)
+        Button(role: .destructive) { onDelete(item) } label: { Label(tr("삭제"), systemImage: "trash") }
     }
 
     /// ⋯ 메뉴 (CH-29, 47, 48): 아이콘이 있고 삭제는 빨강

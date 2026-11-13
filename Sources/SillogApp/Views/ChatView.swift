@@ -135,7 +135,9 @@ struct ChatView: View {
                 if let item = deletingConversation { chat.delete(item) }
             }
         } message: {
-            Text(tr("‘\(ChatConversation.display(deletingConversation?.title ?? ""))’의 메시지와 결과물이 삭제되며 복구할 수 없습니다. 원본 자료와 등록된 예약 작업은 유지됩니다."))
+            let answering = deletingConversation.map { chat.activeMessage?.conversationID == $0.id } ?? false
+            Text(tr("‘\(ChatConversation.display(deletingConversation?.title ?? ""))’의 메시지와 결과물이 삭제되며 복구할 수 없습니다. 원본 자료와 등록된 예약 작업은 유지됩니다.")
+                 + (answering ? " " + tr("작성 중인 답변은 멈춘 뒤 삭제돼요.") : ""))
         }
         .environment(\.openURL, OpenURLAction { url in
             ["https", "http"].contains(url.scheme ?? "") ? .systemAction : .discarded
@@ -176,9 +178,12 @@ struct ChatView: View {
                         if open != nil { Rectangle().fill(Brand.line).frame(width: 1) }
                     }
                     if let open {
+                        let writing = chat.activeMessage?.versions.contains { $0.artifacts.contains { $0.seriesID == open.seriesID } } == true
                         ArtifactPreview(artifact: open, versions: ChatArtifact.versions(of: open, in: chat.messages),
                                         onSelect: { chat.openArtifactID = $0.id }, onClose: { chat.openArtifactID = nil },
-                                        onExpand: { artifactExpanded.toggle() }, expanded: artifactExpanded)
+                                        onExpand: { artifactExpanded.toggle() }, expanded: artifactExpanded,
+                                        onEdit: writing ? nil : { chat.saveEdit(of: open, content: $0) },
+                                        onAsk: { artifactExpanded = false; chat.ask(about: $0) })
                             .id(open.id).frame(width: artifactExpanded ? nil : 480).frame(maxWidth: artifactExpanded ? .infinity : nil)
                     }
                 }
@@ -341,7 +346,6 @@ struct ChatView: View {
                         Label(tr("이름 바꾸기"), systemImage: "pencil")
                     }
                     Button(role: .destructive) { deletingConversation = item; showDelete = true } label: { Label(tr("삭제"), systemImage: "trash") }
-                        .disabled(chat.activeMessage?.conversationID == item.id)
                 } label: {
                     Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(Brand.tabText)
                 }
@@ -541,13 +545,18 @@ struct ChatView: View {
                     }.buttonStyle(.plain).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                 }
                 let showsActions = hoveredMessageID == message.id || focusedActions == message.id
+                let branches = message.branches == nil ? nil : ConversationMessage.paths(at: message, in: chat.messages)
                 HStack(spacing: 2) {
+                    if let branches, branches.paths.count > 1 {
+                        branchStepper(message, shownIndex: branches.active, count: branches.paths.count).fixedSize()
+                    }
                     ChatIconButton(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc", help: tr("질문 복사"), color: Brand.gray) { copy(message.text, id: message.id) }
+                        .opacity(showsActions ? 1 : 0)
                     ChatIconButton(systemName: "pencil", help: tr("질문 편집"), color: Brand.gray) { editText = message.text; editingMessageID = message.id }
                         .disabled(chat.running)
+                        .opacity(showsActions ? 1 : 0)
                 }
                 .focused($focusedActions, equals: message.id)
-                .opacity(showsActions ? 1 : 0)
                 .animation(.easeOut(duration: 0.12), value: showsActions)
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -589,7 +598,7 @@ struct ChatView: View {
                 } else if !shown.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     ChatMessageText(text: shown.text, sources: shown.sources) { source = $0 }.equatable()
                 }
-                ForEach(shown.artifacts) { item in
+                ForEach(ChatArtifact.latestPerSeries(shown.artifacts)) { item in
                     let version = (ChatArtifact.versions(of: item, in: chat.messages).firstIndex { $0.id == item.id } ?? 0) + 1
                     Button { chat.openArtifactID = item.id } label: {
                         HStack(spacing: 14) {
@@ -781,6 +790,24 @@ struct ChatView: View {
         }
     }
 
+    /// "< 1/2 >" under an edited question; picking a path makes it the conversation from there on.
+    private func branchStepper(_ message: ConversationMessage, shownIndex: Int, count: Int) -> some View {
+        HStack(spacing: 2) {
+            branchButton("chevron.left", tr("이전 질문"), message: message, to: shownIndex - 1, count: count)
+            Text("\(shownIndex + 1)/\(count)").font(Brand.font(.caption)).foregroundStyle(Brand.tabText).monospacedDigit()
+                .accessibilityLabel(tr("질문 \(shownIndex + 1)/\(count)"))
+            branchButton("chevron.right", tr("다음 질문"), message: message, to: shownIndex + 1, count: count)
+        }
+    }
+
+    private func branchButton(_ symbol: String, _ label: String, message: ConversationMessage, to index: Int, count: Int) -> some View {
+        Button { chat.showBranch(message, at: index) } label: {
+            Image(systemName: symbol).font(.system(size: 10)).frame(width: 24, height: 24).contentShape(Rectangle())
+        }.buttonStyle(.plain).foregroundStyle(Brand.tabText)
+            .disabled(!(0..<count).contains(index) || chat.activeMessage?.conversationID == chat.current.id || editingMessageID != nil)
+            .help(label).accessibilityLabel(label)
+    }
+
     private func versionButton(_ symbol: String, _ label: String, message: ConversationMessage, to index: Int, count: Int) -> some View {
         Button { shownVersions[message.id] = index } label: {
             Image(systemName: symbol).font(.system(size: 10)).frame(width: 24, height: 24).contentShape(Rectangle())
@@ -811,7 +838,9 @@ struct ChatView: View {
         let replaced = chat.replacedMessages(from: message)
         let thisTurn = replaced.count > 1 && replaced[1].role == "assistant" ? 2 : 1
         let dropped = replaced.count - thisTurn
-        if dropped > 0 { pendingResend = PendingResend(message: message, text: text, dropped: dropped, model: model); return }
+        // An edited question keeps the old path as a branch, so nothing is lost.
+        let edited = text.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) != message.text.trimmingCharacters(in: .whitespacesAndNewlines) } ?? false
+        if dropped > 0, !edited { pendingResend = PendingResend(message: message, text: text, dropped: dropped, model: model); return }
         // The model switches only when the resend goes ahead, so a cancelled alert changes nothing.
         if let model { state.selectChatModel(model) }
         if chat.resend(from: message, text: text) { editingMessageID = nil }
@@ -1028,8 +1057,8 @@ struct ChatSourceSheet: View {
     let source: ChatSource
     @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
+    @State private var taskMissing = false
 
-    /// Task nodes are left out: opening one would leave the chat tab.
     static func opensNode(_ source: ChatSource) -> Bool {
         source.id.hasPrefix("node:") && URINormalizer.openableURL(forKey: source.location, home: NSHomeDirectory()) != nil
     }
@@ -1045,6 +1074,7 @@ struct ChatSourceSheet: View {
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 27).padding(.vertical, 24)
             }
         } footer: {
+            if taskMissing { Text(tr("이 업무는 합쳐졌거나 지워졌어요")).font(Brand.font(.caption)).foregroundStyle(Brand.gray) }
             Spacer()
             if let url = URL(string: source.location), ["https", "http"].contains(url.scheme ?? "") {
                 Link(destination: url) { HStack(spacing: 6) { Text(tr("원문 열기")); Image(systemName: "arrow.up.right").font(.system(size: 11)) } }
@@ -1052,6 +1082,10 @@ struct ChatSourceSheet: View {
             } else if source.location.hasPrefix("/") {
                 Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: source.location)]) } label: {
                     HStack(spacing: 6) { Text(tr("Finder에서 보기")); Image(systemName: "arrow.up.right").font(.system(size: 11)) }
+                }.buttonStyle(ChatDialogButtonStyle())
+            } else if let key = source.taskKey {
+                Button { if state.openTaskInGraph(key: key) { dismiss() } else { taskMissing = true } } label: {
+                    HStack(spacing: 6) { Text(tr("업무 열기")); Image(systemName: "arrow.up.right").font(.system(size: 11)) }
                 }.buttonStyle(ChatDialogButtonStyle())
             } else if Self.opensNode(source) {
                 Button { state.openGraphItem(uri: source.location); dismiss() } label: {
