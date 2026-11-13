@@ -140,10 +140,10 @@ struct ChatSidebar: View {
                     .padding(.horizontal, 10).frame(height: 32).contentShape(Rectangle())
             }.buttonStyle(.plain).hoverHighlight(cornerRadius: 5)
                 .accessibilityLabel(ChatConversation.display(item.title)).accessibilityAddTraits(selected.contains(item.id) ? .isSelected : [])
-                .disabled(chat.activeMessage?.conversationID == item.id)
+                .disabled(chat.activeMessages[item.id] != nil)
         } else {
             ConversationRow(item: item, isCurrent: pane == .chat && chat.current.id == item.id,
-                        isBusy: chat.activeMessage?.conversationID == item.id,
+                        isBusy: chat.activeMessages[item.id] != nil,
                         open: { chat.select(item); pane = .chat },
                         context: { menu(item) }, pop: { close in popMenu(item, close) })
             .padding(.vertical, 1)
@@ -181,7 +181,7 @@ struct ChatSidebar: View {
                 Text(tr("\(selected.count)개 선택")).font(Brand.font(.body, .medium))
                 Spacer()
                 Button(tr("전체 선택")) {
-                    selected = Set(chat.conversations.filter { $0.id != chat.activeMessage?.conversationID }.map(\.id))
+                    selected = Set(chat.conversations.filter { chat.activeMessages[$0.id] == nil }.map(\.id))
                 }.buttonStyle(.plain).font(Brand.font(.caption))
                 Button(tr("완료")) { selecting = false; selected = []; selectionError = nil }
                     .buttonStyle(.plain).font(Brand.font(.caption))
@@ -210,7 +210,7 @@ struct ChatSidebar: View {
 
     /// 오른쪽 클릭 메뉴
     @ViewBuilder private func menu(_ item: ChatConversation) -> some View {
-        let busy = chat.activeMessage?.conversationID == item.id
+        let busy = chat.activeMessages[item.id] != nil
         Button { chat.togglePin(item) } label: {
             item.pinnedAt != nil ? Label(tr("고정 해제"), systemImage: "pin.slash") : Label(tr("고정"), systemImage: "pin")
         }

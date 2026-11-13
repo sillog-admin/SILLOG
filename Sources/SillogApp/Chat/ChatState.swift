@@ -25,7 +25,8 @@ final class ChatState: ObservableObject {
     @Published var draftConnectors: [String] = []
     @Published var error: String?
     @Published var openArtifactID: String?
-    @Published var activeMessage: ConversationMessage?
+    /// Answers being written, by conversation id.
+    @Published var activeMessages: [String: ConversationMessage] = [:]
     /// 범위 단추의 고를 거리: 이 대화에서 볼 수 있는 분야·업무
     @Published var focusChoices = ChatFocusChoices()
     /// 늘어나면 입력칸으로 커서를 옮긴다 (범위를 고르면 바로 쓸 수 있게)
@@ -36,14 +37,17 @@ final class ChatState: ObservableObject {
     private let store: ChatStore
     private let makeClient: () -> ChatBackend
     var userInstructions: () -> String = { "" }
-    private var runTask: Task<Void, Never>?
+    private var runTasks: [String: Task<Void, Never>] = [:]
     private var scheduler: Task<Void, Never>?
     private var titleTask: Task<Void, Never>?
     // shortcut: in memory only, lost on quit; persist if users ask for it.
     private var drafts: [String: String] = [:]
-    private var pendingText = ""
-    private var textFlush: Task<Void, Never>?
-    var running: Bool { activeMessage != nil }
+    private var pendingText: [String: String] = [:]
+    private var textFlush: [String: Task<Void, Never>] = [:]
+    /// True while any chat is answering.
+    var running: Bool { !activeMessages.isEmpty }
+    /// True while the open chat is answering.
+    var currentRunning: Bool { activeMessages[current.id] != nil }
     // shortcut: fixed 20 min cap, make it per-job if long scheduled jobs appear
     static var scheduledRunLimit: Duration = .seconds(1200)
     static let lastConversationKey = "sillog.chat.lastConversationID"
@@ -77,9 +81,11 @@ final class ChatState: ObservableObject {
         _ = NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                self.flushText()
-                if let message = self.activeMessage { try? self.store.save(message) }
-                self.runTask?.cancel()
+                for (id, message) in self.activeMessages {
+                    self.flushText(id)
+                    try? self.store.save(self.activeMessages[id] ?? message)
+                }
+                self.runTasks.values.forEach { $0.cancel() }
             }
         }
         Task.detached(priority: .background) { CodexRuntime.removeStaleDirectories() }
@@ -196,7 +202,7 @@ final class ChatState: ObservableObject {
             inputFocusRequest += 1
             let available = Set(skills.map(\.id))
             current.skillIDs.removeAll { !available.contains($0) }
-            if let activeMessage, activeMessage.conversationID == conversation.id { replaceVisible(activeMessage) }
+            if let active = activeMessages[conversation.id] { replaceVisible(active) }
         } catch { self.error = error.localizedDescription }
     }
 
@@ -217,7 +223,7 @@ final class ChatState: ObservableObject {
     /// Returns: 없음. 답변 중이면 멈추고, 멈춘 답변의 마지막 저장이 끝난 뒤에 지운다.
     /// Raises: 없음. 삭제 오류는 화면에 표시한다.
     func delete(_ conversation: ChatConversation) {
-        if let runTask, activeMessage?.conversationID == conversation.id {
+        if let runTask = runTasks[conversation.id] {
             runTask.cancel()
             Task { await runTask.value; self.delete(conversation) }
             return
@@ -245,7 +251,7 @@ final class ChatState: ObservableObject {
     }
 
     private func checkEditable(_ ids: Set<String>) throws {
-        if let activeMessage, ids.contains(activeMessage.conversationID) {
+        if !ids.isDisjoint(with: activeMessages.keys) {
             throw ChatToolError.unavailable(tr("응답 중인 채팅은 완료 후 이동하거나 삭제할 수 있어요."))
         }
     }
@@ -310,10 +316,7 @@ final class ChatState: ObservableObject {
     func send() -> Bool {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return false }
-        if let activeMessage {
-            if activeMessage.conversationID != current.id { error = tr("다른 대화의 응답이 끝나면 보낼 수 있어요") }
-            return false
-        }
+        guard !currentRunning else { return false }
         guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
         guard begin(text, conversation: current, automationID: nil, draftConnectors: draftConnectors) else { return false }
         draft = ""
@@ -334,7 +337,7 @@ final class ChatState: ObservableObject {
     @discardableResult func resend(from message: ConversationMessage, text: String? = nil) -> Bool {
         let replaced = replacedMessages(from: message)
         guard let question = replaced.first, question.role == "user" else { return false }
-        guard !running else { error = tr("응답이 끝난 뒤에 다시 보내 주세요."); return false }
+        guard !currentRunning else { error = tr("응답이 끝난 뒤에 다시 보내 주세요."); return false }
         guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
         let request = (text ?? question.text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !request.isEmpty else { return false }
@@ -352,7 +355,7 @@ final class ChatState: ObservableObject {
     /// Returns: none. Makes that path the active one and stores it, so later sends use it as history.
     /// Raises: none. A save failure goes to error and changes nothing.
     func showBranch(_ question: ConversationMessage, at index: Int) {
-        guard activeMessage?.conversationID != current.id,
+        guard !currentRunning,
               let switched = ConversationMessage.switching(question, to: index, in: messages) else { return }
         let removed = replacedMessages(from: question)
         let inserted = Array(switched[(messages.count - removed.count)...])
@@ -371,7 +374,7 @@ final class ChatState: ObservableObject {
     /// Raises: none. A save failure goes to error and changes nothing.
     func saveEdit(of artifact: ChatArtifact, content: String) {
         // The run's final save would overwrite an edit made on the answer still being written.
-        guard let (message, version) = ChatArtifact.edit(artifact, content: content, in: messages), message.id != activeMessage?.id else { return }
+        guard let (message, version) = ChatArtifact.edit(artifact, content: content, in: messages), activeMessages[message.conversationID]?.id != message.id else { return }
         do { try store.save(message) } catch { self.error = error.localizedDescription; return }
         replaceVisible(message)
         openArtifactID = version.id
@@ -389,7 +392,7 @@ final class ChatState: ObservableObject {
     /// Asks for the rest of a stopped answer; ChatRunner keeps the partial text in the history.
     // shortcut: adds a visible follow-up turn instead of extending the stopped answer, merge them if users want one answer.
     @discardableResult func continueAnswer() -> Bool {
-        guard !running else { error = tr("응답이 끝난 뒤에 다시 보내 주세요."); return false }
+        guard !currentRunning else { error = tr("응답이 끝난 뒤에 다시 보내 주세요."); return false }
         guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
         return begin(tr("앞 답변에 이어서 계속 써 줘"), conversation: current, automationID: nil)
     }
@@ -434,10 +437,10 @@ final class ChatState: ObservableObject {
         catch { self.error = error.localizedDescription; return [] }
     }
 
-    /// Args: 없음.
-    /// Returns: 없음. 실행 중인 모델·하위 작업에 취소를 전달한다.
-    /// Raises: 없음.
-    func cancel() { runTask?.cancel() }
+    /// Args: conversationID is the chat whose answer to stop, the open chat when nil.
+    /// Returns: none. Other chats keep answering.
+    /// Raises: none.
+    func cancel(_ conversationID: String? = nil) { runTasks[conversationID ?? current.id]?.cancel() }
 
     /// Args: message는 예약안을 포함한 답변이다.
     /// Returns: 없음. 사용자의 명시적 승인으로 예약을 등록한다.
@@ -496,13 +499,13 @@ final class ChatState: ObservableObject {
     /// Args: 없음.
     /// Returns: 없음. 예약 확인과 진행 중인 요청을 중단한다.
     /// Raises: 없음.
-    func stop() { scheduler?.cancel(); scheduler = nil; titleTask?.cancel(); titleTask = nil; projects.stop(); cancel() }
+    func stop() { scheduler?.cancel(); scheduler = nil; titleTask?.cancel(); titleTask = nil; projects.stop(); runTasks.values.forEach { $0.cancel() } }
 
     /// Args: text는 요청, conversation은 실행 범위, automationID가 있으면 승인된 예약 실행이다.
     /// Returns: 요청을 저장하고 시작했으면 true.
     /// Raises: 없음. 시작 실패는 화면에 표시한다.
     @discardableResult private func begin(_ text: String, conversation: ChatConversation, automationID: String?, draftConnectors: [String] = [], replacing: [ConversationMessage] = [], earlierAnswers: [ConversationMessage]? = nil) -> Bool {
-        guard !running else { return false }
+        guard activeMessages[conversation.id] == nil else { return false }
         do {
             var conversation = conversation
             // 고른 범위 중 사라진 것이 있으면 넓혀서 보내지 않는다. 업무가 합쳐진 경우엔 저장된 대화에 남는 업무가 적혀 있다 (TaskMerger)
@@ -564,7 +567,7 @@ final class ChatState: ObservableObject {
                                   remoteConnectors: remoteConnectors)
             let runner = ChatRunner(backend: backend, tools: tools)
             let selectedCatalog = skills
-            activeMessage = answer
+            activeMessages[conversation.id] = answer
             // A scheduled run starts in the background and must not clear an error the user is reading.
             if automationID == nil { error = nil; library.chatImportError = nil }
             // The turn is saved; a list refresh failure must not leave it running without a task.
@@ -573,43 +576,44 @@ final class ChatState: ObservableObject {
             if let id = openArtifactID, !messages.contains(where: { $0.versions.contains { $0.artifacts.contains { $0.id == id } } }) { openArtifactID = nil }
             if !replacing.isEmpty { library.reload() }    // startTurn unlinked the replaced answers' artifacts
             if automationID != nil {
-                // Nobody is watching a scheduled run to stop it, and a hung one would block every later job.
-                Task { [weak self, id = answer.id] in
+                // Nobody is watching a scheduled run to stop it, and a hung one would never finish.
+                Task { [weak self, id = answer.id, conversationID = conversation.id] in
                     try? await Task.sleep(for: Self.scheduledRunLimit)
-                    if self?.activeMessage?.id == id { self?.cancel() }
+                    if self?.activeMessages[conversationID]?.id == id { self?.cancel(conversationID) }
                 }
             }
-            runTask = Task { [weak self] in
+            let key = conversation.id
+            runTasks[key] = Task { [weak self] in
                 guard let self else { return }
                 var succeeded = false
                 var failure: String?
                 do {
                     let project = self.projects.projects.first(where: { $0.id == conversation.projectID })
                     let result = try await runner.run(history: previous + [user], skillIDs: conversation.skillIDs, skillCatalog: selectedCatalog, scheduled: automationID != nil, project: project, memory: conversation.memory, userInstructions: self.userInstructions()) { [weak self] event in
-                        await self?.receive(event)
+                        await self?.receive(event, in: key)
                     }
-                    self.flushText()
+                    self.flushText(key)
                     try Task.checkCancellation()
-                    self.activeMessage?.text = result.text
-                    self.activeMessage?.sources = result.sources
-                    self.activeMessage?.artifacts = result.artifacts
-                    self.activeMessage?.automation = result.automation
-                    self.activeMessage?.status = "complete"
+                    self.activeMessages[key]?.text = result.text
+                    self.activeMessages[key]?.sources = result.sources
+                    self.activeMessages[key]?.artifacts = result.artifacts
+                    self.activeMessages[key]?.automation = result.automation
+                    self.activeMessages[key]?.status = "complete"
                     succeeded = true
                     if result.memory != conversation.memory { self.remember(result.memory, in: conversation.id) }
                 } catch {
-                    self.flushText()
+                    self.flushText(key)
                     let cancelled = Task.isCancelled || error is CancellationError
-                    self.activeMessage?.status = cancelled ? "cancelled" : "failed"
+                    self.activeMessages[key]?.status = cancelled ? "cancelled" : "failed"
                     if !cancelled {
                         AppLog.write("chat failed: \(error)")
                         let description = ChatFailure.message(for: error).text
                         failure = description
-                        self.activeMessage?.text += tr("\n\n응답을 완료하지 못했습니다: \(description)")
+                        self.activeMessages[key]?.text += tr("\n\n응답을 완료하지 못했습니다: \(description)")
                     }
                 }
-                self.activeMessage?.completedAt = Date().timeIntervalSince1970
-                if let message = self.activeMessage {
+                self.activeMessages[key]?.completedAt = Date().timeIntervalSince1970
+                if let message = self.activeMessages[key] {
                     self.replaceVisible(message)
                     do { try self.store.save(message) } catch { self.error = tr("응답 저장 실패: \(error.localizedDescription)"); failure = self.error; succeeded = false }
                     if succeeded { self.library.collect(message) }
@@ -622,8 +626,8 @@ final class ChatState: ObservableObject {
                     job.lastStatus = succeeded ? "완료" : "실패 또는 중단 — 다음 예약에 실행"
                     do { try self.store.save(job) } catch { self.error = error.localizedDescription }
                 }
-                let finished = self.activeMessage
-                self.activeMessage = nil; self.runTask = nil
+                let finished = self.activeMessages[key]
+                self.activeMessages[key] = nil; self.runTasks[key] = nil
                 do { try self.reload() } catch { self.error = error.localizedDescription }
                 // Title first so the sidebar names the chat without waiting for the follow-up call.
                 if needsTitle, !Task.isCancelled {
@@ -662,20 +666,20 @@ final class ChatState: ObservableObject {
     /// Args: event는 실제 모델·도구 실행에서 발생한 이벤트이다.
     /// Returns: 없음. 현재 응답을 갱신하고 단계 변경 시 저장한다.
     /// Raises: 없음. 저장 오류는 화면에 표시한다.
-    private func receive(_ event: ChatRunEvent) {
+    private func receive(_ event: ChatRunEvent, in conversationID: String) {
         if case .text(let text) = event {
-            pendingText += text
+            pendingText[conversationID, default: ""] += text
             // shortcut: fixed 40ms batches so each token doesn't redraw the whole chat; tune if streaming looks choppy.
-            if textFlush == nil {
-                textFlush = Task { [weak self] in
+            if textFlush[conversationID] == nil {
+                textFlush[conversationID] = Task { [weak self] in
                     do { try await Task.sleep(nanoseconds: 40_000_000) } catch { return }
-                    self?.flushText()
+                    self?.flushText(conversationID)
                 }
             }
             return
         }
-        flushText()
-        guard var message = activeMessage else { return }
+        flushText(conversationID)
+        guard var message = activeMessages[conversationID] else { return }
         var checkpoint = true
         switch event {
         case .textReset: message.text = ""   // saving here keeps a crash from leaving the last step's preamble as the answer
@@ -696,20 +700,19 @@ final class ChatState: ObservableObject {
             if message.conversationID == current.id { openArtifactID = artifact.id }
         case .automation(let proposal): message.automation = proposal
         }
-        activeMessage = message; replaceVisible(message)
+        activeMessages[conversationID] = message; replaceVisible(message)
         if checkpoint {
             do { try store.save(message) } catch { self.error = tr("진행 기록 저장 실패: \(error.localizedDescription)") }
         }
     }
 
     /// Publishes streamed text held back by receive, before any other change so the order stays the same.
-    private func flushText() {
-        textFlush?.cancel(); textFlush = nil
-        guard !pendingText.isEmpty else { return }
-        defer { pendingText = "" }
-        guard var message = activeMessage else { return }
-        message.text += pendingText
-        activeMessage = message; replaceVisible(message)
+    private func flushText(_ conversationID: String) {
+        textFlush.removeValue(forKey: conversationID)?.cancel()
+        guard let pending = pendingText.removeValue(forKey: conversationID), !pending.isEmpty,
+              var message = activeMessages[conversationID] else { return }
+        message.text += pending
+        activeMessages[conversationID] = message; replaceVisible(message)
     }
 
     /// Args: message는 갱신된 응답이다.
@@ -760,7 +763,6 @@ final class ChatState: ObservableObject {
     /// Returns: 없음. 기한이 지난 예약 하나를 실행하며 누락 횟수는 재생하지 않는다.
     /// Raises: 없음. 등록·실행 실패는 예약 상태에 표시한다.
     func runDueAutomation() {
-        guard !running else { return }
         let now = Date().timeIntervalSince1970
         guard var job = automations.filter({ $0.enabled && $0.nextRun <= now }).min(by: { $0.nextRun < $1.nextRun }) else { return }
         var conversation = ChatConversation()

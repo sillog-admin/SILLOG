@@ -41,8 +41,8 @@ struct ChatComposer: View {
     /// The answer whose follow-up the user typed over; it stays hidden after the draft is cleared.
     @State private var dismissedFollowUp: String?
 
-    /// 이 대화에 응답이 도는 중이면 자료 설정을 잠근다
-    private var busy: Bool { chat.activeMessage?.conversationID == chat.current.id }
+    /// Locks source settings while this chat's answer runs.
+    private var busy: Bool { chat.currentRunning }
 
     /// Ghost text for the empty input: the latest answer's suggested next question.
     private var followUp: String? {
@@ -359,9 +359,7 @@ struct ChatComposer: View {
 
     private var sendButton: some View {
         let empty = chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        // Only this conversation's answer can be stopped here; another one running just blocks sending.
-        let elsewhere = chat.running && !busy
-        let blocked = elsewhere || !state.chatConnected
+        let blocked = !state.chatConnected
         return Button {
             if busy { chat.cancel() } else { send() }
         } label: {
@@ -372,7 +370,7 @@ struct ChatComposer: View {
                 .background(enabled ? Brand.accent : Brand.line, in: Circle())
         }
         .buttonStyle(.plain).disabled(!busy && (empty || blocked))
-        .help(busy ? tr("응답 중단 (Esc, ⌘.)") : !state.chatConnected ? tr("AI를 먼저 연결해 주세요") : elsewhere ? tr("다른 대화의 응답이 끝나면 보낼 수 있어요") : tr("전송 (Enter)"))
+        .help(busy ? tr("응답 중단 (Esc, ⌘.)") : !state.chatConnected ? tr("AI를 먼저 연결해 주세요") : tr("전송 (Enter)"))
         .accessibilityLabel(busy ? tr("응답 중단") : tr("전송"))
     }
 

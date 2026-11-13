@@ -138,7 +138,7 @@ struct ChatView: View {
                 if let item = deletingConversation { chat.delete(item) }
             }
         } message: {
-            let answering = deletingConversation.map { chat.activeMessage?.conversationID == $0.id } ?? false
+            let answering = deletingConversation.map { chat.activeMessages[$0.id] != nil } ?? false
             Text(tr("‘\(ChatConversation.display(deletingConversation?.title ?? ""))’의 메시지와 결과물이 삭제되며 복구할 수 없습니다. 원본 자료와 등록된 예약 작업은 유지됩니다.")
                  + (answering ? " " + tr("작성 중인 답변은 멈춘 뒤 삭제돼요.") : ""))
         }
@@ -159,8 +159,8 @@ struct ChatView: View {
                 Button("") { chat.newConversation(); pane = .chat }.keyboardShortcut("n").disabled(editingMessageID != nil)
                 Button("") { showSearch = true }.keyboardShortcut("k")
                 Button("") { chat.uploadFiles() }.keyboardShortcut("u")
-                    .disabled(pane == .projects || pane == .results || library.busy || chat.activeMessage?.conversationID == chat.current.id)
-                Button("") { chat.cancel() }.keyboardShortcut(".").disabled(!(pane == .chat && chat.activeMessage?.conversationID == chat.current.id))
+                    .disabled(pane == .projects || pane == .results || library.busy || chat.currentRunning)
+                Button("") { chat.cancel() }.keyboardShortcut(".").disabled(!(pane == .chat && chat.currentRunning))
                 Button("") { sidebarVisible.toggle(); if sidebarVisible { chat.openArtifactID = nil } }.keyboardShortcut("\\")
                 Button("") { copyLastAnswer() }.keyboardShortcut("c", modifiers: [.command, .shift])
                     .disabled(!chat.messages.contains { $0.role == "assistant" })
@@ -183,7 +183,7 @@ struct ChatView: View {
                         if open != nil { Rectangle().fill(Brand.line).frame(width: 1) }
                     }
                     if let open {
-                        let writing = chat.activeMessage?.versions.contains { $0.artifacts.contains { $0.seriesID == open.seriesID } } == true
+                        let writing = chat.activeMessages[chat.current.id]?.versions.contains { $0.artifacts.contains { $0.seriesID == open.seriesID } } == true
                         ArtifactPreview(artifact: open, versions: ChatArtifact.versions(of: open, in: chat.messages),
                                         onSelect: { chat.openArtifactID = $0.id }, onClose: { chat.openArtifactID = nil },
                                         onExpand: { artifactExpanded.toggle() }, expanded: artifactExpanded,
@@ -219,20 +219,19 @@ struct ChatView: View {
     private var chatContent: some View {
         VStack(spacing: 0) {
             if !chat.messages.isEmpty || !sidebarVisible { header }
-            if let active = chat.activeMessage, active.conversationID != chat.current.id {
-                // CH-14: 본문 열 안, 머리에서 떨어진 47 높이 띠, 아래 줄 하나, '이동'은 글자 링크
+            // A scheduled run starts unasked, so it gets a banner; chats the user started show only in the sidebar.
+            if let job = chat.automations.first(where: { $0.lastStatus == "실행 중" && $0.lastConversationID != chat.current.id
+                                                       && chat.activeMessages[$0.lastConversationID ?? ""] != nil }),
+               let runningID = job.lastConversationID {
+                // CH-14 layout.
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    if let job = chat.automations.first(where: { $0.lastConversationID == active.conversationID && $0.lastStatus == "실행 중" }) {
-                        Text(tr("예약 작업 ‘\(job.title)’ 실행 중")).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
-                    } else {
-                        Text(tr("다른 대화에서 작업 중")).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
-                    }
+                    Text(tr("예약 작업 ‘\(job.title)’ 실행 중")).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
                     Button {
-                        if let item = chat.conversations.first(where: { $0.id == active.conversationID }) { chat.select(item) }
+                        if let item = chat.conversations.first(where: { $0.id == runningID }) { chat.select(item) }
                     } label: { Text(tr("이동")).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink) }
                         .buttonStyle(.plain)
-                    Button { chat.cancel() } label: { Text(tr("중단")).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink) }
+                    Button { chat.cancel(runningID) } label: { Text(tr("중단")).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink) }
                         .buttonStyle(.plain)
                     Spacer()
                 }.padding(.horizontal, 28).frame(height: 47)
@@ -274,7 +273,7 @@ struct ChatView: View {
         ChatComposer(chat: chat, library: library, modelName: modelName, openSettings: openSettings,
                      pendingRecords: pendingRecords, tidyNow: tidyNow, onOpenConnectors: { state.selectedTab = .connectors },
                      onEditLast: {
-                         if !chat.running, let last = chat.messages.last(where: { $0.role == "user" }) { editText = last.text; editingMessageID = last.id }
+                         if !chat.currentRunning, let last = chat.messages.last(where: { $0.role == "user" }) { editText = last.text; editingMessageID = last.id }
                      })
             .frame(maxWidth: ChatPalette.readingWidth).frame(maxWidth: .infinity)     // 대화 본문과 같은 폭
             .padding(.horizontal, 32).padding(.top, 8).padding(.bottom, 14)
@@ -357,7 +356,7 @@ struct ChatView: View {
                     Button { editingConversation = item; conversationName = ChatConversation.display(item.title); showRename = true } label: {
                         Label(tr("이름 바꾸기"), systemImage: "pencil")
                     }
-                    ProjectMoveMenu(projects: chat.projects, itemID: "conversation:\(item.id)").disabled(chat.activeMessage?.conversationID == item.id)
+                    ProjectMoveMenu(projects: chat.projects, itemID: "conversation:\(item.id)").disabled(chat.activeMessages[item.id] != nil)
                     Button(role: .destructive) { deletingConversation = item; showDelete = true } label: { Label(tr("삭제"), systemImage: "trash") }
                 } label: {
                     Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)).foregroundStyle(Brand.tabText)
@@ -592,7 +591,7 @@ struct ChatView: View {
                     Button(tr("보내기")) { requestResend(message, text: editText) }
                         .keyboardShortcut(.return, modifiers: .command).help(tr("보내기 (⌘↩)"))
                         .buttonStyle(BrandButtonStyle())
-                        .disabled(chat.running || editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(chat.currentRunning || editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }.font(Brand.font(.caption))
             }
             .frame(maxWidth: ChatPalette.bubbleWidth).frame(maxWidth: .infinity, alignment: .trailing)
@@ -621,7 +620,7 @@ struct ChatView: View {
                     ChatIconButton(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc", help: tr("질문 복사"), color: Brand.gray) { copy(message.text, id: message.id) }
                         .opacity(showsActions ? 1 : 0)
                     ChatIconButton(systemName: "pencil", help: tr("질문 편집"), color: Brand.gray) { editText = message.text; editingMessageID = message.id }
-                        .disabled(chat.running)
+                        .disabled(chat.currentRunning)
                         .opacity(showsActions ? 1 : 0)
                 }
                 .focused($focusedActions, equals: message.id)
@@ -712,14 +711,14 @@ struct ChatView: View {
                                 }
                                 if shown.status != "failed" {
                                     ChatIconButton(systemName: "arrow.clockwise", help: tr("다시 생성"), color: Brand.gray) { requestResend(message) }
-                                        .disabled(chat.running)
+                                        .disabled(chat.currentRunning)
                                     regenerateModelMenu(message)
                                 }
                             }
                             .opacity(showsActions ? 1 : 0)
                             .animation(.easeOut(duration: 0.12), value: showsActions)
                             if shown.status == "failed" {
-                                ChatPillButton(title: tr("다시 시도"), systemName: "arrow.clockwise") { requestResend(message) }.disabled(chat.running)
+                                ChatPillButton(title: tr("다시 시도"), systemName: "arrow.clockwise") { requestResend(message) }.disabled(chat.currentRunning)
                                 if ChatFailure.needsSettings(Self.failureParts(shown.text).error) {
                                     ChatPillButton(title: tr("설정 열기"), systemName: "gearshape") { openSettings() }
                                 }
@@ -743,7 +742,7 @@ struct ChatView: View {
                                     Text(tr("중단됨")).font(Brand.font(.caption))
                                 }.foregroundStyle(Brand.tabText).padding(.horizontal, 6)
                                 if chat.messages.last?.id == message.id && shownIndex == versions.count - 1 {
-                                    ChatPillButton(title: tr("이어서 쓰기"), systemName: "arrow.right") { chat.continueAnswer() }.disabled(chat.running)
+                                    ChatPillButton(title: tr("이어서 쓰기"), systemName: "arrow.right") { chat.continueAnswer() }.disabled(chat.currentRunning)
                                 }
                             }
                             Text(Self.answerMeta(shown)).foregroundStyle(Brand.gray).lineLimit(1).truncationMode(.tail).padding(.leading, 6)
@@ -872,7 +871,7 @@ struct ChatView: View {
         Button { chat.showBranch(message, at: index) } label: {
             Image(systemName: symbol).font(.system(size: 10)).frame(width: 24, height: 24).contentShape(Rectangle())
         }.buttonStyle(.plain).foregroundStyle(Brand.tabText)
-            .disabled(!(0..<count).contains(index) || chat.activeMessage?.conversationID == chat.current.id || editingMessageID != nil)
+            .disabled(!(0..<count).contains(index) || chat.currentRunning || editingMessageID != nil)
             .help(label).accessibilityLabel(label)
     }
 
@@ -896,7 +895,7 @@ struct ChatView: View {
                 Image(systemName: "chevron.down").font(.system(size: 8)).frame(width: 16, height: 28).contentShape(Rectangle())
             }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-            .disabled(chat.running)
+            .disabled(chat.currentRunning)
             .help(tr("다른 모델로 다시 생성")).accessibilityLabel(tr("다른 모델로 다시 생성"))
         }
     }
