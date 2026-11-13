@@ -686,9 +686,10 @@ final class ChatState: ObservableObject {
         case .text(let text): message.text += text; checkpoint = false
         case .step(let text): message.trace = (message.trace ?? []) + [ChatStep(title: text, status: .done)]
         case .stepStarted(let step): message.trace = (message.trace ?? []) + [step]
-        case .stepFinished(let id, let result, let failed):
+        case .stepFinished(let id, let result, let failed, let detail):
             if let index = message.trace?.firstIndex(where: { $0.id == id }) {
                 message.trace?[index].result = result
+                if let detail { message.trace?[index].detail = detail }
                 message.trace?[index].status = failed ? .failed : .done
                 message.trace?[index].endedAt = Date().timeIntervalSince1970
             }

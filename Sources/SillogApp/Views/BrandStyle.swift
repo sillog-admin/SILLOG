@@ -24,6 +24,7 @@ enum Brand {
     static let chipSelectedBorder = Color(hex: 0xCCBEB3)   // 고른 알약 1pt 테두리
     static let chipSelectedText = Color(hex: 0x3D2F27)     // 고른 알약 글자
     static let connected = Color(hex: 0x3D9B6B)    // 연결됨 점
+    static let danger = Color(hex: 0xC2412D)       // failure labels
     /// 유리 바탕(창 뒤 바탕화면 흐림) 위에 얹는 흰색 양. 낮을수록 바탕화면이 더 비친다
     static let glassTint = 0.08
     static let hairline = Color(red: 20 / 255, green: 18 / 255, blue: 16 / 255).opacity(0.08)

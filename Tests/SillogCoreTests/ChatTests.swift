@@ -528,6 +528,16 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(ChatRunner.stepDetail(.init(id: "a", name: "summarize_period", arguments: #"{"from":"2026-11-09","to":"2026-11-13"}"#)), "2026-11-09 – 2026-11-13")
     }
 
+    func testAStepThatReadsByIdShowsTheTitleOfWhatItRead() {
+        let read = ChatToolCall(id: "a", name: "read_context", arguments: #"{"id":"node:833","start":"1"}"#)
+        let sources = [ChatSource(id: "other", title: "대화 · 다른 것", location: "", excerpt: ""), ChatSource(id: "node:833", title: "업무 · 주간 보고", location: "", excerpt: "")]
+        XCTAssertEqual(ChatRunner.readDetail(read, sources: sources), "업무 · 주간 보고")
+        XCTAssertEqual(ChatRunner.readDetail(.init(id: "b", name: "read_context", arguments: #"{"id":"chat:390"}"#), sources: sources), "대화 · 다른 것", "no exact match falls back to the first source")
+        XCTAssertNil(ChatRunner.readDetail(read, sources: []), "nothing read keeps the id")
+        XCTAssertNil(ChatRunner.readDetail(.init(id: "c", name: "search_context", arguments: #"{"query":"보고"}"#), sources: sources), "a search keeps its query")
+        XCTAssertNil(ChatRunner.readDetail(.init(id: "d", name: "x_read", arguments: #"{"path":"a.md","id":"node:833"}"#), sources: sources), "a path shown before the id stays")
+    }
+
     func testLongChatsSendASummaryOfWhatNoLongerFits() async throws {
         let long = String(repeating: "가", count: 9_000)
         var history: [ConversationMessage] = []
@@ -733,7 +743,7 @@ private actor StepBox {
     var finished: [(String, String, Bool)] = []
     func add(_ event: ChatRunEvent) {
         if case .stepStarted(let step) = event { started.append(step) }
-        if case .stepFinished(let id, let result, let failed) = event { finished.append((id, result, failed)) }
+        if case .stepFinished(let id, let result, let failed, _) = event { finished.append((id, result, failed)) }
     }
 }
 

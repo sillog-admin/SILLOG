@@ -1,7 +1,7 @@
 import SwiftUI
 import SillogCore
 
-/// The steps an answer took, folded into one line: what it is doing while it runs, "n steps · time" when done.
+/// The steps an answer took, folded into one line: the current step and elapsed time while it runs, "n steps · time" when done.
 /// Opening it lists each tool call with what it looked at, and each result can be opened in turn.
 struct ChatWorkLog: View {
     let message: ConversationMessage
@@ -16,8 +16,12 @@ struct ChatWorkLog: View {
         VStack(alignment: .leading, spacing: 10) {
             Button { withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { isExpanded.toggle() } } label: {
                 HStack(spacing: 8) {
-                    if running { ProgressView().controlSize(.small) }
-                    Text(summary).font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
+                    if running {
+                        ProgressView().controlSize(.small)
+                        TimelineView(.periodic(from: .now, by: 1)) { context in summaryText(at: context.date) }
+                    } else {
+                        summaryText(at: .now)
+                    }
                     if !steps.isEmpty {
                         Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold)).foregroundStyle(Brand.gray)
                             .rotationEffect(.degrees(isExpanded ? 90 : 0))
@@ -36,8 +40,15 @@ struct ChatWorkLog: View {
         .accessibilityElement(children: .contain)
     }
 
-    private var summary: String {
-        if running { return steps.last.map { ChatRunner.displayTitle($0.title) } ?? tr("답변을 준비하고 있습니다") }
+    private func summaryText(at now: Date) -> some View {
+        Text(summary(at: now)).font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
+    }
+
+    private func summary(at now: Date) -> String {
+        if running {
+            let current = steps.last.map { ChatRunner.displayTitle($0.title) } ?? tr("답변을 준비하고 있습니다")
+            return current + " · " + Self.duration(now.timeIntervalSince1970 - message.createdAt)
+        }
         // Whole answer time, so writing after the last tool counts too.
         if let end = message.completedAt { return tr("작업 \(steps.count)단계 · \(Self.duration(end - message.createdAt))") }
         guard message.trace != nil, let first = steps.first?.startedAt else { return tr("작업 \(steps.count)단계") }
@@ -57,7 +68,10 @@ struct ChatWorkLog: View {
                 if !last { Rectangle().fill(Brand.line).frame(width: 1).frame(maxHeight: .infinity) }
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(ChatRunner.displayTitle(step.title)).font(Brand.font(.caption)).foregroundStyle(step.status == .failed ? Brand.ink : Brand.tabText)
+                HStack(spacing: 6) {
+                    Text(ChatRunner.displayTitle(step.title)).font(Brand.font(.caption)).foregroundStyle(step.status == .failed ? Brand.ink : Brand.tabText)
+                    if step.status == .failed { Text(tr("실패")).font(Brand.font(.tag, .medium)).foregroundStyle(Brand.danger) }
+                }
                 if !step.detail.isEmpty {
                     Text(step.detail).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(2).textSelection(.enabled)
                 }
@@ -88,7 +102,7 @@ struct ChatWorkLog: View {
         case .running where running: ProgressView().controlSize(.mini)
         case .running: Image(systemName: "minus.circle").font(.system(size: 11)).foregroundStyle(Brand.gray)
         case .done: Image(systemName: "checkmark.circle").font(.system(size: 11)).foregroundStyle(Brand.gray)
-        case .failed: Image(systemName: "exclamationmark.circle").font(.system(size: 11)).foregroundStyle(Brand.ink)
+        case .failed: Image(systemName: "exclamationmark.circle").font(.system(size: 11)).foregroundStyle(Brand.danger)
         }
     }
 }
