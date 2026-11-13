@@ -461,8 +461,10 @@ struct ChatComposer: View {
             MenuRow(icon: "paperclip", title: tr("파일 또는 사진 추가")) { showPlus = false; chat.uploadFiles() } trailing: {
                 Text("⌘U").font(Brand.font(.caption)).foregroundStyle(Brand.gray)
             }
+            .disabled(chat.isTemporary)    // attachments are saved to the library
             MenuRow(icon: "folder.badge.plus", title: tr("폴더 연결")) { showPlus = false; chat.connectFiles() }
             MenuRow(icon: "archivebox", title: tr("결과물에서 선택")) { showPlus = false; DispatchQueue.main.async { showLibraryPicker = true } }
+                .disabled(chat.isTemporary)
             if let drive = ConnectorEntry.all.first(where: { $0.id == "drive" }) {
                 MenuRow(icon: .logo(drive), title: tr("Google Drive에서 선택")) { showPlus = false; openDrivePicker() } trailing: {
                     if drivePicking { ProgressView().controlSize(.mini) }

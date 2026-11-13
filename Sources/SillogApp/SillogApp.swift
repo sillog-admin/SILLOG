@@ -45,6 +45,13 @@ struct SillogApp: App {
         }
         .defaultSize(width: 1180, height: 760)
         .commands {
+            CommandGroup(after: .newItem) {
+                Button(tr("새 임시 채팅")) {
+                    state.chat?.newConversation(temporary: true)
+                    state.taskDetailOpen = false; state.selectedTab = .chat
+                    WindowOpener.shared.openMain()
+                }.keyboardShortcut("n", modifiers: [.command, .shift]).disabled(state.chat == nil)
+            }
             CommandGroup(after: .toolbar) {
                 Divider()
                 Button(tr("확대")) { zoom(1) }.keyboardShortcut("=", modifiers: .command)

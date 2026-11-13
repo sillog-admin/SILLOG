@@ -154,7 +154,10 @@ struct ChatView: View {
         }
         .onChange(of: chat.current.scope) { old, new in if old != new { chat.saveScope() } }
         .onChange(of: chat.current.skillIDs) { old, new in if old != new { chat.saveScope() } }
-        .onChange(of: chat.current.id) { _, _ in editingMessageID = nil }
+        .onChange(of: chat.current.id) { _, _ in
+            editingMessageID = nil
+            if chat.isTemporary { pane = .chat }    // the File menu can start one from any pane, even while one is open
+        }
         .background {
             Group {
                 Button("") { chat.newConversation(); pane = .chat }.keyboardShortcut("n").disabled(editingMessageID != nil)
@@ -220,6 +223,14 @@ struct ChatView: View {
     private var chatContent: some View {
         VStack(spacing: 0) {
             if !chat.messages.isEmpty || !sidebarVisible { header }
+            if chat.isTemporary, !chat.messages.isEmpty {
+                Label(Self.temporaryNotice, systemImage: "eye.slash")
+                    .font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(1)
+                    .padding(.horizontal, 14).frame(height: 32).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 8))
+                    .frame(maxWidth: ChatPalette.readingWidth).frame(maxWidth: .infinity)
+                    .padding(.horizontal, 32).padding(.leading, showsQuestionMarks ? 44 : 0)
+            }
             // A scheduled run starts unasked, so it gets a banner; chats the user started show only in the sidebar.
             if let job = chat.automations.first(where: { $0.lastStatus == "실행 중" && $0.lastConversationID != chat.current.id
                                                        && chat.activeMessages[$0.lastConversationID ?? ""] != nil }),
@@ -293,9 +304,13 @@ struct ChatView: View {
         return VStack(spacing: 0) {
             Spacer(minLength: 0)
             VStack(alignment: .leading, spacing: 0) {
-                Text(tr("쌓아 온 기록으로 다음 일을 시작해요"))
+                Text(chat.isTemporary ? tr("임시 채팅") : tr("쌓아 온 기록으로 다음 일을 시작해요"))
                     .font(Brand.font(.screenTitle)).tracking(-0.48).foregroundStyle(Brand.ink).lineLimit(1)
                     .frame(maxWidth: .infinity)
+                if chat.isTemporary {
+                    Text(Self.temporaryNotice).font(Brand.font(.body)).foregroundStyle(Brand.tabText)
+                        .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.top, 8)
+                }
                 ChatComposer(chat: chat, library: library, modelName: modelName, openSettings: openSettings,
                              pendingRecords: pendingRecords, tidyNow: tidyNow, onOpenConnectors: { state.selectedTab = .connectors },
                              showsNotice: false)
@@ -330,7 +345,18 @@ struct ChatView: View {
             Text(tr("질문과 조회한 자료는 연결한 AI로 전송돼요. 웹 검색과 커넥터는 허용한 범위만 사용해요."))
                 .font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1).padding(.bottom, 14)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .topTrailing) {
+            ChatIconButton(systemName: chat.isTemporary ? "eye.slash.fill" : "eye.slash",
+                           help: chat.isTemporary ? tr("임시 채팅 끄기") : tr("임시 채팅 (⇧⌘N)"), label: tr("임시 채팅"),
+                           color: chat.isTemporary ? Brand.ink : Brand.tabText) {
+                chat.newConversation(temporary: !chat.isTemporary)
+            }
+            .accessibilityAddTraits(chat.isTemporary ? .isSelected : [])
+            .padding(.top, 20).padding(.trailing, 28)
+        }
     }
+
+    private static var temporaryNotice: String { tr("임시 채팅은 대화 목록에 남지 않아요. 나가거나 새 채팅을 시작하면 사라져요.") }
 
     /// 본문 머리(CH-02): 제목 하나, 밑줄 없음. 목록을 접었을 때(CH-30)만 목록 펼치기와 새 대화 아이콘이 제목 왼쪽에 붙는다.
     private var header: some View {
@@ -342,7 +368,9 @@ struct ChatView: View {
                     ChatIconButton(systemName: "square.and.pencil", help: tr("새 대화 (⌘N)"), label: tr("새 대화")) { chat.newConversation(); pane = .chat }
                 }
             }
-            if !chat.messages.isEmpty {
+            if chat.isTemporary, !chat.messages.isEmpty {
+                Text(tr("임시 채팅")).font(Brand.font(.rowTitle)).foregroundStyle(Brand.ink)
+            } else if !chat.messages.isEmpty {
                 if let project = chat.projects.projects.first(where: { $0.id == chat.current.projectID }) {
                     Button { chat.newConversation(projectID: project.id); pane = .project(project.id) } label: {
                         Label(project.title, systemImage: "folder").font(Brand.font(.rowTitle)).foregroundStyle(Brand.gray).lineLimit(1).frame(maxWidth: 220)
