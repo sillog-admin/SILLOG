@@ -5,13 +5,13 @@ public enum RecordingText {
     /// "45초", "2분", "52분 10초", "1시간 3분"
     public static func duration(_ seconds: Double) -> String {
         let total = max(0, Int(seconds.rounded()))
-        if total < 60 { return "\(total)초" }
+        if total < 60 { return tr("\(total)초") }
         if total < 3_600 {
             let minutes = total / 60, rest = total % 60
-            return rest == 0 ? "\(minutes)분" : "\(minutes)분 \(rest)초"
+            return rest == 0 ? tr("\(minutes)분") : tr("\(minutes)분 \(rest)초")
         }
         let hours = total / 3_600, minutes = (total % 3_600) / 60
-        return minutes == 0 ? "\(hours)시간" : "\(hours)시간 \(minutes)분"
+        return minutes == 0 ? tr("\(hours)시간") : tr("\(hours)시간 \(minutes)분")
     }
 
     /// 메뉴 막대의 지난 시간: "12:31", "1:02:03"
@@ -96,7 +96,7 @@ public struct RecordingTitler: Sendable {
     }
 
     public static func fallbackTitle(startedAt: Double, timeZone: TimeZone) -> String {
-        "녹음 " + RecordingText.date(startedAt, "yyyy-MM-dd HH-mm", timeZone: timeZone)
+        tr("녹음 \(RecordingText.date(startedAt, "yyyy-MM-dd HH-mm", timeZone: timeZone))")
     }
 
     /// 파일 이름: 날짜 + 제목 + .md. 쓸 수 없는 글자는 빼고, 제목에 이미 날짜가 있으면 한 번만
@@ -121,9 +121,9 @@ public struct RecordingTitler: Sendable {
     /// .md 본문: 제목, 녹음 시각과 길이, 요약, 받아쓴 글(발화마다 한 문단)
     public static func markdown(title: String, summary: String?, utterances: [String], startedAt: Double, duration: Double, timeZone: TimeZone) -> String {
         var lines: [String] = ["# \(title)", ""]
-        lines.append("- 녹음: \(RecordingText.date(startedAt, "yyyy년 M월 d일 HH:mm", timeZone: timeZone)), \(RecordingText.duration(duration))")
-        if let summary, !summary.isEmpty { lines.append("- 요약: \(summary)") }
-        lines += ["", "## 받아쓴 글", ""]
+        lines.append("- \(tr("녹음")): \(RecordingText.date(startedAt, tr("yyyy년 M월 d일 HH:mm"), timeZone: timeZone)), \(RecordingText.duration(duration))")
+        if let summary, !summary.isEmpty { lines.append("- \(tr("요약")): \(summary)") }
+        lines += ["", "## \(tr("받아쓴 글"))", ""]
         lines.append(utterances.joined(separator: "\n\n"))
         return lines.joined(separator: "\n") + "\n"
     }

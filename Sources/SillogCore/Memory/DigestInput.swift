@@ -120,8 +120,8 @@ public struct DigestInput: Encodable, Sendable {
         var input = DigestInput(level: period.level, period: period.id, from: period.days.first ?? "", to: period.days.last ?? "",
                                 task: TaskInfo(key: taskKey, title: node.title, goal: node.props["goal"]?.stringValue.flatMap { $0.isEmpty ? nil : $0 },
                                                status: node.props["status"]?.stringValue ?? "active"),
-                                time: TimePhrase.approx(metrics.activeSeconds), metrics: metrics)
-        input.resources = metrics.resources.map { Resource(key: $0.key, title: $0.title, time: TimePhrase.approx($0.seconds)) }
+                                time: TimePhrase.approx(metrics.activeSeconds, localized: false), metrics: metrics)
+        input.resources = metrics.resources.map { Resource(key: $0.key, title: $0.title, time: TimePhrase.approx($0.seconds, localized: false)) }
 
         // 세션과 그 요약
         let sessionRows = try Row.fetchAll(conn, sql: """

@@ -5,7 +5,7 @@ extension ConversationMessage {
     public var markdown: String {
         guard !sources.isEmpty else { return text }
         let list = sources.map { source in
-            "- [\(source.id)] \(source.title)" + (source.location.isEmpty ? "" : " — \(source.location)")
+            "- [\(source.id)] \(ChatRunner.displayTitle(source.title))" + (source.location.isEmpty ? "" : " — \(source.location)")
         }
         return text + "\n\n**\(tr("출처"))**\n\n" + list.joined(separator: "\n")
     }

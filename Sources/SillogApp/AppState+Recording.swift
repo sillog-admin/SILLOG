@@ -11,9 +11,9 @@ struct ActiveRecording: Equatable {
 /// 메뉴 막대 녹음: 시작 → 끝 → 받아쓰기 → 제목·.md → 폴더 제안 → 알림.
 /// 받아쓰는 동안에도 새로 녹음할 수 있고, 정리는 하나씩 차례로 한다 (기기 안 인식기를 하나만 쓴다)
 extension AppState {
-    static let crashedRecordingMessage = tr("녹음 중 앱이 꺼져 녹음 파일을 읽을 수 없어요")
+    static var crashedRecordingMessage: String { tr("녹음 중 앱이 꺼져 녹음 파일을 읽을 수 없어요") }
     /// 녹음기가 (인코딩 오류·입력 장치 끊김·디스크 가득 참으로) 스스로 멈춰 currentTime 이 0 이고, 파일에서도 길이를 잴 수 없을 때
-    static let stoppedRecordingMessage = tr("녹음이 중간에 멈춰 녹음된 소리를 찾지 못했어요")
+    static var stoppedRecordingMessage: String { tr("녹음이 중간에 멈춰 녹음된 소리를 찾지 못했어요") }
 
     /// 녹음기가 돌려준 길이(stopped)와 파일에서 다시 잰 길이(file) 중 더 믿을 만한 값.
     /// AVAudioRecorder 가 스스로 멈추면(인코딩 오류 등) currentTime 이 0 인데, 파일에는 소리가 남아 있을 수 있다

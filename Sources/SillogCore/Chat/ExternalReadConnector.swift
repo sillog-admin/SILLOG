@@ -51,7 +51,7 @@ public enum ExternalReadConnector: String, CaseIterable, Identifiable, Sendable 
             let files = list["files"]?.arrayValue ?? []
             if let reference {
                 guard files.contains(where: { $0.objectValue?["key"]?.stringValue == reference }) else {
-                    throw ChatToolError.unavailable("지정한 Figma 폴더에 있는 파일만 읽을 수 있습니다.")
+                    throw ChatToolError.unavailable(tr("지정한 Figma 폴더에 있는 파일만 읽을 수 있습니다."))
                 }
                 let file = try await get("https://api.figma.com/v1/files/\(reference)", ["depth": "5"], token: token)
                 var text: [String] = []
@@ -68,7 +68,7 @@ public enum ExternalReadConnector: String, CaseIterable, Identifiable, Sendable 
             let response = try await get("https://slack.com/api/search.messages",
                                          ["query": term.isEmpty ? "after:2000-01-01" : term, "count": "\(limit)"], token: token)
             guard response["ok"] == .bool(true) else {
-                throw ChatToolError.unavailable("Slack 검색에 실패했습니다. 사용자 토큰에 search:read 권한이 있는지 확인하세요.")
+                throw ChatToolError.unavailable(tr("Slack 검색에 실패했습니다. 사용자 토큰에 search:read 권한이 있는지 확인하세요."))
             }
             return (response["messages"]?.objectValue?["matches"]?.arrayValue ?? []).compactMap { value in
                 guard let message = value.objectValue, let body = message["text"]?.stringValue,
@@ -88,16 +88,16 @@ public enum ExternalReadConnector: String, CaseIterable, Identifiable, Sendable 
             let messages = try await json("\(url)/messages", ["limit": limit == 1 ? "3" : "100"], token: token).arrayValue ?? []
             let found = messages.compactMap { discordMessage($0.objectValue ?? [:], channel: channel, guild: guild) }
             if !messages.isEmpty && found.allSatisfy({ $0.excerpt.isEmpty }) {
-                throw ChatToolError.unavailable("Discord 메시지 본문을 읽을 수 없습니다. 봇의 Message Content 권한을 확인하세요.")
+                throw ChatToolError.unavailable(tr("Discord 메시지 본문을 읽을 수 없습니다. 봇의 Message Content 권한을 확인하세요."))
             }
             return Array(found.filter { Self.matches($0.excerpt, term) }.prefix(limit))
         case .higgsfield:
             let registered = try resource.split(whereSeparator: { $0.isWhitespace || $0 == "," }).map { try identifier(String($0)) }
             guard (1...10).contains(registered.count), registered.allSatisfy({ UUID(uuidString: $0) != nil }) else {
-                throw ChatToolError.unavailable("Higgsfield API 요청 ID를 1개에서 10개까지 입력하세요.")
+                throw ChatToolError.unavailable(tr("Higgsfield API 요청 ID를 1개에서 10개까지 입력하세요."))
             }
             if let reference, !registered.contains(reference) {
-                throw ChatToolError.unavailable("등록한 Higgsfield 요청만 읽을 수 있습니다.")
+                throw ChatToolError.unavailable(tr("등록한 Higgsfield 요청만 읽을 수 있습니다."))
             }
             var matches: [ChatSource] = []
             for key in reference.map({ [$0] }) ?? registered {
@@ -107,7 +107,7 @@ public enum ExternalReadConnector: String, CaseIterable, Identifiable, Sendable 
                 let images = job["images"]?.arrayValue?.count ?? 0
                 let video = job["video"]?.objectValue != nil
                 let audio = job["audio"]?.objectValue != nil || !(job["audios"]?.arrayValue ?? []).isEmpty
-                let excerpt = "상태 \(status) · 이미지 \(images)개\(video ? " · 영상 있음" : "")\(audio ? " · 오디오 있음" : "")"
+                let excerpt = tr("상태 \(status) · 이미지 \(images)개\(video ? tr(" · 영상 있음") : "")\(audio ? tr(" · 오디오 있음") : "")")
                 matches.append(source(key, title: "Higgsfield · \(key)", location: "https://open.higgsfield.ai", excerpt: excerpt))
                 if matches.count == limit { break }
             }
@@ -126,8 +126,8 @@ public enum ExternalReadConnector: String, CaseIterable, Identifiable, Sendable 
             return rows.compactMap { value in
                 guard let design = value.objectValue, let key = design["id"]?.stringValue else { return nil }
                 let types = design["design_types"]?.arrayValue?.compactMap(\.stringValue) ?? []
-                let format = types.isEmpty ? "디자인" : types.joined(separator: ", ")
-                let pages = design["page_count"]?.doubleValue.flatMap(Int.init(exactly:)).map { "\($0)페이지" }
+                let format = types.isEmpty ? tr("디자인") : types.joined(separator: ", ")
+                let pages = design["page_count"]?.doubleValue.flatMap(Int.init(exactly:)).map { tr("\($0)페이지") }
                 let updated = design["updated_at"]?.doubleValue.map { ISO8601DateFormatter().string(from: Date(timeIntervalSince1970: $0)) }
                 return source(key, title: design["title"]?.stringValue, location: "https://www.canva.com/design/\(key)/view",
                               excerpt: [format, pages, updated].compactMap { $0 }.joined(separator: " · "))
@@ -139,7 +139,7 @@ public enum ExternalReadConnector: String, CaseIterable, Identifiable, Sendable 
             if let reference {
                 let project = try await json("\(url)/\(reference)", token: token)
                 guard project.objectValue?["workspace_id"]?.stringValue == workspace else {
-                    throw ChatToolError.unavailable("연결한 Lovable 워크스페이스의 프로젝트만 읽을 수 있습니다.")
+                    throw ChatToolError.unavailable(tr("연결한 Lovable 워크스페이스의 프로젝트만 읽을 수 있습니다."))
                 }
                 rows = [project]
             } else {
@@ -149,7 +149,7 @@ public enum ExternalReadConnector: String, CaseIterable, Identifiable, Sendable 
             }
             return rows.compactMap { value in
                 guard let project = value.objectValue, let key = project["id"]?.stringValue else { return nil }
-                let status = project["is_published"] == .bool(true) ? "게시됨" : "게시 전"
+                let status = project["is_published"] == .bool(true) ? tr("게시됨") : tr("게시 전")
                 return source(key, title: project["name"]?.stringValue, location: "https://lovable.dev/projects/\(key)",
                               excerpt: [project["description"]?.stringValue, status, project["last_edited_at"]?.stringValue]
                                 .compactMap { $0 }.joined(separator: "\n"))
@@ -185,26 +185,26 @@ public enum ExternalReadConnector: String, CaseIterable, Identifiable, Sendable 
     private func identifier(_ value: String) throws -> String {
         let id = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard id.range(of: "^[A-Za-z0-9_-]{1,128}$", options: .regularExpression) != nil else {
-            throw ChatToolError.unavailable("\(name) 자료 ID를 확인하세요.")
+            throw ChatToolError.unavailable(tr("\(name) 자료 ID를 확인하세요."))
         }
         return id
     }
 
     private func get(_ url: String, _ parameters: [String: String] = [:], token: String) async throws -> [String: JSONValue] {
         guard let object = try await json(url, parameters, token: token).objectValue else {
-            throw ChatToolError.unavailable("\(name) 응답을 읽을 수 없습니다.")
+            throw ChatToolError.unavailable(tr("\(name) 응답을 읽을 수 없습니다."))
         }
         return object
     }
 
     private func json(_ url: String, _ parameters: [String: String] = [:], token: String) async throws -> JSONValue {
         guard !token.isEmpty, !token.contains(where: \.isNewline), var parts = URLComponents(string: url) else {
-            throw ChatToolError.unavailable("\(name) 연결 정보를 확인하세요.")
+            throw ChatToolError.unavailable(tr("\(name) 연결 정보를 확인하세요."))
         }
         if !parameters.isEmpty {
             parts.queryItems = parameters.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }
         }
-        guard let url = parts.url else { throw ChatToolError.unavailable("\(name) 요청 주소가 올바르지 않습니다.") }
+        guard let url = parts.url else { throw ChatToolError.unavailable(tr("\(name) 요청 주소가 올바르지 않습니다.")) }
         var request = URLRequest(url: url)
         request.timeoutInterval = 18
         request.setValue("application/json", forHTTPHeaderField: "Accept")

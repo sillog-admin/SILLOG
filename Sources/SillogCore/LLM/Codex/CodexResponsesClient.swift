@@ -67,9 +67,9 @@ public struct CodexUsage: Equatable, Sendable {
         /// "5시간", "7일" 처럼 창 길이를 읽기 좋게.
         public var label: String {
             let hours = Double(windowSeconds) / 3600
-            if hours >= 48 { return "\(Int((hours / 24).rounded()))일" }
-            if hours >= 1 { return "\(Int(hours.rounded()))시간" }
-            return "\(max(1, windowSeconds / 60))분"
+            if hours >= 48 { return tr("\(Int((hours / 24).rounded()))일") }
+            if hours >= 1 { return tr("\(Int(hours.rounded()))시간") }
+            return tr("\(max(1, windowSeconds / 60))분")
         }
     }
 
@@ -302,7 +302,7 @@ public final class CodexResponsesClient: LLMClient, @unchecked Sendable {
         }
 
         if let failure { throw LLMError.backend(failure) }
-        guard completed else { throw LLMError.backend("응답이 완료되기 전에 연결이 종료되었습니다.") }
+        guard completed else { throw LLMError.backend(tr("응답이 완료되기 전에 연결이 종료되었습니다.")) }
         for candidate in completedArguments + deltaOrder.compactMap({ deltas[$0] }) + [text] {
             if let json = OpenAICompatClient.extractJSON(from: candidate), let data = json.data(using: .utf8) {
                 return LLMResult(arguments: data, model: model, promptTokens: promptTokens, completionTokens: completionTokens, raw: raw)

@@ -50,8 +50,8 @@ public struct TaskMerger: Sendable {
                     "properties": .object([
                         "keep": .object(["type": "string", "description": "남길 업무 id"]),
                         "merge": .object(["type": "array", "items": .object(["type": "string"]), "description": "keep 에 합칠 업무 id 들 (이름만 고칠 때는 빈 목록)"]),
-                        "title": .object(["type": "string", "description": "남길 업무의 제목이 모호할 때만, 더 나은 한국어 제목"]),
-                        "goal": .object(["type": "string", "description": "남길 업무의 목표 문장이 모호할 때만, 더 나은 한국어 한 문장"]),
+                        "title": .object(["type": "string", "description": .string("남길 업무의 제목이 모호할 때만, 더 나은 \(L10n.current.nameInKorean) 제목")]),
+                        "goal": .object(["type": "string", "description": .string("남길 업무의 목표 문장이 모호할 때만, 더 나은 \(L10n.current.nameInKorean) 한 문장")]),
                     ]),
                     "required": .array(["keep", "merge"]),
                 ])]),

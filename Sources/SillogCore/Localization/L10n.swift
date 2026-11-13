@@ -6,6 +6,9 @@ public enum AppLanguage: String, CaseIterable, Codable, Sendable {
     /// Language name used in LLM prompts for generated titles and summaries.
     public var promptName: String { self == .ko ? "Korean" : "English" }
 
+    /// `promptName` for tool schema descriptions written in Korean.
+    public var nameInKorean: String { self == .ko ? "한국어" : "영어" }
+
     /// Korean for a Korean system, English otherwise.
     public static var system: AppLanguage {
         Locale.preferredLanguages.first?.hasPrefix("ko") == true ? .ko : .en
@@ -48,6 +51,9 @@ public enum L10n {
 
     /// Runtime keys such as stored enum raw values.
     public static func tr(key: String) -> String { tr(LocalizedText(stringLiteral: key)) }
+
+    /// Returns: the Korean source with its values filled in, for logs, hashes and model input that must not follow the app language.
+    public static func korean(_ text: LocalizedText) -> String { fill(text.key, text.args) }
 
     /// Fills `%@` in order, or `%1$@`-style when a translation reorders the values.
     static func fill(_ format: String, _ args: [String]) -> String {

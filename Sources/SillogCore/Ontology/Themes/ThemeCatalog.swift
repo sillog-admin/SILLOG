@@ -6,8 +6,8 @@ public enum ThemeCatalog {
     public static let defaults = ["학업", "취업 준비", "프로젝트", "직장 업무", "생활 행정", "자기계발"]
     /// 분야 노드의 최대 수 (기본 분야 포함). Jev 선택지 제한과 같다
     public static let limit = 20
-    /// 분야 이름의 최대 글자 수. 이보다 긴 답은 이름이 아니라 문장으로 본다
-    public static let nameLimit = 20
+    /// Longer answers are sentences, not names. English names need about twice the characters.
+    public static var nameLimit: Int { L10n.current == .ko ? 20 : 40 }
 
     /// 표시 이름: 공백을 하나로
     public static func normalize(_ name: String) -> String {
@@ -19,10 +19,15 @@ public enum ThemeCatalog {
         name.filter { !$0.isWhitespace }.lowercased()
     }
 
-    /// 기본 분야와 공백·대소문자만 다르면 기본 분야의 표기로
+    /// Keys a theme matches by: its own spelling and, for a stored Korean name, the English shown for it.
+    static func matchKeys(_ name: String) -> Set<String> {
+        Set([name, L10n.english[name]].compactMap { $0 }.map(matchKey))
+    }
+
+    /// The default theme's spelling when the name differs only in spacing or case, or is its English name.
     public static func canonical(_ name: String) -> String {
         let clean = normalize(name)
-        return defaults.first { matchKey($0) == matchKey(clean) } ?? clean
+        return defaults.first { matchKeys($0).contains(matchKey(clean)) } ?? clean
     }
 }
 
@@ -36,10 +41,10 @@ public enum ThemeGraph {
         return nil
     }
 
-    /// 이름이 같은 분야 (공백·대소문자 무시)
+    /// The theme with this name, ignoring spacing and case, or whose English name it is.
     public static func find(_ name: String, _ tx: GraphTx) throws -> GraphNode? {
         let key = ThemeCatalog.matchKey(name)
-        return try tx.nodes(label: NodeLabel.theme).first { ThemeCatalog.matchKey($0.title) == key }
+        return try tx.nodes(label: NodeLabel.theme).first { ThemeCatalog.matchKeys($0.title).contains(key) }
     }
 
     /// 업무를 분야에 잇는다. 같은 이름의 분야가 있으면 그것을, 없으면 자리가 남을 때만 만든다.

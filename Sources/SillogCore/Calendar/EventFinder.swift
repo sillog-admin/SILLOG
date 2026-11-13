@@ -53,12 +53,12 @@ public enum EventFinder {
     \(StagePrompt.rowsGuide)
     - DATE lines: ROWS are grouped by day. A row happened on the date of the DATE line above it.
 
-    Go through every row and list in `mentions` each expression that points to a coming day or time: a date, a weekday, 오늘/내일/모레/다음 주, a deadline, a period such as "~ 10. 27. 23:59", a time such as "7시". Chats, course pages, assignment lists, recordings and the user's messages to an AI assistant are the usual places. For each mention give:
+    Go through every row and list in `mentions` each expression that points to a coming day or time: a date, a weekday, 오늘/내일/모레/다음 주 or today/tomorrow/next week, a deadline, a period such as "~ 10. 27. 23:59", a time such as "7시" or "7pm". Chats, course pages, assignment lists, recordings and the user's messages to an AI assistant are the usual places. For each mention give:
     - row: the row where it appears
     - evidence: the words that state the day or the time, quoted as written (under 80 characters)
     - title: a short \(L10n.current.promptName) title that says what it is and with whom or for which course ("민수와 저녁 약속", "데이터베이스 과제 3 마감", "기획 팀 회의")
-    - date: yyyy-MM-dd. Resolve relative days ("오늘", "내일", "모레", "이번 주 금요일", "다음 주 목요일") from the date of the row where they appear, or from the date the screen shows for a quoted message (a date divider above it), not from NOW; THIS_WEEK and NEXT_WEEK help with weekday names.
-    - start_time and end_time: HH:mm, only when a time is stated. A deadline's time goes in start_time. Read a time without 오전/오후 as the hour that fits the plan (저녁 7시 → 19:00, 3시 회의 → 15:00).
+    - date: yyyy-MM-dd. Resolve relative days ("오늘", "내일", "모레", "이번 주 금요일", "다음 주 목요일", "today", "tomorrow", "this Friday", "next Thursday") from the date of the row where they appear, or from the date the screen shows for a quoted message (a date divider above it), not from NOW; THIS_WEEK and NEXT_WEEK help with weekday names.
+    - start_time and end_time: HH:mm, only when a time is stated. A deadline's time goes in start_time. Read a time without 오전/오후 or AM/PM as the hour that fits the plan (저녁 7시 → 19:00, 3시 회의 → 15:00, dinner at 7 → 19:00).
     - whose: mine for the user's own commitment (a plan the user agreed to or will attend, something the user must submit or pay, an assignment or exam of a course the user takes, a meeting or deadline of a team the user belongs to). others for another person's own plan, exam or task, even when they mention it in a chat with the user. public for a date in news, an ad, a posting, a notice or an event listing the user only browsed.
     - keep: true only for one of these two kinds, when whose is mine, the exact day is stated or can be worked out (not a vague "다음 주" or "이번 달"), the day or time is not past, and the event is not in KNOWN (even when it is worded differently):
       1. an appointment, meeting, plan or deadline set in a conversation the user takes part in: a chat, messenger, mail, recording, or the user's own message to an AI assistant ("내일 7시에 강남역에서 보자" answered with "좋아"; "토요일까지 각자 맡은 부분 고쳐 주세요" in the team chat).
@@ -76,7 +76,7 @@ public enum EventFinder {
                     "properties": .object([
                         "row": .object(["type": "integer", "description": "표현이 나온 행 번호"]),
                         "evidence": .object(["type": "string", "description": "날짜나 시간을 말하는 기록의 문구 그대로, 80자 이내"]),
-                        "title": .object(["type": "string", "description": "무엇인지와 누구와·어느 과목인지 담은 짧은 한국어 제목"]),
+                        "title": .object(["type": "string", "description": .string("무엇인지와 누구와·어느 과목인지 담은 짧은 \(L10n.current.nameInKorean) 제목")]),
                         "date": .object(["type": "string", "description": "yyyy-MM-dd"]),
                         "start_time": .object(["type": "string", "description": "HH:mm, 시간이 나올 때만 (마감 시각도 여기)"]),
                         "end_time": .object(["type": "string", "description": "HH:mm, 끝 시간이 나올 때만"]),
@@ -183,7 +183,8 @@ public enum EventFinder {
         let quote = OntologyPrompt.clip(found.evidence.trimmingCharacters(in: .whitespacesAndNewlines), 100)
         guard let row else { return quote }
         let text = quote.isEmpty ? (row.title ?? row.uri ?? "") : quote
-        return text.isEmpty ? row.app : "\(row.app) · \(text)"
+        let app = row.appBundle == "sillog.recording" ? tr("녹음") : row.app   // recording rows keep the Korean app name the prompt refers to
+        return text.isEmpty ? app : "\(app) · \(text)"
     }
 
     /// 이보다 먼 날짜(일)는 제안하지 않는다

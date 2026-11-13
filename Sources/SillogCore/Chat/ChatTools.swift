@@ -101,7 +101,7 @@ public struct ChatTools: Sendable {
     /// Returns: 도구 결과 텍스트와 출처 목록.
     /// Raises: 허용하지 않은 도구·경로, 잘못된 인자, 파일·DB·네트워크 오류.
     func execute(_ call: ChatToolCall) async throws -> ChatToolOutput {
-        guard specs.contains(where: { $0.name == call.name }) else { throw ChatToolError.unavailable("허용하지 않은 도구입니다: \(call.name)") }
+        guard specs.contains(where: { $0.name == call.name }) else { throw ChatToolError.unavailable(tr("허용하지 않은 도구입니다: \(call.name)")) }
         let args = try JSONDecoder().decode([String: String].self, from: Data(call.arguments.utf8))
         if let prefix = call.name.split(separator: "_").first, remoteConnectors.contains(String(prefix)),
            let connector = RemoteReadConnector(rawValue: String(prefix)) {
@@ -127,7 +127,7 @@ public struct ChatTools: Sendable {
         case "summarize_period":
             let to = try Self.date(args["to"] ?? "", fallback: Date().timeIntervalSince1970, endOfDay: true)
             let from = try Self.date(args["from"] ?? "", fallback: to - 7 * 86_400)
-            guard from < to else { throw ChatToolError.unavailable("시작일이 종료일보다 늦습니다.") }
+            guard from < to else { throw ChatToolError.unavailable(tr("시작일이 종료일보다 늦습니다.")) }
             return try Self.output(search.summarize(from: from, to: to, task: args["task"]))
         case "search_library": return try Self.output(library.search(args["query"] ?? "", ids: currentLibraryIDs()))
         case "read_library": return try Self.output([library.read(args["id"] ?? "", ids: currentLibraryIDs(), start: Int(args["start"] ?? "1") ?? 1)])
@@ -136,13 +136,13 @@ public struct ChatTools: Sendable {
         case "inspect_repository", "read_revision":
             let root = try allowedURL(args["path"] ?? "")
             let top = try await Self.git(root, ["rev-parse", "--show-toplevel"]).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard try allowedURL(top).path == root.path else { throw ChatToolError.unavailable("연결 범위에 포함된 저장소 루트를 지정하세요.") }
+            guard try allowedURL(top).path == root.path else { throw ChatToolError.unavailable(tr("연결 범위에 포함된 저장소 루트를 지정하세요.")) }
             let body: String
             if call.name == "read_revision" {
                 let commit = args["commit"] ?? "", file = args["file"] ?? ""
-                guard (40...64).contains(commit.count), commit.allSatisfy(\.isHexDigit), !file.isEmpty, !file.hasPrefix("/") else { throw ChatToolError.unavailable("커밋 SHA와 상대 파일 경로가 필요합니다.") }
+                guard (40...64).contains(commit.count), commit.allSatisfy(\.isHexDigit), !file.isEmpty, !file.hasPrefix("/") else { throw ChatToolError.unavailable(tr("커밋 SHA와 상대 파일 경로가 필요합니다.")) }
                 let target = try allowedURL(root.appendingPathComponent(file).path)
-                guard target.path.hasPrefix(root.path + "/") else { throw ChatToolError.unavailable("저장소 밖의 파일입니다.") }
+                guard target.path.hasPrefix(root.path + "/") else { throw ChatToolError.unavailable(tr("저장소 밖의 파일입니다.")) }
                 body = try await Self.git(root, ["show", "\(commit):\(file)"])
             } else {
                 body = try await Self.git(root, ["log", "-30", "--date=iso-strict", "--format=%H%n%an <%ae>%n%ad%n%s", "--stat", "--no-ext-diff", "--no-textconv"])
@@ -163,7 +163,7 @@ public struct ChatTools: Sendable {
         default:
             guard let prefix = call.name.split(separator: "_").first,
                   let connector = ExternalReadConnector(rawValue: String(prefix)) else {
-                throw ChatToolError.unavailable("알 수 없는 도구입니다.")
+                throw ChatToolError.unavailable(tr("알 수 없는 도구입니다."))
             }
             return try await Self.output(connector.sources(query: args["query"] ?? "", reference: args["id"],
                                                         token: connectorToken(connector.id), resource: connectorResource(connector.id)))
@@ -188,7 +188,7 @@ public struct ChatTools: Sendable {
             sources = try await notionRead(page.id).sources
         default:
             guard let connector = ExternalReadConnector(rawValue: id) else {
-                throw ChatToolError.unavailable("알 수 없는 커넥터입니다.")
+                throw ChatToolError.unavailable(tr("알 수 없는 커넥터입니다."))
             }
             let token = try await connectorToken(id)
             let resource = try connectorResource(id)
@@ -255,7 +255,7 @@ public struct ChatTools: Sendable {
             return url.path == root.path || (directory.boolValue && url.path.hasPrefix(root.path + "/"))
         }
         let blocked = (requested.pathComponents + url.pathComponents).contains { Self.isPrivate($0) }
-        guard allowed, !blocked else { throw ChatToolError.unavailable("연결한 자료 범위를 벗어나거나 인증 정보가 포함된 경로입니다.") }
+        guard allowed, !blocked else { throw ChatToolError.unavailable(tr("연결한 자료 범위를 벗어나거나 인증 정보가 포함된 경로입니다.")) }
         return url
     }
 
@@ -307,13 +307,13 @@ public struct ChatTools: Sendable {
     private func readFile(path: String, start: Int) throws -> ChatSource {
         let url = try allowedURL(path), offset = max(1, start)
         let size = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
-        guard size.isRegularFile == true, (size.fileSize ?? 0) <= 10_000_000 else { throw ChatToolError.unavailable("10MB 이하의 일반 파일만 읽을 수 있습니다.") }
+        guard size.isRegularFile == true, (size.fileSize ?? 0) <= 10_000_000 else { throw ChatToolError.unavailable(tr("10MB 이하의 일반 파일만 읽을 수 있습니다.")) }
         let content: String
         if url.pathExtension.lowercased() == "pdf" {
-            guard let pdf = PDFDocument(url: url), offset <= pdf.pageCount else { throw ChatToolError.unavailable("PDF를 읽을 수 없거나 페이지 범위를 벗어났습니다.") }
-            content = ((offset - 1)..<min(pdf.pageCount, offset + 4)).map { "[\($0 + 1)쪽]\n\(pdf.page(at: $0)?.string ?? "추출 가능한 텍스트 없음")" }.joined(separator: "\n")
+            guard let pdf = PDFDocument(url: url), offset <= pdf.pageCount else { throw ChatToolError.unavailable(tr("PDF를 읽을 수 없거나 페이지 범위를 벗어났습니다.")) }
+            content = ((offset - 1)..<min(pdf.pageCount, offset + 4)).map { tr("[\($0 + 1)쪽]\n\(pdf.page(at: $0)?.string ?? tr("추출 가능한 텍스트 없음"))") }.joined(separator: "\n")
         } else {
-            guard (size.fileSize ?? 0) <= 1_000_000 else { throw ChatToolError.unavailable("텍스트 파일은 1MB 이하로 연결하세요.") }
+            guard (size.fileSize ?? 0) <= 1_000_000 else { throw ChatToolError.unavailable(tr("텍스트 파일은 1MB 이하로 연결하세요.")) }
             let text = try String(contentsOf: url, encoding: .utf8)
             content = text.components(separatedBy: "\n").enumerated().dropFirst(offset - 1).prefix(250).map { "\($0.offset + 1): \($0.element)" }.joined(separator: "\n")
         }
@@ -340,7 +340,7 @@ public struct ChatTools: Sendable {
                 if output.count < 24000 { output.append(chunk.prefix(24000 - output.count)) }
             }
             process.waitUntilExit()
-            guard process.terminationStatus == 0 else { throw ChatToolError.unavailable("Git 자료를 읽지 못했습니다. 저장소 경로와 커밋을 확인하세요.") }
+            guard process.terminationStatus == 0 else { throw ChatToolError.unavailable(tr("Git 자료를 읽지 못했습니다. 저장소 경로와 커밋을 확인하세요.")) }
             return String(decoding: output, as: UTF8.self)
         }.value
         try Task.checkCancellation()
@@ -352,14 +352,15 @@ public struct ChatTools: Sendable {
     /// Raises: OpenAI API·네트워크·응답 오류.
     private func openAISearch(_ query: String) async throws -> ChatToolOutput {
         guard !searchKey.isEmpty, !searchModel.isEmpty else {
-            throw ChatToolError.unavailable("웹 검색에는 공식 OpenAI API 채팅 연결과 API 키가 필요합니다. Codex 연결을 선택해도 웹 검색할 수 있습니다.")
+            throw ChatToolError.unavailable(tr("웹 검색에는 공식 OpenAI API 채팅 연결과 API 키가 필요합니다. Codex 연결을 선택해도 웹 검색할 수 있습니다."))
         }
         var request = URLRequest(url: URL(string: "https://api.openai.com/v1/responses")!)
         request.httpMethod = "POST"; request.timeoutInterval = 45
         request.setValue("Bearer \(searchKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(JSONValue.object([
-            "model": .string(searchModel), "input": .string("다음 주제의 신뢰할 만한 웹 자료를 찾아 간단히 요약하세요. 검색어: \(query)"),
+            "model": .string(searchModel), "input": .string(L10n.current == .ko ? "다음 주제의 신뢰할 만한 웹 자료를 찾아 간단히 요약하세요. 검색어: \(query)"
+                                            : "Find reliable web sources on this topic and summarize them briefly in English. Query: \(query)"),
             "tools": .array([.object(["type": .string("web_search")])]),
             "tool_choice": .string("required"), "include": .array([.string("web_search_call.action.sources")]),
         ]))
@@ -380,7 +381,7 @@ public struct ChatTools: Sendable {
             for source in value["action"]?.objectValue?["sources"]?.arrayValue ?? [] {
                 let item = source.objectValue ?? [:]
                 if let url = item["url"]?.stringValue {
-                    sources.append(.init(id: url, title: item["title"]?.stringValue ?? url, location: url, excerpt: "웹 검색 결과"))
+                    sources.append(.init(id: url, title: item["title"]?.stringValue ?? url, location: url, excerpt: tr("웹 검색 결과")))
                 }
             }
         }
@@ -393,16 +394,16 @@ public struct ChatTools: Sendable {
     /// Raises: 잘못된 저장소 식별자, 권한·HTTP·네트워크 오류.
     private func github(repository: String, path: String, pull: String) async throws -> ChatToolOutput {
         let parts = repository.split(separator: "/")
-        guard parts.count == 2, parts.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." && $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "-_.".contains($0)) } }), pull.isEmpty || (Int(pull) ?? 0) > 0 else { throw ChatToolError.unavailable("저장소 이름 또는 PR 번호가 올바르지 않습니다.") }
+        guard parts.count == 2, parts.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." && $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "-_.".contains($0)) } }), pull.isEmpty || (Int(pull) ?? 0) > 0 else { throw ChatToolError.unavailable(tr("저장소 이름 또는 PR 번호가 올바르지 않습니다.")) }
         if !path.isEmpty {
-            guard pull.isEmpty, !path.hasPrefix("/"), !path.split(separator: "/").contains(".."), path.count < 500 else { throw ChatToolError.unavailable("저장소의 상대 파일 경로가 필요합니다.") }
+            guard pull.isEmpty, !path.hasPrefix("/"), !path.split(separator: "/").contains(".."), path.count < 500 else { throw ChatToolError.unavailable(tr("저장소의 상대 파일 경로가 필요합니다.")) }
             let encoded = path.split(separator: "/").map { String($0).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? String($0) }.joined(separator: "/")
             var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(repository)/contents/\(encoded)")!)
             request.setValue("application/vnd.github.raw+json", forHTTPHeaderField: "Accept")
             let token = try await connectorToken("github")
             if !token.isEmpty { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 1_000_000 else { throw ChatToolError.unavailable("GitHub 파일을 읽지 못했습니다. 권한·경로·크기를 확인하세요.") }
+            guard (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 1_000_000 else { throw ChatToolError.unavailable(tr("GitHub 파일을 읽지 못했습니다. 권한·경로·크기를 확인하세요.")) }
             let url = "https://github.com/\(repository)/blob/HEAD/\(encoded)"
             return try Self.output([.init(id: url, title: "GitHub · \(path)", location: url, excerpt: String(decoding: data.prefix(20000), as: UTF8.self))])
         }
@@ -434,7 +435,7 @@ public struct ChatTools: Sendable {
         let parts = repository.split(separator: "/")
         guard parts.count == 2, parts.allSatisfy({ !$0.isEmpty && $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "-_.".contains($0)) } }),
               !path.hasPrefix("/"), !path.split(separator: "/").contains(".."), path.count < 500 else {
-            throw ChatToolError.unavailable("GitHub 저장소 또는 폴더 경로가 올바르지 않습니다.")
+            throw ChatToolError.unavailable(tr("GitHub 저장소 또는 폴더 경로가 올바르지 않습니다."))
         }
         let encoded = path.split(separator: "/").map { String($0).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? String($0) }.joined(separator: "/")
         var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(repository)/contents/\(encoded)")!)
@@ -456,7 +457,7 @@ public struct ChatTools: Sendable {
     /// Raises: GitHub 연결·API 오류.
     private func githubSearch(_ query: String) async throws -> ChatToolOutput {
         let token = try await connectorToken("github")
-        guard !token.isEmpty else { throw ChatToolError.unavailable("GitHub 커넥터를 설정에서 연결하세요.") }
+        guard !token.isEmpty else { throw ChatToolError.unavailable(tr("GitHub 커넥터를 설정에서 연결하세요.")) }
         var request = URLRequest(url: URL(string: "https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member")!)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -477,11 +478,11 @@ public struct ChatTools: Sendable {
     static func json(_ request: URLRequest, delegate: URLSessionTaskDelegate? = nil) async throws -> JSONValue {
         let (bytes, response) = try await URLSession.shared.bytes(for: request, delegate: delegate)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard (200..<300).contains(status) else { throw ChatToolError.unavailable("외부 서비스 HTTP \(status). API 키·권한·사용량을 확인하세요.") }
+        guard (200..<300).contains(status) else { throw ChatToolError.unavailable(tr("외부 서비스 HTTP \(status). API 키·권한·사용량을 확인하세요.")) }
         var data = Data()
         for try await byte in bytes {
             data.append(byte)
-            if data.count > 2_000_000 { throw ChatToolError.unavailable("외부 응답이 너무 큽니다.") }
+            if data.count > 2_000_000 { throw ChatToolError.unavailable(tr("외부 응답이 너무 큽니다.")) }
         }
         return try JSONDecoder().decode(JSONValue.self, from: data)
     }
@@ -493,7 +494,7 @@ public struct ChatTools: Sendable {
         guard let url = URL(string: value), url.scheme == "https", let host = url.host?.lowercased(),
               host.contains("."), !host.hasSuffix(".local"), !host.hasSuffix(".localhost"),
               !host.contains(":"), !host.allSatisfy({ $0.isNumber || $0 == "." }), url.user == nil, url.password == nil else {
-            throw ChatToolError.unavailable("공개 HTTPS 웹 주소만 조회할 수 있습니다.")
+            throw ChatToolError.unavailable(tr("공개 HTTPS 웹 주소만 조회할 수 있습니다."))
         }
         return url
     }
@@ -505,7 +506,7 @@ public struct ChatTools: Sendable {
         if value.isEmpty { return fallback }
         let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM-dd"; formatter.isLenient = false
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = formatter.date(from: value) else { throw ChatToolError.unavailable("날짜는 YYYY-MM-DD로 입력하세요.") }
+        guard let date = formatter.date(from: value) else { throw ChatToolError.unavailable(tr("날짜는 YYYY-MM-DD로 입력하세요.")) }
         return (endOfDay ? Calendar.current.date(byAdding: .day, value: 1, to: date)! : date).timeIntervalSince1970
     }
 

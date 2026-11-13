@@ -159,7 +159,7 @@ public struct ContextSearch: Sendable {
             let card = Self.match(needle, index: "screen_cards_fts", row: "id", fallback: "activity || ' ' || content || ' ' || COALESCE(uri, '')")
             let cards = Self.cardRestriction(access)
             for row in try Row.fetchAll(conn, sql: "SELECT * FROM screen_cards WHERE ts_end >= ? AND ts_start <= ? AND (\(card.0))\(cards)\(activity) ORDER BY ts_start DESC LIMIT 10", arguments: [from, to, card.1]) {
-                results.append(.init(id: "card:\(row["id"] as Int64)", title: "화면 요약 · \(row["activity"] as String)", location: row["uri"] ?? "", excerpt: "\(Self.date(row["ts_start"])) (AI 요약)\n" + String((row["content"] as String).prefix(1600))))
+                results.append(.init(id: "card:\(row["id"] as Int64)", title: "화면 요약 · \(row["activity"] as String)", location: row["uri"] ?? "", excerpt: tr("\(Self.date(row["ts_start"])) (AI 요약)\n") + String((row["content"] as String).prefix(1600))))
             }
             // 주간·월간 요약: 원문이 정리된 기간을 대신한다. 업무 접근 범위를 그대로 따른다
             let digest = Self.match(needle, index: "digests_fts", row: "d.id", fallback: "d.title || ' ' || d.body")
@@ -169,7 +169,7 @@ public struct ContextSearch: Sendable {
                 ORDER BY d.period_start DESC, d.level DESC LIMIT 8
                 """, arguments: [from, to, digest.1]) {
                 results.append(.init(id: "digest:\(row["id"] as Int64)", title: row["title"], location: "",
-                                     excerpt: "AI 요약 (수치는 사용 시간 기록)\n" + String((row["body"] as String).prefix(1600))))
+                                     excerpt: tr("AI 요약 (수치는 사용 시간 기록)\n") + String((row["body"] as String).prefix(1600))))
             }
             let snapshot = Self.match(needle, index: "text_snapshots_chat_fts", row: "o.text_id", fallback: "COALESCE(t.text, '')")
             for row in try Row.fetchAll(conn, sql: """
@@ -276,25 +276,25 @@ public struct ContextSearch: Sendable {
                 return rows.map { row in .init(id: "node:\(row["id"] as Int64)", title: "\(row["label"] as String) · \(row["title"] as String)", location: row["key"], excerpt: String((row["props"] as String).prefix(2500))) }
             case "observation":
                 guard let row = try Row.fetchOne(conn, sql: "SELECT o.*, t.text FROM observations o LEFT JOIN text_snapshots t ON t.id = o.text_id WHERE o.id = ?", arguments: [id]) else { return [] }
-                return [.init(id: sourceID, title: row["window_title"] ?? "활동 기록", location: row["url"] ?? row["doc_path"] ?? "", excerpt: "\(Self.date(row["ts"]))\n" + String((row["text"] as String? ?? "텍스트 없음").prefix(18000)))]
+                return [.init(id: sourceID, title: row["window_title"] ?? "활동 기록", location: row["url"] ?? row["doc_path"] ?? "", excerpt: "\(Self.date(row["ts"]))\n" + String((row["text"] as String? ?? tr("텍스트 없음")).prefix(18000)))]
             case "card":
                 guard let row = try Row.fetchOne(conn, sql: "SELECT * FROM screen_cards WHERE id = ?", arguments: [id]) else { return [] }
-                return [.init(id: sourceID, title: row["activity"], location: row["uri"] ?? "", excerpt: "AI 화면 요약 (원문 아님)\n\(row["content"] as String)\n\(row["entities"] as String)")]
+                return [.init(id: sourceID, title: row["activity"], location: row["uri"] ?? "", excerpt: tr("AI 화면 요약 (원문 아님)\n\(row["content"] as String)\n\(row["entities"] as String)"))]
             case "chat":
                 guard let row = try Row.fetchOne(conn, sql: "SELECT * FROM chat_messages WHERE id = ?", arguments: [id]) else { return [] }
-                return [.init(id: sourceID, title: "\(row["tool"] as String? ?? "AI 도구") 사용자 메시지", location: row["cwd"] ?? "", excerpt: "사용자의 요청 원문 (실행 완료 증거 아님)\n" + String((row["text"] as String).prefix(18000)))]
+                return [.init(id: sourceID, title: "\(row["tool"] as String? ?? "AI 도구") 사용자 메시지", location: row["cwd"] ?? "", excerpt: tr("사용자의 요청 원문 (실행 완료 증거 아님)\n") + String((row["text"] as String).prefix(18000)))]
             case "digest":
                 guard let digest = try DigestStore.digest(conn, id: id) else { return [] }
-                var header = "AI 요약 · 수치는 사용 시간 기록에서 계산"
+                var header = tr("AI 요약 · 수치는 사용 시간 기록에서 계산")
                 if let pruned = try ConsolidationStore.value(ConsolidationStore.Key.textPrunedUntil, conn),
                    let boundary = PeriodCalendar().dayEnd(pruned), digest.periodStart < boundary {
-                    header += " · 원문은 \(pruned) 이전 정리됨"
+                    header += tr(" · 원문은 \(pruned) 이전 정리됨")
                 }
-                if digest.status == .draft { header += " · 초안(서술 생성 실패로 기록을 나열함)" }
+                if digest.status == .draft { header += tr(" · 초안(서술 생성 실패로 기록을 나열함)") }
                 let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
                 let metrics = (try? encoder.encode(digest.metrics)).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
                 return [.init(id: sourceID, title: digest.title, location: "",
-                              excerpt: "\(header)\n\(digest.body)\n\n수치: \(metrics)\n근거 key: \(digest.anchors.joined(separator: ", "))")]
+                              excerpt: tr("\(header)\n\(digest.body)\n\n수치: \(metrics)\n근거 key: \(digest.anchors.joined(separator: ", "))"))]
             case "recording":
                 guard let row = try Row.fetchOne(conn, sql: "SELECT * FROM recordings WHERE id = ? AND status = 'ready'", arguments: [id]) else { return [] }
                 let transcript: String = row["transcript"]
@@ -324,7 +324,7 @@ public struct ContextSearch: Sendable {
         guard includeActivity else { return [] }
         let days = calendar.days(from: from, to: to)
         guard let firstDay = days.first, let lastDay = days.last else { return [] }
-        guard days.count <= 400 else { throw ChatToolError.unavailable("집계 기간은 400일 이내로 지정하세요.") }
+        guard days.count <= 400 else { throw ChatToolError.unavailable(tr("집계 기간은 400일 이내로 지정하세요.")) }
         return try db.writer.read { conn in
             let access = try access(conn)
             var tasks: [String: (id: Int64, title: String)] = [:]
@@ -354,22 +354,22 @@ public struct ContextSearch: Sendable {
             func title(_ label: String, _ key: String) throws -> String {
                 try String.fetchOne(conn, sql: "SELECT title FROM nodes WHERE label = ? AND key = ?", arguments: [label, key]).flatMap { $0.isEmpty ? nil : $0 } ?? key
             }
-            var lines = ["기간: \(firstDay) ~ \(lastDay) (사용 시간 기록 기준 추정, 유휴 시간 제외" + (frozenDays.isEmpty ? ")" : ", 그중 \(frozenDays.count)일은 원문이 정리돼 동결된 수치)")]
+            var lines = [tr("기간: \(firstDay) ~ \(lastDay) (사용 시간 기록 기준 추정, 유휴 시간 제외") + (frozenDays.isEmpty ? ")" : tr(", 그중 \(frozenDays.count)일은 원문이 정리돼 동결된 수치)"))]
             let assigned = perTask.filter { !$0.key.isEmpty }.sorted { $0.value.seconds > $1.value.seconds }
-            lines.append("업무별 시간 (합계 \(TimePhrase.approx(assigned.reduce(0) { $0 + $1.value.seconds }))):")
+            lines.append(tr("업무별 시간 (합계 \(TimePhrase.approx(assigned.reduce(0) { $0 + $1.value.seconds }))):"))
             for (key, value) in assigned.prefix(30) {
-                lines.append("- \(tasks[key]?.title ?? key): \(TimePhrase.approx(value.seconds)), \(value.days.count)일 [node:\(tasks[key]?.id ?? 0)]")
+                lines.append(tr("- \(tasks[key]?.title ?? key): \(TimePhrase.approx(value.seconds)), \(value.days.count)일 [node:\(tasks[key]?.id ?? 0)]"))
             }
-            if assigned.isEmpty { lines.append("- 기록 없음") }
-            if wanted == nil, let off = perTask[""], off.seconds > 0 { lines.append("업무 외·미배정: \(TimePhrase.approx(off.seconds))") }
+            if assigned.isEmpty { lines.append(tr("- 기록 없음")) }
+            if wanted == nil, let off = perTask[""], off.seconds > 0 { lines.append(tr("업무 외·미배정: \(TimePhrase.approx(off.seconds))")) }
             if !perResource.isEmpty {
-                lines.append("많이 쓴 자료:")
+                lines.append(tr("많이 쓴 자료:"))
                 for (key, seconds) in perResource.sorted(by: { $0.value > $1.value }).prefix(10) {
                     lines.append("- \(try title(NodeLabel.resource, key)) — \(TimePhrase.approx(seconds)) (\(key))")
                 }
             }
             if !perApp.isEmpty {
-                lines.append("업무 중 앱:")
+                lines.append(tr("업무 중 앱:"))
                 for (key, seconds) in perApp.sorted(by: { $0.value > $1.value }).prefix(8) { lines.append("- \(try title(NodeLabel.app, key)) — \(TimePhrase.approx(seconds))") }
             }
             // 문제·나중에 할 일의 변화 (그래프에 남아 있다)
@@ -393,7 +393,7 @@ public struct ContextSearch: Sendable {
                 newLater += 1
                 if JSONValue.decodeObject(row["props"])["done"]?.boolValue != true { openLater += 1 }
             }
-            lines.append("문제: 새로 생김 \(newProblems.count)건, 그중 해결 \(resolvedProblems.count)건 · 나중에 할 일: 새로 생김 \(newLater)건, 남음 \(openLater)건")
+            lines.append(tr("문제: 새로 생김 \(newProblems.count)건, 그중 해결 \(resolvedProblems.count)건 · 나중에 할 일: 새로 생김 \(newLater)건, 남음 \(openLater)건"))
             let scope = wanted.map { set in ":" + set.sorted().joined(separator: ",") } ?? ""
             return [.init(id: "usage:\(firstDay)..\(lastDay)\(scope)", title: "사용 시간 집계 · \(firstDay) ~ \(lastDay)", location: "",
                           excerpt: lines.joined(separator: "\n"))]
@@ -404,8 +404,8 @@ public struct ContextSearch: Sendable {
     private static func recordingHeader(_ row: Row) -> String {
         let startedAt: Double = row["started_at"], duration: Double = row["duration"]
         let summary: String? = row["summary"]
-        var header = "\(date(startedAt)) 녹음 (\(RecordingText.duration(duration))) · 이 Mac 의 음성 인식으로 받아쓴 글 (잘못 들은 단어가 있을 수 있음)"
-        if let summary, !summary.isEmpty { header += "\n요약: \(summary)" }
+        var header = tr("\(date(startedAt)) 녹음 (\(RecordingText.duration(duration))) · 이 Mac 의 음성 인식으로 받아쓴 글 (잘못 들은 단어가 있을 수 있음)")
+        if let summary, !summary.isEmpty { header += tr("\n요약: \(summary)") }
         return header
     }
 
@@ -425,5 +425,7 @@ public struct ContextSearch: Sendable {
     /// Args: time은 Unix 시각이다.
     /// Returns: 현지 시간으로 표시한 기록 시각.
     /// Raises: 없음.
-    private static func date(_ time: Double) -> String { Date(timeIntervalSince1970: time).formatted(date: .numeric, time: .shortened) }
+    private static func date(_ time: Double) -> String {
+        Date(timeIntervalSince1970: time).formatted(Date.FormatStyle(date: .numeric, time: .shortened, locale: Locale(identifier: L10n.current.rawValue)))
+    }
 }

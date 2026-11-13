@@ -145,7 +145,7 @@ public enum EventCompressor {
             let start = clamp(recording.startedAt)
             let end = max(clamp(recording.endedAt ?? recording.startedAt), start)
             return ActivityRow(row: 0, start: start, end: end, dwell: 0, app: "녹음", appBundle: "sillog.recording",
-                               title: recording.title ?? "녹음", uri: "recording:\(id)", type: "Recording",
+                               title: recording.title ?? tr("녹음"), uri: "recording:\(id)", type: "Recording",
                                projectKey: nil, projectTitle: nil, snippet: parts.joined(separator: " "), observationIds: [],
                                isChat: true, recordingIds: [id])
         }

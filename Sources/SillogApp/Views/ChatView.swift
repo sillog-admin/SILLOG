@@ -1130,7 +1130,7 @@ struct ChatSourceSheet: View {
     }
 
     var body: some View {
-        ChatDialogFrame(title: source.title, width: 600, height: 400, onClose: { dismiss() }) {
+        ChatDialogFrame(title: ChatRunner.displayTitle(source.title), width: 600, height: 400, onClose: { dismiss() }) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if !source.location.isEmpty {
@@ -1227,7 +1227,7 @@ private struct ChatSchedulesView: View {
                                 if !job.scope.paths.isEmpty { ChatInfoRow(label: tr("연결한 파일"), value: job.scope.paths.joined(separator: "\n")) }
                                 ForEach(chat.library.items.filter { job.scope.libraryIDs.contains($0.id) }) { ChatInfoRow(label: tr("보관 자료"), value: $0.title) }
                                 ChatInfoRow(label: tr("최근 상태"), value: L10n.tr(key: job.lastStatus))
-                                if job.enabled { ChatInfoRow(label: tr("다음 실행"), value: Date(timeIntervalSince1970: job.nextRun).formatted()) }
+                                if job.enabled { ChatInfoRow(label: tr("다음 실행"), value: ChatDateText.dateTime(job.nextRun)) }
                                 if let id = job.lastConversationID, let conversation = chat.conversations.first(where: { $0.id == id }) {
                                     Button(tr("최근 실행 보기")) { chat.select(conversation); dismiss() }.buttonStyle(ChatDialogButtonStyle()).padding(.top, 6)
                                 }

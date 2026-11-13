@@ -36,16 +36,24 @@ enum WebL10n {
       const lookup = s => {
         const core = s.trim().replace(/\s+/g, ' ');
         let hit = exact.get(core);
-        if (hit === undefined) for (const [re, v] of patterns) { const m = core.match(re); if (m) { hit = fill(v, m.slice(1)); break; } }
+        // Captured values are translated too: the graph builds durations and names in Korean before they reach the DOM.
+        if (hit === undefined) for (const [re, v] of patterns) { const m = core.match(re); if (m) { hit = fill(v, m.slice(1).map(t)); break; } }
+        // A known label followed by a count, e.g. "업무 2".
+        if (hit === undefined) { const m = core.match(/^(.+) ([\d,.]+)$/); if (m && exact.has(m[1])) hit = exact.get(m[1]) + ' ' + m[2]; }
         if (hit === undefined) return s;
         const lead = s.match(/^\s*/)[0], tail = s.match(/\s*$/)[0];
         return lead + hit + tail;
       };
       window.slT = t;
       const ATTRS = ['title', 'placeholder', 'aria-label', 'alt'];
+      // Inline script source arrives as text nodes too; matching it against the patterns hung the graph page.
+      const CODE = new Set(['SCRIPT', 'STYLE']);
       const walk = node => {
-        if (node.nodeType === 3) { const v = t(node.nodeValue); if (v !== node.nodeValue) node.nodeValue = v; return; }
-        if (node.nodeType !== 1 || node.tagName === 'SCRIPT' || node.tagName === 'STYLE') return;
+        if (node.nodeType === 3) {
+          if (CODE.has(node.parentNode?.nodeName)) return;
+          const v = t(node.nodeValue); if (v !== node.nodeValue) node.nodeValue = v; return;
+        }
+        if (node.nodeType !== 1 || CODE.has(node.tagName)) return;
         for (const a of ATTRS) { const old = node.getAttribute(a); if (old) { const v = t(old); if (v !== old) node.setAttribute(a, v); } }
         node.childNodes.forEach(walk);
       };

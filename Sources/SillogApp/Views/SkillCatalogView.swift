@@ -18,7 +18,7 @@ struct SkillCatalogView: View {
     private var searchTerm: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var shown: [ChatSkill] {
         guard !searchTerm.isEmpty else { return chat.skills }
-        return chat.skills.filter { $0.title.localizedCaseInsensitiveContains(searchTerm) || $0.summary.localizedCaseInsensitiveContains(searchTerm) }
+        return chat.skills.filter { [$0.title, $0.summary, $0.displayTitle, $0.displaySummary].contains { $0.localizedCaseInsensitiveContains(searchTerm) } }
     }
 
     var body: some View {

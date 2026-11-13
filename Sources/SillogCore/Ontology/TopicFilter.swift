@@ -21,7 +21,7 @@ public enum TopicFilter {
     ]
 
     /// 뜻이 없는 채움말
-    public static let filler: Set<String> = ["기타", "일반", "기본", "없음", "미분류", "잡다", "기타 등등", "etc", "etc.", "misc", "other", "others", "general", "unknown", "n/a", "none", "-"]
+    public static let filler: Set<String> = ["기타", "일반", "기본", "없음", "미분류", "잡다", "기타 등등", "etc", "etc.", "misc", "other", "others", "general", "unknown", "n/a", "none", "-", "uncategorized", "miscellaneous", "various"]
 
     /// 파일 이름이 주제로 오는 경우 ("lab.ipynb"). Node.js 같은 기술 이름과 겹치지 않는 확장자만
     static let fileExtensions: Set<String> = ["pdf", "ipynb", "py", "swift", "md", "txt", "docx", "doc", "pptx", "ppt", "xlsx", "xls", "csv", "json", "yaml", "yml",

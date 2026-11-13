@@ -19,14 +19,19 @@ public actor Consolidator {
 
         public init(startedAt: Double) { self.startedAt = startedAt }
 
-        /// 설정 화면·로그 한 줄
-        public var summary: String {
+        /// The AppLog and sillogctl line, in Korean.
+        public var summary: String { line(L10n.korean) }
+
+        /// The Settings line in the app language, rebuilt from the counts so older reports follow a language switch.
+        public var localizedSummary: String { line(tr) }
+
+        private func line(_ text: (LocalizedText) -> String) -> String {
             var parts: [String] = []
-            if weekly + weeklyDrafts > 0 { parts.append("주간 요약 \(weekly)개" + (weeklyDrafts > 0 ? " (초안 \(weeklyDrafts)개)" : "")) }
-            if monthly + monthlyDrafts > 0 { parts.append("월간 요약 \(monthly)개" + (monthlyDrafts > 0 ? " (초안 \(monthlyDrafts)개)" : "")) }
-            if prunedDays > 0 { parts.append("\(prunedDays)일치 원문 정리") }
-            if reclaimedBytes > 0 { parts.append("\(ByteCountFormatter.string(fromByteCount: reclaimedBytes, countStyle: .file)) 회수") }
-            return parts.isEmpty ? "새로 정리할 것 없음" : parts.joined(separator: ", ")
+            if weekly + weeklyDrafts > 0 { parts.append(text("주간 요약 \(weekly)개") + (weeklyDrafts > 0 ? text(" (초안 \(weeklyDrafts)개)") : "")) }
+            if monthly + monthlyDrafts > 0 { parts.append(text("월간 요약 \(monthly)개") + (monthlyDrafts > 0 ? text(" (초안 \(monthlyDrafts)개)") : "")) }
+            if prunedDays > 0 { parts.append(text("\(prunedDays)일치 원문 정리")) }
+            if reclaimedBytes > 0 { parts.append(text("\(ByteCountFormatter.string(fromByteCount: reclaimedBytes, countStyle: .file)) 회수")) }
+            return parts.isEmpty ? text("새로 정리할 것 없음") : parts.joined(separator: ", ")
         }
     }
 
@@ -60,13 +65,13 @@ public actor Consolidator {
     /// narrate: 이번 실행만 요약 서술 설정을 바꾼다 (nil 이면 보관 정책을 따른다)
     public func run(prune: Bool = true, ledgerOnly: Bool = false, narrate narrateOverride: Bool? = nil) async -> Report {
         var report = Report(startedAt: clock())
-        guard !running else { report.notes.append("이미 실행 중"); return report }
+        guard !running else { report.notes.append(tr("이미 실행 중")); return report }
         running = true
         defer { running = false }
         let now = clock()
 
         // 1. 사용 시간 기록
-        do { report.ledgerDays = try refreshLedger(now: now) } catch { report.notes.append("사용 시간 기록 실패: \(error)") }
+        do { report.ledgerDays = try refreshLedger(now: now) } catch { report.notes.append(tr("사용 시간 기록 실패: \(error)")) }
         if ledgerOnly { return finish(report) }
 
         let policy = (try? await db.writer.read { try RetentionPolicy.load($0) }) ?? .standard
@@ -93,7 +98,7 @@ public actor Consolidator {
                 try await db.writer.write { try ConsolidationStore.advance(ConsolidationStore.Key.weekUntil, to: week.days.last ?? week.id, $0) }
             }
         } catch {
-            report.notes.append("주간 요약 실패: \(error)")
+            report.notes.append(tr("주간 요약 실패: \(error)"))
         }
 
         // 3. 월간 다이제스트: 그 달에 걸친 주가 모두 닫히고 주간 요약이 있는 달
@@ -115,9 +120,9 @@ public actor Consolidator {
                 try await db.writer.write { try ConsolidationStore.advance(ConsolidationStore.Key.monthUntil, to: month.days.last ?? month.id, $0) }
             }
         } catch {
-            report.notes.append("월간 요약 실패: \(error)")
+            report.notes.append(tr("월간 요약 실패: \(error)"))
         }
-        if llmFailed { report.notes.append("정리용 AI 연결이 안 돼 일부 요약을 초안으로 두었어요") }
+        if llmFailed { report.notes.append(tr("정리용 AI 연결이 안 돼 일부 요약을 초안으로 두었어요")) }
 
         // 4. 원문 정리 (첫 정리 동의와 화면 글자 보관 기간을 확인한다)
         if prune {
@@ -128,15 +133,15 @@ public actor Consolidator {
                           let days = try RetentionPolicy.load(conn).screenTextDays else { return 0 }
                     return try ScreenText.dropOffTask(conn, before: now - Double(days) * 86_400, calendar: calendar)
                 }
-                if dropped > 0 { report.notes.append("업무 외 화면 글자 \(dropped)개 지움") }
+                if dropped > 0 { report.notes.append(tr("업무 외 화면 글자 \(dropped)개 지움")) }
             } catch {
-                report.notes.append("업무 외 화면 글자 지우기 실패: \(error)")
+                report.notes.append(tr("업무 외 화면 글자 지우기 실패: \(error)"))
             }
             let pruner = Pruner(db: db, ledger: ledger)
             do {
                 let plan = try pruner.plan(now: now, policy: policy)
                 if plan.consentNeeded {
-                    if !plan.isEmpty { report.notes.append("정리할 원문이 있지만 아직 동의하지 않았어요") }
+                    if !plan.isEmpty { report.notes.append(tr("정리할 원문이 있지만 아직 동의하지 않았어요")) }
                 } else if !plan.isEmpty {
                     let result = try pruner.execute(plan, now: now)
                     report.prunedDays = result.days
@@ -151,7 +156,7 @@ public actor Consolidator {
                 report.notes += plan.keptReasons
                 if let reason = plan.blockedReason { report.notes.append(reason) }
             } catch {
-                report.notes.append("원문 정리 실패: \(error)")
+                report.notes.append(tr("원문 정리 실패: \(error)"))
             }
         }
         return finish(report)

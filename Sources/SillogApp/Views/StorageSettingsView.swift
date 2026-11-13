@@ -279,8 +279,9 @@ struct StorageDetailView: View {
 
     private var lastRun: String {
         guard let report = state.consolidationReport else { return tr("하루 한 번, 자리를 비웠을 때 요약을 만들고 보관 기간이 지난 원문을 정리해요.") }
-        let time = Date(timeIntervalSince1970: report.finishedAt ?? report.startedAt).formatted(date: .abbreviated, time: .shortened)
-        return tr("마지막 정리 \(time), \(report.summary)")
+        let time = Date(timeIntervalSince1970: report.finishedAt ?? report.startedAt)
+            .formatted(Date.FormatStyle(date: .abbreviated, time: .shortened, locale: Locale(identifier: L10n.current.rawValue)))
+        return tr("마지막 정리 \(time), \(report.localizedSummary)")
     }
 
     private func pinTitle(_ pin: RetentionPin) -> String {

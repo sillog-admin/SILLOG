@@ -19,18 +19,20 @@ public enum TranscriptionError: Error, Equatable, Sendable {
 
     public var message: String {
         switch self {
-        case .dictationDisabled: "받아쓰기가 꺼져 있어요. 시스템 설정 → 키보드 → 받아쓰기를 켠 뒤 다시 받아쓰세요."
-        case .speechDenied: "음성 인식 권한이 꺼져 있어요. 시스템 설정 → 개인정보 보호 및 보안 → 음성 인식에서 SILLOG을 켜 주세요."
+        case .dictationDisabled: tr("받아쓰기가 꺼져 있어요. 시스템 설정 → 키보드 → 받아쓰기를 켠 뒤 다시 받아쓰세요.")
+        case .speechDenied: tr("음성 인식 권한이 꺼져 있어요. 시스템 설정 → 개인정보 보호 및 보안 → 음성 인식에서 SILLOG을 켜 주세요.")
         case .unavailable(let reason): reason
-        case .failed(let reason): "받아쓰지 못했어요: \(reason)"
+        case .failed(let reason): tr("받아쓰지 못했어요: \(reason)")
         }
     }
 
-    /// 저장해 둔 실패 이유(message)로 되살린다: 받아쓰기 꺼짐·권한 없음은 그 경우로, 그 밖은 문구 그대로 (.unavailable 은 message 가 이유 그대로다)
+    /// Restores a saved failure: dictation off and no permission come back as those cases in either language, anything else as its text.
     public static func restored(from message: String?) -> TranscriptionError {
-        if message == TranscriptionError.dictationDisabled.message { return .dictationDisabled }
-        if message == TranscriptionError.speechDenied.message { return .speechDenied }
-        return .unavailable(message ?? "받아쓰지 못했어요.")
+        for known in [TranscriptionError.dictationDisabled, .speechDenied] {
+            let text = known.message
+            if message == text || message.flatMap({ L10n.english[$0] }) == text || L10n.english[text] == message { return known }
+        }
+        return .unavailable(message ?? tr("받아쓰지 못했어요."))
     }
 }
 
@@ -65,9 +67,12 @@ public struct RecordingPipeline: Sendable {
         self.textFolder = textFolder; self.timeZone = timeZone; self.clock = clock
     }
 
-    /// 받아쓴 글을 두는 기본 폴더: ~/Documents/SILLOG 녹음
+    /// The transcript folder in ~/Documents: one that already exists in either language, else one named in the app language.
     public static func defaultTextFolder(home: String) -> URL {
-        URL(fileURLWithPath: home).appendingPathComponent("Documents", isDirectory: true).appendingPathComponent("SILLOG 녹음", isDirectory: true)
+        let documents = URL(fileURLWithPath: home).appendingPathComponent("Documents", isDirectory: true)
+        let names = ["SILLOG 녹음", L10n.english["SILLOG 녹음"]].compactMap { $0 }
+        let existing = names.first { FileManager.default.fileExists(atPath: documents.appendingPathComponent($0).path) }
+        return documents.appendingPathComponent(existing ?? tr("SILLOG 녹음"), isDirectory: true)
     }
 
     /// 실패한 녹음을 다시 받아쓰게 되돌린다. duration: 다시 잰 녹음 길이 (앱이 꺼져 길이를 몰랐던 녹음)

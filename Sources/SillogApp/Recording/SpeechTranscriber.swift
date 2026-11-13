@@ -32,8 +32,8 @@ struct SpeechTranscriber: Transcribing {
 
     func transcribe(audio: URL, duration: Double, progress: @escaping @Sendable (Double) -> Void) async throws -> [String] {
         guard SFSpeechRecognizer.authorizationStatus() == .authorized else { throw TranscriptionError.speechDenied }
-        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "ko-KR")), recognizer.supportsOnDeviceRecognition else {
-            throw TranscriptionError.unavailable(tr("이 Mac 에서는 한국어를 기기 안에서 받아쓸 수 없어요"))
+        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: L10n.current == .ko ? "ko-KR" : "en-US")), recognizer.supportsOnDeviceRecognition else {
+            throw TranscriptionError.unavailable(tr("이 Mac에서는 이 언어를 기기 안에서 받아쓸 수 없어요"))
         }
         let factor = gainOverride ?? (try? Self.gain(of: audio)) ?? 1
         trace?(String(format: "gain x%.2f", factor))

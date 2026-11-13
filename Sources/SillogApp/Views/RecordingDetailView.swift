@@ -32,7 +32,7 @@ enum RecordingDetail {
 
     /// 상세 위쪽 안내: 받아쓰기 실패 이유, 받아쓴 글 파일이 없어진 것
     static func notice(_ recording: Recording, textExists: Bool) -> String? {
-        if recording.status == .failed { return recording.error ?? tr("받아쓰지 못했어요.") }
+        if recording.status == .failed { return L10n.tr(key: TranscriptionError.restored(from: recording.error).message) }   // saved errors keep the language they were saved in
         if recording.textPath != nil, !textExists { return tr("받아쓴 글 파일을 찾을 수 없어요. 옮기거나 지웠어도 아래 글은 앱에 남아 있어요.") }
         return nil
     }

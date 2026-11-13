@@ -94,7 +94,7 @@ public struct CodexOAuthClient: Sendable {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let idToken = object["id_token"] as? String, let accessToken = object["access_token"] as? String,
               let refreshToken = object["refresh_token"] as? String else {
-            throw CodexAuthError.invalidResponse("토큰 응답에 필요한 값이 없음")
+            throw CodexAuthError.invalidResponse(tr("토큰 응답에 필요한 값이 없음"))
         }
         return CodexTokens(idToken: idToken, accessToken: accessToken, refreshToken: refreshToken, lastRefresh: now)
     }

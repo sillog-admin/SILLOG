@@ -10,7 +10,7 @@ public struct ProjectOrganizer: Sendable {
     Prefer an existing destination for the same goal. A proposal destination means append the new items to that pending proposal.
     Every group must contain at least one NEW item. You may include CONTEXT items when they clearly share its goal.
     Use each item at most once. Only use the provided IDs. For a new project, target is empty and at least two items must share the goal.
-    Give a short \(L10n.current.promptName) project title, concrete goal and explanation of the evidence. Do not propose a project merely to classify every item.
+    Give a short project title, a concrete goal and an explanation of the evidence, all in \(L10n.current.promptName). Do not propose a project merely to classify every item.
     Always call suggest_projects. Return an empty groups array if no clear group exists.
     """ }
 
@@ -41,7 +41,7 @@ public struct ProjectOrganizer: Sendable {
         try Task.checkCancellation()
         struct Reply: Decodable { var groups: [ProjectSuggestion] }
         let groups = try JSONDecoder().decode(Reply.self, from: answer.arguments).groups
-        guard groups.allSatisfy({ !$0.target.isEmpty || $0.items.count >= 2 }) else { throw ChatToolError.unavailable("프로젝트 후보의 근거가 부족합니다. 다시 확인하세요.") }
+        guard groups.allSatisfy({ !$0.target.isEmpty || $0.items.count >= 2 }) else { throw ChatToolError.unavailable(tr("프로젝트 후보의 근거가 부족합니다. 다시 확인하세요.")) }
         try store.record(groups, review: review)
         return review.newIDs.count
     }

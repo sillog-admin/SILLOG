@@ -24,10 +24,11 @@ public enum MenuBarModel {
         return .normal
     }
 
-    /// W2 의 안내 한 줄
+    /// Args: phase is the onboarding step, startupFailed whether the services failed to start.
+    /// Returns: the one-line notice on the not-ready menu (W2), in the app language.
     public static func notReadyMessage(phase: AppPhase, startupFailed: Bool) -> String {
-        if startupFailed { return "SILLOG을 시작하지 못했어요" }
-        return phase == .login ? "시작하려면 ChatGPT 로그인이 필요해요" : "시작하려면 권한 설정을 마쳐 주세요"
+        if startupFailed { return tr("SILLOG을 시작하지 못했어요") }
+        return phase == .login ? tr("시작하려면 ChatGPT 로그인이 필요해요") : tr("시작하려면 권한 설정을 마쳐 주세요")
     }
 
     /// 오른쪽 위 상태 글씨. 준비 전에는 없다
@@ -46,8 +47,9 @@ public enum MenuBarModel {
         return n < 10 ? "0\(n)" : "\(n)"
     }
 
-    /// 마지막 정리 요약: "14:05 정리 완료(새 업무 1개, 자료 3개)"
+    /// Args: clock is the batch time as "HH:mm", newTasks and resources what the batch added.
+    /// Returns: the last batch line, e.g. "14:05 정리 완료(새 업무 1개, 자료 3개)", in the app language.
     public static func batchSummary(clock: String, newTasks: Int, resources: Int) -> String {
-        "\(clock) 정리 완료(새 업무 \(newTasks)개, 자료 \(resources)개)"
+        tr("\(clock) 정리 완료(새 업무 \(newTasks)개, 자료 \(resources)개)")
     }
 }

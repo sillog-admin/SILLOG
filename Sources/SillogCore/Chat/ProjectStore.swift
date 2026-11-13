@@ -196,13 +196,13 @@ public struct ProjectStore: Sendable {
                       !suggestion.items.isEmpty, !suggestion.target.isEmpty || suggestion.items.count >= 2,
                       suggestion.items.contains(where: { review.newIDs.contains($0) }),
                       suggestion.target.isEmpty || destinations.contains(suggestion.target) else {
-                    throw ChatToolError.unavailable("프로젝트 제안의 내용을 확인하지 못했습니다.")
+                    throw ChatToolError.unavailable(tr("프로젝트 제안의 내용을 확인하지 못했습니다."))
                 }
                 for id in suggestion.items {
                     let decision = try String.fetchOne(conn, sql: "SELECT decision FROM project_reviewed WHERE item_id = ?", arguments: [id])
                     guard known[id] != nil, current[id]?.projectID == nil, current[id] != nil,
                           decision == nil || decision == "seen", used.insert(id).inserted else {
-                        throw ChatToolError.unavailable("제안에 중복되거나 이미 옮겨진 항목이 있습니다. 다시 확인하세요.")
+                        throw ChatToolError.unavailable(tr("제안에 중복되거나 이미 옮겨진 항목이 있습니다. 다시 확인하세요."))
                     }
                 }
             }
@@ -210,14 +210,14 @@ public struct ProjectStore: Sendable {
                 let members = suggestion.items.compactMap { current[$0] }
                 if suggestion.target.hasPrefix("proposal:") {
                     let id = String(suggestion.target.dropFirst("proposal:".count))
-                    guard var proposal = try Self.proposals(conn).first(where: { $0.id == id }) else { throw ChatToolError.unavailable("대기 중인 제안이 변경되었습니다. 다시 확인하세요.") }
+                    guard var proposal = try Self.proposals(conn).first(where: { $0.id == id }) else { throw ChatToolError.unavailable(tr("대기 중인 제안이 변경되었습니다. 다시 확인하세요.")) }
                     proposal.items += members
                     try Self.save(proposal, conn)
                 } else {
                     let projectID = suggestion.target.isEmpty ? nil : String(suggestion.target.dropFirst("project:".count))
                     let existing = try Self.projects(conn).first(where: { $0.id == projectID })
                     if projectID != nil, existing == nil {
-                        throw ChatToolError.unavailable("대상 프로젝트가 삭제되었습니다. 다시 확인하세요.")
+                        throw ChatToolError.unavailable(tr("대상 프로젝트가 삭제되었습니다. 다시 확인하세요."))
                     }
                     let proposal = ProjectProposal(projectID: projectID, title: existing?.title ?? String(suggestion.title.prefix(120)),
                                                    goal: existing?.goal ?? String(suggestion.goal.prefix(1000)), reason: String(suggestion.reason.prefix(1000)), items: members)
@@ -241,19 +241,19 @@ public struct ProjectStore: Sendable {
     /// 수락한 제안만 생성·분류한다. 다른 곳으로 옮겨진 항목을 덮어쓰지 않는다.
     @discardableResult public func accept(_ id: String, title: String) throws -> ChatProject {
         try db.writer.write { conn in
-            guard let group = try Self.proposalGroups(conn).first(where: { $0.ids.contains(id) }) else { throw ChatToolError.unavailable("제안을 찾을 수 없습니다.") }
+            guard let group = try Self.proposalGroups(conn).first(where: { $0.ids.contains(id) }) else { throw ChatToolError.unavailable(tr("제안을 찾을 수 없습니다.")) }
             let proposal = group.proposal
             let current = Dictionary(uniqueKeysWithValues: try Self.items(conn).map { ($0.id, $0) })
             guard proposal.items.allSatisfy({ current[$0.id] != nil && current[$0.id]?.projectID == nil }) else {
-                throw ChatToolError.unavailable("제안의 항목이 변경되었습니다. 제안을 무시한 뒤 다시 확인하세요.")
+                throw ChatToolError.unavailable(tr("제안의 항목이 변경되었습니다. 제안을 무시한 뒤 다시 확인하세요."))
             }
             var project: ChatProject
             if let projectID = proposal.projectID {
-                guard let existing = try Self.projects(conn).first(where: { $0.id == projectID }) else { throw ChatToolError.unavailable("프로젝트를 찾을 수 없습니다.") }
+                guard let existing = try Self.projects(conn).first(where: { $0.id == projectID }) else { throw ChatToolError.unavailable(tr("프로젝트를 찾을 수 없습니다.")) }
                 project = existing
             } else {
                 let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !name.isEmpty else { throw ChatToolError.unavailable("프로젝트 이름을 입력하세요.") }
+                guard !name.isEmpty else { throw ChatToolError.unavailable(tr("프로젝트 이름을 입력하세요.")) }
                 project = .init(title: String(name.prefix(120)), goal: proposal.goal)
             }
             project.updatedAt = Date().timeIntervalSince1970
@@ -304,16 +304,16 @@ public struct ProjectStore: Sendable {
     }
 
     static func move(_ itemID: String, to projectID: String?, _ conn: Database) throws {
-        if let projectID, !(try Self.projects(conn)).contains(where: { $0.id == projectID }) { throw ChatToolError.unavailable("프로젝트를 찾을 수 없습니다.") }
+        if let projectID, !(try Self.projects(conn)).contains(where: { $0.id == projectID }) { throw ChatToolError.unavailable(tr("프로젝트를 찾을 수 없습니다.")) }
         if itemID.hasPrefix("task:"), let id = Int64(itemID.dropFirst(5)) {
-            guard try Bool.fetchOne(conn, sql: "SELECT EXISTS(SELECT 1 FROM nodes WHERE id = ? AND label = 'Task')", arguments: [id]) == true else { throw ChatToolError.unavailable("업무를 찾을 수 없습니다.") }
+            guard try Bool.fetchOne(conn, sql: "SELECT EXISTS(SELECT 1 FROM nodes WHERE id = ? AND label = 'Task')", arguments: [id]) == true else { throw ChatToolError.unavailable(tr("업무를 찾을 수 없습니다.")) }
             try conn.execute(sql: "DELETE FROM project_tasks WHERE task_id = ?", arguments: [id])
             if let projectID { try conn.execute(sql: "INSERT INTO project_tasks VALUES (?, ?)", arguments: [id, projectID]) }
         } else if itemID.hasPrefix("conversation:") {
             let id = String(itemID.dropFirst("conversation:".count))
-            guard try Bool.fetchOne(conn, sql: "SELECT EXISTS(SELECT 1 FROM app_conversations WHERE id = ?)", arguments: [id]) == true else { throw ChatToolError.unavailable("대화를 찾을 수 없습니다.") }
+            guard try Bool.fetchOne(conn, sql: "SELECT EXISTS(SELECT 1 FROM app_conversations WHERE id = ?)", arguments: [id]) == true else { throw ChatToolError.unavailable(tr("대화를 찾을 수 없습니다.")) }
             try conn.execute(sql: "UPDATE app_conversations SET project_id = ? WHERE id = ?", arguments: [projectID, id])
-        } else { throw ChatToolError.unavailable("옮길 항목을 찾을 수 없습니다.") }
+        } else { throw ChatToolError.unavailable(tr("옮길 항목을 찾을 수 없습니다.")) }
     }
 
     static func mark(_ id: String, decision: String, _ conn: Database) throws {
@@ -354,7 +354,7 @@ public struct ProjectStore: Sendable {
             scope.projectID = projectID
             scope.libraryIDs = try LibraryStore.sourceIDs(conversationID: conversation.id, projectID: projectID, conn)
             guard let projectID else { return scope }
-            guard let project = try Self.projects(conn).first(where: { $0.id == projectID }) else { throw ChatToolError.unavailable("프로젝트가 삭제되었습니다.") }
+            guard let project = try Self.projects(conn).first(where: { $0.id == projectID }) else { throw ChatToolError.unavailable(tr("프로젝트가 삭제되었습니다.")) }
             scope.paths = Array(Set(scope.paths + project.paths)).sorted()
             return scope
         }

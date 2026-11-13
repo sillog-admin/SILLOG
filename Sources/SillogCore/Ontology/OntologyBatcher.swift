@@ -162,7 +162,7 @@ public actor OntologyBatcher {
         }
 
         guard let patch = judgment.patch, !patch.rows.isEmpty else {
-            let message = judgment.failure ?? "LLM 응답에 행 배정이 없음"
+            let message = judgment.failure ?? tr("LLM 응답에 행 배정이 없음")
             try recordFailure(message: message, model: judgment.model, first: first, last: last, rowCount: rows.count, raw: judgment.raw, now: now,
                               tokens: (judgment.promptTokens, judgment.completionTokens), prompt: judgment.prompt)
             scheduleBackoff(now: now)
@@ -200,7 +200,7 @@ public actor OntologyBatcher {
                 return stats
             }
         } catch {
-            let message = "행 배정 반영 실패: \(error)"
+            let message = tr("행 배정 반영 실패: \(error)")
             try recordFailure(message: message, model: judgment.model, first: first, last: last, rowCount: rows.count,
                               raw: judgment.raw, now: now, tokens: (judgment.promptTokens, judgment.completionTokens), prompt: judgment.prompt)
             scheduleBackoff(now: now)
@@ -433,7 +433,7 @@ public actor OntologyBatcher {
                 if titles[taskId] == nil { titles[taskId] = (try? tx.node(id: taskId))?.title ?? "#\(taskId)" }
                 title = titles[taskId] ?? "-"
             }
-            lines.append("\(item.row.row) | \(item.offTask ? "(이탈)" : title)\(item.resource ? "" : " | 자료 아님")\(item.reason.map { " | \($0)" } ?? "")")
+            lines.append("\(item.row.row) | \(item.offTask ? tr("(이탈)") : title)\(item.resource ? "" : " | " + tr("자료 아님"))\(item.reason.map { " | \($0)" } ?? "")")
         }
         return lines.joined(separator: "\n")
     }

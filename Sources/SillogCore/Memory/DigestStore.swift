@@ -163,7 +163,7 @@ public struct Digest: Equatable, Sendable, Identifiable {
     }
 
     public static func title(level: PeriodCalendar.Level, task: String, period: String) -> String {
-        "\(level == .week ? "주간 요약" : "월간 요약") · \(task) · \(period)"
+        "\(level == .week ? tr("주간 요약") : tr("월간 요약")) · \(task) · \(period)"
     }
 }
 
@@ -279,29 +279,29 @@ public enum DigestStore {
 public enum DigestRenderer {
     static func statusLabel(_ status: String?) -> String {
         switch status {
-        case "evidenced": "근거 있음"
-        case "requested": "요청됨"
-        default: "진행 중"
+        case "evidenced": tr("근거 있음")
+        case "requested": tr("요청됨")
+        default: tr("진행 중")
         }
     }
 
     public static func body(_ content: DigestContent, metrics: DigestMetrics) -> String {
         var blocks: [String] = []
-        if !content.summary.isEmpty { blocks.append("**요약** \(content.summary)") }
+        if !content.summary.isEmpty { blocks.append("**\(tr("요약"))** \(content.summary)") }
         func list(_ title: String, _ items: [DigestContent.Item], _ label: (DigestContent.Item) -> String?) {
             guard !items.isEmpty else { return }
             blocks.append("**\(title)**\n" + items.map { item in "- " + (label(item).map { "[\($0)] " } ?? "") + item.text }.joined(separator: "\n"))
         }
-        list("한 일", content.progress) { statusLabel($0.status) }
-        list("문제", content.problems) { $0.state == "resolved" ? "해결" : "미해결" }
-        list("남은 일", content.openItems) { _ in nil }
-        list("결정", content.decisions) { _ in nil }
-        var numbers = ["작업 \(TimePhrase.approx(metrics.activeSeconds))"]
-        if metrics.sessions > 0 { numbers.append("세션 \(metrics.sessions)개") }
-        if metrics.aiRequests > 0 { numbers.append("AI 도구 요청 \(metrics.aiRequests)건") }
-        var facts = "**수치** " + numbers.joined(separator: " · ")
+        list(tr("한 일"), content.progress) { statusLabel($0.status) }
+        list(tr("문제"), content.problems) { $0.state == "resolved" ? tr("해결") : tr("미해결") }
+        list(tr("남은 일"), content.openItems) { _ in nil }
+        list(tr("결정"), content.decisions) { _ in nil }
+        var numbers = [tr("작업 \(TimePhrase.approx(metrics.activeSeconds))")]
+        if metrics.sessions > 0 { numbers.append(tr("세션 \(metrics.sessions)개")) }
+        if metrics.aiRequests > 0 { numbers.append(tr("AI 도구 요청 \(metrics.aiRequests)건")) }
+        var facts = "**\(tr("수치"))** " + numbers.joined(separator: " · ")
         if !metrics.resources.isEmpty {
-            facts += "\n- 많이 쓴 자료: " + metrics.resources.prefix(5).map { "\($0.title) (\(TimePhrase.approx($0.seconds)))" }.joined(separator: ", ")
+            facts += "\n- \(tr("많이 쓴 자료")): " + metrics.resources.prefix(5).map { "\($0.title) (\(TimePhrase.approx($0.seconds)))" }.joined(separator: ", ")
         }
         blocks.append(facts)
         return blocks.joined(separator: "\n\n")

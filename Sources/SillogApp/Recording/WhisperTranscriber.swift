@@ -52,7 +52,7 @@ actor WhisperEngine {
     }
 
     private static var options: DecodingOptions {
-        DecodingOptions(task: .transcribe, language: "ko", usePrefillPrompt: true, detectLanguage: false,
+        DecodingOptions(task: .transcribe, language: L10n.current == .ko ? "ko" : "en", usePrefillPrompt: true, detectLanguage: false,
                         skipSpecialTokens: true, chunkingStrategy: .vad)
     }
 

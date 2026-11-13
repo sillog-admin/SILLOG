@@ -22,7 +22,7 @@ extension ChatTools {
         defer { session.invalidateAndCancel() }
         let (data, response) = try await session.data(for: request)
         guard (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 2_000_000 else {
-            throw ChatToolError.unavailable("웹 페이지를 읽지 못했거나 크기가 너무 큽니다.")
+            throw ChatToolError.unavailable(tr("웹 페이지를 읽지 못했거나 크기가 너무 큽니다."))
         }
         let plain = Self.htmlText(String(decoding: data, as: UTF8.self))
         return try Self.output([.init(id: url.absoluteString, title: url.host ?? "웹 자료", location: url.absoluteString, excerpt: String(plain.prefix(20000)))])
@@ -39,7 +39,7 @@ extension ChatTools {
     /// Raises: 커넥터 연결 또는 Keychain 오류.
     private func connectorRequest(_ id: String, _ url: URL) async throws -> URLRequest {
         let token = try await connectorToken(id)
-        guard !token.isEmpty else { throw ChatToolError.unavailable("\(id) 커넥터를 설정에서 연결하세요.") }
+        guard !token.isEmpty else { throw ChatToolError.unavailable(tr("\(id) 커넥터를 설정에서 연결하세요.")) }
         var request = URLRequest(url: url)
         request.timeoutInterval = 30
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -80,7 +80,7 @@ extension ChatTools {
     /// Raises: 연결·형식·Drive API 오류.
     func driveRead(_ reference: String) async throws -> ChatToolOutput {
         let id = reference.hasPrefix("drive:") ? String(reference.dropFirst(6)) : reference
-        guard id.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil else { throw ChatToolError.unavailable("Drive 파일 ID가 올바르지 않습니다.") }
+        guard id.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil else { throw ChatToolError.unavailable(tr("Drive 파일 ID가 올바르지 않습니다.")) }
         let metadataURL = URL(string: "https://www.googleapis.com/drive/v3/files/\(id)?fields=id,name,mimeType,webViewLink")!
         let file = try await Self.json(connectorRequest("drive", metadataURL)).objectValue ?? [:]
         let mime = file["mimeType"]?.stringValue ?? ""
@@ -91,16 +91,16 @@ extension ChatTools {
             url = URL(string: "https://www.googleapis.com/drive/v3/files/\(id)/export?mimeType=text%2Fcsv")!
         } else if mime.hasPrefix("text/") || mime == "application/json" || mime == "application/pdf" {
             url = URL(string: "https://www.googleapis.com/drive/v3/files/\(id)?alt=media")!
-        } else { throw ChatToolError.unavailable("현재 문서·시트·슬라이드·PDF·텍스트 파일을 읽을 수 있습니다.") }
+        } else { throw ChatToolError.unavailable(tr("현재 문서·시트·슬라이드·PDF·텍스트 파일을 읽을 수 있습니다.")) }
         let request = try await connectorRequest("drive", url)
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 5_000_000 else { throw ChatToolError.unavailable("Drive 파일을 읽지 못했거나 크기가 너무 큽니다.") }
+        guard (response as? HTTPURLResponse)?.statusCode == 200, data.count <= 5_000_000 else { throw ChatToolError.unavailable(tr("Drive 파일을 읽지 못했거나 크기가 너무 큽니다.")) }
         let content: String
         if mime == "application/pdf" {
-            guard let document = PDFDocument(data: data) else { throw ChatToolError.unavailable("PDF 텍스트를 추출하지 못했습니다.") }
+            guard let document = PDFDocument(data: data) else { throw ChatToolError.unavailable(tr("PDF 텍스트를 추출하지 못했습니다.")) }
             content = (0..<min(document.pageCount, 10)).map { document.page(at: $0)?.string ?? "" }.joined(separator: "\n")
         } else { content = String(decoding: data, as: UTF8.self) }
-        let note = mime == "application/vnd.google-apps.spreadsheet" ? "(첫 번째 시트만 포함)\n" : ""
+        let note = mime == "application/vnd.google-apps.spreadsheet" ? tr("(첫 번째 시트만 포함)\n") : ""
         return try Self.output([.init(id: "drive:\(id)", title: file["name"]?.stringValue ?? "Drive 파일", location: file["webViewLink"]?.stringValue ?? "https://drive.google.com/open?id=\(id)", excerpt: note + String(content.prefix(20000)))])
     }
 
@@ -131,7 +131,7 @@ extension ChatTools {
     /// Raises: 연결·Notion API 오류.
     func notionRead(_ reference: String) async throws -> ChatToolOutput {
         let id = reference.hasPrefix("notion:") ? String(reference.dropFirst(7)) : reference
-        guard UUID(uuidString: id) != nil else { throw ChatToolError.unavailable("Notion 페이지 ID가 올바르지 않습니다.") }
+        guard UUID(uuidString: id) != nil else { throw ChatToolError.unavailable(tr("Notion 페이지 ID가 올바르지 않습니다.")) }
         let page = try await Self.json(connectorRequest("notion", URL(string: "https://api.notion.com/v1/pages/\(id)")!)).objectValue ?? [:]
         let blocks = try await Self.json(connectorRequest("notion", URL(string: "https://api.notion.com/v1/blocks/\(id)/children?page_size=100")!)).objectValue ?? [:]
         let lines = (blocks["results"]?.arrayValue ?? []).map { item -> String in
@@ -142,7 +142,7 @@ extension ChatTools {
             return text.isEmpty ? (value["title"]?.stringValue ?? "") : text
         }.filter { !$0.isEmpty }.joined(separator: "\n")
         let location = page["url"]?.stringValue ?? "https://www.notion.so/\(id)"
-        let suffix = blocks["has_more"]?.boolValue == true ? "\n(하위 블록은 더 있지만 첫 100개만 읽었습니다.)" : ""
+        let suffix = blocks["has_more"]?.boolValue == true ? tr("\n(하위 블록은 더 있지만 첫 100개만 읽었습니다.)") : ""
         return try Self.output([.init(id: "notion:\(id)", title: "Notion 페이지", location: location, excerpt: String(lines.prefix(20000)) + suffix)])
     }
 }
