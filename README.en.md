@@ -34,18 +34,6 @@ Tasks, sessions, sources, and topics are stored with their links. You can switch
 | **Sunburst chart** | **Sankey diagram** |
 | <img src="docs/readme/graph-sunburst.gif" alt="Sunburst chart"> | <img src="docs/readme/graph-branch.gif" alt="Sankey diagram"> |
 
-## A quick tour
-
-Your organized records are ready to use in chat. Write a report from them, save what you make, and reopen what you were working with.
-
-The app is in Korean for now.
-
-| | |
-| :---: | :---: |
-| <img src="landing/assets/screen-answer.webp" alt="Write a report"><br>**Write a report**<br>Pick the writing skill and ask, and SILLOG reads your task records to write the report. | <img src="landing/assets/screen-result.webp" alt="Save results"><br>**Save results**<br>Save what you make as a file or export it to PDF. |
-| <img src="landing/assets/screen-resume.webp" alt="Reopen"><br>**Reopen**<br>Pick a session to reopen the files, pages, and apps you were using. | <img src="landing/assets/screen-schedule.webp" alt="Scheduled tasks"><br>**Scheduled tasks**<br>For recurring work, SILLOG shows a draft schedule first and adds it once you approve. |
-| <img src="landing/assets/screen-file.webp" alt="Folder suggestions"><br>**Folder suggestions**<br>Suggests a folder for new downloads and moves them once you approve. | <img src="landing/assets/screen-log.webp" alt="See what was sent"><br>**See what was sent**<br>Check what went to your AI account, and what came back, in the activity log. |
-
 ## Just ask
 
 Pick a skill and ask the way you normally would. SILLOG finds what it needs in your records.
@@ -67,6 +55,18 @@ Once you grant permissions the first time, SILLOG records on its own. Scattered 
 | Check the launch schedule | Admin › Scheduling |
 | Write an announcement email | Communication › Email |
 | Build the presentation | Deliverables › Slides |
+
+## A quick tour
+
+Your organized records are ready to use in chat. Write a report from them, save what you make, and reopen what you were working with.
+
+The app is in Korean for now.
+
+| | |
+| :---: | :---: |
+| <img src="landing/assets/screen-answer.webp" alt="Write a report"><br>**Write a report**<br>Pick the writing skill and ask, and SILLOG reads your task records to write the report. | <img src="landing/assets/screen-result.webp" alt="Save results"><br>**Save results**<br>Save what you make as a file or export it to PDF. |
+| <img src="landing/assets/screen-resume.webp" alt="Reopen"><br>**Reopen**<br>Pick a session to reopen the files, pages, and apps you were using. | <img src="landing/assets/screen-schedule.webp" alt="Scheduled tasks"><br>**Scheduled tasks**<br>For recurring work, SILLOG shows a draft schedule first and adds it once you approve. |
+| <img src="landing/assets/screen-file.webp" alt="Folder suggestions"><br>**Folder suggestions**<br>Suggests a folder for new downloads and moves them once you approve. | <img src="landing/assets/screen-log.webp" alt="See what was sent"><br>**See what was sent**<br>Check what went to your AI account, and what came back, in the activity log. |
 
 ## Your raw records stay on your Mac, and you can check what's sent
 

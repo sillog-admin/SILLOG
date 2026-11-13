@@ -34,16 +34,6 @@ SILLOG(실록)는 Mac에서 쓰는 앱과 창, 웹페이지, 화면 글자, 파�
 | **원형 차트** | **생키 다이어그램** |
 | <img src="docs/readme/graph-sunburst.gif" alt="원형 차트"> | <img src="docs/readme/graph-branch.gif" alt="생키 다이어그램"> |
 
-## 둘러보기
-
-정리된 기록은 채팅에서 바로 써요. 기록을 근거로 보고서를 쓰고, 결과물을 저장하고, 그때 쓰던 자료를 다시 열 수 있어요.
-
-| | |
-| :---: | :---: |
-| <img src="landing/assets/screen-answer.webp" alt="보고서 작성"><br>**보고서 작성**<br>문서 작성 스킬로 부탁하면 업무 기록을 읽어 보고서를 만들어요. | <img src="landing/assets/screen-result.webp" alt="결과물 저장"><br>**결과물 저장**<br>만든 결과물은 파일로 저장하거나 PDF로 내보내요. |
-| <img src="landing/assets/screen-resume.webp" alt="다시 열기"><br>**다시 열기**<br>세션을 고르면 그때 쓰던 파일, 웹페이지, 앱을 다시 열어요. | <img src="landing/assets/screen-schedule.webp" alt="예약 작업"><br>**예약 작업**<br>반복할 일은 예약안을 먼저 보여 주고 승인하면 등록해요. |
-| <img src="landing/assets/screen-file.webp" alt="파일 위치 추천"><br>**파일 위치 추천**<br>새로 받은 파일을 옮길 폴더를 추천하고 승인하면 옮겨요. | <img src="landing/assets/screen-log.webp" alt="보낸 내용 확인"><br>**보낸 내용 확인**<br>AI 계정으로 보낸 내용과 받은 결과를 활동 로그에서 확인해요. |
-
 ## 이렇게 부탁하면 돼요
 
 스킬을 고르고 평소 말하듯 부탁하면, SILLOG이 기록에서 필요한 자료를 찾아요.
@@ -65,6 +55,16 @@ SILLOG(실록)는 Mac에서 쓰는 앱과 창, 웹페이지, 화면 글자, 파�
 | 출시 일정 점검 | 행정처리 › 일정관리 |
 | 공지 메일 작성 | 커뮤니케이션 › 메일처리 |
 | 발표 자료 구성 | 산출물작성 › 발표자료 |
+
+## 둘러보기
+
+정리된 기록은 채팅에서 바로 써요. 기록을 근거로 보고서를 쓰고, 결과물을 저장하고, 그때 쓰던 자료를 다시 열 수 있어요.
+
+| | |
+| :---: | :---: |
+| <img src="landing/assets/screen-answer.webp" alt="보고서 작성"><br>**보고서 작성**<br>문서 작성 스킬로 부탁하면 업무 기록을 읽어 보고서를 만들어요. | <img src="landing/assets/screen-result.webp" alt="결과물 저장"><br>**결과물 저장**<br>만든 결과물은 파일로 저장하거나 PDF로 내보내요. |
+| <img src="landing/assets/screen-resume.webp" alt="다시 열기"><br>**다시 열기**<br>세션을 고르면 그때 쓰던 파일, 웹페이지, 앱을 다시 열어요. | <img src="landing/assets/screen-schedule.webp" alt="예약 작업"><br>**예약 작업**<br>반복할 일은 예약안을 먼저 보여 주고 승인하면 등록해요. |
+| <img src="landing/assets/screen-file.webp" alt="파일 위치 추천"><br>**파일 위치 추천**<br>새로 받은 파일을 옮길 폴더를 추천하고 승인하면 옮겨요. | <img src="landing/assets/screen-log.webp" alt="보낸 내용 확인"><br>**보낸 내용 확인**<br>AI 계정으로 보낸 내용과 받은 결과를 활동 로그에서 확인해요. |
 
 ## 기록 원본은 내 Mac에 저장하고 보낸 내용은 직접 확인해요
 
