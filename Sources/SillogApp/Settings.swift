@@ -16,8 +16,8 @@ struct AppSettings: Codable, Equatable {
     var chatBaseURL = "http://localhost:5010/v1"
     var chatModel = "gpt-5.4-mini"
     var chatAPIKey = ""
-    /// Reasoning effort for a ChatGPT chat model.
-    var chatEffort = ChatEffort.medium
+    /// Reasoning effort for a ChatGPT chat model as Codex names it; nil uses the model's default.
+    var chatEffort: String?
     /// Stored as "gpt" / "jev" / "decisions"; read through `judgeChoice`.
     var judgeProvider = "gpt"
     /// For the gpt judge: "codex", "openai" (the shared API server) or "custom" (its own URL and key).
@@ -70,8 +70,7 @@ struct AppSettings: Codable, Equatable {
         chatBaseURL = try c.decodeIfPresent(String.self, forKey: .chatBaseURL) ?? llmBaseURL
         chatModel = try c.decodeIfPresent(String.self, forKey: .chatModel) ?? llmModel
         chatAPIKey = try c.decodeIfPresent(String.self, forKey: .chatAPIKey) ?? llmAPIKey
-        // Read as a string so a value a newer version saved doesn't reset every setting.
-        chatEffort = try c.decodeIfPresent(String.self, forKey: .chatEffort).flatMap(ChatEffort.init(rawValue:)) ?? d.chatEffort
+        chatEffort = try c.decodeIfPresent(String.self, forKey: .chatEffort)
         let oldJudge = try c.decodeIfPresent(String.self, forKey: .judgeProvider) ?? "gpt"
         judgeProvider = ["jev", "decisions"].contains(oldJudge) ? oldJudge : "gpt"
         judgeGPTProvider = try c.decodeIfPresent(String.self, forKey: .judgeGPTProvider) ?? llmProvider

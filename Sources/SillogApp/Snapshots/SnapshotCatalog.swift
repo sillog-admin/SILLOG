@@ -346,7 +346,8 @@ enum SnapshotCatalog {
             s.phase = .ready; s.status = collector(); s.selectedTab = .chat
             s.settings.chatProvider = "codex"; s.settings.chatCodexModel = "gpt-6-luna"; s.settings.chatSameAsOrganize = false
             s.codexStatus = .loggedIn(email: nil, plan: "plus", expiresAt: nil)
-            s.chatCodexModels = [CodexModel(slug: "gpt-6-luna", displayName: "GPT-6 Luna", defaultEffort: nil),
+            s.chatCodexModels = [CodexModel(slug: "gpt-6-luna", displayName: "GPT-6 Luna", defaultEffort: "medium",
+                                            efforts: ["low", "medium", "high", "xhigh"].map { CodexEffort(value: $0) }),
                                  CodexModel(slug: "gpt-6", displayName: "GPT-6", defaultEffort: nil)]
             let offline = OpenAICompatClient(baseURL: URL(string: "http://localhost:5010/v1")!, model: "preview", apiKey: nil)   // 그리기만 하고 부르지 않는다
             s.chat = ChatState(db: database, makeClient: { .model(offline) }, makeProjectClient: { offline })

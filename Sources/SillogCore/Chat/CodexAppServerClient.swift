@@ -1,30 +1,18 @@
 import AppKit
 import Foundation
 
-/// How hard the chat model reasons; raw values are what Codex takes and what settings and messages store.
-public enum ChatEffort: String, Codable, CaseIterable, Sendable {
-    case low, medium, high
-
-    public var title: String {
-        switch self {
-        case .low: tr("낮음")
-        case .medium: tr("보통")
-        case .high: tr("높음")
-        }
-    }
-}
-
 /// Codex가 검색·응답 루프를 실행하고, 앱의 자료·결과물 도구는 Sillog이 실행한다.
 public struct CodexAppServerClient: Sendable {
     private let auth: any CodexCredentialProviding
     let model: String
-    var effort: ChatEffort
+    var effort: String?
+    let defaultEffort: String?
 
-    /// Args: auth는 앱이 관리하는 로그인, model은 채팅 설정에서 선택한 모델, effort is the reasoning effort for each turn.
+    /// Args: auth는 앱이 관리하는 로그인, model은 채팅 설정에서 선택한 모델, effort is the reasoning effort for each turn and defaultEffort the one for short calls, nil to leave it to the model.
     /// Returns: Codex App Server 연결.
     /// Raises: 없음. CLI·인증 확인은 실행 시 수행한다.
-    public init(auth: any CodexCredentialProviding, model: String, effort: ChatEffort = .medium) {
-        self.auth = auth; self.model = model; self.effort = effort
+    public init(auth: any CodexCredentialProviding, model: String, effort: String? = "medium", defaultEffort: String? = "medium") {
+        self.auth = auth; self.model = model; self.effort = effort; self.defaultEffort = defaultEffort
     }
 
     /// Args: timeout은 연결 검사의 제한 시간(초)이다.
@@ -81,13 +69,15 @@ public struct CodexAppServerClient: Sendable {
             guard let threadID = thread["thread"]?.objectValue?["id"]?.stringValue else { throw ChatToolError.unavailable(tr("Codex 대화를 시작하지 못했습니다.")) }
             // 새 런타임에는 완료된 대화만 전달한다. 서버의 별도 대화 저장은 사용하지 않는다.
             let input = messages.map { "<message role=\"\($0.role)\">\n\($0.text)\n</message>" }.joined(separator: "\n")
-            _ = try await connection.request("turn/start", [
+            var turn: [String: JSONValue] = [
                 "threadId": .string(threadID), "input": .array([.object(["type": "text", "text": .string(input)])]
                     + messages.flatMap(\.images).map { .object(["type": "localImage", "path": .string($0.path)]) }),
-                "effort": .string(effort.rawValue), "approvalPolicy": "never",
+                "approvalPolicy": "never",
                 "environments": .array([]),
                 "sandboxPolicy": .object(["type": "readOnly", "networkAccess": false]),
-            ])
+            ]
+            if let effort { turn["effort"] = .string(effort) }
+            _ = try await connection.request("turn/start", turn)
             var finalText = ""
             var toolCount = 0
             while let event = try await connection.next() {

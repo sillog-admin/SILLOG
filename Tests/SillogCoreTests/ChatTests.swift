@@ -177,8 +177,10 @@ final class ChatTests: XCTestCase {
         XCTAssertNil(message.effort)
         XCTAssertNil(message.previous)
         XCTAssertEqual(message.versions.map(\.id), ["m"])
-        var answer = message; answer.effort = .high
-        XCTAssertEqual(try JSONDecoder().decode(ConversationMessage.self, from: JSONEncoder().encode(answer)).effort, .high)
+        var answer = message; answer.effort = "xhigh"
+        XCTAssertEqual(try JSONDecoder().decode(ConversationMessage.self, from: JSONEncoder().encode(answer)).effort, "xhigh")
+        let withEffort = old.replacingOccurrences(of: #""steps":[]"#, with: #""steps":[],"effort":"medium""#)
+        XCTAssertEqual(try JSONDecoder().decode(ConversationMessage.self, from: Data(withEffort.utf8)).effort, "medium")
     }
 
     func testEditAndRegenerateReplaceFromTheQuestion() throws {

@@ -51,12 +51,12 @@ final class SettingsCompatTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s)).language, .en)
     }
 
-    func testChatEffortDefaultsToMediumAndRoundTrips() throws {
-        XCTAssertEqual(try decode("{}").chatEffort, .medium, "saves from before the setting sent medium")
-        XCTAssertEqual(try decode(#"{"chatEffort":"max","retentionDays":3}"#).retentionDays, 3, "an unknown effort keeps the other settings")
+    func testChatEffortDefaultsToTheModelsAndRoundTrips() throws {
+        XCTAssertNil(try decode("{}").chatEffort, "saves from before the setting use the model's default")
+        XCTAssertEqual(try decode(#"{"chatEffort":"medium","retentionDays":3}"#).chatEffort, "medium")
         var s = AppSettings()
-        s.chatEffort = .high
-        XCTAssertEqual(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s)).chatEffort, .high)
+        s.chatEffort = "ultra"
+        XCTAssertEqual(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s)).chatEffort, "ultra")
     }
 
     func testLegacyDefaultsKeysMoveOnce() throws {

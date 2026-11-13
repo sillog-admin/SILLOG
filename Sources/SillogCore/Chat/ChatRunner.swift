@@ -138,7 +138,7 @@ public enum ChatBackend: Sendable {
     }
 
     /// The reasoning effort sent with each turn; nil for an API server, which gets none.
-    public var effort: ChatEffort? {
+    public var effort: String? {
         if case .codex(let client) = self { return client.effort }
         return nil
     }
@@ -164,8 +164,8 @@ public enum ChatBackend: Sendable {
         case .model(let client):
             return try await client.respond(system: system, messages: messages, tools: []) { _ in }.text
         case .codex(var client):
-            // Titles and memory summaries are short; they keep medium whatever effort the user picked for answers.
-            client.effort = .medium
+            // Titles and memory summaries are short; they keep the model default whatever effort the user picked for answers.
+            client.effort = client.defaultEffort
             return try await client.run(system: system, messages: messages, tools: [], useWeb: false, execute: { _ in "" }, onEvent: { _ in })
         }
     }

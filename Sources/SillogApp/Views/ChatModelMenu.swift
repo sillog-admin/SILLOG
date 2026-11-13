@@ -15,10 +15,12 @@ struct ChatModelMenu: View {
         return unverified + models.map { ($0.slug, $0.displayName) }
     }
 
-    /// The default effort stays out of the chip so it reads as before.
+    /// The model's default effort stays out of the chip.
     private var label: String {
-        let effort = state.settings.chatEffort
-        return state.settings.effectiveChatProvider == "codex" && effort != .medium ? "\(name) · \(effort.title)" : name
+        let model = state.chatCodexModel
+        guard state.settings.effectiveChatProvider == "codex", let effort = CodexEffort.resolve(state.settings.chatEffort, model: model),
+              effort != CodexEffort.resolve(nil, model: model) else { return name }
+        return "\(name) · \(CodexEffort.title(effort))"
     }
 
     var body: some View {
@@ -34,11 +36,16 @@ struct ChatModelMenu: View {
                 }
                 .pickerStyle(.inline)
                 .labelsHidden()
-                Divider()
-                Picker(tr("추론 강도"), selection: Binding(get: { state.settings.chatEffort }, set: { state.selectChatEffort($0) })) {
-                    ForEach(ChatEffort.allCases, id: \.self) { Text($0.title).tag($0) }
+                if let model = state.chatCodexModel, !model.efforts.isEmpty {
+                    Divider()
+                    Picker(tr("추론 강도"), selection: Binding(get: { CodexEffort.resolve(state.settings.chatEffort, model: model) ?? "" },
+                                                          set: { state.selectChatEffort($0) })) {
+                        ForEach(model.efforts, id: \.value) { effort in
+                            Text(CodexEffort.title(effort.value)).help(effort.description).tag(effort.value)
+                        }
+                    }
+                    .pickerStyle(.inline)
                 }
-                .pickerStyle(.inline)
             } else {
                 Text(tr("\(name) (직접 연결한 서버)"))
             }

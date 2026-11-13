@@ -39,6 +39,8 @@ final class AppState: ObservableObject {
     @Published var codexMessage: String?
     @Published var codexModels: [CodexModel] = []
     @Published var chatCodexModels: [CodexModel] = []
+    /// The account's unverified list, so efforts are known while the slow per-model check runs.
+    private var codexModelCandidates: [CodexModel] = []
     @Published var codexModelsLoading = false
     @Published var codexModelsError: String?
     @Published var chatCodexModelsError: String?
@@ -420,7 +422,10 @@ final class AppState: ObservableObject {
             let url = URL(string: e.url.trimmingCharacters(in: .whitespaces)) ?? URL(string: "http://localhost:5010/v1")!
             return .model(OpenAICompatClient(baseURL: url, model: e.model, apiKey: e.key.isEmpty ? nil : e.key))
         }
-        return .codex(CodexAppServerClient(auth: codexAuth, model: settings.effectiveChatCodexModel, effort: settings.chatEffort))
+        let model = chatCodexModel
+        return .codex(CodexAppServerClient(auth: codexAuth, model: settings.effectiveChatCodexModel,
+                                           effort: CodexEffort.resolve(settings.chatEffort, model: model),
+                                           defaultEffort: CodexEffort.resolve(nil, model: model)))
     }
 
     /// Args: 없음.
@@ -489,6 +494,7 @@ final class AppState: ObservableObject {
                 try Task.checkCancellation()
                 guard codexModelTaskID == id else { return }
                 guard !candidates.isEmpty else { throw LLMError.backend(tr("모델 후보 목록이 비어 있습니다.")) }
+                codexModelCandidates = candidates
                 let auth = codexAuth
                 if checkBatch {
                     let result = try await CodexResponsesClient.verifyModels(candidates) { model in
@@ -696,6 +702,11 @@ final class AppState: ObservableObject {
         Task { await coordinator.setPaused(next) }
     }
 
+    /// The chosen chat model from the verified list; nil until the list loads.
+    var chatCodexModel: CodexModel? {
+        (chatCodexModels + codexModelCandidates).first { $0.slug == settings.effectiveChatCodexModel }
+    }
+
     /// 채팅 화면에서 모델 바꾸기: 다음 메시지부터 그 모델로 보낸다. 설정 화면을 거치지 않으니 여기서 저장한다 (업무 정리 모델은 그대로)
     func selectChatModel(_ slug: String) {
         guard !slug.isEmpty, settings.effectiveChatCodexModel != slug else { return }
@@ -706,7 +717,7 @@ final class AppState: ObservableObject {
     }
 
     /// Picked in the chat model menu, which skips the settings screen, so it saves here.
-    func selectChatEffort(_ effort: ChatEffort) {
+    func selectChatEffort(_ effort: String) {
         guard settings.chatEffort != effort else { return }
         settings.chatEffort = effort
         if !isPreview { settings.save() }

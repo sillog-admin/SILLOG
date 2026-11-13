@@ -734,7 +734,7 @@ struct ChatView: View {
     static func answerMeta(_ answer: ConversationMessage, timeZone: TimeZone = .current) -> String {
         // Time first, so a narrow row cuts the model name rather than the time.
         ([ChatDateText.dateTime(answer.completedAt ?? answer.createdAt, timeZone: timeZone)]
-            + [answer.model.map(TitleConnection.modelTitle), answer.effort?.title].compactMap { $0 }).joined(separator: " · ")
+            + [answer.model.map(TitleConnection.modelTitle), answer.effort.map(CodexEffort.title)].compactMap { $0 }).joined(separator: " · ")
     }
 
     static func artifactIcon(_ format: String) -> String {

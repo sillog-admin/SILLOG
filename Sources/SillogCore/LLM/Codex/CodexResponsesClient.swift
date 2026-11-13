@@ -5,10 +5,37 @@ public struct CodexModel: Equatable, Sendable, Identifiable {
     public let slug: String
     public let displayName: String
     public let defaultEffort: String?
+    /// Reasoning efforts this model takes for this account, in the server's order.
+    public let efforts: [CodexEffort]
     public var id: String { slug }
 
-    public init(slug: String, displayName: String, defaultEffort: String?) {
-        self.slug = slug; self.displayName = displayName; self.defaultEffort = defaultEffort
+    public init(slug: String, displayName: String, defaultEffort: String?, efforts: [CodexEffort] = []) {
+        self.slug = slug; self.displayName = displayName; self.defaultEffort = defaultEffort; self.efforts = efforts
+    }
+}
+
+/// One reasoning effort a model offers; value is what Codex takes.
+public struct CodexEffort: Equatable, Sendable {
+    public let value: String
+    public let description: String
+
+    public init(value: String, description: String = "") {
+        self.value = value; self.description = description
+    }
+
+    /// Args: chosen is the saved effort or nil for the model default, model the chat model if its list is loaded.
+    /// Returns: chosen if the model takes it, else the model's default, else its first effort. nil leaves effort out so Codex uses the model's own.
+    /// Raises: 없음.
+    public static func resolve(_ chosen: String?, model: CodexModel?) -> String? {
+        // A saved effort may come from another plan or model, so it isn't sent until the model's list confirms it.
+        guard let model else { return nil }
+        if let chosen, model.efforts.contains(where: { $0.value == chosen }) { return chosen }
+        return model.defaultEffort ?? model.efforts.first?.value
+    }
+
+    /// Product names as the models call them, not translated.
+    public static func title(_ value: String) -> String {
+        ["low": "Low", "medium": "Medium", "high": "High", "xhigh": "XHigh", "max": "Max", "ultra": "Ultra"][value] ?? value.capitalized
     }
 }
 
@@ -113,8 +140,11 @@ public final class CodexResponsesClient: LLMClient, @unchecked Sendable {
             .sorted { (($0["priority"] as? NSNumber)?.intValue ?? 99) < (($1["priority"] as? NSNumber)?.intValue ?? 99) }
             .compactMap { item in
                 guard let slug = item["slug"] as? String else { return nil }
+                let efforts = (item["supported_reasoning_levels"] as? [[String: Any]] ?? []).compactMap { level in
+                    (level["effort"] as? String).map { CodexEffort(value: $0, description: level["description"] as? String ?? "") }
+                }
                 return CodexModel(slug: slug, displayName: item["display_name"] as? String ?? slug,
-                                  defaultEffort: item["default_reasoning_level"] as? String)
+                                  defaultEffort: item["default_reasoning_level"] as? String, efforts: efforts)
             }
     }
 

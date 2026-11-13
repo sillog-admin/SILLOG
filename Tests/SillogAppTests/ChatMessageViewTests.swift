@@ -40,8 +40,8 @@ final class ChatMessageViewTests: XCTestCase {
         var answer = ConversationMessage(conversationID: "c", role: "assistant", text: "x")
         answer.createdAt = 1_794_540_000; answer.completedAt = 1_794_545_000
         XCTAssertEqual(ChatView.answerMeta(answer, timeZone: seoul), "11월 13일 오후 1:43", "an old answer shows only its time")
-        answer.model = "gpt-5.5"; answer.effort = .high
-        XCTAssertEqual(ChatView.answerMeta(answer, timeZone: seoul), "11월 13일 오후 1:43 · \(TitleConnection.modelTitle("gpt-5.5")) · 높음")
+        answer.model = "gpt-5.5"; answer.effort = "xhigh"
+        XCTAssertEqual(ChatView.answerMeta(answer, timeZone: seoul), "11월 13일 오후 1:43 · \(TitleConnection.modelTitle("gpt-5.5")) · XHigh")
         answer.completedAt = nil
         XCTAssertTrue(ChatView.answerMeta(answer, timeZone: seoul).hasPrefix("11월 13일 오후 12:20"), "falls back to when it started")
     }
