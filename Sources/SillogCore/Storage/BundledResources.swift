@@ -11,4 +11,15 @@ public enum BundledResources {
         }
         return module().url(forResource: name, withExtension: ext, subdirectory: subdirectory)
     }
+
+    /// SillogCore's own resources: en.json, chat prompts and skills.
+    public static let core: Bundle? = coreBundle(main: .main) { .module }
+
+    /// make-app.sh copies Core's bundle into Contents/Resources; the Bundle.module that CI's Swift 6.2 generates never looks there.
+    /// Args: main is the running bundle; module is SwiftPM's bundle, called only outside an .app.
+    /// Returns: the copied bundle, SwiftPM's bundle for swift run and tests, or nil in an .app that lacks it.
+    static func coreBundle(main: Bundle, module: () -> Bundle) -> Bundle? {
+        if let url = main.url(forResource: "Sillog_SillogCore", withExtension: "bundle") { return Bundle(url: url) }
+        return main.bundleURL.pathExtension == "app" ? nil : module()
+    }
 }

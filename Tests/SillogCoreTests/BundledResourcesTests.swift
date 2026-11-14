@@ -13,15 +13,43 @@ final class BundledResourcesTests: XCTestCase {
         try? FileManager.default.removeItem(at: root)
     }
 
-    /// make-app.sh 가 만드는 모양의 가짜 .app. withFonts 면 Contents/Resources/Brand/Fonts 를 둔다
-    private func fakeApp(withFonts: Bool) throws -> Bundle {
+    /// A fake .app shaped like make-app.sh's, with Brand/Fonts and Core's bundle in Contents/Resources when asked.
+    private func fakeApp(withFonts: Bool, withCore: Bool = false) throws -> Bundle {
         let app = root.appendingPathComponent("Fake.app", isDirectory: true)
         let resources = app.appendingPathComponent("Contents/Resources", isDirectory: true)
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
         let plist = #"<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>test.fake</string><key>CFBundlePackageType</key><string>APPL</string></dict></plist>"#
         try plist.write(to: app.appendingPathComponent("Contents/Info.plist"), atomically: true, encoding: .utf8)
         if withFonts { try FileManager.default.createDirectory(at: resources.appendingPathComponent("Brand/Fonts"), withIntermediateDirectories: true) }
+        if withCore {
+            let core = resources.appendingPathComponent("Sillog_SillogCore.bundle", isDirectory: true)
+            try FileManager.default.createDirectory(at: core, withIntermediateDirectories: true)
+            try #"{"오늘": "Today"}"#.write(to: core.appendingPathComponent("en.json"), atomically: true, encoding: .utf8)
+        }
         return try XCTUnwrap(Bundle(url: app))
+    }
+
+    /// The released app crashed on launch: Bundle.module looks only at the app root and the CI build folder.
+    func testAppFindsCoreResourcesInContentsResources() throws {
+        let app = try fakeApp(withFonts: false, withCore: true)
+        let core = BundledResources.coreBundle(main: app) {
+            XCTFail("Bundle.module ends an .app that runs away from the build machine")
+            return Bundle.main
+        }
+        XCTAssertNotNil(core?.url(forResource: "en", withExtension: "json"))
+    }
+
+    func testAppWithoutCoreBundleGetsNilInsteadOfACrash() throws {
+        let app = try fakeApp(withFonts: false)
+        XCTAssertNil(BundledResources.coreBundle(main: app) {
+            XCTFail("Bundle.module ends an .app that runs away from the build machine")
+            return Bundle.main
+        })
+    }
+
+    func testSwiftRunAndTestsStillLoadTheEnglishTable() {
+        XCTAssertNotNil(BundledResources.core?.url(forResource: "en", withExtension: "json"))
+        XCTAssertFalse(L10n.english.isEmpty)
     }
 
     func testAppWithoutTheFolderNeverTouchesTheSwiftPMBundle() throws {

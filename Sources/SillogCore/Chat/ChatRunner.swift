@@ -46,10 +46,7 @@ public struct ChatSkill: Codable, Identifiable, Sendable {
         return try String(contentsOf: url, encoding: .utf8)
     }
 
-    static var resourceBundle: Bundle {
-        if let url = Bundle.main.url(forResource: "Sillog_SillogCore", withExtension: "bundle"), let bundle = Bundle(url: url) { return bundle }
-        return Bundle.module
-    }
+    static var resourceBundle: Bundle { BundledResources.core ?? .main }
 }
 
 public enum ChatRunEvent: Sendable {
