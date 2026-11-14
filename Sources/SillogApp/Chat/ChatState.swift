@@ -114,10 +114,10 @@ final class ChatState: ObservableObject {
         current.scope.useActivity = false
     }
 
-    /// First questions for an empty chat: two fixed ones, then the two most recently worked tasks.
+    /// First questions for an empty chat: two fixed ones, then the two most recent tasks named in the app language.
     var starterPrompts: [(prompt: String, focus: ChatFocus?)] {
         [(tr("오늘 한 일 정리해 줘"), nil), (tr("이번 주 업무 보고서 만들어 줘"), nil)]
-            + focusChoices.tasks.prefix(2).map { (tr("\($0.focus.title) 진행 상황 정리해 줘"), $0.focus) }
+            + focusChoices.tasks.filter { L10n.current.fitsScript($0.focus.title) }.prefix(2).map { (tr("\($0.focus.title) 진행 상황 정리해 줘"), $0.focus) }
     }
 
     func useStarter(_ prompt: String, focus: ChatFocus?) {

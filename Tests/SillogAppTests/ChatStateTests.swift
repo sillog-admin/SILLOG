@@ -257,8 +257,9 @@ final class ChatStateTests: XCTestCase {
     func testATaskStarterFillsTheInputAndNarrowsTheScope() throws {
         let chat = try chatState()
         let task = ChatFocus(kind: .task, key: "t1", title: "온보딩 개편")
-        chat.focusChoices = ChatFocusChoices(tasks: [.init(focus: task, theme: nil, themeKey: nil)])
-        XCTAssertEqual(chat.starterPrompts.count, 3)
+        let english = ChatFocus(kind: .task, key: "t0", title: "Maintain the SILLOG codebase")
+        chat.focusChoices = ChatFocusChoices(tasks: [english, task].map { .init(focus: $0, theme: nil, themeKey: nil) })
+        XCTAssertEqual(chat.starterPrompts.count, 3, "a task named in another language is skipped")
         let starter = chat.starterPrompts[2]
         let last = chat.inputFocusRequest
         chat.useStarter(starter.prompt, focus: starter.focus)

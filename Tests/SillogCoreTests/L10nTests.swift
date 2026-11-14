@@ -21,6 +21,13 @@ final class L10nTests: XCTestCase {
         XCTAssertEqual(tr("번역이 없는 문장 \(1)"), "번역이 없는 문장 1")
     }
 
+    func testNamesFitTheLanguageByScript() {
+        XCTAssertTrue(AppLanguage.ko.fitsScript("SILLOG 온보딩"))
+        XCTAssertFalse(AppLanguage.ko.fitsScript("Maintain the SILLOG codebase"))
+        XCTAssertTrue(AppLanguage.en.fitsScript("Maintain the SILLOG codebase"))
+        XCTAssertFalse(AppLanguage.en.fitsScript("온보딩 개편"))
+    }
+
     /// Tool schemas are written in Korean; they must still ask for text in the app language.
     func testGeneratedTextIsAskedForInTheAppLanguage() throws {
         func schemas() throws -> [(name: String, text: String)] {
