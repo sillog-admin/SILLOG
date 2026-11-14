@@ -19,8 +19,10 @@ mkdir -p "$STAGE_DIR/Sources" "$STAGE_DIR/Tests"
 rsync -a --delete "$ROOT/Sources/" "$STAGE_DIR/Sources/"
 rsync -a --delete "$ROOT/Tests/" "$STAGE_DIR/Tests/"
 cp "$ROOT/Package.swift" "$ROOT/Package.resolved" "$STAGE_DIR/"
-swift build --package-path "$STAGE_DIR" -c release --product SillogApp --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox -j 2
-BIN_DIR="$(swift build --package-path "$STAGE_DIR" -c release --show-bin-path --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox)"
+# Swift Build's Bundle.module looks in Contents/Resources, where the bundles are copied below. The native build system
+# (Swift 6.2's default) looks only at the app root and this build folder, so the released app crashed on a user's Mac.
+swift build --package-path "$STAGE_DIR" -c release --build-system swiftbuild --product SillogApp --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox -j 2
+BIN_DIR="$(swift build --package-path "$STAGE_DIR" -c release --build-system swiftbuild --show-bin-path --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox)"
 APP="$BUILD_DIR/Sillog.app"
 APP_LINK="$ROOT/build/SILLOG.app"
 INSTALLED_APP="$HOME/Applications/SILLOG.app"
