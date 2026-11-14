@@ -39,6 +39,7 @@ struct ChatView: View {
     @State private var expandedQuestions: Set<String> = []
     @State private var pendingResend: PendingResend?
     @State private var copiedID: String?
+    @StateObject private var speaker = ChatSpeaker()
     @State private var hoveredArtifactID: String?
     @State private var showResults = false
     @State private var showActivity = false
@@ -127,6 +128,7 @@ struct ChatView: View {
     var body: some View {
         sheets
         .onAppear { if state.showsChatResultsOnOpen { pane = .results } }
+        .onDisappear { speaker.stop() }
         .alert(tr("이름 바꾸기"), isPresented: $showRename) {
             TextField(tr("대화 이름"), text: $conversationName)
             Button(tr("취소"), role: .cancel) {}
@@ -541,7 +543,12 @@ struct ChatView: View {
                 }
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
+                        let dividers = ConversationMessage.timeDividerIDs(in: chat.messages)
                         ForEach(chat.messages) { message in
+                            if dividers.contains(message.id) {
+                                Text(ChatDateText.divider(message.createdAt)).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+                                    .frame(maxWidth: .infinity).padding(.top, 32)
+                            }
                             messageView(message)
                                 .id(message.id)
                                 .background {
@@ -571,6 +578,7 @@ struct ChatView: View {
                 }
                 .onChange(of: chat.messages.count) { _, _ in if pendingScrollID == nil { proxy.scrollTo("bottom", anchor: .bottom) } }
                 .onChange(of: chat.current.id) { _, _ in
+                    speaker.stop()
                     selectedQuestionID = nil
                     hoveredQuestionID = nil
                     if pendingScrollID == nil { proxy.scrollTo("bottom", anchor: .bottom) }
@@ -685,6 +693,8 @@ struct ChatView: View {
                     if let branches, branches.paths.count > 1 {
                         branchStepper(message, shownIndex: branches.active, count: branches.paths.count).fixedSize()
                     }
+                    Text(ChatDateText.dateTime(message.createdAt)).font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.trailing, 6)
+                        .opacity(showsActions ? 1 : 0)
                     ChatIconButton(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc", help: tr("질문 복사"), color: Brand.gray) { copy(message.text, id: message.id) }
                         .opacity(showsActions ? 1 : 0)
                     ChatIconButton(systemName: "pencil", help: tr("질문 편집"), color: Brand.gray) { editText = message.text; editingMessageID = message.id }
@@ -778,6 +788,11 @@ struct ChatView: View {
                                          html: ChatArtifactHTML.render(ChatArtifact(title: "", format: "markdown", content: shown.markdown)))
                                 }
                                 if shown.status != "failed" {
+                                    let speaking = speaker.speakingID == message.id
+                                    ChatIconButton(systemName: speaking ? "stop.circle" : "speaker.wave.2", help: speaking ? tr("읽기 중지") : tr("소리 내어 읽기"), color: Brand.gray) {
+                                        speaker.toggle(shown.speechText, id: message.id)
+                                    }
+                                    ChatShareButton(text: shown.markdown)
                                     ChatIconButton(systemName: "arrow.clockwise", help: tr("다시 생성"), color: Brand.gray) { requestResend(message) }
                                         .disabled(chat.currentRunning)
                                     regenerateModelMenu(message)
@@ -1100,6 +1115,20 @@ struct ChatIconButton: View {
                 .opacity(enabled ? 1 : 0.4)
                 .contentShape(Rectangle())
         }.buttonStyle(.plain).onHover { hovering = $0 }.help(help).accessibilityLabel(label ?? help)
+    }
+}
+
+/// The answer's share button; ShareLink opens the system sharing picker.
+struct ChatShareButton: View {
+    let text: String
+    @State private var hovering = false
+    var body: some View {
+        ShareLink(item: text) {
+            Image(systemName: "square.and.arrow.up").font(.system(size: 13)).foregroundStyle(Brand.gray)
+                .frame(width: 28, height: 28)
+                .background(hovering ? ChatPalette.soft : .clear, in: RoundedRectangle(cornerRadius: 5))
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain).onHover { hovering = $0 }.help(tr("공유")).accessibilityLabel(tr("공유"))
     }
 }
 

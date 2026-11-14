@@ -7,6 +7,33 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(ConversationMessage.plainText(markdown), "요약 굵게 와 밑줄 code 링크 문서 [S1] 인용 let x = 1")
     }
 
+    func testSpeechTextDropsCitationsCodeAndTableBars() {
+        var answer = ConversationMessage(conversationID: "c", role: "assistant",
+            text: "## 요약\n\n- **결정** 완료 [node:1]\n\n| 항목 | 값 |\n| --- | --- |\n| 시간 | 2 |\n\n```swift\nlet x = 1\n```\n끝 [S9]")
+        answer.sources = [ChatSource(id: "node:1", title: "t", location: "", excerpt: "")]
+        XCTAssertEqual(answer.speechText, "요약\n결정 완료\n항목   값\n시간   2\n끝 [S9]")
+    }
+
+    func testTimeDividersMarkAnHourGapOrANewDay() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Seoul"))
+        let base = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 12, hour: 22, minute: 0))).timeIntervalSince1970
+        func message(_ id: String, _ at: Double, completed: Double? = nil, role: String = "user") -> ConversationMessage {
+            var item = ConversationMessage(conversationID: "c", role: role, text: id)
+            item.id = id; item.createdAt = at; item.completedAt = completed
+            return item
+        }
+        let messages = [
+            message("first", base),
+            message("answer", base + 60, completed: base + 600, role: "assistant"),
+            message("soon", base + 600 + 3599),          // under an hour after the answer ended
+            message("nextDay", base + 600 + 3599 + 3060),  // 51 minutes later, past midnight
+            message("later", base + 600 + 3599 + 3060 + 3600),
+            message("regenerated", base + 600 + 3599 + 3060 + 3600 + 7200, role: "assistant"),   // stays with its question
+        ]
+        XCTAssertEqual(ConversationMessage.timeDividerIDs(in: messages, calendar: calendar), ["nextDay", "later"])
+    }
+
     func testConnectorRenamePreservesSavedScopes() throws {
         let saved = Data(#"{"plugins":["gmail","figma"],"useWeb":false,"useGitHub":true}"#.utf8)
         let scope = try JSONDecoder().decode(ChatScope.self, from: saved)
