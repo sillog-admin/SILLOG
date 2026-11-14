@@ -620,7 +620,7 @@ final class ChatTests: XCTestCase {
 
     func testOfficeArtifactsPreviewAsHTML() {
         let deck = ChatArtifactHTML.render(.init(title: "d", format: "pptx", content: "# 하나\n- a\n## 둘\n- b"))
-        XCTAssertEqual(deck.components(separatedBy: "<section>").count - 1, 2)
+        XCTAssertTrue(deck.contains(#"<section class="slide" data-n="1">"#) && deck.contains(#"<section class="slide" data-n="2">"#), deck)
         XCTAssertTrue(ChatArtifactHTML.render(.init(title: "s", format: "xlsx", content: "A,<B>\n1,2")).contains("<td>&lt;B&gt;</td>"))
         XCTAssertTrue(ChatArtifactHTML.render(.init(title: "w", format: "docx", content: "# 제목")).contains("<h1>제목</h1>"))
     }

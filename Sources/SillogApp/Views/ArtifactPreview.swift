@@ -34,6 +34,7 @@ struct ArtifactPreview: View {
                         .accessibilityLabel(tr("결과물 편집"))
                 } else {
                     ArtifactWebView(state: preview).overlay { if onAsk != nil { askPill } }
+                        .overlay { if !preview.loaded { ZStack { Color.white; ProgressView().controlSize(.small).accessibilityLabel(tr("불러오는 중…")) } } }
                 }
                 if let error { Text(error).font(Brand.font(.body)).foregroundStyle(Brand.ink).padding(12) }
             }
@@ -211,9 +212,7 @@ private final class ArtifactWebState: NSObject, ObservableObject, WKNavigationDe
         selectionPoint = CGPoint(x: body["x"] as? Double ?? 0, y: body["y"] as? Double ?? 0)
     }
 
-    /// Args: webView·navigation은 완료된 미리보기 탐색이다.
-    /// Returns: 없음. PDF 저장을 활성화한다.
-    /// Raises: 없음.
+    /// Hides the loading placeholder and enables PDF export.
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { loaded = true }
 
     /// Args: navigationAction은 문서의 탐색 요청, decisionHandler는 허용 여부 콜백이다.
