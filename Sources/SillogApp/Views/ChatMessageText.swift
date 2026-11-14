@@ -172,7 +172,7 @@ private struct ChatParagraph: View, Equatable {
         if !value.isEmpty || !cited.isEmpty || missing {
             VStack(alignment: .leading, spacing: 6) {
                 if let rows = ChatMarkdownTable.rows(in: value) {
-                    ChatMarkdownTableView(rows: rows)
+                    ChatMarkdownTableView(rows: rows, markdown: value)
                 } else if !value.isEmpty {
                     blocksView(value)
                 }
@@ -231,7 +231,10 @@ struct ChatCodeBlock: View {
 
 private struct ChatMarkdownTableView: View {
     let rows: [[String]]
+    let markdown: String
     @State private var width: CGFloat = 0
+    @State private var hovering = false
+    @State private var copied = false
 
     var body: some View {
         ScrollView(.horizontal) {
@@ -249,9 +252,28 @@ private struct ChatMarkdownTableView: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
+            .overlay(alignment: .topTrailing) { copyButton.opacity(hovering || copied ? 1 : 0).padding(5) }
         }
         .defaultScrollAnchor(.leading)
+        .onHover { hovering = $0 }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+    }
+}
+
+extension ChatMarkdownTableView {
+    // The answer's copy button adds its sources, so the table gets its own.
+    private var copyButton: some View {
+        Button {
+            ChatView.write(markdown, html: ChatArtifactHTML.render(ChatArtifact(title: "", format: "markdown", content: markdown)))
+            copied = true
+            Task { try? await Task.sleep(for: .seconds(1.5)); copied = false }
+        } label: {
+            Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.system(size: 11)).foregroundStyle(Brand.gray)
+                .frame(width: 24, height: 22)
+                .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 5))
+                .hoverHighlight(cornerRadius: 5)
+        }
+        .buttonStyle(.plain).help(tr("표 복사")).accessibilityLabel(copied ? tr("복사됨") : tr("표 복사"))
     }
 }
 
