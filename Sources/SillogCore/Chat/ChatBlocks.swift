@@ -9,7 +9,11 @@ public enum ChatBlocks {
         /// 글머리는 "•", 번호 목록은 쓴 그대로 ("1.", "2)")
         public var marker: String
         public var text: String
-        public init(level: Int, marker: String, text: String) { self.level = level; self.marker = marker; self.text = text }
+        /// Task list state from "[ ]" / "[x]"; nil for a plain item.
+        public var checked: Bool?
+        public init(level: Int, marker: String, text: String, checked: Bool? = nil) {
+            self.level = level; self.marker = marker; self.text = text; self.checked = checked
+        }
     }
 
     public enum Block: Equatable, Sendable {
@@ -24,6 +28,7 @@ public enum ChatBlocks {
     private static let dividerPattern = try! NSRegularExpression(pattern: #"^[ ]{0,3}([-*_])([ \t]*\1){2,}[ \t]*$"#)
     private static let quotePattern = try! NSRegularExpression(pattern: #"^[ ]{0,3}>[ ]?(.*)$"#)
     private static let itemPattern = try! NSRegularExpression(pattern: #"^([ \t]*)([-*+•]|\d{1,3}[.)])[ \t]+(.*)$"#)
+    private static let taskPattern = try! NSRegularExpression(pattern: #"^\[([ xX])\][ \t]+(.*)$"#)
 
     /// Args: chunk 는 빈 줄로 나뉜 본문 한 덩어리다.
     /// Returns: 줄 순서대로의 블록. 목록 항목 아래 들여 쓴 줄은 그 항목에 이어 붙인다.
@@ -47,7 +52,8 @@ public enum ChatBlocks {
                 flushParagraph(); flushQuote()
                 let indent = groups[1].reduce(0) { $0 + ($1 == "\t" ? 4 : 1) }
                 let marker = groups[2].first?.isNumber == true ? groups[2] : "•"
-                items.append(Item(level: min(3, indent / 2), marker: marker, text: groups[3]))
+                let task = match(taskPattern, groups[3])
+                items.append(Item(level: min(3, indent / 2), marker: marker, text: task?[2] ?? groups[3], checked: task.map { $0[1] != " " }))
             } else if !items.isEmpty, line.first == " " || line.first == "\t", !line.trimmingCharacters(in: .whitespaces).isEmpty {
                 items[items.count - 1].text += "\n" + line.trimmingCharacters(in: .whitespaces)
             } else {

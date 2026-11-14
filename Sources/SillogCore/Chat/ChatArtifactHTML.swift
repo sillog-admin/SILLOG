@@ -21,7 +21,7 @@ public enum ChatArtifactHTML {
         <!doctype html><html lang="\(L10n.current.rawValue)"><head><meta charset="utf-8">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
         <meta name="viewport" content="width=device-width, initial-scale=1"><title>\(escape(artifact.title))</title>
-        <style>body{font:14px/1.7 -apple-system,BlinkMacSystemFont,sans-serif;color:#141210;background:#fff;margin:32px 28px;overflow-wrap:anywhere}h1,h2,h3{line-height:1.3}h1{font-size:24px}h2{font-size:18px;margin-top:28px}p{white-space:pre-wrap}pre{white-space:pre-wrap;background:#F6F5F4;padding:16px;border-radius:6px}code{font-family:ui-monospace,monospace}table{border-collapse:collapse;width:100%;margin:20px 0}td,th{border:1px solid #E5E2DF;padding:8px 12px;text-align:left}tr:first-child td{background:#F6F5F4;font-weight:600}blockquote{border-left:3px solid #E5E2DF;margin-left:0;padding-left:16px;color:#736D68}a{color:#265ed4}hr{border:0;border-top:1px solid #E5E2DF;margin:24px 0}section{border-bottom:1px solid #E5E2DF;padding-bottom:24px}@media print{body{margin:0}pre,table{break-inside:avoid}section{break-after:page}}</style>
+        <style>body{font:14px/1.7 -apple-system,BlinkMacSystemFont,sans-serif;color:#141210;background:#fff;margin:32px 28px;overflow-wrap:anywhere}h1,h2,h3{line-height:1.3}h1{font-size:24px}h2{font-size:18px;margin-top:28px}p{white-space:pre-wrap}pre{white-space:pre-wrap;background:#F6F5F4;padding:16px;border-radius:6px}code{font-family:ui-monospace,monospace}table{border-collapse:collapse;width:100%;margin:20px 0}td,th{border:1px solid #E5E2DF;padding:8px 12px;text-align:left}tr:first-child td{background:#F6F5F4;font-weight:600}blockquote{border-left:3px solid #E5E2DF;margin-left:0;padding-left:16px;color:#736D68}a{color:#265ed4}hr{border:0;border-top:1px solid #E5E2DF;margin:24px 0}.task{list-style:none}section{border-bottom:1px solid #E5E2DF;padding-bottom:24px}@media print{body{margin:0}pre,table{break-inside:avoid}section{break-after:page}}</style>
         </head><body>\(body)</body></html>
         """
     }
@@ -81,6 +81,12 @@ public enum ChatArtifactHTML {
             .replacingOccurrences(of: "\\[([^\\]]+)\\]\\((https?://[^\\s)]+)\\)", with: "<a href=\"$2\">$1</a>", options: .regularExpression)
     }
 
+    private static func listItem(_ item: String) -> String {
+        guard let box = item.range(of: #"^\[[ xX]\] "#, options: .regularExpression) else { return "<li>\(inline(item))</li>" }
+        let checked = item[box] != "[ ] " ? " checked" : ""
+        return "<li class=\"task\"><input type=\"checkbox\" disabled\(checked)> \(inline(String(item[box.upperBound...])))</li>"
+    }
+
     /// Args: text는 Markdown 문서이다.
     /// Returns: 문서 블록을 HTML로 변환한 본문.
     /// Raises: 없음.
@@ -106,11 +112,11 @@ public enum ChatArtifactHTML {
             if isRule { result += "<hr>" }
             else if isList {
                 if !list { result += "<ul>"; list = true }
-                result += "<li>\(inline(String(line.dropFirst(2))))</li>"
+                result += listItem(String(line.dropFirst(2)))
             } else if let olMarker {
                 // Keep the written number, so a list split by a blank or indented line keeps counting.
                 if !ol { let n = line[olMarker].dropLast(2); result += n == "1" ? "<ol>" : "<ol start=\"\(n)\">"; ol = true }
-                result += "<li>\(inline(String(line[olMarker.upperBound...])))</li>"
+                result += listItem(String(line[olMarker.upperBound...]))
             } else if isTable {
                 if !table { result += "<table>"; table = true }
                 if line.allSatisfy({ "|-: ".contains($0) }) { continue }
