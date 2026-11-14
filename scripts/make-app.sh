@@ -19,8 +19,10 @@ mkdir -p "$STAGE_DIR/Sources" "$STAGE_DIR/Tests"
 rsync -a --delete "$ROOT/Sources/" "$STAGE_DIR/Sources/"
 rsync -a --delete "$ROOT/Tests/" "$STAGE_DIR/Tests/"
 cp "$ROOT/Package.swift" "$ROOT/Package.resolved" "$STAGE_DIR/"
-swift build --package-path "$STAGE_DIR" -c release --product SillogApp --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox -j 2
-BIN_DIR="$(swift build --package-path "$STAGE_DIR" -c release --show-bin-path --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox)"
+# Swift Build's Bundle.module looks in Contents/Resources, where the bundles are copied below. The native build system
+# (Swift 6.2's default) looks only at the app root and this build folder, so the released app crashed on a user's Mac.
+swift build --package-path "$STAGE_DIR" -c release --build-system swiftbuild --product SillogApp --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox -j 2
+BIN_DIR="$(swift build --package-path "$STAGE_DIR" -c release --build-system swiftbuild --show-bin-path --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox)"
 APP="$BUILD_DIR/Sillog.app"
 APP_LINK="$ROOT/build/SILLOG.app"
 INSTALLED_APP="$HOME/Applications/SILLOG.app"
@@ -64,6 +66,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>NSMicrophoneUsageDescription</key><string>메뉴 막대에서 녹음하거나 채팅에 말로 입력할 때 마이크 소리를 듣습니다.</string>
   <key>NSSpeechRecognitionUsageDescription</key><string>녹음한 말과 채팅에 말로 입력한 내용을 이 Mac 안에서 글로 받아씁니다.</string>
   <key>NSDocumentsFolderUsageDescription</key><string>받아쓴 녹음을 문서 폴더의 'SILLOG 녹음'에 저장합니다.</string>
+  <key>NSDesktopFolderUsageDescription</key><string>내려받은 파일을 넣을 폴더를 제안하려고 데스크탑의 폴더를 살펴봅니다.</string>
   <key>NSCalendarsFullAccessUsageDescription</key><string>오늘 일정을 메뉴 막대에 보여 주고, 기록에서 찾은 일정을 확인한 뒤 캘린더에 등록합니다.</string>
   <key>NSCalendarsUsageDescription</key><string>오늘 일정을 메뉴 막대에 보여 주고, 기록에서 찾은 일정을 확인한 뒤 캘린더에 등록합니다.</string>
   <key>NSAppTransportSecurity</key>
@@ -74,6 +77,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </dict>
 </plist>
 PLIST
+# CI's run number, so a crash report names the release build it came from.
+plutil -replace CFBundleVersion -string "${GITHUB_RUN_NUMBER:-1}" "$APP/Contents/Info.plist"
 
 # OAuth client settings: env (SILLOG_* or legacy WORKGRAPH_*), then Config/OAuthClients.plist.
 OAUTH_CONFIG="$ROOT/Config/OAuthClients.plist"

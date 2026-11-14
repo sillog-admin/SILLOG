@@ -167,8 +167,23 @@ public enum CodexRuntime {
         }
     }
 
+    /// Finder opens the app with PATH=/usr/bin:/bin:/usr/sbin:/sbin, so the shell's npm, nvm and Volta folders are added here.
     static var paths: [String] {
-        (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init) + ["/opt/homebrew/bin", "/usr/local/bin"]
+        searchPaths(path: ProcessInfo.processInfo.environment["PATH"] ?? "", home: FileManager.default.homeDirectoryForCurrentUser.path)
+    }
+
+    /// Returns: path's folders, Homebrew's, then the per-user install folders, newest nvm Node first.
+    static func searchPaths(path: String, home: String) -> [String] {
+        let nvm = home + "/.nvm/versions/node"
+        let versions = ((try? FileManager.default.contentsOfDirectory(atPath: nvm)) ?? []).sorted { $0.compare($1, options: .numeric) == .orderedDescending }
+        return path.split(separator: ":").map(String.init) + ["/opt/homebrew/bin", "/usr/local/bin"]
+            + [".local/bin", ".volta/bin", ".npm-global/bin", ".bun/bin", "Library/pnpm"].map { home + "/" + $0 }
+            + versions.map { "\(nvm)/\($0)/bin" }
+    }
+
+    /// npm's codex is a `#!/usr/bin/env node` script, and nvm keeps the node it was installed with in the same folder.
+    static func childPath(for executable: URL) -> String {
+        ([executable.deletingLastPathComponent().path] + paths).joined(separator: ":")
     }
 
     /// Args: 없음.
@@ -192,9 +207,10 @@ public enum CodexRuntime {
         let process = Process(), output = Pipe()
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-            process.executableURL = try executableURL()
+            let executable = try executableURL()
+            process.executableURL = executable
             process.arguments = ["--version"]
-            process.environment = ["PATH": paths.joined(separator: ":"), "HOME": FileManager.default.homeDirectoryForCurrentUser.path, "CODEX_HOME": directory.path]
+            process.environment = ["PATH": childPath(for: executable), "HOME": FileManager.default.homeDirectoryForCurrentUser.path, "CODEX_HOME": directory.path]
             process.standardOutput = output
             process.standardError = FileHandle.nullDevice
             try process.run()
@@ -222,7 +238,6 @@ private final class CodexServerConnection: @unchecked Sendable {
     /// Returns: 독립된 임시 작업 디렉터리와 JSONL 연결.
     /// Raises: CLI 미설치 또는 임시 디렉터리 생성 실패.
     init() throws {
-        let paths = CodexRuntime.paths
         let executable = try CodexRuntime.executableURL()
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("sillog-codex-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -232,7 +247,7 @@ private final class CodexServerConnection: @unchecked Sendable {
         for feature in ["shell_tool", "unified_exec", "code_mode", "apps", "plugins", "multi_agent", "browser_use", "computer_use", "view_image", "image_generation", "hooks", "memories", "shell_snapshot", "workspace_dependencies"] {
             process.arguments! += ["--disable", feature]
         }
-        var childEnvironment = ["PATH": paths.joined(separator: ":"), "HOME": FileManager.default.homeDirectoryForCurrentUser.path]
+        var childEnvironment = ["PATH": CodexRuntime.childPath(for: executable), "HOME": FileManager.default.homeDirectoryForCurrentUser.path]
         // 자식 프로세스의 전용 Codex 저장소이며 사용자의 실제 CODEX_HOME은 변경하지 않는다.
         childEnvironment["CODEX_HOME"] = directory.path
         process.environment = childEnvironment

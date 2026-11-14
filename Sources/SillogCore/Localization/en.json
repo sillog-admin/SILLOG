@@ -1784,5 +1784,6 @@
   "답변 중": "Answering",
   "말하는 중": "Speaking",
   "눌러서 지금 보내기": "Click to send now",
-  "눌러서 읽기 건너뛰기": "Click to skip the reading"
+  "눌러서 읽기 건너뛰기": "Click to skip the reading",
+  "SILLOG을 응용 프로그램 폴더로 옮긴 뒤 다시 열어 주세요. 디스크 이미지에서 연 SILLOG은 디스크 이미지를 꺼내면 함께 사라져요.": "Move SILLOG to the Applications folder and open it again. A copy opened from the disk image disappears when the disk image is ejected."
 }

@@ -157,6 +157,12 @@ final class AppState: ObservableObject {
         L10n.current = settings.language
         Brand.scale = settings.textScale
         PIIMasker.enabled = settings.maskPII
+        // Opened inside the dmg, SILLOG and the login item onboarding registers vanish on eject.
+        if InstallLocation.needsMove(Bundle.main.bundleURL) {
+            startupError = tr("SILLOG을 응용 프로그램 폴더로 옮긴 뒤 다시 열어 주세요. 디스크 이미지에서 연 SILLOG은 디스크 이미지를 꺼내면 함께 사라져요.")
+            AppLog.write("디스크 이미지에서 열려 시작하지 않음: \(Bundle.main.bundlePath)")
+            return
+        }
         guard instanceLock.acquire() else {
             startupError = Self.alreadyRunningMessage
             AppLog.write("이미 실행 중인 SILLOG이 있어 시작하지 않음 (터미널에서 swift run 으로 띄운 실행도 확인)")

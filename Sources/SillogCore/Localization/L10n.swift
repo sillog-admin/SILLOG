@@ -45,7 +45,7 @@ public enum L10n {
     nonisolated(unsafe) public static var current: AppLanguage = .ko
 
     public static let english: [String: String] = {
-        guard let url = Bundle.module.url(forResource: "en", withExtension: "json"),
+        guard let url = BundledResources.core?.url(forResource: "en", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let table = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
         return table
