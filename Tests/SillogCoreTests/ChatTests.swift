@@ -357,6 +357,13 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(ChatMarkdownTable.rows(in: "| 논문 | 결과 |\n|---|---|\n| A | B | C |"), [["논문", "결과"], ["A", "B"]])
     }
 
+    func testTableColumnsShareTheAvailableWidth() {
+        XCTAssertEqual(ChatMarkdownTable.columnWidths(ideal: [80, 200], minimum: 100, available: 400), [80, 200], "fits as is")
+        // Floors 80+100+100 leave 220, shared by how much each column wants beyond its floor (0, 500, 300).
+        XCTAssertEqual(ChatMarkdownTable.columnWidths(ideal: [80, 600, 400], minimum: 100, available: 500), [80, 237.5, 182.5])
+        XCTAssertEqual(ChatMarkdownTable.columnWidths(ideal: [600, 400], minimum: 100, available: 150), [100, 100], "floors scroll")
+    }
+
     /// Args: 없음.
     /// Returns: 없음. 여섯 스킬과 실제 하위 작업·도구 결과 전달, 주·하위 에이전트가 받는 시스템 프롬프트를 확인한다.
     /// Raises: 실행기·DB 오류.

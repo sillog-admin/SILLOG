@@ -172,7 +172,7 @@ private struct ChatParagraph: View, Equatable {
         if !value.isEmpty || !cited.isEmpty || missing {
             VStack(alignment: .leading, spacing: 6) {
                 if let rows = ChatMarkdownTable.rows(in: value) {
-                    ChatMarkdownTableView(rows: rows)
+                    ChatMarkdownTableView(rows: rows, markdown: value)
                 } else if !value.isEmpty {
                     blocksView(value)
                 }
@@ -231,44 +231,85 @@ struct ChatCodeBlock: View {
 
 private struct ChatMarkdownTableView: View {
     let rows: [[String]]
+    let markdown: String
+    @State private var width: CGFloat = 0
+    @State private var hovering = false
+    @State private var copied = false
 
     var body: some View {
         ScrollView(.horizontal) {
-            Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
+            ChatTableLayout(columns: rows[0].count, minimum: 110 * Brand.scale, available: width) {
                 ForEach(rows.indices, id: \.self) { row in
-                    GridRow {
-                        ForEach(rows[row].indices, id: \.self) { column in
-                            CappedWidth(limit: 320 * Brand.scale) {
-                                Text(ChatMessageText.inlineMarkdown(rows[row][column]))
-                                    .font(Brand.font(.sectionTitle, row == 0 ? .semibold : .regular)).foregroundStyle(row == 0 ? Brand.ink : Brand.tabText)
-                            }
+                    ForEach(rows[row].indices, id: \.self) { column in
+                        Text(ChatMessageText.inlineMarkdown(rows[row][column]))
+                            .font(Brand.font(.sectionTitle, row == 0 ? .semibold : .regular)).foregroundStyle(row == 0 ? Brand.ink : Brand.tabText)
                             .padding(.horizontal, 12).padding(.vertical, 9)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                             .background(row == 0 ? ChatPalette.soft : .clear)
-                        }
+                            .overlay(alignment: .top) { if row > 0 { Rectangle().fill(Brand.line).frame(height: 1) } }
                     }
-                    if row < rows.count - 1 { Rectangle().fill(Brand.line).frame(height: 1).gridCellUnsizedAxes(.horizontal) }
                 }
             }
-            .fixedSize(horizontal: false, vertical: true)   // header cells fill their row without stretching the table
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Brand.line))
+            .overlay(alignment: .topTrailing) { copyButton.opacity(hovering || copied ? 1 : 0).padding(5) }
         }
         .defaultScrollAnchor(.leading)
+        .onHover { hovering = $0 }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
     }
 }
 
-/// Wraps its child at min(ideal width, limit). A width-capped frame alone lets the horizontal ScrollView measure one line, so the Grid row stays one line tall while the text wraps over the next row.
-private struct CappedWidth: Layout {
-    let limit: CGFloat
+extension ChatMarkdownTableView {
+    // The answer's copy button adds its sources, so the table gets its own.
+    private var copyButton: some View {
+        Button {
+            ChatView.write(markdown, html: ChatArtifactHTML.render(ChatArtifact(title: "", format: "markdown", content: markdown)))
+            copied = true
+            Task { try? await Task.sleep(for: .seconds(1.5)); copied = false }
+        } label: {
+            Image(systemName: copied ? "checkmark" : "doc.on.doc").font(.system(size: 11)).foregroundStyle(Brand.gray)
+                .frame(width: 24, height: 22)
+                .background(ChatPalette.soft, in: RoundedRectangle(cornerRadius: 5))
+                .hoverHighlight(cornerRadius: 5)
+        }
+        .buttonStyle(.plain).help(tr("표 복사")).accessibilityLabel(copied ? tr("복사됨") : tr("표 복사"))
+    }
+}
+
+/// Lays cells out at ChatMarkdownTable.columnWidths. The horizontal ScrollView proposes no width, so the visible width comes in as `available`.
+private struct ChatTableLayout: Layout {
+    let columns: Int
+    let minimum: CGFloat
+    let available: CGFloat
+
+    private func measure(_ subviews: Subviews) -> (widths: [CGFloat], heights: [CGFloat]) {
+        let ideal = (0..<columns).map { column in
+            stride(from: column, to: subviews.count, by: columns).map { subviews[$0].sizeThatFits(.unspecified).width }.max() ?? 0
+        }
+        let widths = ChatMarkdownTable.columnWidths(ideal: ideal.map(Double.init), minimum: minimum, available: available).map { CGFloat($0) }
+        let heights = stride(from: 0, to: subviews.count, by: columns).map { start in
+            (start..<min(start + columns, subviews.count)).map { subviews[$0].sizeThatFits(ProposedViewSize(width: widths[$0 - start], height: nil)).height }.max() ?? 0
+        }
+        return (widths, heights)
+    }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let ideal = subviews[0].sizeThatFits(.unspecified).width
-        return subviews[0].sizeThatFits(ProposedViewSize(width: min(ideal, limit, proposal.width ?? .infinity), height: nil))
+        let (widths, heights) = measure(subviews)
+        return CGSize(width: widths.reduce(0, +), height: heights.reduce(0, +))
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(width: min(bounds.width, limit), height: nil))
+        let (widths, heights) = measure(subviews)
+        var y = bounds.minY
+        for (row, height) in heights.enumerated() {
+            var x = bounds.minX
+            for column in 0..<columns where row * columns + column < subviews.count {
+                subviews[row * columns + column].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(width: widths[column], height: height))
+                x += widths[column]
+            }
+            y += height
+        }
     }
 }
 

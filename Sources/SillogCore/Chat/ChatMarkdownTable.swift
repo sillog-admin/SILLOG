@@ -17,6 +17,20 @@ public enum ChatMarkdownTable {
         return [header] + body
     }
 
+    /// Fits columns to the available width like an HTML auto table: full widths when they fit, otherwise each column keeps its floor and the rest is shared in proportion to how much it wants.
+    /// Args: ideal is each column's one-line width, minimum the floor for a wrapped column, available the width to fill.
+    /// Returns: column widths. Their sum exceeds available only when the floors alone do not fit.
+    /// Raises: none.
+    public static func columnWidths(ideal: [Double], minimum: Double, available: Double) -> [Double] {
+        guard ideal.reduce(0, +) > available else { return ideal }
+        let floors = ideal.map { min($0, minimum) }
+        let spare = available - floors.reduce(0, +)
+        guard spare > 0 else { return floors }
+        let wanted = zip(ideal, floors).map { $0 - $1 }
+        let total = wanted.reduce(0, +)
+        return zip(floors, wanted).map { $0 + $1 / total * spare }
+    }
+
     /// Args: line은 표의 한 행이다.
     /// Returns: 양끝 파이프를 제외하고 분리한 셀 목록.
     /// Raises: 없음.
