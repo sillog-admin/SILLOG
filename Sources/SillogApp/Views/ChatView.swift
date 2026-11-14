@@ -826,6 +826,16 @@ struct ChatView: View {
                     .animation(.easeOut(duration: 0.12), value: revealed)
                     .focused($focusedActions, equals: message.id)
                 }
+                if chat.messages.last?.id == message.id, shownIndex == versions.count - 1, shown.status == "complete", !chat.currentRunning {
+                    let actions = OfficeFormat.followUps(text: shown.text, artifacts: shown.artifacts)
+                    if !actions.isEmpty {
+                        HStack(spacing: 6) {
+                            ForEach(actions, id: \.self) { action in
+                                ChatPillButton(title: action.followUpTitle, systemName: Self.artifactIcon(action.rawValue)) { chat.request(action.followUpRequest) }
+                            }
+                        }
+                    }
+                }
                 if expandedSources.contains(message.id) {
                     let split = shown.splitSources
                     VStack(alignment: .leading, spacing: 0) {

@@ -95,4 +95,16 @@ final class OfficeFileTests: XCTestCase {
         XCTAssertEqual(try ChatArtifact(title: "t", format: "csv", content: "a,b").fileData(), Data("a,b".utf8))
         XCTAssertEqual(try ChatArtifact(title: "t", format: "docx", content: "x").fileData().prefix(4), Data("PK\u{3}\u{4}".utf8))
     }
+
+    func testFollowUpsFollowTablesAndStructureAndSkipMadeFormats() {
+        let table = "요약\n\n| 이름 | 값 |\n| --- | ---: |\n| 사과 | 3 |"
+        XCTAssertEqual(OfficeFormat.followUps(text: table, artifacts: []), [.xlsx])
+        XCTAssertEqual(OfficeFormat.followUps(text: "|a|b|\n|-|:-:|\n|1|2|", artifacts: []), [.xlsx])
+        let long = "# 개요\n" + String(repeating: "설명 문장입니다. ", count: 40) + "\n## 다음 단계\n- 하나\n- 둘"
+        XCTAssertEqual(OfficeFormat.followUps(text: long, artifacts: []), [.docx, .pptx])
+        XCTAssertEqual(OfficeFormat.followUps(text: table + "\n" + long, artifacts: [ChatArtifact(title: "t", format: "docx", content: "x")]), [.xlsx, .pptx])
+        XCTAssertEqual(OfficeFormat.followUps(text: "짧은 답\n# 하나\n# 둘", artifacts: []), [])
+        let fenced = "```\n| --- | --- |\n# 주석\n# 주석\n```\n" + String(repeating: "본문 ", count: 100)
+        XCTAssertEqual(OfficeFormat.followUps(text: fenced, artifacts: []), [])
+    }
 }

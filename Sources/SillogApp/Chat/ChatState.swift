@@ -413,10 +413,13 @@ final class ChatState: ObservableObject {
 
     /// Asks for the rest of a stopped answer; ChatRunner keeps the partial text in the history.
     // shortcut: adds a visible follow-up turn instead of extending the stopped answer, merge them if users want one answer.
-    @discardableResult func continueAnswer() -> Bool {
+    @discardableResult func continueAnswer() -> Bool { request(tr("앞 답변에 이어서 계속 써 줘")) }
+
+    /// Sends a fixed request in the current chat without touching the draft.
+    @discardableResult func request(_ text: String) -> Bool {
         guard !currentRunning else { error = tr("응답이 끝난 뒤에 다시 보내 주세요."); return false }
         guard !library.busy else { error = tr("첨부 파일을 넣는 중이에요. 끝나면 보내 주세요."); return false }
-        return begin(tr("앞 답변에 이어서 계속 써 줘"), conversation: current, automationID: nil)
+        return begin(text, conversation: current, automationID: nil)
     }
 
     /// Copies the conversation as Markdown with sources, or saves it to a file the user picks.

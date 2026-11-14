@@ -2,6 +2,42 @@ import Foundation
 
 public enum OfficeFormat: String, CaseIterable, Sendable { case docx, pptx, xlsx }
 
+extension OfficeFormat {
+    public var followUpTitle: String {
+        switch self {
+        case .docx: return tr("Word 문서로 만들기")
+        case .pptx: return tr("PowerPoint로 만들기")
+        case .xlsx: return tr("Excel 파일로 만들기")
+        }
+    }
+
+    public var followUpRequest: String {
+        switch self {
+        case .docx: return tr("이 답변을 Word 문서로 만들어 줘")
+        case .pptx: return tr("이 답변을 PowerPoint 발표 자료로 만들어 줘")
+        case .xlsx: return tr("이 답변의 표를 Excel 파일로 만들어 줘")
+        }
+    }
+
+    /// Args: text is the answer's Markdown; artifacts are the files that answer already made.
+    /// Returns: a table suggests xlsx; a long answer with headings or many list items suggests docx and pptx; formats already made are left out.
+    /// Raises: none.
+    public static func followUps(text: String, artifacts: [ChatArtifact]) -> [OfficeFormat] {
+        var fence = false, table = false, headings = 0, items = 0
+        for line in text.components(separatedBy: .newlines) {
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if t.hasPrefix("```") { fence.toggle(); continue }
+            if fence { continue }
+            if t.range(of: #"^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$"#, options: .regularExpression) != nil { table = true }
+            if t.range(of: #"^#{1,6} "#, options: .regularExpression) != nil { headings += 1 }
+            if t.range(of: #"^([-*+]|\d+[.)]) "#, options: .regularExpression) != nil { items += 1 }
+        }
+        let structured = text.count >= 400 && (headings >= 2 || items >= 5)
+        let made = Set(artifacts.map(\.format))
+        return ((table ? [.xlsx] : []) + (structured ? [.docx, .pptx] : [])).filter { !made.contains($0.rawValue) }
+    }
+}
+
 extension ChatArtifact {
     public var fileExtension: String {
         OfficeFormat(rawValue: format)?.rawValue
