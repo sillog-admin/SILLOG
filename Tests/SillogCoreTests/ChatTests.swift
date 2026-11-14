@@ -760,6 +760,25 @@ final class ChatTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: other.path))
     }
 
+    /// An app opened from Finder gets only the system PATH, which has no npm, nvm or Volta folder.
+    func testFinderLaunchStillFindsUserInstalledCodex() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+        defer { try? FileManager.default.removeItem(atPath: home) }
+        for version in ["v9.11.2", "v22.11.0", "v18.20.4"] {
+            try FileManager.default.createDirectory(atPath: "\(home)/.nvm/versions/node/\(version)/bin", withIntermediateDirectories: true)
+        }
+        let paths = CodexRuntime.searchPaths(path: "/usr/bin:/bin:/usr/sbin:/sbin", home: home)
+        XCTAssertEqual(Array(paths.prefix(6)), ["/usr/bin", "/bin", "/usr/sbin", "/sbin", "/opt/homebrew/bin", "/usr/local/bin"])
+        XCTAssertTrue(paths.contains("\(home)/.local/bin"))
+        XCTAssertTrue(paths.contains("\(home)/.volta/bin"))
+        XCTAssertEqual(Array(paths.suffix(3)), ["v22.11.0", "v18.20.4", "v9.11.2"].map { "\(home)/.nvm/versions/node/\($0)/bin" })
+    }
+
+    func testCodexChildFindsTheNodeInstalledBesideIt() {
+        let path = CodexRuntime.childPath(for: URL(fileURLWithPath: "/Users/me/.nvm/versions/node/v20.1.0/bin/codex"))
+        XCTAssertTrue(path.hasPrefix("/Users/me/.nvm/versions/node/v20.1.0/bin:"))
+    }
+
     func testFollowUpQuestionKeepsFirstCleanLine() async throws {
         XCTAssertEqual(ChatBackend.followUpLine("\n  \"- 다음 주 일정도 정리해 줘?\"\n설명"), "다음 주 일정도 정리해 줘?")
         XCTAssertNil(ChatBackend.followUpLine(" \n\"\" "))
