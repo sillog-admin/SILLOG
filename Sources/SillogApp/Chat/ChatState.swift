@@ -62,7 +62,7 @@ final class ChatState: ObservableObject {
         self.db = db; self.store = ChatStore(db); self.makeClient = makeClient
         projects = ProjectState(db: db, makeClient: makeProjectClient)
         library = LibraryState(db: db)
-        library.onChange = { [weak self] in self?.projects.reload() }
+        library.onChange = { [weak self] in self?.nameAttachmentOnlyChats(); self?.projects.reload() }
         library.showAttachments(conversationID: current.id, projectID: current.projectID)
         projects.onChange = { [weak self] in
             guard let self else { return }
@@ -288,11 +288,14 @@ final class ChatState: ObservableObject {
     }
 
     func uploadFiles(projectWide: Bool = false) {
-        guard !refusesFiles() else { return }
+        guard !refusesFiles(), !library.busy else { return }
+        // Pick first, so a cancelled panel leaves no empty chat behind.
+        let urls = LibraryState.chooseFiles()
+        guard !urls.isEmpty else { return }
         do {
             try store.save(current); try reload()
             let projectID = projectWide ? current.projectID : nil
-            library.importFiles(projectID: projectID, conversationID: projectID == nil ? current.id : nil)
+            library.importFiles(urls, projectID: projectID, conversationID: projectID == nil ? current.id : nil)
         } catch { self.error = error.localizedDescription }
     }
 
@@ -434,14 +437,31 @@ final class ChatState: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
 
-    /// 고정한 대화, 고정 시각 내림차순.
+    /// Pinned chats outside the archive, last pinned first.
     var pinnedConversations: [ChatConversation] {
-        conversations.filter { $0.pinnedAt != nil }.sorted { ($0.pinnedAt ?? 0) > ($1.pinnedAt ?? 0) }
+        conversations.filter { $0.pinnedAt != nil && $0.archivedAt == nil }.sorted { ($0.pinnedAt ?? 0) > ($1.pinnedAt ?? 0) }
     }
 
-    /// 고정 아닌 대화, 최신순.
+    /// Unpinned chats outside the archive, newest first.
     var recentConversations: [ChatConversation] {
-        conversations.filter { $0.pinnedAt == nil }.sorted { $0.updatedAt > $1.updatedAt }
+        conversations.filter { $0.pinnedAt == nil && $0.archivedAt == nil }.sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    /// Chats outside the archive, for the project lists and the selection list.
+    var unarchivedConversations: [ChatConversation] { conversations.filter { $0.archivedAt == nil } }
+
+    var archivedConversations: [ChatConversation] { conversations.filter { $0.archivedAt != nil } }
+
+    /// Args: ids are the chats to move, archived whether they go into the archive or come back.
+    /// Returns: none. A save failure goes to error.
+    /// Raises: none.
+    func setArchived(_ ids: Set<String>, _ archived: Bool) {
+        let time = Date().timeIntervalSince1970
+        do {
+            try store.setArchived(Array(ids), archived: archived, at: time)
+            if ids.contains(current.id) { current.archivedAt = archived ? time : nil }
+            try reload()
+        } catch { self.error = error.localizedDescription }
     }
 
     /// 고정 또는 해제한다. 실패하면 error에 남긴다.
@@ -567,7 +587,9 @@ final class ChatState: ObservableObject {
             let fallbackTitle = String(firstText.prefix(48))
             // Retried on later turns too, so a stopped or failed first answer still gets a title.
             let temporary = temporaryIDs.contains(conversation.id)
-            let needsTitle = automationID == nil && !temporary && (conversation.title == ChatConversation.defaultTitle || conversation.title == fallbackTitle)
+            // A chat named after its attachment before the first message gets a real title too.
+            let namedAfterFile = previous.isEmpty && current.id == conversation.id && library.attached.contains { $0.title == conversation.title }
+            let needsTitle = automationID == nil && !temporary && (conversation.title == ChatConversation.defaultTitle || conversation.title == fallbackTitle || namedAfterFile)
             conversation.updatedAt = Date().timeIntervalSince1970
             var user = ConversationMessage(conversationID: conversation.id, role: "user", text: text)
             user.branch(replacing: replacing)
@@ -777,18 +799,27 @@ final class ChatState: ObservableObject {
         } catch { self.error = error.localizedDescription }
     }
 
-    /// Args: 없음.
-    /// Returns: 없음. 첫 요청을 잘라 만든 기존 제목만 모델로 다시 작성한다.
-    /// Raises: 없음. 실패한 제목은 그대로 둔다.
+    /// Names chats that only have an attachment after the first one, so they don't all read as a new chat.
+    private func nameAttachmentOnlyChats() {
+        do {
+            for (id, title) in try store.attachmentOnlyTitles() { applyTitle(title, to: id, replacing: ChatConversation.defaultTitle) }
+        } catch { self.error = error.localizedDescription }
+    }
+
+    /// Args: none.
+    /// Returns: none. Asks the model again for titles cut from the first question or still on the default.
+    /// Raises: none. A failed title stays as it is.
     private func updateOldTitles() async {
+        nameAttachmentOnlyChats()
         for conversation in conversations {
             if Task.isCancelled { return }
             do {
                 guard let first = try store.firstMessage(conversation.id), first.role == "user" else { continue }
                 let oldTitle = String(first.text.prefix(48))
-                guard conversation.title == oldTitle else { continue }
+                // A chat whose first title call never landed still reads as a new chat.
+                guard conversation.title == oldTitle || conversation.title == ChatConversation.defaultTitle else { continue }
                 let title = try await makeClient().conversationTitle(for: first.text)
-                applyTitle(title, to: conversation.id, replacing: oldTitle)
+                applyTitle(title, to: conversation.id, replacing: conversation.title)
             } catch { return }
         }
     }

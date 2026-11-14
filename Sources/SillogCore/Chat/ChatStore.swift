@@ -198,6 +198,8 @@ public struct ChatConversation: Codable, Identifiable, Sendable {
     public var updatedAt = Date().timeIntervalSince1970
     /// nil이면 고정 안 됨. 원본은 app_conversations.pinned_at 칼럼이다.
     public var pinnedAt: Double?
+    /// Set while the chat sits in the archive, out of the recent, project and pinned lists.
+    public var archivedAt: Double?
     /// Summary of the messages that no longer fit in what is sent to the model.
     public var memory: ChatMemory?
     /// Args: 없음.
@@ -205,7 +207,7 @@ public struct ChatConversation: Codable, Identifiable, Sendable {
     /// Raises: 없음.
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case id, title, skillIDs, skillID, scope, projectID, updatedAt, pinnedAt, memory }
+    private enum CodingKeys: String, CodingKey { case id, title, skillIDs, skillID, scope, projectID, updatedAt, pinnedAt, archivedAt, memory }
 
     /// Args: decoder는 저장된 대화이다. skillIDs 가 없으면 예전 skillID 를 옮기고 "general" 은 빈 배열로 둔다.
     public init(from decoder: Decoder) throws {
@@ -218,6 +220,7 @@ public struct ChatConversation: Codable, Identifiable, Sendable {
         projectID = try v.decodeIfPresent(String.self, forKey: .projectID)
         updatedAt = try v.decodeIfPresent(Double.self, forKey: .updatedAt) ?? updatedAt
         pinnedAt = try v.decodeIfPresent(Double.self, forKey: .pinnedAt)
+        archivedAt = try v.decodeIfPresent(Double.self, forKey: .archivedAt)
         memory = try v.decodeIfPresent(ChatMemory.self, forKey: .memory)
     }
 
@@ -226,12 +229,29 @@ public struct ChatConversation: Codable, Identifiable, Sendable {
         try v.encode(id, forKey: .id); try v.encode(title, forKey: .title); try v.encode(skillIDs, forKey: .skillIDs)
         try v.encode(scope, forKey: .scope); try v.encodeIfPresent(projectID, forKey: .projectID)
         try v.encode(updatedAt, forKey: .updatedAt); try v.encodeIfPresent(pinnedAt, forKey: .pinnedAt)
-        try v.encodeIfPresent(memory, forKey: .memory)
+        try v.encodeIfPresent(archivedAt, forKey: .archivedAt); try v.encodeIfPresent(memory, forKey: .memory)
     }
 
     /// Args: title is a stored conversation title.
     /// Returns: the title to show, with the untouched default translated.
     public static func display(_ title: String) -> String { title == defaultTitle ? L10n.tr(key: title) : title }
+
+    /// Args: conversations is a newest-first list, now the current time, calendar the one that sets day boundaries.
+    /// Returns: the list split into 오늘, 어제, 지난 7일, 지난 30일 and then one group per month, labels localized, order kept.
+    /// Raises: none.
+    public static func dateGroups(_ conversations: [ChatConversation], now: Date = Date(), calendar: Calendar = .current) -> [(title: String, items: [ChatConversation])] {
+        let month = DateFormatter()
+        month.locale = Locale(identifier: L10n.current.rawValue); month.calendar = calendar; month.timeZone = calendar.timeZone
+        month.dateFormat = tr("yyyy년 M월")
+        var groups: [(title: String, items: [ChatConversation])] = []
+        for conversation in conversations {
+            let date = Date(timeIntervalSince1970: conversation.updatedAt)
+            let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day ?? 0
+            let title = days <= 0 ? tr("오늘") : days == 1 ? tr("어제") : days <= 7 ? tr("지난 7일") : days <= 30 ? tr("지난 30일") : month.string(from: date)
+            if groups.last?.title == title { groups[groups.count - 1].items.append(conversation) } else { groups.append((title, [conversation])) }
+        }
+        return groups
+    }
 }
 
 /// Running summary of a conversation's older messages; `through` is the last message it covers.
@@ -568,6 +588,34 @@ public struct ChatStore: Sendable {
     public func setPinned(_ conversationID: String, pinned: Bool, at time: Double = Date().timeIntervalSince1970) throws {
         try db.writer.write { conn in
             try conn.execute(sql: "UPDATE app_conversations SET pinned_at = ? WHERE id = ?", arguments: [pinned ? time : nil, conversationID])
+        }
+    }
+
+    /// Args: conversationIDs are the chats to move, archived whether they go into the archive, time when they do.
+    /// Returns: none. Only the payload's archivedAt changes, so the chats keep their place by updated_at.
+    /// Raises: DB write error.
+    public func setArchived(_ conversationIDs: [String], archived: Bool, at time: Double = Date().timeIntervalSince1970) throws {
+        try db.writer.write { conn in
+            for id in conversationIDs {
+                try conn.execute(sql: archived ? "UPDATE app_conversations SET payload = json_set(payload, '$.archivedAt', ?) WHERE id = ?"
+                                               : "UPDATE app_conversations SET payload = json_remove(payload, '$.archivedAt') WHERE id = ?",
+                                 arguments: archived ? [time, id] : [id])
+            }
+        }
+    }
+
+    /// Args: none.
+    /// Returns: conversation id to its first attached library item's title, for chats still on the default title with no message.
+    /// Raises: DB read error.
+    public func attachmentOnlyTitles() throws -> [String: String] {
+        try db.writer.read { conn in
+            let rows = try Row.fetchAll(conn, sql: """
+                SELECT c.id, (SELECT json_extract(l.payload, '$.title') FROM library_conversation_sources s JOIN app_library l ON l.id = s.item_id
+                              WHERE s.conversation_id = c.id ORDER BY s.rowid LIMIT 1) AS title
+                FROM app_conversations c
+                WHERE json_extract(c.payload, '$.title') = ? AND NOT EXISTS (SELECT 1 FROM app_messages m WHERE m.conversation_id = c.id)
+                """, arguments: [ChatConversation.defaultTitle])
+            return Dictionary(rows.compactMap { row in (row["title"] as String?).map { (row["id"] as String, $0) } }) { first, _ in first }
         }
     }
 

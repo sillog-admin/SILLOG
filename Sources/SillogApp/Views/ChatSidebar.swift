@@ -16,6 +16,7 @@ struct ChatSidebar: View {
     @State private var pinnedOpen = true
     @State private var recentOpen = true
     @State private var projectsOpen = true
+    @State private var archivedOpen = false
     @State private var collapsedProjects: Set<String> = []
     @State private var selecting = false
     @State private var selected: Set<String> = []
@@ -53,9 +54,22 @@ struct ChatSidebar: View {
                     VStack(alignment: .leading, spacing: 0) {
                         sectionHeader(tr("최근 항목"), open: $recentOpen)
                         if recentOpen {
-                            ForEach(selecting ? chat.conversations : chat.recentConversations) { conversationRow($0) }
+                            if selecting { ForEach(chat.unarchivedConversations) { conversationRow($0) } }
+                            else {
+                                ForEach(ChatConversation.dateGroups(chat.recentConversations), id: \.title) { group in
+                                    Text(group.title).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+                                        .padding(.leading, 10).padding(.top, 8).frame(height: 24, alignment: .bottomLeading)
+                                    ForEach(group.items) { conversationRow($0) }
+                                }
+                            }
                         }
                     }.onHover { hoverSection = $0 ? "recent" : (hoverSection == "recent" ? nil : hoverSection) }
+                    if !chat.archivedConversations.isEmpty {
+                        VStack(alignment: .leading, spacing: 0) {
+                            sectionHeader(tr("보관됨"), open: $archivedOpen)
+                            if archivedOpen { ForEach(chat.archivedConversations) { conversationRow($0) } }
+                        }.onHover { hoverSection = $0 ? tr("보관됨") : (hoverSection == tr("보관됨") ? nil : hoverSection) }
+                    }
                 }.padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 16)
             }
             if selecting { selectionActions }
@@ -168,7 +182,7 @@ struct ChatSidebar: View {
                 }.buttonStyle(.plain)
             }.foregroundStyle(Brand.tabText).hoverHighlight(cornerRadius: 5)
             if open {
-                ForEach(chat.conversations.filter { $0.projectID == project.id }) { item in
+                ForEach(chat.unarchivedConversations.filter { $0.projectID == project.id }) { item in
                     conversationRow(item).padding(.leading, 22)
                 }
             }
@@ -181,7 +195,7 @@ struct ChatSidebar: View {
                 Text(tr("\(selected.count)개 선택")).font(Brand.font(.body, .medium))
                 Spacer()
                 Button(tr("전체 선택")) {
-                    selected = Set(chat.conversations.filter { chat.activeMessages[$0.id] == nil }.map(\.id))
+                    selected = Set(chat.unarchivedConversations.filter { chat.activeMessages[$0.id] == nil }.map(\.id))
                 }.buttonStyle(.plain).font(Brand.font(.caption))
                 Button(tr("완료")) { selecting = false; selected = []; selectionError = nil }
                     .buttonStyle(.plain).font(Brand.font(.caption))
@@ -194,6 +208,10 @@ struct ChatSidebar: View {
                     Divider()
                     Button(tr("일반 채팅으로 이동")) { performSelectionAction { try chat.moveConversations(selected, to: nil) } }
                 } label: { Label(tr("이동"), systemImage: "folder") }
+                let unarchive = !selected.isEmpty && selected.allSatisfy { id in chat.archivedConversations.contains { $0.id == id } }
+                Button { performSelectionAction { chat.setArchived(selected, !unarchive) } } label: {
+                    unarchive ? Label(tr("보관 해제"), systemImage: "tray.and.arrow.up") : Label(tr("보관하기"), systemImage: "archivebox")
+                }
                 Button { confirmDelete = true } label: { Label(tr("삭제"), systemImage: "trash") }
                     .foregroundStyle(PopRow.red)
             }.disabled(selected.isEmpty)
@@ -211,13 +229,18 @@ struct ChatSidebar: View {
     /// 오른쪽 클릭 메뉴
     @ViewBuilder private func menu(_ item: ChatConversation) -> some View {
         let busy = chat.activeMessages[item.id] != nil
-        Button { chat.togglePin(item) } label: {
-            item.pinnedAt != nil ? Label(tr("고정 해제"), systemImage: "pin.slash") : Label(tr("고정"), systemImage: "pin")
+        if item.archivedAt == nil {
+            Button { chat.togglePin(item) } label: {
+                item.pinnedAt != nil ? Label(tr("고정 해제"), systemImage: "pin.slash") : Label(tr("고정"), systemImage: "pin")
+            }
         }
         Button { onRename(item) } label: { Label(tr("이름 바꾸기"), systemImage: "pencil") }
         ProjectMoveMenu(projects: chat.projects, itemID: "conversation:\(item.id)").disabled(busy)
         Button { chat.exportMarkdown(item, toFile: false) } label: { Label(tr("전체 복사"), systemImage: "doc.on.doc") }
         Button { chat.exportMarkdown(item, toFile: true) } label: { Label(tr("Markdown으로 내보내기"), systemImage: "square.and.arrow.up") }
+        Button { chat.setArchived([item.id], item.archivedAt == nil) } label: {
+            item.archivedAt == nil ? Label(tr("보관하기"), systemImage: "archivebox") : Label(tr("보관 해제"), systemImage: "tray.and.arrow.up")
+        }
         Divider()
         Button(role: .destructive) { onDelete(item) } label: { Label(tr("삭제"), systemImage: "trash") }
     }
@@ -225,11 +248,16 @@ struct ChatSidebar: View {
     /// ⋯ 메뉴 (CH-29, 47, 48): 아이콘이 있고 삭제는 빨강
     private func popMenu(_ item: ChatConversation, _ close: @escaping () -> Void) -> some View {
         VStack(spacing: 2) {
-            PopRow(icon: item.pinnedAt != nil ? "pin.slash" : "pin", title: item.pinnedAt != nil ? tr("고정 해제") : tr("고정")) { close(); chat.togglePin(item) }
+            if item.archivedAt == nil {
+                PopRow(icon: item.pinnedAt != nil ? "pin.slash" : "pin", title: item.pinnedAt != nil ? tr("고정 해제") : tr("고정")) { close(); chat.togglePin(item) }
+            }
             PopRow(icon: "pencil", title: tr("이름 바꾸기")) { close(); onRename(item) }
             MoveRow(projects: chat.projects, itemID: "conversation:\(item.id)", close: close)
             PopRow(icon: "doc.on.doc", title: tr("전체 복사")) { close(); chat.exportMarkdown(item, toFile: false) }
             PopRow(icon: "square.and.arrow.up", title: tr("Markdown으로 내보내기")) { close(); chat.exportMarkdown(item, toFile: true) }
+            PopRow(icon: item.archivedAt == nil ? "archivebox" : "tray.and.arrow.up", title: item.archivedAt == nil ? tr("보관하기") : tr("보관 해제")) {
+                close(); chat.setArchived([item.id], item.archivedAt == nil)
+            }
             Divider().padding(.vertical, 2)
             PopRow(icon: "trash", title: tr("삭제"), color: PopRow.red) { close(); onDelete(item) }
         }.padding(6).frame(width: 190)

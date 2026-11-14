@@ -72,11 +72,15 @@ final class LibraryState: ObservableObject {
 
     func importFiles(projectID: String? = nil, conversationID: String? = nil) {
         guard !busy else { return }
+        importFiles(Self.chooseFiles(), projectID: projectID, conversationID: conversationID)
+    }
+
+    /// Returns: the files picked in an open panel, none when cancelled.
+    static func chooseFiles() -> [URL] {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = true
         panel.message = tr("파일을 SILLOG 보관함에 복사합니다. 연결한 대화와 프로젝트에서 필요한 내용이 설정된 LLM에 전달됩니다.")
-        guard panel.runModal() == .OK else { return }
-        importFiles(panel.urls, projectID: projectID, conversationID: conversationID)
+        return panel.runModal() == .OK ? panel.urls : []
     }
 
     /// Args: urls are files to copy into the library; a call made while another import runs waits for it.

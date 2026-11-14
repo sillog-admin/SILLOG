@@ -17,7 +17,7 @@ struct ChatSearchPanel: View {
     private var trimmed: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
     /// 검색어가 없을 때는 최근 대화 앞 8개를 같은 모양으로 보인다.
     private var rows: [ChatSearchHit] {
-        trimmed.isEmpty ? chat.conversations.prefix(8).map {
+        trimmed.isEmpty ? chat.unarchivedConversations.prefix(8).map {
             ChatSearchHit(conversationID: $0.id, title: $0.title, snippet: "", updatedAt: $0.updatedAt)
         } : hits
     }

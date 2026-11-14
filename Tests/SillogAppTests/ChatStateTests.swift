@@ -377,4 +377,15 @@ final class ChatStateTests: XCTestCase {
         chat.cancel()
         try await waitUntil { !chat.running }
     }
+
+    func testAChatLeftOnTheDefaultTitleGetsOneOnTheNextStart() async throws {
+        let db = try SillogDatabase.inMemory(), store = ChatStore(db)
+        let stuck = ChatConversation()
+        try store.startTurn(conversation: stuck, user: .init(conversationID: stuck.id, role: "user", text: "hi"),
+                            answer: .init(conversationID: stuck.id, role: "assistant", text: "Hi", status: "complete"))
+        let chat = try chatState(db: db)
+        chat.startScheduler()
+        defer { chat.stop() }
+        try await waitUntil { chat.conversations.first { $0.id == stuck.id }?.title == "제목" }
+    }
 }

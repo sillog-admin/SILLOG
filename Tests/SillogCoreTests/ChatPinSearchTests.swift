@@ -60,5 +60,53 @@ final class ChatPinSearchTests: XCTestCase {
     func testOldPayloadDecodes() throws {
         let json = #"{"id":"x","title":"예전","skillID":"general","scope":{},"updatedAt":1}"#
         XCTAssertNil(try JSONDecoder().decode(ChatConversation.self, from: Data(json.utf8)).pinnedAt)
+        XCTAssertNil(try JSONDecoder().decode(ChatConversation.self, from: Data(json.utf8)).archivedAt)
+    }
+
+    func testArchiveKeepsOrderSurvivesSaveAndStaysSearchable() async throws {
+        let store = ChatStore(try .inMemory())
+        let c = try turn(store, "보관 시험", "질문", "답", at: 100)
+        try store.setArchived([c.id], archived: true, at: 500)
+        var loaded = try store.conversations().first!
+        XCTAssertEqual(loaded.archivedAt, 500)
+        XCTAssertEqual(loaded.updatedAt, 100)
+        try store.save(loaded)
+        XCTAssertEqual(try store.conversations().first!.archivedAt, 500)
+        let hits = try await store.searchConversations("보관")
+        XCTAssertEqual(hits.map(\.conversationID), [c.id])
+        try store.setArchived([c.id], archived: false)
+        loaded = try store.conversations().first!
+        XCTAssertNil(loaded.archivedAt)
+    }
+
+    func testAttachmentOnlyChatsAreNamedAfterTheFirstAttachment() throws {
+        let db = try SillogDatabase.inMemory(), store = ChatStore(db), library = LibraryStore(db)
+        defer { try? FileManager.default.removeItem(at: library.directory) }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let first = folder.appendingPathComponent("계획.txt"), second = folder.appendingPathComponent("메모.txt")
+        try "a".write(to: first, atomically: true, encoding: .utf8); try "b".write(to: second, atomically: true, encoding: .utf8)
+        let a = try library.importFile(first), b = try library.importFile(second)
+        let empty = ChatConversation(), attached = ChatConversation()
+        try store.save(empty); try store.save(attached)
+        try library.attach(a.id, conversationID: attached.id); try library.attach(b.id, conversationID: attached.id)
+        let asked = try turn(store, ChatConversation.defaultTitle, "질문", "답")
+        try library.attach(a.id, conversationID: asked.id)
+        XCTAssertEqual(try store.attachmentOnlyTitles(), [attached.id: a.title])
+    }
+
+    func testDateGroupsSplitByDayThenMonth() throws {
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 14, hour: 10))!
+        func chat(daysAgo: Int) -> ChatConversation {
+            var c = ChatConversation(); c.updatedAt = calendar.date(byAdding: .day, value: -daysAgo, to: now)!.timeIntervalSince1970; return c
+        }
+        let list = [0, 0, 1, 2, 7, 8, 30, 31, 45, 400].map(chat)
+        let groups = ChatConversation.dateGroups(list, now: now, calendar: calendar)
+        XCTAssertEqual(groups.map(\.title), ["오늘", "어제", "지난 7일", "지난 30일", "2026년 10월", "2026년 9월", "2025년 10월"])
+        XCTAssertEqual(groups.map(\.items.count), [2, 1, 2, 2, 1, 1, 1])
+        L10n.current = .en; defer { L10n.current = .ko }
+        XCTAssertEqual(ChatConversation.dateGroups(list, now: now, calendar: calendar).map(\.title).last, "October 2025")
     }
 }

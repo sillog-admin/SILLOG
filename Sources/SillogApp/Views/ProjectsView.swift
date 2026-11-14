@@ -49,7 +49,7 @@ struct ProjectOverview<Composer: View>: View {
     @State private var showSettings = false
     @State private var tasksOpen = false
 
-    private var conversations: [ChatConversation] { chat.conversations.filter { $0.projectID == project.id } }
+    private var conversations: [ChatConversation] { chat.unarchivedConversations.filter { $0.projectID == project.id } }
     private var tasks: [ProjectItem] { projects.items.filter { $0.projectID == project.id && $0.isTask } }
 
     var body: some View {
