@@ -200,11 +200,11 @@ final class ChatFocusUITests: XCTestCase {
         try chat.moveConversations(ids, to: project.id)
         XCTAssertEqual(chat.current.projectID, project.id)
         XCTAssertEqual(chat.conversations.filter { $0.projectID == project.id }.count, 2)
-        chat.activeMessage = ConversationMessage(conversationID: first.id, role: "assistant", text: "")
+        chat.activeMessages[first.id] = ConversationMessage(conversationID: first.id, role: "assistant", text: "")
         XCTAssertThrowsError(try chat.deleteConversations(ids))
         XCTAssertThrowsError(try chat.moveConversations(ids, to: nil))
         XCTAssertEqual(try store.conversations().count, 2)
-        chat.activeMessage = nil
+        chat.activeMessages = [:]
         try chat.deleteConversations(ids)
         XCTAssertTrue(chat.conversations.isEmpty)
         XCTAssertTrue(chat.messages.isEmpty)

@@ -9,6 +9,14 @@ public enum AppLanguage: String, CaseIterable, Codable, Sendable {
     /// `promptName` for tool schema descriptions written in Korean.
     public var nameInKorean: String { self == .ko ? "한국어" : "영어" }
 
+    /// Args: text is a user-facing name such as a task title.
+    /// Returns: true when its script fits this language: Korean needs Hangul, English has none.
+    /// Raises: none.
+    public func fitsScript(_ text: String) -> Bool {
+        let hasHangul = text.unicodeScalars.contains { (0xAC00...0xD7A3).contains($0.value) || (0x1100...0x11FF).contains($0.value) || (0x3130...0x318F).contains($0.value) }
+        return hasHangul == (self == .ko)
+    }
+
     /// Korean for a Korean system, English otherwise.
     public static var system: AppLanguage {
         Locale.preferredLanguages.first?.hasPrefix("ko") == true ? .ko : .en

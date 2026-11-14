@@ -55,9 +55,11 @@ public struct ChatSkill: Codable, Identifiable, Sendable {
 public enum ChatRunEvent: Sendable {
     case textReset
     case text(String)
+    /// The text so far of one reasoning summary part, sent at line and part ends.
+    case reasoning(id: String, text: String)
     case step(String)
     case stepStarted(ChatStep)
-    case stepFinished(id: String, result: String, failed: Bool)
+    case stepFinished(id: String, result: String, failed: Bool, detail: String?)
     case source(ChatSource)
     case artifact(ChatArtifact)
     case automation(ChatAutomationProposal)
@@ -330,6 +332,7 @@ public struct ChatRunner: Sendable {
             var failed = false
             let output: String
             var shown: String?   // the work log's text when output is an instruction to the model
+            var detail: String?
             do {
                 switch call.name {
                 case "delegate":
@@ -373,6 +376,7 @@ public struct ChatRunner: Sendable {
                     let result = try await tools.execute(call)
                     await ledger.record(result.sources)
                     for source in result.sources { await onEvent(.source(source)) }
+                    detail = Self.readDetail(call, sources: result.sources)
                     output = result.text
                 }
             } catch {
@@ -384,7 +388,7 @@ public struct ChatRunner: Sendable {
             }
             // Tool results carry records and connector data. The user's own messages are sent as typed.
             let masked = PIIMasker.mask(String(output.prefix(28000)))
-            await onEvent(.stepFinished(id: step.id, result: String((shown.map { PIIMasker.mask($0) } ?? masked).prefix(800)), failed: failed))
+            await onEvent(.stepFinished(id: step.id, result: String((shown.map { PIIMasker.mask($0) } ?? masked).prefix(800)), failed: failed, detail: detail))
             return masked
         }
         if case .codex(let client) = backend {
@@ -393,7 +397,7 @@ public struct ChatRunner: Sendable {
                                         useWeb: tools.scope.useWeb && role != "context" && role != "repository",
                                         execute: execute) { event in
                 switch event {
-                case .text, .textReset: if role == nil { await onEvent(event) }
+                case .text, .textReset, .reasoning: if role == nil { await onEvent(event) }
                 default: await onEvent(event)
                 }
             }
@@ -403,9 +407,11 @@ public struct ChatRunner: Sendable {
             try Task.checkCancellation()
             try await ledger.consume()
             if role == nil { await onEvent(.textReset) }
-            let reply = try await client.respond(system: system, messages: history, tools: available) { delta in
+            let reply = try await client.respond(system: system, messages: history, tools: available, onText: { delta in
                 if role == nil { await onEvent(.text(delta)) }
-            }
+            }, onReasoning: { id, text in
+                if role == nil { await onEvent(.reasoning(id: id, text: text)) }
+            })
             try Task.checkCancellation()
             if reply.droppedImages {
                 for index in history.indices { history[index].images = []; history[index].imageData = [] }
@@ -476,6 +482,17 @@ public struct ChatRunner: Sendable {
             }
         }
         return ""
+    }
+
+    /// Args: call is a finished tool call, sources the records its result cited.
+    /// Returns: the title of what a call read by id, or nil to keep the id as the detail.
+    /// Raises: none.
+    static func readDetail(_ call: ChatToolCall, sources: [ChatSource]) -> String? {
+        guard let id = (try? JSONDecoder().decode(JSONValue.self, from: Data(call.arguments.utf8)))?.objectValue?["id"]?.stringValue, !id.isEmpty,
+              stepDetail(call) == PIIMasker.mask(String(id.prefix(300))),   // the id, not a query or path, is what the step shows
+              let title = (sources.first { $0.id == id } ?? sources.first)?.title, !title.isEmpty else { return nil }
+        // shortcut: translated when read, so a later language change keeps this language; store the key if that matters.
+        return PIIMasker.mask(String(displayTitle(title).prefix(300)))
     }
 
     /// Args: role은 내부 역할 식별자이다.

@@ -18,6 +18,14 @@ final class ChatBlocksTests: XCTestCase {
         ])])
     }
 
+    func testTaskListItemsCarryCheckedState() {
+        XCTAssertEqual(ChatBlocks.parse("- [ ] 할 일\n- [x] 끝낸 일\n  - [X] 하위 완료\n1. [ ] 번호 할 일\n- [] 그대로\n- 보통 항목"), [.list([
+            .init(level: 0, marker: "•", text: "할 일", checked: false), .init(level: 0, marker: "•", text: "끝낸 일", checked: true),
+            .init(level: 1, marker: "•", text: "하위 완료", checked: true), .init(level: 0, marker: "1.", text: "번호 할 일", checked: false),
+            .init(level: 0, marker: "•", text: "[] 그대로"), .init(level: 0, marker: "•", text: "보통 항목"),
+        ])])
+    }
+
     func testQuoteAndDivider() {
         XCTAssertEqual(ChatBlocks.parse("> 인용문입니다.\n> 이어지는 인용\n---\n***"), [.quote("인용문입니다.\n이어지는 인용"), .divider, .divider])
     }

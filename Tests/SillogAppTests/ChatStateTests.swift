@@ -71,17 +71,30 @@ final class ChatStateTests: XCTestCase {
         return chat.current
     }
 
-    func testSendingWhileAnotherChatAnswersExplainsWhyAndKeepsThatAnswer() async throws {
-        let chat = try chatState()
+    func testTwoChatsAnswerAtOnceAndStoppingOneKeepsTheOther() async throws {
+        let db = try SillogDatabase.inMemory()
+        let chat = try chatState(db: db)
         let other = try await finishedChat(chat, "b")
         chat.newConversation(); chat.draft = "wait"
         XCTAssertTrue(chat.send())
-        let answering = chat.current.id
+        let first = chat.current
         chat.select(other)
         chat.draft = "x"
-        XCTAssertFalse(chat.send())
-        XCTAssertEqual(chat.error, tr("다른 대화의 응답이 끝나면 보낼 수 있어요"))
-        XCTAssertEqual(chat.activeMessage?.conversationID, answering, "the other answer is not stopped")
+        XCTAssertTrue(chat.send(), "another chat answering does not block this one")
+        try await waitUntil { chat.activeMessages[other.id] == nil }
+        XCTAssertEqual(try ChatStore(db).messages(other.id).last?.text, "답")
+        XCTAssertNotNil(chat.activeMessages[first.id], "the first chat is still answering")
+
+        chat.draft = "wait"
+        XCTAssertTrue(chat.send())
+        XCTAssertEqual(Set(chat.activeMessages.keys), [first.id, other.id])
+        chat.cancel()
+        try await waitUntil { chat.activeMessages[other.id] == nil }
+        XCTAssertEqual(try ChatStore(db).messages(other.id).last?.status, "cancelled")
+        XCTAssertNotNil(chat.activeMessages[first.id], "stopping this chat leaves the other running")
+
+        chat.select(first)
+        XCTAssertEqual(chat.messages.last?.status, "running", "coming back shows the live answer")
         chat.cancel()
         try await waitUntil { !chat.running }
     }
@@ -244,15 +257,16 @@ final class ChatStateTests: XCTestCase {
     func testATaskStarterFillsTheInputAndNarrowsTheScope() throws {
         let chat = try chatState()
         let task = ChatFocus(kind: .task, key: "t1", title: "온보딩 개편")
-        chat.focusChoices = ChatFocusChoices(tasks: [.init(focus: task, theme: nil, themeKey: nil)])
-        XCTAssertEqual(chat.starterPrompts.count, 3)
+        let english = ChatFocus(kind: .task, key: "t0", title: "Maintain the SILLOG codebase")
+        chat.focusChoices = ChatFocusChoices(tasks: [english, task].map { .init(focus: $0, theme: nil, themeKey: nil) })
+        XCTAssertEqual(chat.starterPrompts.count, 3, "a task named in another language is skipped")
         let starter = chat.starterPrompts[2]
         let last = chat.inputFocusRequest
         chat.useStarter(starter.prompt, focus: starter.focus)
         XCTAssertEqual(chat.draft, "온보딩 개편 진행 상황 정리해 줘")
         XCTAssertEqual(chat.current.scope.focus, [task])
         XCTAssertGreaterThan(chat.inputFocusRequest, last)
-        XCTAssertNil(chat.activeMessage, "a starter never sends")
+        XCTAssertFalse(chat.running, "a starter never sends")
     }
     func testRegeneratingKeepsEarlierAnswersAndTheModel() async throws {
         let chat = try chatState()
@@ -352,10 +366,27 @@ final class ChatStateTests: XCTestCase {
         let limit = ChatState.scheduledRunLimit
         ChatState.scheduledRunLimit = .milliseconds(200)
         defer { ChatState.scheduledRunLimit = limit }
+        chat.newConversation(); chat.draft = "wait"
+        XCTAssertTrue(chat.send())
+        let mine = chat.current.id
         chat.runDueAutomation()
-        XCTAssertTrue(chat.running)
+        let scheduled = try XCTUnwrap(chat.automations.first?.lastConversationID)
+        XCTAssertNotNil(chat.activeMessages[scheduled], "a chat answering does not hold back a due job")
+        try await waitUntil { chat.activeMessages[scheduled] == nil }
+        XCTAssertEqual(try ChatStore(db).messages(scheduled).last?.status, "cancelled")
+        XCTAssertNotNil(chat.activeMessages[mine], "the cap stops only the scheduled run")
+        chat.cancel()
         try await waitUntil { !chat.running }
-        let answer = try ChatStore(db).messages(try XCTUnwrap(chat.automations.first?.lastConversationID)).last
-        XCTAssertEqual(answer?.status, "cancelled")
+    }
+
+    func testAChatLeftOnTheDefaultTitleGetsOneOnTheNextStart() async throws {
+        let db = try SillogDatabase.inMemory(), store = ChatStore(db)
+        let stuck = ChatConversation()
+        try store.startTurn(conversation: stuck, user: .init(conversationID: stuck.id, role: "user", text: "hi"),
+                            answer: .init(conversationID: stuck.id, role: "assistant", text: "Hi", status: "complete"))
+        let chat = try chatState(db: db)
+        chat.startScheduler()
+        defer { chat.stop() }
+        try await waitUntil { chat.conversations.first { $0.id == stuck.id }?.title == "제목" }
     }
 }

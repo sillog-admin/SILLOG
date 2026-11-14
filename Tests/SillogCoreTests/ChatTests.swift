@@ -7,6 +7,33 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(ConversationMessage.plainText(markdown), "요약 굵게 와 밑줄 code 링크 문서 [S1] 인용 let x = 1")
     }
 
+    func testSpeechTextDropsCitationsCodeAndTableBars() {
+        var answer = ConversationMessage(conversationID: "c", role: "assistant",
+            text: "## 요약\n\n- **결정** 완료 [node:1]\n\n| 항목 | 값 |\n| --- | --- |\n| 시간 | 2 |\n\n```swift\nlet x = 1\n```\n끝 [S9]")
+        answer.sources = [ChatSource(id: "node:1", title: "t", location: "", excerpt: "")]
+        XCTAssertEqual(answer.speechText, "요약\n결정 완료\n항목   값\n시간   2\n끝 [S9]")
+    }
+
+    func testTimeDividersMarkAnHourGapOrANewDay() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Seoul"))
+        let base = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 12, hour: 22, minute: 0))).timeIntervalSince1970
+        func message(_ id: String, _ at: Double, completed: Double? = nil, role: String = "user") -> ConversationMessage {
+            var item = ConversationMessage(conversationID: "c", role: role, text: id)
+            item.id = id; item.createdAt = at; item.completedAt = completed
+            return item
+        }
+        let messages = [
+            message("first", base),
+            message("answer", base + 60, completed: base + 600, role: "assistant"),
+            message("soon", base + 600 + 3599),          // under an hour after the answer ended
+            message("nextDay", base + 600 + 3599 + 3060),  // 51 minutes later, past midnight
+            message("later", base + 600 + 3599 + 3060 + 3600),
+            message("regenerated", base + 600 + 3599 + 3060 + 3600 + 7200, role: "assistant"),   // stays with its question
+        ]
+        XCTAssertEqual(ConversationMessage.timeDividerIDs(in: messages, calendar: calendar), ["nextDay", "later"])
+    }
+
     func testConnectorRenamePreservesSavedScopes() throws {
         let saved = Data(#"{"plugins":["gmail","figma"],"useWeb":false,"useGitHub":true}"#.utf8)
         let scope = try JSONDecoder().decode(ChatScope.self, from: saved)
@@ -310,6 +337,9 @@ final class ChatTests: XCTestCase {
         let starred = md("`*.swift` and `*.md`")
         XCTAssertTrue(starred.contains("<code>*.swift</code> and <code>*.md</code>") && !starred.contains("<em>"), starred)
         XCTAssertTrue(md("---").contains("<hr>"))
+        let tasks = md("- [ ] a\n- [x] b")
+        XCTAssertTrue(tasks.contains("<li class=\"task\"><input type=\"checkbox\" disabled> a</li><li class=\"task\"><input type=\"checkbox\" disabled checked> b</li>"), tasks)
+        XCTAssertTrue(md("1. [x] c").contains("<ol><li class=\"task\"><input type=\"checkbox\" disabled checked> c</li>"))
         XCTAssertTrue(md("* * *").contains("<hr>"))
         XCTAssertTrue(md("*x*").contains("<em>x</em>"))
         XCTAssertFalse(md("5 * 3 * 2").contains("<em>"))
@@ -529,6 +559,16 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(ChatRunner.stepDetail(.init(id: "a", name: "summarize_period", arguments: #"{"from":"2026-11-09","to":"2026-11-13"}"#)), "2026-11-09 – 2026-11-13")
     }
 
+    func testAStepThatReadsByIdShowsTheTitleOfWhatItRead() {
+        let read = ChatToolCall(id: "a", name: "read_context", arguments: #"{"id":"node:833","start":"1"}"#)
+        let sources = [ChatSource(id: "other", title: "대화 · 다른 것", location: "", excerpt: ""), ChatSource(id: "node:833", title: "업무 · 주간 보고", location: "", excerpt: "")]
+        XCTAssertEqual(ChatRunner.readDetail(read, sources: sources), "업무 · 주간 보고")
+        XCTAssertEqual(ChatRunner.readDetail(.init(id: "b", name: "read_context", arguments: #"{"id":"chat:390"}"#), sources: sources), "대화 · 다른 것", "no exact match falls back to the first source")
+        XCTAssertNil(ChatRunner.readDetail(read, sources: []), "nothing read keeps the id")
+        XCTAssertNil(ChatRunner.readDetail(.init(id: "c", name: "search_context", arguments: #"{"query":"보고"}"#), sources: sources), "a search keeps its query")
+        XCTAssertNil(ChatRunner.readDetail(.init(id: "d", name: "x_read", arguments: #"{"path":"a.md","id":"node:833"}"#), sources: sources), "a path shown before the id stays")
+    }
+
     func testLongChatsSendASummaryOfWhatNoLongerFits() async throws {
         let long = String(repeating: "가", count: 9_000)
         var history: [ConversationMessage] = []
@@ -608,7 +648,7 @@ final class ChatTests: XCTestCase {
 
     func testOfficeArtifactsPreviewAsHTML() {
         let deck = ChatArtifactHTML.render(.init(title: "d", format: "pptx", content: "# 하나\n- a\n## 둘\n- b"))
-        XCTAssertEqual(deck.components(separatedBy: "<section>").count - 1, 2)
+        XCTAssertTrue(deck.contains(#"<section class="slide" data-n="1">"#) && deck.contains(#"<section class="slide" data-n="2">"#), deck)
         XCTAssertTrue(ChatArtifactHTML.render(.init(title: "s", format: "xlsx", content: "A,<B>\n1,2")).contains("<td>&lt;B&gt;</td>"))
         XCTAssertTrue(ChatArtifactHTML.render(.init(title: "w", format: "docx", content: "# 제목")).contains("<h1>제목</h1>"))
     }
@@ -675,6 +715,17 @@ final class ChatTests: XCTestCase {
         XCTAssertTrue(ChatFailure.needsSettings(CodexAuthError.notLoggedIn.description))
     }
 
+    func testSourcesSplitIntoCitedAndOtherLookedUpItems() {
+        var answer = ConversationMessage(conversationID: "c", role: "assistant", text: "회의에서 정했어요 [node:12] [card:2]")
+        answer.sources = ["node:1", "node:12", "card:2", "card:3"].map { .init(id: $0, title: $0, location: "", excerpt: "") }
+        XCTAssertEqual(answer.splitSources.cited.map(\.id), ["node:12", "card:2"])
+        XCTAssertEqual(answer.splitSources.other.map(\.id), ["node:1", "card:3"], "node:1 is not cited by [node:12]")
+        answer.text = "인용 없음"
+        XCTAssertTrue(answer.splitSources.cited.isEmpty)
+        XCTAssertEqual(answer.splitSources.other.count, 4)
+        XCTAssertEqual(answer.markdown, "인용 없음", "uncited lookups stay out of the copy")
+    }
+
     func testConversationMarkdownKeepsEachAnswersSources() {
         var answer = ConversationMessage(conversationID: "c", role: "assistant", text: "정리했습니다 [observation:1]")
         answer.sources = [.init(id: "observation:1", title: "주간 회의", location: "https://example.com/a", excerpt: "x"), .init(id: "card:2", title: "메모", location: "", excerpt: "")]
@@ -683,7 +734,7 @@ final class ChatTests: XCTestCase {
             .init(conversationID: "c", role: "user", text: "정리해줘"), answer,
             .init(conversationID: "c", role: "user", text: "더"), running,
         ])
-        XCTAssertEqual(markdown, "# 보고\n\n## 질문\n\n정리해줘\n\n## 답변\n\n정리했습니다 [observation:1]\n\n**출처**\n\n- [observation:1] 주간 회의 — https://example.com/a\n- [card:2] 메모\n\n## 질문\n\n더\n")
+        XCTAssertEqual(markdown, "# 보고\n\n## 질문\n\n정리해줘\n\n## 답변\n\n정리했습니다 [observation:1]\n\n**출처**\n\n- [observation:1] 주간 회의 — https://example.com/a\n\n## 질문\n\n더\n")
         XCTAssertEqual(ConversationMessage(conversationID: "c", role: "assistant", text: "a").markdown, "a")
     }
 
@@ -734,7 +785,7 @@ private actor StepBox {
     var finished: [(String, String, Bool)] = []
     func add(_ event: ChatRunEvent) {
         if case .stepStarted(let step) = event { started.append(step) }
-        if case .stepFinished(let id, let result, let failed) = event { finished.append((id, result, failed)) }
+        if case .stepFinished(let id, let result, let failed, _) = event { finished.append((id, result, failed)) }
     }
 }
 

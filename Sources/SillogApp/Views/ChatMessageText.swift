@@ -149,9 +149,17 @@ private struct ChatParagraph: View, Equatable {
         return VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(item.marker == "•" ? ["•", "◦", "▪︎", "▪︎"][min(item.level, 3)] : item.marker)
-                        .font(Brand.font(.sectionTitle, .regular)).foregroundStyle(Brand.gray).monospacedDigit()
-                        .frame(width: (numbered ? 24 : 12) * Brand.scale, alignment: .trailing)
+                    Group {
+                        if let checked = item.checked {
+                            Image(systemName: checked ? "checkmark.square" : "square").font(Brand.font(.body))
+                                .accessibilityLabel(checked ? tr("완료") : tr("대기"))
+                        } else {
+                            Text(item.marker == "•" ? ["•", "◦", "▪︎", "▪︎"][min(item.level, 3)] : item.marker)
+                                .font(Brand.font(.sectionTitle, .regular)).monospacedDigit()
+                        }
+                    }
+                    .foregroundStyle(Brand.gray)
+                    .frame(width: (numbered ? 24 : 12) * Brand.scale, alignment: .trailing)
                     paragraphView(item.text, lineSpacing: 7)
                 }
                 .padding(.leading, CGFloat(item.level) * 18)

@@ -49,7 +49,7 @@ struct ProjectOverview<Composer: View>: View {
     @State private var showSettings = false
     @State private var tasksOpen = false
 
-    private var conversations: [ChatConversation] { chat.conversations.filter { $0.projectID == project.id } }
+    private var conversations: [ChatConversation] { chat.unarchivedConversations.filter { $0.projectID == project.id } }
     private var tasks: [ProjectItem] { projects.items.filter { $0.projectID == project.id && $0.isTask } }
 
     var body: some View {
@@ -154,7 +154,7 @@ struct ProjectOverview<Composer: View>: View {
                         .font(Brand.font(.caption)).foregroundStyle(Brand.gray)
                     Menu {
                         ProjectMoveMenu(projects: projects, itemID: "conversation:\(conversation.id)")
-                            .disabled(chat.activeMessage?.conversationID == conversation.id)
+                            .disabled(chat.activeMessages[conversation.id] != nil)
                     } label: { Image(systemName: "ellipsis").foregroundStyle(Brand.gray).frame(width: 24, height: 28) }
                         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                         .opacity(hoveredConversation == conversation.id ? 1 : 0)
@@ -164,7 +164,7 @@ struct ProjectOverview<Composer: View>: View {
                     .onHover { hoveredConversation = $0 ? conversation.id : nil }
                     .contextMenu {
                         ProjectMoveMenu(projects: projects, itemID: "conversation:\(conversation.id)")
-                            .disabled(chat.activeMessage?.conversationID == conversation.id)
+                            .disabled(chat.activeMessages[conversation.id] != nil)
                     }
                 Rectangle().fill(ChatPalette.cardLine).frame(height: 1)
             }

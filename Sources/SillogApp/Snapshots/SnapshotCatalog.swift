@@ -376,7 +376,7 @@ enum SnapshotCatalog {
         var job = ChatAutomation(proposal: proposal, conversation: other)
         job.lastConversationID = other.id
         chat.automations = [job]
-        chat.activeMessage = ConversationMessage(conversationID: other.id, role: "assistant", text: "", status: "running")
+        chat.activeMessages[other.id] = ConversationMessage(conversationID: other.id, role: "assistant", text: "", status: "running")
         chat.messages = [.init(conversationID: id, role: "user", text: "이번 주에 한 일을 정리해줘"),
                          .init(conversationID: id, role: "assistant", text: "## 이번 주\n\n- `ChatView` 정리")]
         let state = AppState(preview: { s in s.phase = .ready; s.status = collector(); s.selectedTab = .chat; s.chat = chat })

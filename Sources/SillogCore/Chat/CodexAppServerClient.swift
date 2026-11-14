@@ -77,13 +77,17 @@ public struct CodexAppServerClient: Sendable {
                 "sandboxPolicy": .object(["type": "readOnly", "networkAccess": false]),
             ]
             if let effort { turn["effort"] = .string(effort) }
+            // A fresh CODEX_HOME has no summary preference, so ask; models without summaries skip it.
+            turn["summary"] = "auto"
             _ = try await connection.request("turn/start", turn)
             var finalText = ""
             var toolCount = 0
+            var summaries = ReasoningSummaries()
             while let event = try await connection.next() {
                 try Task.checkCancellation()
                 let method = event["method"]?.stringValue ?? ""
                 let params = event["params"]?.objectValue ?? [:]
+                for reasoning in Self.reasoning(method, params, into: &summaries) { await onEvent(reasoning) }
                 if let id = event["id"] {
                     switch method {
                     case "item/tool/call":
@@ -127,6 +131,24 @@ public struct CodexAppServerClient: Sendable {
             try Task.checkCancellation()
             throw ChatToolError.unavailable(tr("Codex 연결이 종료되었습니다. CLI 설치·네트워크 상태를 확인하세요."))
         } onCancel: { connection.close() }
+    }
+
+    /// Args: method and params are one app-server notification, summaries the reasoning text earlier ones carried.
+    /// Returns: the reasoning updates to show, none for other notifications and mid-line deltas.
+    /// Raises: none.
+    static func reasoning(_ method: String, _ params: [String: JSONValue], into summaries: inout ReasoningSummaries) -> [ChatRunEvent] {
+        let item = params["itemId"]?.stringValue ?? "", part = Int(params["summaryIndex"]?.doubleValue ?? 0)
+        var updates: [(id: String, text: String)] = []
+        switch method {
+        case "item/reasoning/summaryTextDelta": updates = summaries.add(params["delta"]?.stringValue ?? "", item: item, part: part).map { [$0] } ?? []
+        case "item/reasoning/summaryPartAdded" where part > 0: updates = [summaries.finish(nil, item: item, part: part - 1)]   // the part before it is finished
+        case "item/completed":
+            let value = params["item"]?.objectValue ?? [:]
+            guard value["type"]?.stringValue == "reasoning", let id = value["id"]?.stringValue else { return [] }
+            updates = (value["summary"]?.arrayValue ?? []).enumerated().map { summaries.finish($1.stringValue ?? "", item: id, part: $0) }
+        default: break
+        }
+        return updates.filter { !$0.text.isEmpty }.map { .reasoning(id: $0.id, text: $0.text) }
     }
 }
 

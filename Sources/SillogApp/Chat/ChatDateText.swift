@@ -13,6 +13,14 @@ enum ChatDateText {
         return Date(timeIntervalSince1970: time).formatted(style)
     }
 
+    /// e.g. "목요일 오후 11:48" within the past week, otherwise dateTime, in the app language.
+    static func divider(_ time: Double, now: Date = Date()) -> String {
+        guard now.timeIntervalSince1970 - time < 6 * 86400 else { return dateTime(time) }
+        var style = Date.FormatStyle.dateTime.weekday(.wide).hour().minute()
+        style.locale = Locale(identifier: L10n.current.rawValue)
+        return Date(timeIntervalSince1970: time).formatted(style)
+    }
+
     /// 오늘, 어제, 그저께, 그 밖에는 day와 같다.
     static func relative(_ time: Double, now: Date = Date()) -> String {
         let calendar = Calendar.current

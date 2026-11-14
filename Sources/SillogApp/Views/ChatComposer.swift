@@ -6,6 +6,9 @@ import SillogCore
 struct ChatComposer: View {
     @ObservedObject var chat: ChatState
     @ObservedObject var library: LibraryState
+    /// Kept by ChatView so the mode survives the home input giving way to the conversation input.
+    @Binding var voice: VoiceConversation
+    @ObservedObject var speaker: ChatSpeaker
     var modelName: String
     var openSettings: () -> Void
     var pendingRecords: Int = 0
@@ -41,8 +44,8 @@ struct ChatComposer: View {
     /// The answer whose follow-up the user typed over; it stays hidden after the draft is cleared.
     @State private var dismissedFollowUp: String?
 
-    /// 이 대화에 응답이 도는 중이면 자료 설정을 잠근다
-    private var busy: Bool { chat.activeMessage?.conversationID == chat.current.id }
+    /// Locks source settings while this chat's answer runs.
+    private var busy: Bool { chat.currentRunning }
 
     /// Ghost text for the empty input: the latest answer's suggested next question.
     private var followUp: String? {
@@ -87,14 +90,57 @@ struct ChatComposer: View {
         }
         .frame(maxWidth: ChatPalette.readingWidth).frame(maxWidth: .infinity)
         .sheet(isPresented: $showLibraryPicker) { LibraryPicker(library: library) { chat.attachLibraryItem($0) } }
-        .onChange(of: chat.current.id) { _, _ in shortcut = nil; dismissedShortcut = nil; dismissedFollowUp = nil; dictation.cancel() }
+        .onChange(of: chat.current.id) { _, _ in shortcut = nil; dismissedShortcut = nil; dismissedFollowUp = nil; dictation.cancel(); runVoice(voice.end()) }
         .onDisappear { dictation.cancel() }
         .onChange(of: chat.draft) { _, draft in if !draft.isEmpty { dismissedFollowUp = chat.messages.last?.id } }
+        // shortcut: Whisper writes text only on stop, so its turns end by tap; detect the pause from dictation.level if that matters.
+        .task(id: chat.draft) {
+            guard voice.phase == .listening else { return }
+            voice.heard(at: Date().timeIntervalSince1970)
+            try? await Task.sleep(for: .seconds(VoiceConversation.pause))
+            if !Task.isCancelled { runVoice(voice.tick(at: Date().timeIntervalSince1970)) }
+        }
+        .onChange(of: busy) { _, running in
+            guard !running, voice.phase == .answering else { return }
+            let last = chat.messages.last
+            runVoice(voice.answered(last?.role == "assistant" && last?.status == "complete" ? last?.speechText : nil))
+        }
+        .onChange(of: speaker.speakingID) { _, id in if id == nil { runVoice(voice.spoke()) } }
+        // Dictation stopped on its own (typed over, recognizer ended, mic tapped): leave the mode rather than resend.
+        .onChange(of: dictation.listening) { _, on in if !on, voice.phase == .listening { runVoice(voice.end()) } }
+        .onChange(of: dictation.problem) { _, problem in if problem != nil { runVoice(voice.end()) } }
+        .onChange(of: dictation.unavailable) { _, off in if off { runVoice(voice.end()) } }
+        // Whisper lands its transcript only after stop; send it then. A failed one ends the mode via problem.
+        .onChange(of: dictation.transcribing) { _, on in if !on, voice.phase == .answering, !busy, dictation.problem == nil { sendVoice() } }
     }
 
-    /// 보내기가 시작됐을 때만 알린다 (프로젝트 상세에서 대화로 넘어가는 용도)
+    private func runVoice(_ step: VoiceConversation.Step?) {
+        switch step {
+        case .listen?:
+            speaker.stop()
+            if !dictation.listening { dictation.toggle(draft: $chat.draft, selection: nil, permissions: state.recordingPermissions) }
+        case .send?:
+            if dictation.holdsSpeech { dictation.stop() } else { dictation.cancel(); sendVoice() }
+        case .speak(let text)?:
+            speaker.toggle(text, id: chat.messages.last?.id ?? "")
+        case .end?:
+            dictation.cancel(); speaker.stop()
+        case nil:
+            break
+        }
+    }
+
+    private func sendVoice() {
+        // Nothing was heard: keep listening.
+        guard state.chatConnected, chat.send() else { runVoice(voice.start()); return }
+        shortcut = nil
+        onSent()
+    }
+
+    /// Calls onSent only once sending starts, so project detail can move to the chat.
     private func send() {
         guard state.chatConnected else { return }
+        if voice.phase == .listening { runVoice(voice.tap()); return }
         // Enter finishes Whisper dictation first; its text lands in the draft only on stop.
         if dictation.holdsSpeech { dictation.stop(); return }
         if chat.send() { dictation.cancel(); shortcut = nil; onSent() }
@@ -153,7 +199,7 @@ struct ChatComposer: View {
                 }
                 ChatInput(text: $chat.draft, height: $inputHeight, minimumHeight: 38, focusRequest: chat.inputFocusRequest,
                           selectionOnFocus: shortcutCaret.flatMap { $0.request == chat.inputFocusRequest ? $0.range : nil }, onShortcut: updateShortcut, shortcutKey: handleShortcutKey,
-                          onFiles: { chat.attach($0) }, onEscape: { if dictation.listening { dictation.cancel() } else if busy { chat.cancel() } else { chat.openArtifactID = nil } }, onEditLast: onEditLast,
+                          onFiles: { chat.attach($0) }, onEscape: { if voice.phase != nil { runVoice(voice.end()) } else if dictation.listening { dictation.cancel() } else if busy { chat.cancel() } else { chat.openArtifactID = nil } }, onEditLast: onEditLast,
                           placeholder: dictation.listening ? placeholder : followUp.map { tr("추천 질문: \($0). Tab으로 입력") } ?? placeholder, onSend: send)
                     .frame(height: inputHeight)
             }
@@ -162,6 +208,7 @@ struct ChatComposer: View {
             HStack(spacing: 8) {
                 plusButton
                 micButton
+                voiceButton
                 chips
                 Spacer(minLength: 0)
                 sendButton
@@ -352,16 +399,38 @@ struct ChatComposer: View {
             .contentShape(Circle())
         }
         .buttonStyle(.plain).onHover { micHover = $0 }
-        .disabled(dictation.unavailable || dictation.transcribing)
+        // Voice mode owns the mic; a tap here would drop a Whisper transcript.
+        .disabled(dictation.unavailable || dictation.transcribing || voice.phase != nil)
         .help(dictation.unavailable ? tr("이 Mac에서는 이 언어를 기기 안에서 받아쓸 수 없어요") : dictation.transcribing ? tr("받아쓰는 중…") : on ? tr("받아쓰기 멈추기") : tr("음성으로 입력"))
         .accessibilityLabel(on ? tr("받아쓰기 멈추기") : tr("음성으로 입력"))
     }
 
+    private var voiceButton: some View {
+        Group {
+            if let phase = voice.phase {
+                HStack(spacing: 4) {
+                    ChatPillButton(title: Self.voiceTitle(phase), systemName: "waveform") { runVoice(voice.tap()) }
+                        .help(phase == .listening ? tr("눌러서 지금 보내기") : phase == .speaking ? tr("눌러서 읽기 건너뛰기") : "")
+                    ChatIconButton(systemName: "xmark", help: tr("음성 대화 끝내기")) { runVoice(voice.end()) }
+                }
+            } else {
+                ChatIconButton(systemName: "waveform", help: tr("음성 대화")) { runVoice(voice.start()) }
+                    .disabled(dictation.unavailable || dictation.transcribing || busy || !state.chatConnected)
+            }
+        }
+    }
+
+    static func voiceTitle(_ phase: VoiceConversation.Phase) -> String {
+        switch phase {
+        case .listening: tr("듣는 중")
+        case .answering: tr("답변 중")
+        case .speaking: tr("말하는 중")
+        }
+    }
+
     private var sendButton: some View {
         let empty = chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        // Only this conversation's answer can be stopped here; another one running just blocks sending.
-        let elsewhere = chat.running && !busy
-        let blocked = elsewhere || !state.chatConnected
+        let blocked = !state.chatConnected
         return Button {
             if busy { chat.cancel() } else { send() }
         } label: {
@@ -372,7 +441,7 @@ struct ChatComposer: View {
                 .background(enabled ? Brand.accent : Brand.line, in: Circle())
         }
         .buttonStyle(.plain).disabled(!busy && (empty || blocked))
-        .help(busy ? tr("응답 중단 (Esc, ⌘.)") : !state.chatConnected ? tr("AI를 먼저 연결해 주세요") : elsewhere ? tr("다른 대화의 응답이 끝나면 보낼 수 있어요") : tr("전송 (Enter)"))
+        .help(busy ? tr("응답 중단 (Esc, ⌘.)") : !state.chatConnected ? tr("AI를 먼저 연결해 주세요") : tr("전송 (Enter)"))
         .accessibilityLabel(busy ? tr("응답 중단") : tr("전송"))
     }
 
@@ -463,8 +532,10 @@ struct ChatComposer: View {
             MenuRow(icon: "paperclip", title: tr("파일 또는 사진 추가")) { showPlus = false; chat.uploadFiles() } trailing: {
                 Text("⌘U").font(Brand.font(.caption)).foregroundStyle(Brand.gray)
             }
+            .disabled(chat.isTemporary)    // attachments are saved to the library
             MenuRow(icon: "folder.badge.plus", title: tr("폴더 연결")) { showPlus = false; chat.connectFiles() }
             MenuRow(icon: "archivebox", title: tr("결과물에서 선택")) { showPlus = false; DispatchQueue.main.async { showLibraryPicker = true } }
+                .disabled(chat.isTemporary)
             if let drive = ConnectorEntry.all.first(where: { $0.id == "drive" }) {
                 MenuRow(icon: .logo(drive), title: tr("Google Drive에서 선택")) { showPlus = false; openDrivePicker() } trailing: {
                     if drivePicking { ProgressView().controlSize(.mini) }
