@@ -3,7 +3,7 @@
   "account_id": "ce52c827c37e7107dfaee3b41326cd52",
   "compatibility_date": "2025-10-01",
   "build": {
-    "command": "rm -rf dist && mkdir dist && cp -R index.html privacy.html assets dist/"
+    "command": "rm -rf dist && mkdir dist && cp -R index.html privacy.html robots.txt sitemap.xml assets dist/"
   },
   "assets": {
     "directory": "./dist"
