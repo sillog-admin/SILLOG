@@ -68,7 +68,16 @@ jobs:
           SIGN_IDENTITY: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'Developer ID Application' || '-' }}
           SILLOG_GOOGLE_CLIENT_SECRET: ${{ secrets.SILLOG_GOOGLE_CLIENT_SECRET }}
           SILLOG_GOOGLE_API_KEY: ${{ secrets.SILLOG_GOOGLE_API_KEY }}
+          SILLOG_BUILD_DIR: ${{ runner.temp }}/sillog-build
         run: ./scripts/make-app.sh
+
+      # With the build folder gone, as on a user's Mac, a resource only this runner can see fails here instead of in the release.
+      - name: Smoke test app bundle
+        run: |
+          mv "$RUNNER_TEMP/sillog-build" "$RUNNER_TEMP/sillog-build-hidden"
+          for lang in ko en; do
+            SILLOG_SNAPSHOT="$RUNNER_TEMP/snapshots-$lang" SILLOG_LANG="$lang" "$HOME/Applications/SILLOG.app/Contents/MacOS/Sillog"
+          done
 
       # On main, publish the dmg as this repo's latest release; the landing links to releases/latest/download/SILLOG.dmg.
       - name: Package dmg
