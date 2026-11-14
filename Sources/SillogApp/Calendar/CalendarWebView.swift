@@ -39,7 +39,7 @@ struct CalendarWebView: NSViewRepresentable {
 
     /// .app 번들이면 Contents/Resources/calendar, `swift run` 이면 SwiftPM 리소스 번들
     static func directory() -> URL? {
-        Bundle.main.url(forResource: "calendar", withExtension: nil) ?? Bundle.module.url(forResource: "calendar", withExtension: nil)
+        BundledResources.url(forResource: "calendar", withExtension: nil, subdirectory: nil, main: .main) { .module }
     }
 
     /// 웹 달력이 보내는 것: init(처음 보기·한 주의 첫 요일), events(기간의 일정), view(고른 보기), register/dismiss(제안), openCalendarApp

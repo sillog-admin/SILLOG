@@ -491,8 +491,8 @@ struct ConnectorLogo: View {
 
     @MainActor private static let images: [String: NSImage] = {
         Dictionary(uniqueKeysWithValues: ConnectorEntry.all.compactMap { entry in
-            let url = Bundle.main.url(forResource: entry.id, withExtension: "png", subdirectory: "ConnectorIcons")
-                ?? Bundle.module.url(forResource: entry.id, withExtension: "png", subdirectory: "ConnectorIcons")
+            // A connector without an icon gets none; Bundle.module would end the .app.
+            let url = BundledResources.url(forResource: entry.id, withExtension: "png", subdirectory: "ConnectorIcons", main: .main) { .module }
             guard let url, let image = NSImage(contentsOf: url) else { return nil }
             return (entry.id, image)
         })

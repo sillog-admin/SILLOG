@@ -48,8 +48,7 @@ struct GraphWebView: NSViewRepresentable {
 
     /// .app 번들이면 Contents/Resources/graph, `swift run` 이면 SwiftPM 리소스 번들.
     static func graphDirectory() -> URL? {
-        if let bundled = Bundle.main.url(forResource: "graph", withExtension: nil) { return bundled }
-        return Bundle.module.url(forResource: "graph", withExtension: nil)
+        BundledResources.url(forResource: "graph", withExtension: nil, subdirectory: nil, main: .main) { .module }
     }
 
     final class Coordinator: NSObject, WKScriptMessageHandler {

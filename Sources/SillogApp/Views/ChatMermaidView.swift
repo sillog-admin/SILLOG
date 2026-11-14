@@ -32,7 +32,7 @@ struct ChatMermaidView: NSViewRepresentable {
 
     /// .app 번들이면 Contents/Resources/mermaid, `swift run` 이면 SwiftPM 리소스 번들
     static func directory() -> URL? {
-        Bundle.main.url(forResource: "mermaid", withExtension: nil) ?? Bundle.module.url(forResource: "mermaid", withExtension: nil)
+        BundledResources.url(forResource: "mermaid", withExtension: nil, subdirectory: nil, main: .main) { .module }
     }
 
     final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
