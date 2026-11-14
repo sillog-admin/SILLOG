@@ -1776,5 +1776,12 @@
   "도구 실행 실패: %@": "Tool failed: %@",
   "소리 내어 읽기": "Read aloud",
   "읽기 중지": "Stop reading",
-  "공유": "Share"
+  "공유": "Share",
+  "음성 대화": "Voice chat",
+  "음성 대화 끝내기": "End voice chat",
+  "듣는 중": "Listening",
+  "답변 중": "Answering",
+  "말하는 중": "Speaking",
+  "눌러서 지금 보내기": "Click to send now",
+  "눌러서 읽기 건너뛰기": "Click to skip the reading"
 }

@@ -40,6 +40,7 @@ struct ChatView: View {
     @State private var pendingResend: PendingResend?
     @State private var copiedID: String?
     @StateObject private var speaker = ChatSpeaker()
+    @State private var voice = VoiceConversation()
     @State private var hoveredArtifactID: String?
     @State private var showResults = false
     @State private var showActivity = false
@@ -128,7 +129,9 @@ struct ChatView: View {
     var body: some View {
         sheets
         .onAppear { if state.showsChatResultsOnOpen { pane = .results } }
-        .onDisappear { speaker.stop() }
+        .onDisappear { speaker.stop(); voice.end() }
+        // The project input hands off to the chat pane after sending; any other pane leaves the chat.
+        .onChange(of: pane) { _, new in if new != .chat, voice.end() != nil { speaker.stop() } }
         .alert(tr("이름 바꾸기"), isPresented: $showRename) {
             TextField(tr("대화 이름"), text: $conversationName)
             Button(tr("취소"), role: .cancel) {}
@@ -159,6 +162,8 @@ struct ChatView: View {
         .onChange(of: chat.current.skillIDs) { old, new in if old != new { chat.saveScope() } }
         .onChange(of: chat.current.id) { _, _ in
             editingMessageID = nil
+            // The composer that would end it is swapped out when a chat empties or fills.
+            if voice.end() != nil { speaker.stop() }
             if chat.isTemporary { pane = .chat }    // the File menu can start one from any pane, even while one is open
         }
         .background {
@@ -206,7 +211,7 @@ struct ChatView: View {
                 if let project = chat.projects.projects.first(where: { $0.id == id }) {
                     ProjectOverview(projects: chat.projects, chat: chat, project: project,
                                     onConversation: { chat.select($0); pane = .chat },
-                                    composer: ChatComposer(chat: chat, library: library, modelName: modelName, openSettings: openSettings,
+                                    composer: ChatComposer(chat: chat, library: library, voice: $voice, speaker: speaker, modelName: modelName, openSettings: openSettings,
                                                            pendingRecords: pendingRecords, tidyNow: tidyNow,
                                                            onOpenConnectors: { state.selectedTab = .connectors },
                                                            onSent: { pane = .chat }, showsNotice: false))
@@ -285,7 +290,7 @@ struct ChatView: View {
     }
 
     private var composer: some View {
-        ChatComposer(chat: chat, library: library, modelName: modelName, openSettings: openSettings,
+        ChatComposer(chat: chat, library: library, voice: $voice, speaker: speaker, modelName: modelName, openSettings: openSettings,
                      pendingRecords: pendingRecords, tidyNow: tidyNow, onOpenConnectors: { state.selectedTab = .connectors },
                      onEditLast: {
                          if !chat.currentRunning, let last = chat.messages.last(where: { $0.role == "user" }) { editText = last.text; editingMessageID = last.id }
@@ -314,7 +319,7 @@ struct ChatView: View {
                     Text(Self.temporaryNotice).font(Brand.font(.body)).foregroundStyle(Brand.tabText)
                         .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.top, 8)
                 }
-                ChatComposer(chat: chat, library: library, modelName: modelName, openSettings: openSettings,
+                ChatComposer(chat: chat, library: library, voice: $voice, speaker: speaker, modelName: modelName, openSettings: openSettings,
                              pendingRecords: pendingRecords, tidyNow: tidyNow, onOpenConnectors: { state.selectedTab = .connectors },
                              showsNotice: false)
                     .background(alignment: .topTrailing) {             // Figma 1591:18788: 입력칸 오른쪽 위에 올라앉은 심볼
