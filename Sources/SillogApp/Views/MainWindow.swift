@@ -203,7 +203,7 @@ private struct TitlePill<Content: View>: View {
             .font(primary ? Brand.font(.body, .bold) : Brand.font(.body))
             .foregroundStyle(primary ? .white : Brand.tabText)
             .lineLimit(1).fixedSize()                              // 옆 문구에 밀려 두 줄로 꺾이지 않게
-            .padding(.horizontal, primary ? 30 : 10).frame(height: 24)
+            .padding(.horizontal, primary ? 30 : 10).frame(height: primary ? 32 : 24)   // 녹음 단추는 32, 보조 알약은 24
             .background(Capsule().fill(primary ? (hover ? Brand.accentDark : Brand.accent) : hover ? Brand.pillFill.opacity(0.7) : Brand.pillFill))
             .contentShape(Capsule())
             .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
