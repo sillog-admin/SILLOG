@@ -893,7 +893,7 @@
   "예약 삭제": "Delete scheduled run",
   "예약 작업": "Scheduled runs",
   "예약 작업 ‘%@’ 실행 중": "Running scheduled run ‘%@’",
-  "예약 작업 등록":"Add scheduled run",
+  "예약 작업 등록": "Add scheduled run",
   "예약 작업 삭제": "Delete scheduled run",
   "예약안 확인": "Review schedule",
   "예약을 삭제합니다. 이미 생성된 대화는 그대로 남습니다.": "Deletes the scheduled run. Chats already created stay as they are.",
@@ -1785,5 +1785,10 @@
   "말하는 중": "Speaking",
   "눌러서 지금 보내기": "Click to send now",
   "눌러서 읽기 건너뛰기": "Click to skip the reading",
-  "SILLOG을 응용 프로그램 폴더로 옮긴 뒤 다시 열어 주세요. 디스크 이미지에서 연 SILLOG은 디스크 이미지를 꺼내면 함께 사라져요.": "Move SILLOG to the Applications folder and open it again. A copy opened from the disk image disappears when the disk image is ejected."
+  "SILLOG을 응용 프로그램 폴더로 옮긴 뒤 다시 열어 주세요. 디스크 이미지에서 연 SILLOG은 디스크 이미지를 꺼내면 함께 사라져요.": "Move SILLOG to the Applications folder and open it again. A copy opened from the disk image disappears when the disk image is ejected.",
+  "고른 날의 원문만 지워요. 안 고른 날은 보존 핀을 걸어 남겨요.": "Only the days you pick are cleaned up. Days you leave out get a keep pin.",
+  "동의하고 정리 (%@일)": "Agree and clean up (%@ days)",
+  "정리 (%@일)": "Clean up (%@ days)",
+  "%@ %@건": "%@ %@",
+  "판단 모델 밑에 키를 넣어 주세요": "Add the key under the judging model"
 }

@@ -33,7 +33,9 @@ public struct PrunePlan: Equatable, Sendable {
     public struct Day: Equatable, Sendable {
         public let day: String
         public let categories: [PruneCategory]
-        public init(day: String, categories: [PruneCategory]) { self.day = day; self.categories = categories }
+        /// 이날 지우거나 비울 행 수
+        public var count: Int
+        public init(day: String, categories: [PruneCategory], count: Int = 0) { self.day = day; self.categories = categories; self.count = count }
     }
     public var days: [Day] = []
     /// 지우거나 비울 행 수
@@ -122,10 +124,10 @@ public struct Pruner {
         var weekStates: [String: WeekState] = [:]
         days: for day in calendar.days(from: earliest, to: latestCutoff) {
             guard let start = calendar.dayStart(day), let end = calendar.dayEnd(day) else { continue }
-            var categories: [PruneCategory] = []
+            var categories: [PruneCategory] = [], dayCount = 0
             for (category, cutoff) in cutoffs where end <= cutoff {
                 let count = try self.count(category, conn, start: start, end: end, pinnedTasks: pinnedTasks)
-                if count > 0 { categories.append(category); plan.counts[category, default: 0] += count }
+                if count > 0 { categories.append(category); plan.counts[category, default: 0] += count; dayCount += count }
             }
             guard !categories.isEmpty else { continue }
             if pins.contains(where: { $0.covers(day: day) }) {
@@ -145,7 +147,7 @@ public struct Pruner {
                 plan.blockedReason = reason
                 break days
             }
-            plan.days.append(.init(day: day, categories: categories.sorted { $0.rawValue < $1.rawValue }))
+            plan.days.append(.init(day: day, categories: categories.sorted { $0.rawValue < $1.rawValue }, count: dayCount))
             plan.estimatedBytes += try estimate(categories, conn, start: start, end: end, pinnedTasks: pinnedTasks)
         }
         plan.counts = plan.counts.filter { $0.value > 0 }

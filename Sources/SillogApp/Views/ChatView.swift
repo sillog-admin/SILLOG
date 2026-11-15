@@ -354,11 +354,7 @@ struct ChatView: View {
                 .font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1).padding(.bottom, 14)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay(alignment: .topTrailing) {
-            ChatIconButton(systemName: chat.isTemporary ? "eye.slash.fill" : "eye.slash",
-                           help: chat.isTemporary ? tr("임시 채팅 끄기") : tr("임시 채팅 (⇧⌘N)"), label: tr("임시 채팅"),
-                           color: chat.isTemporary ? Brand.ink : Brand.tabText) {
-                chat.newConversation(temporary: !chat.isTemporary)
-            }
+            TemporaryChatButton(on: chat.isTemporary) { chat.newConversation(temporary: !chat.isTemporary) }
             .accessibilityAddTraits(chat.isTemporary ? .isSelected : [])
             .padding(.top, 20).padding(.trailing, 28)
         }
@@ -1081,9 +1077,9 @@ enum ChatPalette {
     static let soft = Brand.paper       // 말풍선, 칩, 대화 상자 머리글 바탕
     static let inputLine = Color(hex: 0xD8D2CD)  // 입력 상자 테두리
     static let columnWidth: CGFloat = 600        // 시작 화면과 프로젝트 화면 폭 (Figma 600)
-    /// Transcript and composer width; grows with the text zoom so lines keep their length.
-    static var readingWidth: CGFloat { 760 * Brand.scale }
-    static var bubbleWidth: CGFloat { readingWidth * 0.7 }
+    /// Transcript and composer width (Figma 600); grows with the text zoom so lines keep their length.
+    static var readingWidth: CGFloat { 600 * Brand.scale }
+    static var bubbleWidth: CGFloat { 560 * Brand.scale }   // 내 질문 말풍선 최대 폭 (Figma 560)
     static let sidebarWidth: CGFloat = 261
     static let navSelected = Color(hex: 0xEAE5DF)   // 사이드바 메뉴 고른 줄 (둥글기 7)
     static let cardLine = Color(hex: 0xE9E7E5)      // 카드 테두리, 목록 줄 구분선
@@ -1426,5 +1422,24 @@ struct ChatStartBackground: View {
         }
         .clipped()
         .allowsHitTesting(false)
+    }
+}
+
+/// 임시 채팅 단추: 꺼져 있으면 실선 말풍선, 켜면 먹색 점선 말풍선(저장되지 않는 대화)
+private struct TemporaryChatButton: View {
+    let on: Bool
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        Button(action: action) {
+            SVGIcon(d: RailIcon.chat)
+                .stroke(on ? Brand.ink : Brand.tabText, style: StrokeStyle(lineWidth: 1.7, lineCap: .round, lineJoin: .round, dash: on ? [2.6, 2.9] : []))
+                .frame(width: 15, height: 15)
+                .frame(width: 28, height: 28)
+                .background(hovering ? ChatPalette.soft : .clear, in: RoundedRectangle(cornerRadius: 5))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).onHover { hovering = $0 }
+        .help(on ? tr("임시 채팅 끄기") : tr("임시 채팅 (⇧⌘N)")).accessibilityLabel(tr("임시 채팅"))
     }
 }

@@ -86,9 +86,10 @@ extension AppState {
         cleanupPreview = CleanupPreview(plan: plan, digests: digests, consentNeeded: plan.consentNeeded)
     }
 
-    /// 미리보기에서 확인: 처음이면 동의를 기록하고 정리한다
-    func confirmCleanup() async {
+    /// 미리보기에서 확인: 처음이면 동의를 기록하고, 안 고른 날은 보존 핀을 걸어 남긴 뒤 정리한다
+    func confirmCleanup(keep days: [String] = []) async {
         guard let db else { return }
+        for day in days { setPin(.period, key: RetentionPin.periodKey(from: day, to: day), on: true) }
         if cleanupPreview?.consentNeeded == true {
             let now = Date().timeIntervalSince1970
             try? await db.writer.write { try ConsolidationStore.set(ConsolidationStore.Key.firstPruneConsentedAt, String(now), $0) }
