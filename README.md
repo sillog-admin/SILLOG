@@ -108,6 +108,18 @@ SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 �
 
 배포 파일은 Developer ID로 서명하고 Apple 공증을 받습니다. 매번 같은 인증서로 서명하므로, 업데이트해도 키체인 접근과 권한이 그대로 유지됩니다. 서명 방식을 바꾸기 전 버전을 쓰고 있었다면 첫 업데이트에서 한 번 더 묻습니다. 키체인 접근을 허용하고, 손쉬운 사용·화면 기록 권한을 다시 허용해 주세요.
 
+Homebrew로도 설치할 수 있습니다.
+
+```bash
+brew install --cask sillog-admin/tap/sillog
+```
+
+- dmg로 설치한 SILLOG이 이미 있으면 `--force`를 붙입니다. 기록과 설정은 그대로 남습니다.
+- 업데이트: `brew upgrade --cask sillog`
+- 삭제: `brew uninstall --cask sillog`
+- 기록까지 삭제: `brew uninstall --zap --cask sillog`. 앱을 지우고 기록·설정을 휴지통으로 옮깁니다.
+- 키체인에 저장한 API 키와 커넥터 토큰(`com.sillog.app.chat`)은 남습니다. 필요하면 키체인 접근에서 지웁니다.
+
 ### 처음 실행
 
 1. 브라우저에 나오는 기기 코드로 ChatGPT에 로그인합니다.

@@ -110,6 +110,18 @@ All records are stored in SQLite on your Mac. The only things that leave it are 
 
 Releases are signed with Developer ID and notarized by Apple. They use the same certificate every time, so updates keep your keychain access and permissions. If you installed a build from before that change, the first update asks once more: allow keychain access, then grant Accessibility and Screen Recording again.
 
+You can also install it with Homebrew.
+
+```bash
+brew install --cask sillog-admin/tap/sillog
+```
+
+- If SILLOG is already installed from the dmg, add `--force`. Your records and settings stay.
+- Update: `brew upgrade --cask sillog`
+- Uninstall: `brew uninstall --cask sillog`
+- Uninstall with your records: `brew uninstall --zap --cask sillog`. This removes the app and moves your records and settings to the Trash.
+- API keys and connector tokens stay in the keychain (`com.sillog.app.chat`). Delete them in Keychain Access if you need to.
+
 ### First launch
 
 1. Sign in to ChatGPT with the device code shown in your browser.
