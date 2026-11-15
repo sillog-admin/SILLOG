@@ -34,8 +34,8 @@ private struct ResignFocus: NSViewRepresentable {
 /// "무엇이 기기 밖으로 나가나요?" 안내. 로그인 오류 카드(OUT-W1)가 쓴다.
 /// W1 의 Figma 문구는 대표 화면 이미지 전송을 빠뜨려(스크린샷 카드가 기본으로 켜져 있다) 시트 문구로 맞춘다
 enum PrivacyNote {
-    static let title = tr("무엇이 기기 밖으로 나가나요?")
-    static let body = tr("기록은 Mac에 저장돼요. 업무를 정리할 때 창 제목, 주소, 화면 텍스트와 대표 화면 이미지가 연결한 AI로 전송돼요. 채팅에서 조회한 원문, 코드, 문서도 전송될 수 있어요. 허용한 웹 검색과 커넥터는 외부 서비스와 통신해요.")
+    static var title: String { tr("무엇이 기기 밖으로 나가나요?") }
+    static var body: String { tr("기록은 Mac에 저장돼요. 업무를 정리할 때 창 제목, 주소, 화면 텍스트와 대표 화면 이미지가 연결한 AI로 전송돼요. 채팅에서 조회한 원문, 코드, 문서도 전송될 수 있어요. 허용한 웹 검색과 커넥터는 외부 서비스와 통신해요.") }
 }
 
 // MARK: 색과 그림 (온보딩 전용)

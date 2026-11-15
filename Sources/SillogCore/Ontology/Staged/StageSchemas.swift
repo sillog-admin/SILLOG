@@ -96,7 +96,7 @@ public enum StageTool {
                     "properties": .object([
                         "task": .object(["type": "string", "description": "TASKS 의 ref"]),
                         "summary": .object(["type": "string", "description": .string("이 행들에서 사용자가 한 일. 구체적인 대상(파일·문서 부분·페이지)과 행이 보여 주는 동사(작성·수정·제출은 근거가 보일 때만)로 쓴 \(L10n.current.nameInKorean) 한 문장, 100자 이내")]),
-                        "topics": .object(["type": "array", "items": .object(["type": "string"]), "description": "무엇에 관한 일인지 1~4개 (개념·기술·과목·문제 영역). 앱·사이트·플랫폼·프로젝트 이름과 채움말은 아님"]),
+                        "topics": .object(["type": "array", "items": .object(["type": "string"]), "description": .string("무엇에 관한 일인지 \(L10n.current.nameInKorean) 1~4개 (개념·기술·과목·문제 영역, 기술 이름은 원래 표기대로). 앱·사이트·플랫폼·프로젝트 이름과 채움말은 아님")]),
                         "task_type": .object(["type": "string", "enum": .array(TBox.leafTaskTypes.map { .string($0) }), "description": "NEW 업무일 때 필수"]),
                     ]),
                     "required": .array(["task", "summary", "topics"]),
@@ -104,12 +104,12 @@ public enum StageTool {
                 "problems": .object(["type": "array", "items": .object([
                     "type": "object",
                     "properties": .object(["row": rowNumber, "kind": .object(["type": "string", "description": "build, runtime, network, config 등"]),
-                                           "message": .object(["type": "string"]), "resolved_by_row": rowNumber]),
+                                           "message": .object(["type": "string", "description": .string("무엇이 막혔는지 \(L10n.current.nameInKorean) 한 문장")]), "resolved_by_row": rowNumber]),
                     "required": .array(["row", "kind", "message"]),
                 ])]),
                 "later_items": .object(["type": "array", "items": .object([
                     "type": "object",
-                    "properties": .object(["row": rowNumber, "text": .object(["type": "string"])]),
+                    "properties": .object(["row": rowNumber, "text": .object(["type": "string", "description": .string("처리하지 못한 요청이나 할 일, \(L10n.current.nameInKorean) 한 문장")])]),
                     "required": .array(["row", "text"]),
                 ])]),
             ]),

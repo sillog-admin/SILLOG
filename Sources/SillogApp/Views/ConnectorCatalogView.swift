@@ -20,7 +20,8 @@ struct ConnectorEntry: Identifiable {
         }
     }
 
-    static let all: [ConnectorEntry] = [
+    /// Computed: a static let keeps the language it was first read in, even after a switch.
+    static var all: [ConnectorEntry] { [
         .init(id: "drive", name: "Google Drive", summary: tr("고른 파일 검색과 읽기"),
               description: tr("Drive에서 직접 고른 파일만 찾고 읽어요. 파일을 만들거나 수정하지 않아요."),
               examples: [tr("최근 작성한 기획서를 찾아 핵심 결정을 요약해 줘."), tr("고른 Drive 자료를 바탕으로 발표 개요를 만들어 줘.")]),
@@ -48,7 +49,7 @@ struct ConnectorEntry: Identifiable {
         .init(id: "lovable", name: "Lovable", summary: tr("프로젝트 검색과 코드 읽기"),
               description: tr("승인한 워크스페이스에서 프로젝트를 찾고 설명과 코드 파일을 읽어요. 프로젝트를 수정하거나 배포하지 않아요."),
               examples: [tr("워크스페이스에서 랜딩 페이지 프로젝트를 찾아 진행 상황을 알려 줘.")])
-    ]
+    ] }
 }
 
 /// 맞춤 설정의 커넥터 구역: 둘러보기 목록(검색, 설치됨 구역)과 커넥터 상세.

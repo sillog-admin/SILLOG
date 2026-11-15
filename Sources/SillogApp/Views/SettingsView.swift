@@ -666,7 +666,7 @@ private struct ConnectionSection: View {
 
     // MARK: 모델
 
-    private static let connections = [("codex", tr("ChatGPT 구독")), ("openai", tr("API 서버"))]
+    private static var connections: [(String, String)] { [("codex", tr("ChatGPT 구독")), ("openai", tr("API 서버"))] }
 
     /// One role: what it does on the left, its connection and then its model on the right.
     private func modelRow<Content: View>(_ title: String, _ detail: String, @ViewBuilder _ content: @escaping () -> Content) -> some View {

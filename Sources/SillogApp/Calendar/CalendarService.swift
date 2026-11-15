@@ -248,7 +248,7 @@ extension CalendarService {
     var googleAvailable: Bool { (try? ConnectorAuth.isAvailable("gcal")) ?? false }
 
     private var google: GoogleCalendarClient { .live(token: { try await ConnectorAuth.accessToken("gcal") }) }
-    private static let googleExpired = tr("구글 로그인이 만료됐어요. 다시 연결해 주세요.")
+    private static var googleExpired: String { tr("구글 로그인이 만료됐어요. 다시 연결해 주세요.") }
 
     /// 브라우저에서 구글 로그인 → 캘린더 목록을 받는다
     func connectGoogle() async {

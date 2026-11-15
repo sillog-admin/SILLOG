@@ -654,14 +654,14 @@ struct TasksView: View {
     /// 누르면 여는 것: 자료는 주소로, 앱은 번들 id 로
     enum Opens { case resource, app, none }
     /// 종류: 이름, 그래프와 같은 색, 목록, 누르면 여는 것
-    static let kinds: [(name: String, color: Color, items: KeyPath<TaskMaterials, [TaskMaterials.Item]>, opens: Opens)] = [
+    static var kinds: [(name: String, color: Color, items: KeyPath<TaskMaterials, [TaskMaterials.Item]>, opens: Opens)] { [
         (tr("참고자료"), Color(hex: 0x00929E), \.references, .resource),
         (tr("산출물"), Color(hex: 0xB48F3C), \.outputs, .resource),
         (tr("앱"), Color(hex: 0x915A95), \.apps, .app),
         (tr("주제"), Color(hex: 0x5A9E6A), \.topics, .none),
         (tr("문제"), Color(hex: 0xAB5242), \.problems, .none),
         (tr("나중에 할 일"), Color(hex: 0x6885C3), \.later, .none),
-    ]
+    ] }
     private static let shownPerKind = 6
 
     @ViewBuilder private var materialsList: some View {

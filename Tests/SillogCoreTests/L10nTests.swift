@@ -46,6 +46,35 @@ final class L10nTests: XCTestCase {
         XCTAssertTrue(StagePrompt.describeSystem.contains("write the summary in English"))
     }
 
+    /// Rows were Korean chats, so in English the model wrote task titles, topics, problems and later items in Korean.
+    func testOrganizeOutputAsksForTheAppLanguageInEveryField() throws {
+        func prompts() -> [String] { [OntologyPrompt.system, StagePrompt.classifySystem, StagePrompt.assignSystem, StagePrompt.describeSystem] }
+        func fieldDescriptions() throws -> [String] {
+            var found: [String] = []
+            func walk(_ node: Any) {
+                if let object = node as? [String: Any] {
+                    for (name, value) in object["properties"] as? [String: Any] ?? [:] where ["topics", "message", "text"].contains(name) {
+                        found.append((value as? [String: Any])?["description"] as? String ?? "")
+                    }
+                    object.values.forEach(walk)
+                } else if let array = node as? [Any] { array.forEach(walk) }
+            }
+            for tool in [StageTool.describe, AssignmentSchema.tool] {
+                walk(try JSONSerialization.jsonObject(with: JSONEncoder().encode(tool.parameters)))
+            }
+            XCTAssertEqual(found.count, 6, "topics, problem message and later item in both schemas")
+            return found
+        }
+        let rule = "Write every text you produce (titles, goals, reasons, summaries, topics, problems, later items) in English"
+
+        for prompt in prompts() { XCTAssertFalse(prompt.contains("Write every text you produce"), "Korean prompts stay as they were") }
+        for description in try fieldDescriptions() { XCTAssertTrue(description.contains("한국어"), description) }
+
+        L10n.current = .en
+        for prompt in prompts() { XCTAssertTrue(prompt.contains(rule)) }
+        for description in try fieldDescriptions() { XCTAssertTrue(description.contains("영어"), description) }
+    }
+
     /// Screens translate these stored Korean names with `L10n.tr(key:)`.
     func testEveryStoredTypeNameHasAnEnglishName() {
         let names = (TBox.taskTypes + TBox.resourceTypes).map(\.name) + NodeDetailBuilder.kindNames.values

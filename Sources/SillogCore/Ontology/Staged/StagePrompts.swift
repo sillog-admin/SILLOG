@@ -40,7 +40,7 @@ public enum StagePrompt {
     A row is work only when its own evidence shows what it is for: a quoted line, `text:`, the title or the file or page name names a goal or plainly belongs to one. When the row's own evidence does not show what it is for (a generic title such as a chat or document name, with nothing of its content shown), it is off: there is no basis to call it work.
     State in `reason`, in a few \(L10n.current.promptName) words, what the row is used for (work), why it serves no goal (off), or '\(tr("내용 없음"))' (none).
 
-    Cover every row exactly once. Use ranges like "5-12" only when every row in the range has the same kind and reason.
+    Cover every row exactly once. Use ranges like "5-12" only when every row in the range has the same kind and reason.\(OntologyPrompt.languageRule)
     Always answer by calling classify_rows. Do not write prose.
     """ }
 
@@ -58,7 +58,7 @@ public enum StagePrompt {
     There is no minimum duration: a 10-second row about a distinct goal is that goal's row. A row is never assigned because neighbouring rows are.
     State in `reason`, in a few \(L10n.current.promptName) words, what the row contributes to the goal.
 
-    Assign every row you receive exactly once, by its row number. Use a range like "5-12" only when every number in it is a row you received and they share the task and reason.
+    Assign every row you receive exactly once, by its row number. Use a range like "5-12" only when every number in it is a row you received and they share the task and reason.\(OntologyPrompt.languageRule)
     Always answer by calling assign_tasks. Do not write prose.
     """ }
 
@@ -86,7 +86,7 @@ public enum StagePrompt {
     3. problems: only when the rows show an error or blocker (build error, failed command, searching an error message). Set resolved_by_row to the row of the page that solved it when that is evident.
     4. later_items: requests or todos that arrived in these rows but were not handled.
 
-    Cover every row exactly once in resources. Use ranges like "5-12" only for consecutive rows of one task with the same value.
+    Cover every row exactly once in resources. Use ranges like "5-12" only for consecutive rows of one task with the same value.\(OntologyPrompt.languageRule)
     Always answer by calling describe_work. Do not write prose.
     """ }
 

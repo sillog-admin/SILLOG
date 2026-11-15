@@ -150,7 +150,7 @@ final class AppState: ObservableObject {
     private let instanceLock = InstanceLock(databasePath: SillogDatabase.defaultPath())
     private static let onboardingKey = "sillog.onboardingCompleted"
     /// Figma OUT-W3 문구
-    static let alreadyRunningMessage = tr("SILLOG이 이미 실행 중이에요. 메뉴 막대의 아이콘을 확인해 주세요.")
+    static var alreadyRunningMessage: String { tr("SILLOG이 이미 실행 중이에요. 메뉴 막대의 아이콘을 확인해 주세요.") }
 
     init() {
         settings = AppSettings.load()
