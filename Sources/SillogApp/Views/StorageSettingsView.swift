@@ -298,6 +298,23 @@ struct StorageDetailView: View {
 struct CleanupPreviewSheet: View {
     @EnvironmentObject private var state: AppState
     let preview: CleanupPreview
+    @State private var selected: Set<String> = []
+
+    /// 지울 날을 주(ISO 주)로 묶는다
+    private var weeks: [(id: String, days: [PrunePlan.Day])] {
+        let calendar = PeriodCalendar()
+        var out: [(id: String, days: [PrunePlan.Day])] = []
+        for day in preview.plan.days {
+            let id = calendar.dayStart(day.day).map { calendar.week(containing: $0).id } ?? day.day
+            if out.last?.id == id { out[out.count - 1].days.append(day) } else { out.append((id, [day])) }
+        }
+        return out
+    }
+
+    private static func dayTitle(_ day: String) -> String {
+        guard let ts = PeriodCalendar().dayStart(day) else { return day }
+        return Date(timeIntervalSince1970: ts).formatted(Date.FormatStyle(locale: Locale(identifier: L10n.current.rawValue)).month(.abbreviated).day().weekday(.abbreviated))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -306,6 +323,10 @@ struct CleanupPreviewSheet: View {
                     Eyebrow(tr("정리"))
                     Text(preview.consentNeeded && !preview.plan.isEmpty ? tr("처음 정리하기 전에 확인해 주세요") : tr("정리 미리보기"))
                         .font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink).padding(.top, 8)
+                    if !preview.plan.isEmpty {
+                        Text(tr("고른 날의 원문만 지워요. 안 고른 날은 보존 핀을 걸어 남겨요."))
+                            .font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 6)
+                    }
                 }
                 Spacer()
                 Button { state.cleanupPreview = nil } label: {
@@ -323,16 +344,15 @@ struct CleanupPreviewSheet: View {
                         ForEach(preview.plan.keptReasons, id: \.self) { Text($0).font(Brand.font(.body)).foregroundStyle(Brand.gray) }
                         if let reason = preview.plan.blockedReason { Text(reason).font(Brand.font(.body)).foregroundStyle(Brand.gray) }
                     } else {
-                        Text(tr("\(preview.plan.firstDay ?? "") ~ \(preview.plan.lastDay ?? "") · \(preview.plan.days.count)일"))
-                            .font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink)
-                        ForEach(preview.plan.counts.sorted { $0.key.rawValue < $1.key.rawValue }, id: \.key) { entry in
-                            HStack {
-                                Text(entry.key.item.title).font(Brand.font(.body)).foregroundStyle(Brand.text)
-                                Spacer()
-                                Text(tr("\(entry.value.formatted())건")).font(Brand.jost(12)).foregroundStyle(Brand.tabText)
-                            }
+                        VStack(alignment: .leading, spacing: 30) {
+                            ForEach(weeks, id: \.id) { week in weekSection(week.id, week.days) }
                         }
-                        Text(tr("돌려받을 공간 약 \(StorageSettingsView.size(preview.plan.estimatedBytes))")).font(Brand.font(.body, .medium)).foregroundStyle(Brand.ink).padding(.top, 4)
+                        Text(preview.plan.counts.sorted { $0.key.rawValue < $1.key.rawValue }
+                                .map { tr("\($0.key.item.title) \($0.value.formatted())건") }.joined(separator: ", "))
+                            .font(Brand.font(.caption)).foregroundStyle(Brand.gray).padding(.top, 18)
+                        if selected.count == preview.plan.days.count {
+                            Text(tr("돌려받을 공간 약 \(StorageSettingsView.size(preview.plan.estimatedBytes))")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+                        }
                         ForEach(preview.plan.keptReasons, id: \.self) { Text($0).font(Brand.font(.caption)).foregroundStyle(Brand.gray) }
                         if let reason = preview.plan.blockedReason {
                             Text(tr("그 뒤 기간은 아직이에요: \(reason)")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
@@ -367,8 +387,12 @@ struct CleanupPreviewSheet: View {
                     Button(tr("닫기")) { state.cleanupPreview = nil }.keyboardShortcut(.cancelAction).buttonStyle(BrandButtonStyle(kind: .secondary))
                 } else {
                     Button(tr("취소")) { state.cleanupPreview = nil }.keyboardShortcut(.cancelAction).buttonStyle(BrandButtonStyle(kind: .secondary))
-                    Button(preview.consentNeeded ? tr("동의하고 정리") : tr("정리")) { Task { await state.confirmCleanup() } }
-                        .keyboardShortcut(.defaultAction).buttonStyle(BrandButtonStyle(kind: .primary))
+                    Button(preview.consentNeeded ? tr("동의하고 정리 (\(selected.count)일)") : tr("정리 (\(selected.count)일)")) {
+                        let keep = preview.plan.days.map(\.day).filter { !selected.contains($0) }
+                        Task { await state.confirmCleanup(keep: keep) }
+                    }
+                    .keyboardShortcut(.defaultAction).buttonStyle(BrandButtonStyle(kind: .primary))
+                    .disabled(selected.isEmpty)
                 }
             }
             .padding(.horizontal, 24).frame(height: 63)
@@ -376,5 +400,33 @@ struct CleanupPreviewSheet: View {
         }
         .frame(width: 560)
         .background(.white)
+        .onAppear { selected = Set(preview.plan.days.map(\.day)) }
+    }
+
+    private func weekSection(_ week: String, _ days: [PrunePlan.Day]) -> some View {
+        let ids = Set(days.map(\.day))
+        let all = ids.isSubset(of: selected)
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Text(week).font(Brand.font(.rowTitle, .semibold)).foregroundStyle(Brand.ink)
+                Text("\(days.count)").font(Brand.font(.body, .medium)).foregroundStyle(Brand.gray)
+                Spacer()
+                Button(all ? tr("모두 빼기") : tr("모두 고르기")) { if all { selected.subtract(ids) } else { selected.formUnion(ids) } }
+                    .buttonStyle(.plain).font(Brand.font(.caption)).foregroundStyle(Brand.tabText)
+            }
+            ForEach(days, id: \.day) { day in
+                let on = selected.contains(day.day)
+                Button { if on { selected.remove(day.day) } else { selected.insert(day.day) } } label: {
+                    HStack(spacing: 9) {
+                        Image(systemName: on ? "checkmark.square.fill" : "square").font(.system(size: 13)).foregroundStyle(on ? Brand.ink : Brand.sub)
+                        Text(Self.dayTitle(day.day)).font(Brand.font(.body)).foregroundStyle(on ? Brand.text : Brand.gray)
+                        Spacer(minLength: 0)
+                        Text(tr("\(day.count.formatted())건")).font(Brand.jost(12)).foregroundStyle(Brand.tabText)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 }
