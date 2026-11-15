@@ -30,9 +30,15 @@ public enum OntologyPrompt {
     6. later_items: requests or todos that arrived in these rows but were not handled (for example a chat message asking for a change).
     7. task_type must be one of TASK_TYPES.
 
-    Cover every row exactly once. Use ranges like "5-12" only when every row in the range has the same task (or the same "off"/null), the same resource value and the same reason.
+    Cover every row exactly once. Use ranges like "5-12" only when every row in the range has the same task (or the same "off"/null), the same resource value and the same reason.\(languageRule)
     Always answer by calling assign_rows. Do not write prose.
     """ }
+
+    /// Korean rows and task names pull the model into Korean, so a non-Korean app names the language for every field.
+    /// Korean prompts stay exactly as they were.
+    static var languageRule: String {
+        L10n.current == .ko ? "" : "\nWrite every text you produce (titles, goals, reasons, summaries, topics, problems, later items) in \(L10n.current.promptName), even when the rows, chats or task names are in another language. Keep names from the rows (files, pages, apps, courses, projects, people) as written."
+    }
 
     /// cards: 행 번호 → 그 행을 덮는 화면 기억 카드 (있으면 text: 대신 screen: 으로 넣는다)
     public static func build(rows: [ActivityRow], openTasks: [TaskDigest], now: Double, timeZone: TimeZone = .current,

@@ -233,7 +233,7 @@ public enum AssignmentSchema {
                     "properties": .object([
                         "task": .object(["type": "string", "description": "tasks 의 ref"]),
                         "summary": .object(["type": "string", "description": .string("이 행들에서 그 업무로 한 일, \(L10n.current.nameInKorean) 한 문장")]),
-                        "topics": .object(["type": "array", "items": .object(["type": "string"]), "description": "무엇에 관한 일인지 1~4개 (개념·기술·과목·문제 영역). 앱·사이트·플랫폼·프로젝트 이름과 '기타' 같은 채움말은 아님"]),
+                        "topics": .object(["type": "array", "items": .object(["type": "string"]), "description": .string("무엇에 관한 일인지 \(L10n.current.nameInKorean) 1~4개 (개념·기술·과목·문제 영역, 기술 이름은 원래 표기대로). 앱·사이트·플랫폼·프로젝트 이름과 '기타' 같은 채움말은 아님")]),
                     ]),
                     "required": .array(["task", "summary", "topics"]),
                 ])]),
@@ -242,14 +242,14 @@ public enum AssignmentSchema {
                     "properties": .object([
                         "row": row,
                         "kind": .object(["type": "string", "description": "build, runtime, network, config 등"]),
-                        "message": .object(["type": "string"]),
+                        "message": .object(["type": "string", "description": .string("무엇이 막혔는지 \(L10n.current.nameInKorean) 한 문장")]),
                         "resolved_by_row": row,
                     ]),
                     "required": .array(["row", "kind", "message"]),
                 ])]),
                 "later_items": .object(["type": "array", "items": .object([
                     "type": "object",
-                    "properties": .object(["row": row, "text": .object(["type": "string"])]),
+                    "properties": .object(["row": row, "text": .object(["type": "string", "description": .string("처리하지 못한 요청이나 할 일, \(L10n.current.nameInKorean) 한 문장")])]),
                     "required": .array(["row", "text"]),
                 ])]),
             ]),
