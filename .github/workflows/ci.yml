@@ -123,3 +123,23 @@ jobs:
             --title "SILLOG ${version} (build ${GITHUB_RUN_NUMBER})" \
             --notes "main ${GITHUB_SHA::7} 에서 빌드" \
             --latest
+
+      # brew install --cask sillog-admin/tap/sillog reads the version and sha256 from this cask.
+      - name: Update Homebrew cask
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          TAP_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+        run: |
+          version="$(plutil -extract CFBundleShortVersionString raw "$HOME/Applications/SILLOG.app/Contents/Info.plist"),${GITHUB_RUN_NUMBER}"
+          sha="$(shasum -a 256 "$RUNNER_TEMP/SILLOG.dmg" | cut -d ' ' -f 1)"
+          key="$RUNNER_TEMP/tap_key"
+          printf '%s\n' "$TAP_KEY" > "$key"
+          chmod 600 "$key"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git clone --depth 1 git@github.com:sillog-admin/homebrew-tap.git "$RUNNER_TEMP/tap"
+          cd "$RUNNER_TEMP/tap"
+          sed -i '' -E "s/^  version \".*\"/  version \"${version}\"/; s/^  sha256 \".*\"/  sha256 \"${sha}\"/" Casks/sillog.rb
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -am "sillog ${version}"
+          git push
+          rm "$key"
