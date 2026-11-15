@@ -351,30 +351,6 @@ struct ProviderLogo: View {
     }
 }
 
-/// 연결 확인 결과: 확인 중은 회색, 성공은 초록 체크, 실패는 빨간 오류 표시.
-private struct SettingCheckStatus: View {
-    let result: CheckResult?
-    let action: () -> Void
-
-    private var testing: Bool { result == .checking }
-
-    var body: some View {
-        HStack(spacing: 14) {
-            if let result {
-                HStack(spacing: 6) {
-                    if !testing { Image(systemName: result.isOK ? "checkmark.circle.fill" : "xmark.circle.fill").font(.system(size: 13)) }
-                    Text(result.message).font(Brand.font(.caption)).lineLimit(3).multilineTextAlignment(.trailing).textSelection(.enabled)
-                }.foregroundStyle(testing ? Brand.gray : result.isOK ? Color(hex: 0x2D8053) : Color(hex: 0xC9452E))
-            } else {
-                Text(tr("확인 전")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
-            }
-            if testing { ProgressView().controlSize(.small) }
-            Button(action: action) { Text(tr("연결 확인")).font(Brand.font(.body, .medium)) }
-                .buttonStyle(BrandButtonStyle(kind: .primary)).disabled(testing)
-        }
-    }
-}
-
 private struct ModelDropdown: View {
     @Binding var selection: String
     let models: [(String, String)]
@@ -405,11 +381,18 @@ private struct ConnectionSection: View {
     @FocusState private var focusedKey: AppSettings.JudgeChoice?
 
     /// The connection whose address or key fields are open under the tiles.
-    private enum Panel { case api, jev, decisions }
+    private enum Panel { case api }
 
     /// The model row whose API pill opened the API fields; the fields sit right under it.
     private enum Role { case organize, chat, judge }
     @State private var apiUnder: Role = .organize
+
+    /// Jev, OpenAI Decisions 는 판단 모델에만 쓰니 키 칸을 판단 모델 줄 바로 밑에 둔다 (연결 확인은 연결 줄 ⋯ 메뉴)
+    @ViewBuilder private var choiceFields: some View {
+        if judge == .jev || judge == .decisions {
+            SettingCard { choiceKeyRow(judge) }
+        }
+    }
 
     @ViewBuilder private func apiFields(under role: Role) -> some View {
         if panel == .api, usesAPI, apiUnder == role { SettingCard { apiRows } }
@@ -427,6 +410,7 @@ private struct ConnectionSection: View {
     }
 
     private var judge: AppSettings.JudgeChoice { state.settings.judgeChoice }
+    private var usesCodex: Bool { state.settings.llmProvider == "codex" || state.settings.chatProvider == "codex" || judge == .codex }
     private var usesAPI: Bool { state.settings.llmProvider == "openai" || state.settings.chatProvider == "openai" || judge == .api }
 
     private func chatUses(_ provider: String) -> Bool { state.settings.effectiveChatProvider == provider }
@@ -450,24 +434,20 @@ private struct ConnectionSection: View {
         VStack(alignment: .leading, spacing: 0) {
             SectionLabel(tr("연결"))
             SettingTiles {
-                codexTile
-                codexExtras
                 // Connections appear only while a model row uses them; each one's fields and check sit right under it.
-                if usesAPI { connectionTile(tr("API 서버"), detail: tr("OpenAI 호환 서버"), logo: "openai", ready: false, open: .api, closed: tr("설정")) }
-                if judge == .jev {
-                    connectionTile("Jev", detail: tr("판단 모델 전용"), logo: "jev", ready: !state.settings.jevAPIKey.isEmpty, open: .jev, closed: tr("키 입력"))
-                    if panel == .jev { choiceKeyRow(.jev) }
+                if usesCodex {
+                    codexTile
+                    codexExtras
                 }
-                if judge == .decisions {
-                    connectionTile("OpenAI Decisions", detail: tr("판단 모델 전용"), logo: "decisions", ready: !state.settings.decisionsAPIKey.isEmpty, open: .decisions, closed: tr("키 입력"))
-                    if panel == .decisions { choiceKeyRow(.decisions) }
-                }
+                if usesAPI { connectionTile(tr("API 서버"), detail: tr("OpenAI 호환 서버"), logo: "openai", ready: !state.settings.llmBaseURL.trimmingCharacters(in: .whitespaces).isEmpty, provider: "openai", open: .api, closed: tr("설정")) }
+                // Jev, Decisions: 연결 목록엔 상태와 연결 확인, 키 칸은 판단 모델 줄 밑에 있다
+                if judge == .jev || judge == .decisions { choiceTile }
             }
             SectionLabel(tr("모델"))
             VStack(spacing: 8) {
                 organizeRow; modelNote(organizeModelError); apiFields(under: .organize)
                 chatRow; modelNote(chatModelError); apiFields(under: .chat)
-                judgeRow; modelNote(judgeModelError); apiFields(under: .judge)
+                judgeRow; modelNote(judgeModelError); apiFields(under: .judge); choiceFields
             }
             Text(tr("기록은 Mac에 저장되고, 정리와 채팅을 쓸 때 창 제목, 주소, 화면 텍스트 일부, 질문, 새 파일 정보가 연결한 AI 계정으로 전송돼요. 연결 확인은 개인 자료 없이 시험 호출만 하고, 모델 사용량이 소량 발생해요."))
                 .font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
@@ -479,8 +459,6 @@ private struct ConnectionSection: View {
         // Picking a connection that still needs an address or key opens its fields.
         .onChange(of: state.settings.judgeChoice) { _, choice in
             if choice == .api { apiUnder = .judge; panel = .api }
-            if choice == .jev, state.settings.jevAPIKey.isEmpty { panel = .jev }
-            if choice == .decisions, state.settings.decisionsAPIKey.isEmpty { panel = .decisions }
         }
         .onChange(of: [state.settings.llmProvider, state.settings.chatProvider]) { old, used in
             if used[0] == "openai", old[0] != "openai" { apiUnder = .organize }
@@ -544,7 +522,7 @@ private struct ConnectionSection: View {
         switch state.codexStatus {
         case .loggedIn(let email, let plan, _):
             let windows = [state.codexUsage?.primary, state.codexUsage?.secondary].compactMap { $0 }
-            SettingTile(tr("ChatGPT 구독"), detail: plan, logo: "codex") {
+            SettingTile(tr("ChatGPT 구독"), detail: plan, logo: "codex", notes: codexNotes) {
                 // Remaining usage up front: bar, percent, and when it resets.
                 ForEach(Array(windows.enumerated()), id: \.offset) { _, window in UsageMeter(window: window) }
                 if !windows.isEmpty { Rectangle().fill(Brand.line).frame(width: 1, height: 16).padding(.horizontal, 4) }
@@ -575,12 +553,50 @@ private struct ConnectionSection: View {
     }
 
     /// A connection that needs an address or key: the button opens its fields under the tiles.
-    private func connectionTile(_ title: String, detail: String, logo: String, ready: Bool, open target: Panel, closed: String) -> some View {
+    /// 키나 주소로 붙는 연결: ChatGPT 구독 줄과 같은 꼴. 준비되면 상태 하나와 ⋯ 메뉴(연결 확인, 키 칸 열기), 아니면 칸을 여는 단추
+    private func connectionTile(_ title: String, detail: String, logo: String, ready: Bool, provider: String, open target: Panel, closed: String) -> some View {
         SettingTile(title, detail: detail, logo: logo) {
-            if ready { okLabel(tr("키 있음")) }
-            Button(panel == target ? tr("닫기") : closed) { panel = panel == target ? nil : target }
-                .buttonStyle(BrandButtonStyle(kind: .primary))
+            if ready {
+                statusLabel(check(provider), unchecked: tr("키 있음"))
+                moreMenu {
+                    Button(tr("연결 확인")) { runCheck(provider) }
+                    Divider()
+                    Button(panel == target ? tr("닫기") : closed) { panel = panel == target ? nil : target }
+                }
+            } else {
+                Button(panel == target ? tr("닫기") : closed) { panel = panel == target ? nil : target }
+                    .buttonStyle(BrandButtonStyle(kind: .primary))
+            }
         }
+    }
+
+    /// 연결 목록의 Jev, Decisions 줄: 키 칸은 판단 모델 밑에 있고, 연결 확인은 이 줄의 ⋯ 메뉴에서 한다
+    private var choiceTile: some View {
+        let jev = judge == .jev
+        return SettingTile(jev ? "Jev" : "OpenAI Decisions", detail: tr("판단 모델 전용"), logo: jev ? "jev" : "decisions") {
+            if choiceKey(judge).wrappedValue.isEmpty { Text(tr("판단 모델 밑에 키를 넣어 주세요")).font(Brand.font(.caption)).foregroundStyle(Brand.gray) }
+            else {
+                statusLabel(choiceChecks[judge], unchecked: tr("키 있음"))
+                moreMenu { Button(tr("연결 확인")) { checkChoice(judge) } }
+            }
+        }
+    }
+
+    /// 연결 줄 오른쪽 상태: 확인 중, 실패(이유는 마우스를 올리면), 연결됨, 아직 확인 전
+    @ViewBuilder private func statusLabel(_ result: CheckResult?, unchecked: String) -> some View {
+        switch result {
+        case .checking: ProgressView().controlSize(.small)
+        case .failed(let message): Label(tr("확인 실패"), systemImage: "xmark.circle.fill").font(Brand.font(.caption, .semibold)).foregroundStyle(ActivityLogView.failColor).help(message)
+        case .ok(let message): okLabel(tr("연결됨")).help(message)
+        case nil: okLabel(unchecked)
+        }
+    }
+
+    private func moreMenu<Items: View>(@ViewBuilder _ items: () -> Items) -> some View {
+        Menu { items() } label: {
+            Image(systemName: "ellipsis").font(.system(size: 15)).foregroundStyle(Brand.tabText).frame(width: 28, height: 28).contentShape(Rectangle())
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().help(tr("더 보기"))
     }
 
     @ViewBuilder private var apiRows: some View {
@@ -590,19 +606,22 @@ private struct ConnectionSection: View {
         SettingRow(tr("API 서버 키"), detail: tr("없으면 비워 둬요."), top: 16, bottom: 7) {
             BrandInput(text: shared(\.llmAPIKey, \.chatAPIKey), placeholder: "", width: 460, secure: true)
         }
-        SettingRow(tr("API 서버 연결"), top: 16, bottom: 7) { SettingCheckStatus(result: check("openai"), action: { runCheck("openai") }) }
     }
 
     /// Under the ChatGPT tile: device code, the last connection check's full message, login messages.
     @ViewBuilder private var codexExtras: some View {
         if case .loggedOut = state.codexStatus, let code = state.deviceCode { deviceCodeRows(code) }
-        if case .loggedIn = state.codexStatus, let result = check("codex"), result != .checking { resultLine(result.message) }
-        // "연결 확인" also checks the models, so their results land here too; a row repeats only its own model's line.
-        if case .loggedIn = state.codexStatus {
-            if let error = state.codexModelsError { resultLine(error) }
-            if let error = state.chatCodexModelsError, error != state.codexModelsError { resultLine(error) }
-        }
-        if let message = state.codexMessage { resultLine(message) }
+        if case .loggedOut = state.codexStatus, let message = state.codexMessage { resultLine(message) }
+    }
+
+    /// ChatGPT 구독 줄 안에 두는 안내: 확인 결과, 모델 확인 결과("연결 확인"이 모델도 확인한다), 그 밖 메시지
+    private var codexNotes: [String] {
+        var notes: [String] = []
+        if let result = check("codex"), result != .checking { notes.append(result.message) }
+        if let error = state.codexModelsError { notes.append(error) }
+        if let error = state.chatCodexModelsError, error != state.codexModelsError { notes.append(error) }
+        if let message = state.codexMessage { notes.append(message) }
+        return notes.reduce(into: []) { if !$0.contains($1) { $0.append($1) } }
     }
 
     private func deviceCodeRows(_ code: DeviceCode) -> some View {
@@ -636,12 +655,13 @@ private struct ConnectionSection: View {
 
     @ViewBuilder private func modelNote(_ text: String?) -> some View {
         if case .loggedIn = state.codexStatus, let text {
-            resultLine(text).frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 6)
+            resultLine(text).padding(.bottom, 6)
         }
     }
 
     private func resultLine(_ text: String) -> some View {
-        Text(text).font(Brand.font(.caption)).foregroundStyle(Brand.text).textSelection(.enabled).padding(.horizontal, 4).padding(.top, 10)
+        Text(text).font(Brand.font(.caption)).foregroundStyle(Brand.text).textSelection(.enabled).multilineTextAlignment(.trailing)
+            .padding(.horizontal, 4).padding(.top, 10).frame(maxWidth: .infinity, alignment: .trailing)
     }
 
     // MARK: 모델
@@ -700,7 +720,7 @@ private struct ConnectionSection: View {
         kind == .jev ? $state.settings.jevAPIKey : $state.settings.decisionsAPIKey
     }
 
-    /// Key row for a choice-only judge: key link, key field, and a check once a key is in.
+    /// Key row for a choice-only judge: key link and key field. The check is in the connection row menu.
     private func choiceKeyRow(_ kind: AppSettings.JudgeChoice) -> some View {
         let jev = kind == .jev
         return tallRow(jev ? tr("Jev API 키") : tr("OpenAI API 키"), sub: jev ? nil : tr("OpenAI Decisions에 써요"), slot: 36, top: 16, bottom: 7, column: nil) {
@@ -717,9 +737,6 @@ private struct ConnectionSection: View {
                     .contentShape(Rectangle())
                     .onTapGesture { focusedKey = kind }
                 }
-                if !choiceKey(kind).wrappedValue.isEmpty {
-                    SettingCheckStatus(result: choiceChecks[kind], action: { checkChoice(kind) })
-                }
             }
         }
     }
@@ -727,6 +744,7 @@ private struct ConnectionSection: View {
     /// Sends one small question with no personal data. A result for a key that has since changed is dropped.
     private func checkChoice(_ kind: AppSettings.JudgeChoice) {
         let key = choiceKey(kind).wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { choiceChecks[kind] = .failed(tr("키를 먼저 넣어 주세요")); return }
         choiceChecks[kind] = .checking
         Task {
             var result = CheckResult.ok(tr("연결됨"))
@@ -865,13 +883,16 @@ struct SettingTile<Trailing: View>: View {
     let icon: String?
     /// A brand logo in place of the symbol (see ProviderLogo)
     let logo: String?
+    /// 이 연결의 안내(한도, 확인 결과). 다음 줄 것으로 읽히지 않게 이 줄의 선 위에 오른쪽 정렬로 둔다
+    var notes: [String] = []
     @ViewBuilder let trailing: () -> Trailing
 
-    init(_ title: String, detail: String? = nil, icon: String? = nil, logo: String? = nil, @ViewBuilder trailing: @escaping () -> Trailing) {
-        self.title = title; self.detail = detail; self.icon = icon; self.logo = logo; self.trailing = trailing
+    init(_ title: String, detail: String? = nil, icon: String? = nil, logo: String? = nil, notes: [String] = [], @ViewBuilder trailing: @escaping () -> Trailing) {
+        self.title = title; self.detail = detail; self.icon = icon; self.logo = logo; self.notes = notes; self.trailing = trailing
     }
 
     var body: some View {
+        VStack(alignment: .trailing, spacing: 6) {
         HStack(spacing: 10) {
             if let icon { Image(systemName: icon).font(.system(size: 14)).foregroundStyle(Brand.tabText).frame(width: 20) }
             if let logo { ProviderLogo(kind: logo).frame(width: 18, height: 18).frame(width: 20) }
@@ -881,6 +902,10 @@ struct SettingTile<Trailing: View>: View {
             }
             Spacer(minLength: 8)
             trailing()
+        }
+            ForEach(notes, id: \.self) { note in
+                Text(note).font(Brand.font(.caption)).foregroundStyle(Brand.text).textSelection(.enabled).multilineTextAlignment(.trailing)
+            }
         }
         .padding(.horizontal, 4).padding(.vertical, 10)
         .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
