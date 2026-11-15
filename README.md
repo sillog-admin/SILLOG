@@ -108,7 +108,7 @@ SILLOG은 자체 서버를 두지 않아요. 업무 정리와 채팅은 내가 �
 
 배포 파일은 Developer ID로 서명하고 Apple 공증을 받습니다. 매번 같은 인증서로 서명하므로, 업데이트해도 키체인 접근과 권한이 그대로 유지됩니다. 서명 방식을 바꾸기 전 버전을 쓰고 있었다면 첫 업데이트에서 한 번 더 묻습니다. 키체인 접근을 허용하고, 손쉬운 사용·화면 기록 권한을 다시 허용해 주세요.
 
-Homebrew로도 설치할 수 있습니다.
+<img src="docs/readme/section-homebrew.webp" alt="Homebrew로도 설치할 수 있어요. brew install --cask sillog-admin/tap/sillog">
 
 ```bash
 brew install --cask sillog-admin/tap/sillog

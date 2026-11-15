@@ -110,7 +110,7 @@ All records are stored in SQLite on your Mac. The only things that leave it are 
 
 Releases are signed with Developer ID and notarized by Apple. They use the same certificate every time, so updates keep your keychain access and permissions. If you installed a build from before that change, the first update asks once more: allow keychain access, then grant Accessibility and Screen Recording again.
 
-You can also install it with Homebrew.
+<img src="docs/readme/section-homebrew-en.webp" alt="Install with Homebrew. brew install --cask sillog-admin/tap/sillog">
 
 ```bash
 brew install --cask sillog-admin/tap/sillog
