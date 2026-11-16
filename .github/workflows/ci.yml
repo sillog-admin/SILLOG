@@ -1,11 +1,12 @@
 name: CI
 
 on:
+  # Root *.md only: the .md files under Sources are prompts that ship in the app.
   pull_request:
-    paths-ignore: ['landing/**', '.github/workflows/landing.yml']
+    paths-ignore: ['landing/**', '.github/workflows/landing.yml', '*.md', 'docs/**']
   push:
     branches: [main]
-    paths-ignore: ['landing/**', '.github/workflows/landing.yml']
+    paths-ignore: ['landing/**', '.github/workflows/landing.yml', '*.md', 'docs/**']
   workflow_dispatch:
 
 concurrency:
@@ -20,7 +21,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # Keep the write token out of .git/config, where PR code under test could read it.
+          persist-credentials: false
 
       # Match the team toolchain (Swift 6.2); Xcode 16 cannot type-check some views.
       - name: Select Xcode 26
@@ -29,7 +33,7 @@ jobs:
           sudo xcode-select -s "$xcode"
           swift --version
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .build
           key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
@@ -122,7 +126,8 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "SILLOG ${version} (build ${GITHUB_RUN_NUMBER})" \
             --notes "main ${GITHUB_SHA::7} 에서 빌드" \
-            --latest
+            --latest \
+            || gh release upload "$tag" "$RUNNER_TEMP/SILLOG.dmg" --repo "$GITHUB_REPOSITORY" --clobber   # a re-run rebuilt the dmg, so replace it to match the cask sha256
 
       # brew install --cask sillog-admin/tap/sillog reads the version and sha256 from this cask.
       - name: Update Homebrew cask
