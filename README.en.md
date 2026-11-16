@@ -34,15 +34,18 @@ Tasks, sessions, sources, and topics are stored with their links. You can switch
 
 Pick a skill and ask the way you normally would. SILLOG finds what it needs in your records.
 
-> Write this week's work report · Write a portfolio entry for this project · Put what I was reading yesterday into a comparison table · Prioritize what's left · Explain the concepts in what I read recently
->
-> Draft a slide deck · Make the weekly report every week · Sort out entries for my career history · Find more on this topic and cite sources · Make next week's plan
->
-> Make review notes · Draft a post from this work · Write the quarterly report · Show me what I found last week · Every morning, sum up what I did yesterday
+| Skill | Examples |
+| --- | --- |
+| Writing | Write this week's work report<br>Sort out entries for my career history |
+| Research | Put what I was reading yesterday into a comparison table<br>Find more on this topic and cite sources |
+| Planning | Prioritize what's left<br>Make next week's plan |
+| Learning | Explain the concepts in what I read recently<br>Make review notes |
+| Content | Draft a slide deck<br>Draft a post from this work |
+| Automation | Make the weekly report every week<br>Every morning, sum up what I did yesterday |
 
 ## Sorted by task, no typing needed
 
-Once you grant permissions the first time, SILLOG records on its own. Scattered records like a market research PDF, a web page, Word, meeting notes, Keynote, and Excel come together into tasks like these.
+Once you grant permissions the first time, SILLOG records on its own. Scattered records come together into tasks like these.
 
 | Task | Area |
 | --- | --- |
@@ -76,15 +79,16 @@ Password fields are never recorded. For apps like password managers and Keychain
 
 <a href="https://sillog.app"><img src="docs/readme/section-features-en.webp" alt=""></a>
 
-- Records the active app, window title, URL, on-screen text, screenshots, downloaded files, and what you ask Claude Code and Codex. For apps you exclude, it keeps only the name and time.
-- Every five minutes, sorts new activity into tasks, sessions, resources, problems, and topics, and shows them as a graph. You can reopen the files and pages behind a task, or delete a node along with its raw records.
-- Answers questions like "what did I do on the payment bug last week?" or "write my weekly report" from your records. You can limit a conversation to certain tasks or areas.
-- Comes with skills for writing, research, planning, learning, content, and automation. You can edit them or add your own.
-- Saves results as Markdown, HTML (including slide decks), CSV, JSON, or TXT, and exports them to PDF. Everything you make goes into the library.
-- Runs recurring research or reports as scheduled tasks, but only after you approve them.
-- Records lectures and meetings from the menu bar, transcribes them on your Mac with Whisper, and adds a title and summary.
-- Once a day, suggests merging duplicate tasks and closing finished to-dos, and suggests folders for new downloads. Nothing changes until you approve.
-- Deletes old raw records after a period you set and keeps weekly and monthly digests in their place.
+- **Recording**: automatically saves the apps and windows you use, web pages, on-screen text, and files.
+- **Organizing**: every five minutes, groups new activity into tasks and links them in the graph.
+- **Reopening**: brings back the files and pages behind a task.
+- **Chat**: answers questions and writes reports from your records.
+- **Skills**: lets you edit the built-in skills or add your own.
+- **Artifacts**: saves results as documents, slides, and tables and keeps them in the library.
+- **Scheduled tasks**: runs recurring research or reports on the interval you set.
+- **Voice recording**: transcribes and summarizes lectures and meetings on your Mac.
+- **Suggestions**: suggests merging duplicate tasks and moving new files into folders. Nothing changes until you approve.
+- **Retention**: deletes old raw records and keeps digests.
 
 ## How it works
 
@@ -98,17 +102,17 @@ All records are stored in SQLite on your Mac. The only things that leave it are 
 
 ### Requirements
 
-- macOS 14 Sonoma or later
-- A ChatGPT account. You sign in with ChatGPT on first launch, and nothing is recorded before that.
-- To chat through your ChatGPT subscription, the [Codex app or Codex CLI](https://developers.openai.com/codex) must be installed. You can use any OpenAI-compatible API server instead.
+- macOS 14 Sonoma or later on an Apple silicon Mac
+- A ChatGPT subscription or an OpenAI-compatible API key. Nothing is recorded until you connect an AI.
+- To chat through your ChatGPT subscription, the [Codex app or Codex CLI](https://developers.openai.com/codex) must be installed.
 
 ### Download
 
-1. On [sillog.app](https://sillog.app), click **Download for macOS**. This downloads `SILLOG.dmg` from the [latest GitHub release](https://github.com/sillog-admin/SILLOG/releases/latest).
+1. Download `SILLOG.dmg` from [sillog.app](https://sillog.app) or the [latest release](https://github.com/sillog-admin/SILLOG/releases/latest).
 2. Open the dmg and drag SILLOG to Applications.
-3. Open SILLOG. macOS asks once whether to open an app downloaded from the internet. Click **Open**.
+3. Open SILLOG. macOS asks once whether to open it. Click **Open**.
 
-Releases are signed with Developer ID and notarized by Apple. They use the same certificate every time, so updates keep your keychain access and permissions. If you installed a build from before that change, the first update asks once more: allow keychain access, then grant Accessibility and Screen Recording again.
+Releases are signed with Developer ID and notarized by Apple.
 
 <img src="docs/readme/section-homebrew-en.webp" alt="Install with Homebrew. brew install --cask sillog-admin/tap/sillog">
 
@@ -116,18 +120,17 @@ Releases are signed with Developer ID and notarized by Apple. They use the same 
 brew install --cask sillog-admin/tap/sillog
 ```
 
-- If SILLOG is already installed from the dmg, add `--force`. Your records and settings stay.
 - Update: `brew upgrade --cask sillog`
 - Uninstall: `brew uninstall --cask sillog`
-- Uninstall with your records: `brew uninstall --zap --cask sillog`. This removes the app and moves your records and settings to the Trash.
-- API keys and connector tokens stay in the keychain (`com.sillog.app.chat`). Delete them in Keychain Access if you need to.
+- Uninstall with your records: `brew uninstall --zap --cask sillog`
+
+If SILLOG is already installed from the dmg, add `--force` to the install command. `--zap` moves your records and settings to the Trash and leaves keys and tokens in the keychain.
 
 ### First launch
 
-1. Sign in to ChatGPT with the device code shown in your browser.
-2. Allow Accessibility and Screen Recording. Screen Recording takes effect after you restart SILLOG. Microphone, Speech Recognition, and Calendars are requested the first time you use those features.
-3. In Settings, choose what to record: screen text, screenshots, AI coding tool chats, and apps to exclude.
-4. In Settings → AI, pick the models for organizing and for chat.
+1. Connect an AI with your ChatGPT account or an API key.
+2. Allow Accessibility and Screen Recording. Screen Recording takes effect after you restart SILLOG.
+3. In Settings, choose what to record and which models to use.
 
 You can pause recording or run organizing right away from the menu bar.
 
@@ -137,21 +140,15 @@ You can pause recording or run organizing right away from the menu bar.
 
 | Connection | Used for | Notes |
 | --- | --- | --- |
-| ChatGPT subscription | Organizing, chat, judging | Uses an app-only ChatGPT sign-in to reach the Codex backend. It counts against your plan's usage, with no separate bill. It isn't a public API, so it may change. Chat runs through a local `codex app-server` with shell and file writes turned off. |
-| API server | Organizing, chat, judging | Any OpenAI-compatible `/chat/completions` server: a cloud service like OpenAI, or a local model through Ollama or LM Studio. You pay the provider. Web search works only with the official OpenAI API. |
-| OpenAI Decisions, Jev | Judging | Models that only pick which task each activity row belongs to. |
+| ChatGPT subscription | Organizing, chat, judging | Counts against your plan's usage |
+| API server | Organizing, chat, judging | An OpenAI-compatible server or a local model |
+| OpenAI Decisions, Jev | Judging | Only picks which task a record belongs to |
+
+The ChatGPT subscription connection isn't a public API, so it may change.
 
 ## Connectors
 
-Connectors only read. SILLOG never sends mail, edits files, or changes repositories through them. Connection details are kept in the macOS Keychain.
-
-| Connector | How you connect | Status today |
-| --- | --- | --- |
-| Notion, Lovable, Higgsfield, Canva | Sign in and approve in the browser | Works without creating any keys |
-| Slack | Sign in and approve in the browser | Your workspace may need an admin to approve the app |
-| Google Drive | Sign in with Google, then pick the files to read | Reads only the files you pick. The Google app is still in testing, so only invited accounts can use it and you have to reconnect every 7 days |
-| GitHub | Enter a device code, then pick the repositories to read | Reads only the repositories you pick |
-| Figma, Discord | Paste a token you created | The connect window walks you through making one |
+Connect services like Notion, Slack, Google Drive, and GitHub, and chat can look things up there too. Connectors only read, and connection details are kept in the macOS Keychain.
 
 If you build SILLOG yourself, connector setup is in [docs/connectors.md](docs/connectors.md).
 
@@ -159,20 +156,28 @@ If you build SILLOG yourself, connector setup is in [docs/connectors.md](docs/co
 
 <a href="https://sillog.app"><img src="docs/readme/section-privacy-en.webp" alt=""></a>
 
-Your records are stored on your Mac, but whatever is used for organizing and chat is sent to the model you pick. With a cloud model, that text leaves your Mac.
+Your records are stored on your Mac, but whatever is used for organizing and chat is sent to the model you pick. With a cloud model, that text leaves your Mac. The [Privacy Policy](https://sillog.app/privacy) covers what the app handles, what leaves your Mac, retention and deletion, and how to contact us.
 
-- What's recorded: app names, window titles, URLs, on-screen text, screenshots if you turn them on, new files in Downloads, your prompts to Claude Code and Codex, and recordings you start. Excluded apps and SILLOG itself keep only the app name and time.
-- What chat can read: records within the conversation's scope, files and folders you attach, library items, and connectors you turn on for that conversation. A file path showing up in your records doesn't mean chat will read that file.
-- What chat won't do: run commands, edit or move files, send messages, or write to connectors.
-- Secrets: API keys and connector tokens go in the Keychain. The ChatGPT sign-in is kept in a file with `600` permissions that's excluded from backups. ID numbers such as national ID numbers are masked in tool results before they reach the model.
-- Default retention: screen text 30 days, screenshots 7 days, activity 90 days, screen cards 180 days, AI tool and file records 365 days. You can change these in Settings → General, and SILLOG asks once before it deletes anything for the first time.
-- Deleting: right-click a task, area, or graph node to delete it together with its raw records.
+- **What's recorded**: app names, window titles, URLs, on-screen text, screenshots, downloaded files, your prompts to AI coding tools, and recordings you start.
+- **Name and time only**: excluded apps, password managers, and SILLOG itself.
+- **What chat can read**: records within the conversation's scope, files you attach, library items, and connectors you turn on.
+- **What chat won't do**: run commands, edit files, send messages, or write to connectors.
+- **Secrets**: API keys and tokens go in the Keychain. ID numbers such as national ID numbers are masked before they reach the model.
+- **Deleting**: right-click a task or graph node to delete it together with its raw records.
+
+Default retention is below. You can change it in Settings → General, and SILLOG asks once before it deletes anything for the first time.
+
+| Screen text | Screenshots | Activity | Screen cards | AI tool and file records |
+| :---: | :---: | :---: | :---: | :---: |
+| 30 days | 7 days | 90 days | 180 days | 365 days |
 
 ```text
 ~/Library/Application Support/Sillog/
 ├── sillog.sqlite   # activity, graph, chats, artifacts, schedules
 ├── captures/       # screenshots
 ├── library/        # uploaded files, artifacts, saved answers
+├── recordings/     # voice recordings
+├── models/         # transcription model
 ├── codex-auth.json # app-only ChatGPT sign-in
 └── app.log         # run log
 ```
@@ -224,14 +229,15 @@ For now, Apple silicon Macs on macOS 14 or later. Windows and mobile aren't read
 ## Known limitations
 
 - It runs only on macOS.
-- Artifacts are text formats plus PDF export. SILLOG can read DOCX, PPTX, and XLSX but can't create them.
+- Word, PowerPoint, and Excel artifacts use basic formatting with text and tables only.
 - Scheduled tasks repeat every few hours and only run while SILLOG is open. You can't pick a weekday or time of day.
 - Scanned PDFs aren't OCR'd, and images are read only for the text in them.
-- Drive is limited to test accounts until Google finishes its review. There is no Gmail connector.
+- With an API server, web search works only with the official OpenAI API.
+- There is no Gmail connector.
 
 ## Build from source
 
-You need Xcode 26 (Swift 6.2). Command Line Tools can build the app but can't run the tests. An app you build yourself wasn't downloaded from the internet, so you won't see the "Not Opened" dialog.
+You need Xcode 26 (Swift 6.2). Command Line Tools can build the app but can't run the tests.
 
 Estimated time: about 2 minutes
 
