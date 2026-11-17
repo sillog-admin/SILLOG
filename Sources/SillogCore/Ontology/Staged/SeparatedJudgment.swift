@@ -26,10 +26,15 @@ extension StagedPipeline {
 
     private static let choiceRules = """
         Decide which goal each activity serves. Use the content and purpose, rather than the app name.
-        Choose an existing task ID for the same goal, new for a distinct goal, off for distraction unrelated to work
-        or when the record does not show which goal it serves, and none only for a record with no content
-        (a system screen, a switch between apps, an empty page). Do not title or describe tasks.
-        Reading, setup, references, and tool billing belong to the goal they help achieve.
+        Choose an existing task ID when the row's title, uri, text, file or folder name is about that goal; a short row with only a title still counts.
+        Sign-in, verification and form pages of a site used for a goal belong to that goal.
+        A row with no title and no text takes the goal of the rows around it in the same app.
+        Choose new for content about a distinct goal.
+        Choose off for distraction unrelated to work or a record whose content does not show which goal it serves,
+        including community boards, feeds, social and news pages whose posts are about something else.
+        Choose none only for a record with nothing to read: a system screen, a switch between apps, a new or blank tab,
+        a loading or redirect page whose title and uri name no goal's site, or a generic folder such as Downloads.
+        Reading, setup, references, and tool billing belong to the goal they help achieve. Do not title or describe tasks.
         """
 
     private static var chooseTool: ToolSpec {
@@ -137,8 +142,8 @@ extension StagedPipeline {
     /// Options per question, specials included. Accuracy drops past 20.
     static let choiceMaxOptions = 20
     private static let choiceSpecials = ["new": "Work for a different goal than the listed goals.",
-                                         "off": "Distraction unrelated to work, or a record that does not show which goal it serves.",
-                                         "none": "No content: a system screen, a switch between apps, or an empty page."]
+                                         "off": "Distraction unrelated to work, or content that does not show which goal it serves, such as a community board or feed about something else.",
+                                         "none": "Nothing to read: a system screen, a switch between apps, a new or blank tab, a loading or redirect page that names no goal's site, or a generic folder such as Downloads."]
     private static var choiceTaskLimit: Int { choiceMaxOptions - choiceSpecials.count }
     /// Jev rejects states over 64,000 characters.
     static let choiceStateLimit = 20_000
