@@ -52,7 +52,8 @@ sillogctl [--db PATH] <command>
                                         정답이 붙은 가짜 하루를 LLM 에 보내 행 판정(업무/이탈/없음, 자료 여부)을 채점한다 (기록 안 함)
   backfill-screen-hash                  예전 스크린샷 파일에서 차이 해시를 계산해 원시 행에 채운다 (화면 기억 카드의 재료)
   cards [--last N]                      화면 기억 카드 (무엇을 했나, 화면 내용, 이름 붙은 것들)
-  recard [--ids 1,2] [--kind message]   카드를 저장된 스크린샷으로 지금 규칙에 맞춰 다시 만든다 (12장씩 한 호출)
+  recard [--ids 1,2] [--kind message] [--width N]
+                                        카드를 저장된 스크린샷으로 지금 규칙에 맞춰 다시 만든다 (12장씩 한 호출, 기본 폭은 앱과 같음)
   topic-audit [--last N]                지난 배치들의 LLM 응답에서 주제 태그를 모아 필터가 거를 것을 센다 (프롬프트 대 필터 평가)
   replay-batch ID [ID…]                 저장된 배치의 입력을 지금 프롬프트로 다시 보내 응답을 비교한다 (기록하지 않음. 배치당 LLM 호출 1번)
   find-events ID [ID…]                  저장된 배치의 행에서 일정 찾기를 돌려 찾은 일정을 보여 준다 (제안을 만들지 않음. 배치당 LLM 호출 1번)
@@ -65,8 +66,9 @@ sillogctl [--db PATH] <command>
                                         지금 판정과 행마다 비교해 쓴다 (기본: 데이터 폴더/eval/gold-candidates.json)
   gold-score [--gold FILE] [--predictions FILE]
                                         사람이 확정한 정답 세트로 지금 판정·다시 판정·예측("배치:행" → 판정)의 정확도를 잰다
-  gold-run --from YYYY-MM-DD [--pipeline single|staged] [--runs N] [--model M] [--reasoning R] [--out FILE]
+  gold-run --from YYYY-MM-DD [--pipeline single|staged | --judge codex|jev|decisions [--judge-model M]] [--runs N] [--model M] [--reasoning R] [--out FILE]
                                         정답 세트 배치를 고른 판정 방식으로 다시 판정만 받아(기록 안 함) 채점하고, 두 번 이상이면 흔들림도 낸다
+                                        --judge 를 주면 앱 기본 경로(판단 모델이 고르고 정리 모델이 이름을 씀)로 판정한다
   pipeline-graph                        3단계 판정 흐름도를 Mermaid 로 출력
   themes                                분야별 업무 목록
   assign-themes [--retype] [--dry-run]  분야가 없거나 종류가 옛 판인 업무에 분야·종류를 붙인다 (앱을 끄고 실행.
@@ -255,13 +257,36 @@ func goldJobs(from: Double, until: Double, limit: Int, tasksBefore: Double = .in
     return jobs
 }
 
-/// 배치 하나를 판정만 받는다. 실패면 이유와, 기다렸다 다시 하면 되는 실패(요청 한도·서버 과부하·연결)인지를 함께 돌려준다
-func judgeOnce(_ input: JudgeInput, pipeline: BatchPipeline, client: any LLMClient) async -> (patch: AssignmentPatch?, calls: Int, failure: String?, transient: Bool, stages: [StageCall]) {
+/// Judges one batch without writing anything. On failure also says whether waiting and retrying can help (rate limit, overload, connection).
+func judgeOnce(_ input: JudgeInput, pipeline: BatchPipeline, client: any LLMClient, judge: ActivityJudging? = nil) async -> (patch: AssignmentPatch?, calls: Int, failure: String?, transient: Bool, stages: [StageCall]) {
     func transient(_ error: Error) -> Bool {
         switch error as? LLMError {
         case .http(let status, _): return status == 429 || status >= 500
         case .backend, .transport: return true
         default: return false
+        }
+    }
+    if let judge {
+        do {
+            // Same order as OntologyBatcher: the judge sees no cards, the organizer sees cards of accepted rows only.
+            var state = try await StagedPipeline.decideSeparately(
+                JudgeInput(rows: input.rows, openTasks: input.openTasks, now: input.now, timeZone: input.timeZone), using: judge)
+            let accepted = Set(state.input.rows.map(\.row))
+            state.input.cards = input.cards.filter { accepted.contains($0.key) }
+            let organized = try await StagedPipeline.organizeDecisions(state, llm: client)
+            // The app judges deferred rows again on its next batch, so the scorer retries instead of scoring them.
+            let deferred = input.rows.count - state.input.rows.count
+            return (StagedPipeline.patch(from: organized), organized.calls.count, deferred > 0 ? "판단 모델이 행 \(deferred)개를 미룸" : nil, deferred > 0, organized.calls)
+        } catch let error as PipelineError {
+            if case .stageFailed(_, let underlying, _) = error { return (nil, error.calls.count, error.description, transient(underlying), error.calls) }
+            // Nothing decided means the choice judge failed on the first row; the app backs off and tries again.
+            if case .incomplete(let stage, _, _) = error, stage == "판단 모델" {
+                let cause = error.calls.last?.raw ?? ""
+                return (nil, error.calls.count, error.description + (cause.isEmpty ? "" : " — \(cause.prefix(200))"), true, error.calls)
+            }
+            return (nil, error.calls.count, error.description, false, error.calls)
+        } catch {
+            return (nil, 0, "\(error)", transient(error), [])
         }
     }
     switch pipeline {
@@ -287,50 +312,60 @@ func judgeOnce(_ input: JudgeInput, pipeline: BatchPipeline, client: any LLMClie
     }
 }
 
-/// 배치들을 고른 방식으로 판정만 받는다 (3개씩 동시에, 기록 안 함). 요청 한도·과부하는 30·60·90초 기다렸다 그 배치를 처음부터 다시 하고,
-/// 앱이 반영 전에 거부할 판정(빠진 행, 모르는 업무)은 실패한 배치로 센다
-func judgeGold(_ jobs: [GoldJob], pipeline: BatchPipeline, client: any LLMClient) async -> (patches: [Int64: AssignmentPatch], failed: [Int64], calls: Int) {
-    var patches: [Int64: AssignmentPatch] = [:], failed: [Int64] = [], calls = 0
-    await withTaskGroup(of: (Int64, AssignmentPatch?, Int, String?).self) { group in
+/// Judges batches without writing anything, three at a time or one at a time for choice judges.
+/// Transient failures wait 30, 60 and 90s and redo the batch; a patch the app would reject counts as a failed batch.
+func judgeGold(_ jobs: [GoldJob], pipeline: BatchPipeline, client: any LLMClient, judge: ActivityJudging? = nil) async -> (patches: [Int64: AssignmentPatch], failed: [Int64], calls: Int, tokens: Int) {
+    var patches: [Int64: AssignmentPatch] = [:], failed: [Int64] = [], calls = 0, tokens = 0
+    await withTaskGroup(of: (Int64, AssignmentPatch?, Int, Int, String?).self) { group in
         var next = 0
         func add() {
             guard next < jobs.count else { return }
             let id = jobs[next].batchId, input = jobs[next].input
             next += 1
             group.addTask {
-                var spent = 0
+                var spent = 0, used = 0
                 for attempt in 1...4 {
-                    let result = await judgeOnce(input, pipeline: pipeline, client: client)
+                    let result = await judgeOnce(input, pipeline: pipeline, client: client, judge: judge)
                     spent += result.calls
+                    used += result.stages.reduce(0) { $0 + $1.promptTokens + $1.completionTokens }
                     guard result.transient, attempt < 4 else {
-                        if let patch = result.patch, let reason = AssignmentCheck.rejection(patch, rows: input.rows, openTasks: input.openTasks, now: input.now) {
+                        // Separated judgment defers rows by design, so only the rows it accepted are checked.
+                        let decided = result.patch?.byRow() ?? [:]
+                        let checked = judge == nil ? input.rows : Array(input.rows.prefix { decided[$0.row] != nil })
+                        if let patch = result.patch, let reason = AssignmentCheck.rejection(patch, rows: checked, openTasks: input.openTasks, now: input.now) {
                             // 3단계면 원인을 볼 수 있게 ②의 답 앞부분을 붙인다
                             let answer = result.stages.last { $0.stage == "assign" }.map { " — ② 답: \($0.arguments.prefix(500))" } ?? ""
-                            return (id, nil, spent, "앱이 거부: \(reason)\(answer)")
+                            return (id, nil, spent, used, "앱이 거부: \(reason)\(answer)")
                         }
-                        return (id, result.patch, spent, result.failure)
+                        return (id, result.patch, spent, used, result.failure)
                     }
                     print("  배치 \(id): \(result.failure ?? "") — \(30 * attempt)초 뒤 다시")
                     try? await Task.sleep(nanoseconds: UInt64(30 * attempt) * 1_000_000_000)
                 }
-                return (id, nil, spent, "다시 해도 실패")
+                return (id, nil, spent, used, "다시 해도 실패")
             }
         }
-        for _ in 0..<3 { add() }
-        while let (id, patch, count, failure) = await group.next() {
+        // Choice judges already fan out per row; the app sends them one batch at a time.
+        let batches: Int
+        if case .choice = judge { batches = 1 } else { batches = 3 }
+        for _ in 0..<batches { add() }
+        while let (id, patch, count, used, failure) = await group.next() {
             calls += count
+            tokens += used
             if let patch { patches[id] = patch } else { failed.append(id) }
-            print("  \(patches.count + failed.count)/\(jobs.count)\(failure.map { " — 배치 \(id) 실패: \($0)" } ?? "")")
+            print("  \(patches.count + failed.count)/\(jobs.count)\(failure.map { " — 배치 \(id)\(patch == nil ? " 실패" : ""): \($0)" } ?? "")")
             add()
         }
     }
-    return (patches, failed, calls)
+    return (patches, failed, calls, tokens)
 }
 
-/// 업무 기준 이름표: 없음·업무 외는 "업무 아님" 하나로, 새 업무는 제목과 상관없이 "new"
+/// Task-level label: none and off become "not-task", any new task becomes "new", an undecided row has no label.
 func goldTaskLevel(_ label: String?) -> String? {
     guard let label else { return nil }
-    if label == "none" || label == "off" || label == "not-task" || label == "missing" { return "not-task" }
+    // A row left undecided is a miss, not a "not work" answer.
+    if label == "missing" { return nil }
+    if label == "none" || label == "off" || label == "not-task" { return "not-task" }
     return label.hasPrefix("new:") ? "new" : label
 }
 
@@ -365,6 +400,24 @@ func themeKey(_ name: String?) -> String { ThemeCatalog.matchKey(ThemeCatalog.ca
 
 /// 명령 안에서 트랜잭션을 되돌리며 멈출 때
 struct CommandError: Error, CustomStringConvertible { let description: String }
+
+/// Judge models the app offers: ChatGPT subscription, Jev, OpenAI Decisions.
+enum JudgeKind: String { case codex, jev, decisions }
+
+/// Choice-only judge; its key comes from .env.
+func makeChoiceModel(_ kind: JudgeKind) -> any ChoiceModel {
+    let name = kind == .jev ? "TYPESAFE_API_KEY" : "OPENAI_API_KEY"
+    guard let key = envValue(name), !key.isEmpty else { fail("\(name) 가 없습니다 (.env.copy 를 .env 로 복사해 키를 넣으세요)") }
+    return kind == .jev
+        ? JevClient(endpoint: JevEndpoint(url: JevEndpoint.typesafeURL, model: JevEndpoint.defaultModel, key: key))
+        : DecisionsClient(key: key)
+}
+
+/// Mirrors AppState.makeJudge; without --judge-model it uses the Codex organizer model, like the app setting's default.
+func makeJudge(_ kind: JudgeKind, organizerModel: String?) -> ActivityJudging {
+    guard kind == .codex else { return .choice(makeChoiceModel(kind)) }
+    return .gpt(CodexResponsesClient(auth: codexAuth, model: option("--judge-model") ?? organizerModel ?? CodexResponsesClient.defaultModel, reasoningEffort: "medium"))
+}
 
 /// 정답 세트 파일이 놓이는 곳 (개인 기록이라 저장소 밖, DB 옆)
 var evalDirectory: String { (dbPath as NSString).deletingLastPathComponent + "/eval" }
@@ -467,20 +520,15 @@ do {
         try printStats()
 
     case "check-judge":
-        let kind = args.first ?? ""
-        guard ["jev", "decisions"].contains(kind) else { fail("사용법: sillogctl check-judge jev|decisions") }
-        let name = kind == "jev" ? "TYPESAFE_API_KEY" : "OPENAI_API_KEY"
-        guard let key = envValue(name), !key.isEmpty else { fail("\(name) 가 없습니다 (.env.copy 를 .env 로 복사해 키를 넣으세요)") }
-        let judge: any ChoiceModel = kind == "jev"
-            ? JevClient(endpoint: JevEndpoint(url: JevEndpoint.typesafeURL, model: JevEndpoint.defaultModel, key: key))
-            : DecisionsClient(key: key)
+        guard let kind = args.first.flatMap(JudgeKind.init), kind != .codex else { fail("사용법: sillogctl check-judge jev|decisions") }
+        let judge = makeChoiceModel(kind)
         let question = ChoiceQuestion(instructions: "Which goal does this activity serve?",
                                       options: ["t_ui": "Build the dashboard card UI", "t_tax": "File the yearly tax return", "off": "Distraction unrelated to work"])
         let started = Date()
         do {
             let answers = try await judge.choose(state: "Editing TaskCard.tsx in Cursor, then reading the shadcn/ui Card docs.", questions: ["activity": question])
             guard let answer = answers["activity"] else { fail("응답에 답이 없습니다") }
-            print(String(format: "%@ (%@): %@, 확신 %.2f, %.1f초", kind, judge.modelName, answer.choice, answer.confidence, Date().timeIntervalSince(started)))
+            print(String(format: "%@ (%@): %@, 확신 %.2f, %.1f초", kind.rawValue, judge.modelName, answer.choice, answer.confidence, Date().timeIntervalSince(started)))
             if answer.choice != "t_ui" { fail("예상한 답(t_ui)과 다릅니다") }
         } catch {
             fail("호출 실패 — \(error.localizedDescription)")
@@ -845,6 +893,7 @@ do {
     case "recard":
         let ids = (option("--ids") ?? "").split(separator: ",").compactMap { Int64($0.trimmingCharacters(in: .whitespaces)) }
         let kind = option("--kind")
+        let width = option("--width").flatMap(Int.init) ?? CardMaker.imageWidth
         var targets: [ScreenCard] = try db.writer.read { conn in
             if !ids.isEmpty { return try ScreenCard.fetchAll(conn, keys: ids) }
             if let kind { return try ScreenCard.fetchAll(conn, sql: "SELECT * FROM screen_cards WHERE kind = ? ORDER BY ts_start", arguments: [kind]) }
@@ -861,7 +910,7 @@ do {
                                        shots: [KeyframeSelector.Shot(observationId: 0, ts: card.tsStart, path: card.screenshotPath!, hash: UInt64(bitPattern: card.screenHash))],
                                        seconds: card.tsEnd - card.tsStart, rows: [], observationIds: [], start: card.tsStart, end: card.tsEnd)
             }
-            let (drafts, result) = try await CardMaker.make(groups, llm: vision)
+            let (drafts, result) = try await CardMaker.make(groups, llm: vision) { CardMaker.loadImage(path: $0, maxWidth: width) }
             try await db.writer.write { conn in
                 for (index, draft) in drafts.enumerated() {
                     guard let draft, let id = chunk[index].id else { continue }
@@ -954,7 +1003,7 @@ do {
         let jobs = try goldJobs(from: from, until: until, limit: limit)
         let labels = GoldLabels(tasks: try db.writer.read { try GraphTx($0).nodes(label: NodeLabel.task) })
         print("배치 \(jobs.count)개, 행 \(jobs.reduce(0) { $0 + $1.rows.count })개를 다시 판정합니다 (모델 \(model), 기록하지 않음)")
-        let (patches, failedBatches, _) = await judgeGold(jobs, pipeline: .single, client: client)
+        let (patches, failedBatches, _, _) = await judgeGold(jobs, pipeline: .single, client: client)
         var items: [[String: Any]] = [], disagree = 0
         for job in jobs {
             guard let patch = patches[job.batchId] else { continue }
@@ -997,13 +1046,17 @@ do {
         let day = DateFormatter(); day.dateFormat = "yyyy-MM-dd"; day.timeZone = .current
         guard let fromText = option("--from"), let from = day.date(from: fromText)?.timeIntervalSince1970,
               let pipeline = BatchPipeline(rawValue: option("--pipeline") ?? "staged") else {
-            fail("사용법: gold-run --from YYYY-MM-DD [--to YYYY-MM-DD] [--pipeline single|staged] [--runs N] [--limit N] [--model M] [--reasoning R] [--out FILE]")
+            fail("사용법: gold-run --from YYYY-MM-DD [--to YYYY-MM-DD] [--pipeline single|staged | --judge codex|jev|decisions [--judge-model M]] [--runs N] [--limit N] [--model M] [--reasoning R] [--out FILE]")
         }
+        let judgeText = option("--judge"), judgeKind = judgeText.flatMap(JudgeKind.init)
+        if judgeText != nil && judgeKind == nil { fail("--judge 는 codex, jev, decisions 중 하나") }
+        let method = judgeKind.map { "judge-\($0.rawValue)" } ?? pipeline.rawValue
         let until = option("--to").flatMap { day.date(from: $0)?.timeIntervalSince1970 }.map { $0 + 86_400 } ?? .infinity
         let limit = option("--limit").flatMap(Int.init) ?? Int.max
         let runs = max(1, option("--runs").flatMap(Int.init) ?? 1)
-        let out = option("--out") ?? evalDirectory + "/gold-run-\(pipeline.rawValue).json"
+        let out = option("--out") ?? evalDirectory + "/gold-run-\(method).json"
         let client = makeClient().client
+        let judge = judgeKind.map { makeJudge($0, organizerModel: client is CodexResponsesClient ? client.modelName : nil) }
         let goldPath = evalDirectory + "/gold.json"
         let gold = loadGoldRows(goldPath)
         // 정답 세트가 있으면 그 배치만, 정답 세트를 만들 때 있던 업무만 후보로 판정한다
@@ -1012,11 +1065,11 @@ do {
             .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["created"] as? Double ?? .infinity
         let jobs = try goldJobs(from: from, until: until, limit: limit, tasksBefore: goldCreated).filter { goldBatches?.contains($0.batchId) ?? true }
         let labels = GoldLabels(tasks: try db.writer.read { try GraphTx($0).nodes(label: NodeLabel.task) })
-        print("배치 \(jobs.count)개, 행 \(jobs.reduce(0) { $0 + $1.rows.count })개 — \(pipeline.rawValue) × \(runs)회 (기록하지 않음)")
+        print("배치 \(jobs.count)개, 행 \(jobs.reduce(0) { $0 + $1.rows.count })개 — \(method) × \(runs)회 (기록하지 않음)")
         var predictionRuns: [[String: String]] = []
         for run in 1...runs {
             let started = Date()
-            let (patches, failed, calls) = await judgeGold(jobs, pipeline: pipeline, client: client)
+            let (patches, failed, calls, tokens) = await judgeGold(jobs, pipeline: pipeline, client: client, judge: judge)
             var predictions: [String: String] = [:]
             for job in jobs {
                 guard let patch = patches[job.batchId] else { continue }
@@ -1024,16 +1077,18 @@ do {
                 for row in job.rows { predictions["\(job.batchId):\(row.row)"] = labels.label(patch, decided: decided, row: row.row).label }
             }
             predictionRuns.append(predictions)
-            print(String(format: "  %d회: 호출 %d번 (배치당 %.1f), 실패 배치 %d개, %d초", run, calls, Double(calls) / Double(max(1, jobs.count)),
-                         failed.count, Int(Date().timeIntervalSince(started))))
+            let missing = predictions.values.filter { $0 == "missing" }.count
+            // shortcut: choice judges and --pipeline single report 0 tokens, count them once a run compares their cost.
+            print(String(format: "  %d회: 단계 호출 %d번 (배치당 %.1f), 토큰 %d, 실패 배치 %d개, 판정 없는 행 %d개, %d초", run, calls, Double(calls) / Double(max(1, jobs.count)),
+                         tokens, failed.count, missing, Int(Date().timeIntervalSince(started))))
         }
         try FileManager.default.createDirectory(atPath: (out as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
-        let payload: [String: Any] = ["from": fromText, "pipeline": pipeline.rawValue, "created": Date().timeIntervalSince1970, "runs": predictionRuns]
+        let payload: [String: Any] = ["from": fromText, "pipeline": method, "created": Date().timeIntervalSince1970, "runs": predictionRuns]
         try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]).write(to: URL(fileURLWithPath: out))
         print("→ \(out)")
         if let graded = gold {
             for (index, predictions) in predictionRuns.enumerated() {
-                printGoldScore("\(pipeline.rawValue) \(index + 1)회", graded: graded) { predictions["\($0["batch"] ?? ""):\($0["row"] ?? "")"] }
+                printGoldScore("\(method) \(index + 1)회", graded: graded) { predictions["\($0["batch"] ?? ""):\($0["row"] ?? "")"] }
             }
         }
         if predictionRuns.count >= 2 {

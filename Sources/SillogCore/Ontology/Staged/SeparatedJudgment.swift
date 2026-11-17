@@ -56,8 +56,11 @@ extension StagedPipeline {
     }
 
     /// Picks a verdict per row. Rows after the first undecided one are left for the next batch.
-    /// Raises: `PipelineError.incomplete` when not even the first row was decided, `LLMError` from the GPT judge.
-    static func decideSeparately(_ input: JudgeInput, using judge: ActivityJudging) async throws -> JudgeState {
+    /// Args: input without screen cards, as the app sends it; judge from settings.
+    /// Returns: state whose `input.rows` holds only the decided leading rows.
+    /// Raises: `PipelineError.incomplete` when not even the first row was decided, `PipelineError.stageFailed` when the GPT judge call fails,
+    /// `LLMError.backend` when the judge is unavailable.
+    public static func decideSeparately(_ input: JudgeInput, using judge: ActivityJudging) async throws -> JudgeState {
         var state = JudgeState(input: input)
         var selected: [Int: Decision] = [:]
         let ids = Set(input.openTasks.map(\.id))
@@ -173,8 +176,11 @@ extension StagedPipeline {
         return String(lines.joined(separator: "\n").prefix(choiceStateLimit))
     }
 
-    /// 판단을 마친 행만 정리 모델에 보낸다. 새 업무에 제목·목표를 붙인 뒤 기존 요약 단계를 사용한다.
-    static func organizeDecisions(_ judgment: JudgeState, llm: any LLMClient) async throws -> JudgeState {
+    /// Names new tasks from decided rows, then runs the shared describe stage.
+    /// Args: state from `decideSeparately`, with cards for its accepted rows.
+    /// Returns: state ready for `patch(from:)`.
+    /// Raises: `PipelineError.incomplete` when the organizer drops rows, `PipelineError.stageFailed` when an organizer call fails.
+    public static func organizeDecisions(_ judgment: JudgeState, llm: any LLMClient) async throws -> JudgeState {
         var state = judgment
         let fresh = state.unassigned
         if !fresh.isEmpty {
