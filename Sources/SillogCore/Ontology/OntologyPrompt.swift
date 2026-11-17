@@ -72,15 +72,17 @@ public enum OntologyPrompt {
         }
     }
 
-    /// 행 줄과 그 아래 screen:/text:. 같은 카드가 여러 행에 걸치면 이 목록 안에서 처음 한 번만 전문
-    /// dates 면 날이 바뀔 때마다 날짜 줄(dateLine)을 넣는다 (일정 찾기: 행의 '내일'을 그 행의 날짜로 풀게)
+    /// Row lines with their screen:/text: lines. A card or text repeated within this list is written once, then referenced by row.
+    /// Args: rows to show; cards by row; timeZone for clock times; dates adds a date line at each day change so the event finder can resolve "tomorrow".
+    /// Returns: prompt lines in row order.
     public static func rowLines(_ rows: [ActivityRow], cards: [Int: [ScreenCard]], timeZone: TimeZone, dates: Bool = false) -> [String] {
         let clock = DateFormatter()
         clock.locale = Locale(identifier: "en_US_POSIX")
         clock.timeZone = timeZone
         clock.dateFormat = "HH:mm"
         var lines: [String] = []
-        var shown: [Int64: Int] = [:]                       // 카드 id → 처음 보인 행
+        var shown: [Int64: Int] = [:]
+        var shownText: [String: Int] = [:]
         var lastDay: String?
         for row in rows {
             if dates {
@@ -92,7 +94,11 @@ public enum OntologyPrompt {
             lines.append(fields.joined(separator: " | "))
             let rowCards = cards[row.row] ?? []
             if rowCards.isEmpty || row.isChat {
-                if let snippet = row.snippet, !snippet.isEmpty { lines.append("    text: \(snippet)") }
+                // A repeated screen text costs tokens without telling the model anything new.
+                if let snippet = row.snippet, !snippet.isEmpty {
+                    if let first = shownText[snippet] { lines.append("    text: (same text as row \(first))") }
+                    else { shownText[snippet] = row.row; lines.append("    text: \(snippet)") }
+                }
                 continue
             }
             for card in rowCards {

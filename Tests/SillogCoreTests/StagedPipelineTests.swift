@@ -31,6 +31,14 @@ final class PromptPiecesTests: XCTestCase {
         XCTAssertTrue(lines.contains("    screen: TaskCard 를 고치고 있다"), "부분 목록에서는 2행이 처음이라 전문")
         XCTAssertTrue(lines.contains("    screen: (same screen as row 2)"))
     }
+
+    func testARepeatedScreenTextPointsToItsFirstRow() {
+        var rows = Array(Fixtures.frontendRows().prefix(3))
+        rows[0].snippet = "같은 글"; rows[1].snippet = "같은 글"; rows[2].snippet = "다른 글"
+        let lines = OntologyPrompt.rowLines(rows, cards: [:], timeZone: .current)
+        XCTAssertEqual(lines.filter { $0.hasPrefix("    text:") },
+                       ["    text: 같은 글", "    text: (same text as row \(rows[0].row))", "    text: 다른 글"])
+    }
 }
 
 final class StageDecodeTests: XCTestCase {
