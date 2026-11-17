@@ -26,10 +26,15 @@ extension StagedPipeline {
 
     private static let choiceRules = """
         Decide which goal each activity serves. Use the content and purpose, rather than the app name.
-        Choose an existing task ID for the same goal, new for a distinct goal, off for distraction unrelated to work
-        or when the record does not show which goal it serves, and none only for a record with no content
-        (a system screen, a switch between apps, an empty page). Do not title or describe tasks.
-        Reading, setup, references, and tool billing belong to the goal they help achieve.
+        Choose an existing task ID when the row's title, uri, text, file or folder name is about that goal; a short row with only a title still counts.
+        Sign-in, verification and form pages of a site used for a goal belong to that goal.
+        A row with no title and no text takes the goal of the rows around it in the same app.
+        Choose new for content about a distinct goal.
+        Choose off for distraction unrelated to work or a record whose content does not show which goal it serves,
+        including community boards, feeds, social and news pages whose posts are about something else.
+        Choose none only for a record with nothing to read: a system screen, a switch between apps, a new or blank tab,
+        a loading or redirect page whose title and uri name no goal's site, or a generic folder such as Downloads.
+        Reading, setup, references, and tool billing belong to the goal they help achieve. Do not title or describe tasks.
         """
 
     private static var chooseTool: ToolSpec {
@@ -56,8 +61,11 @@ extension StagedPipeline {
     }
 
     /// Picks a verdict per row. Rows after the first undecided one are left for the next batch.
-    /// Raises: `PipelineError.incomplete` when not even the first row was decided, `LLMError` from the GPT judge.
-    static func decideSeparately(_ input: JudgeInput, using judge: ActivityJudging) async throws -> JudgeState {
+    /// Args: input without screen cards, as the app sends it; judge from settings.
+    /// Returns: state whose `input.rows` holds only the decided leading rows.
+    /// Raises: `PipelineError.incomplete` when not even the first row was decided, `PipelineError.stageFailed` when the GPT judge call fails,
+    /// `LLMError.backend` when the judge is unavailable.
+    public static func decideSeparately(_ input: JudgeInput, using judge: ActivityJudging) async throws -> JudgeState {
         var state = JudgeState(input: input)
         var selected: [Int: Decision] = [:]
         let ids = Set(input.openTasks.map(\.id))
@@ -134,8 +142,8 @@ extension StagedPipeline {
     /// Options per question, specials included. Accuracy drops past 20.
     static let choiceMaxOptions = 20
     private static let choiceSpecials = ["new": "Work for a different goal than the listed goals.",
-                                         "off": "Distraction unrelated to work, or a record that does not show which goal it serves.",
-                                         "none": "No content: a system screen, a switch between apps, or an empty page."]
+                                         "off": "Distraction unrelated to work, or content that does not show which goal it serves, such as a community board or feed about something else.",
+                                         "none": "Nothing to read: a system screen, a switch between apps, a new or blank tab, a loading or redirect page that names no goal's site, or a generic folder such as Downloads."]
     private static var choiceTaskLimit: Int { choiceMaxOptions - choiceSpecials.count }
     /// Jev rejects states over 64,000 characters.
     static let choiceStateLimit = 20_000
@@ -144,6 +152,9 @@ extension StagedPipeline {
     /// Returns: the chosen task ID, `new`, `off` or `none`. Low confidence and refusals become `none`.
     /// Raises: never; transport errors come back as `.failure`.
     private static func chooseRow(_ row: ActivityRow, input: JudgeInput, chunks: [[TaskDigest]], client: any ChoiceModel) async -> Result<String, any Error> {
+        // The choice judge sees one row, so a row with nothing to read would be matched by its app name alone.
+        if [row.title, row.uri, row.snippet].allSatisfy({ ($0 ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }),
+           (input.cards[row.row] ?? []).isEmpty { return .success("none") }
         let text = choiceState(row, cards: input.cards, now: input.now, timeZone: input.timeZone)
         for (index, tasks) in chunks.enumerated() {
             var options = choiceSpecials
@@ -173,8 +184,11 @@ extension StagedPipeline {
         return String(lines.joined(separator: "\n").prefix(choiceStateLimit))
     }
 
-    /// 판단을 마친 행만 정리 모델에 보낸다. 새 업무에 제목·목표를 붙인 뒤 기존 요약 단계를 사용한다.
-    static func organizeDecisions(_ judgment: JudgeState, llm: any LLMClient) async throws -> JudgeState {
+    /// Names new tasks from decided rows, then runs the shared describe stage.
+    /// Args: state from `decideSeparately`, with cards for its accepted rows.
+    /// Returns: state ready for `patch(from:)`.
+    /// Raises: `PipelineError.incomplete` when the organizer drops rows, `PipelineError.stageFailed` when an organizer call fails.
+    public static func organizeDecisions(_ judgment: JudgeState, llm: any LLMClient) async throws -> JudgeState {
         var state = judgment
         let fresh = state.unassigned
         if !fresh.isEmpty {

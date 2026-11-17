@@ -41,18 +41,18 @@ final class KeyframeSelectorTests: XCTestCase {
         let rows = [row(1, 0, 60, title: "a.pdf", uri: "file:~/a.pdf", obs: [1, 2]),
                     row(2, 60, 30, app: "Chrome", bundle: "com.google.Chrome", title: "Docs", uri: "https://docs.example/x", obs: [3]),
                     row(3, 90, 40, title: "a.pdf", uri: "file:~/a.pdf", obs: [4]),
-                    row(4, 130, 3, app: "Chrome", bundle: "com.google.Chrome", title: "Flash", uri: "https://flash.example", obs: [5]),
-                    row(5, 133, 20, app: "loginwindow", bundle: "com.apple.loginwindow", title: nil, uri: nil, obs: [6])]
+                    row(4, 130, 7, app: "Chrome", bundle: "com.google.Chrome", title: "Flash", uri: "https://flash.example", obs: [5]),
+                    row(5, 137, 20, app: "loginwindow", bundle: "com.apple.loginwindow", title: nil, uri: nil, obs: [6])]
         let shots: [Int64: KeyframeSelector.Shot] = [
             1: .init(observationId: 1, ts: 0, path: "/s1", hash: 0b0000),
             2: .init(observationId: 2, ts: 30, path: "/s2", hash: 0xFFFF_FFFF_0000_0000),     // 스크롤: 해시가 크게 다름 → 다른 화면
             3: .init(observationId: 3, ts: 60, path: "/s3", hash: 0x1234),
             4: .init(observationId: 4, ts: 90, path: "/s4", hash: 0b0011),                    // 첫 화면으로 돌아옴 (거리 2)
             5: .init(observationId: 5, ts: 130, path: "/s5", hash: 0x9999),
-            6: .init(observationId: 6, ts: 133, path: "/s6", hash: 0x7777),
+            6: .init(observationId: 6, ts: 137, path: "/s6", hash: 0x7777),
         ]
         let groups = KeyframeSelector.select(rows: rows, shots: shots)
-        XCTAssertEqual(groups.count, 3, "3초 본 화면과 잠금 화면은 제외")
+        XCTAssertEqual(groups.count, 3, "7초 본 화면과 잠금 화면은 제외")
         XCTAssertEqual(groups[0].rows, [1, 3], "돌아온 같은 화면은 한 묶음")
         XCTAssertEqual(groups[0].seconds, 70, "행1 절반(30) + 행3 전부(40)")
         XCTAssertEqual(groups[0].observationIds.sorted(), [1, 4])

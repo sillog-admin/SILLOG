@@ -41,8 +41,10 @@ public enum KeyframeSelector {
 
     public static func distance(_ a: UInt64, _ b: UInt64) -> Int { (a ^ b).nonzeroBitCount }
 
-    /// shots: 관측 id → 사진. 돌려주는 것: 보낼 만한 묶음 전부 (머문 시간 긴 순). 호출 상한은 호출자가 자른다
-    public static func select(rows: [ActivityRow], shots: [Int64: Shot], minSeconds: Double = 5) -> [Group] {
+    // 10s: screens seen for less were a third of card images but under 6% of carded time.
+    /// Args: rows of one batch; shots by observation id; minSeconds a screen must be seen to get a card.
+    /// Returns: every group worth sending, longest first; the caller caps how many go in one call.
+    public static func select(rows: [ActivityRow], shots: [Int64: Shot], minSeconds: Double = 10) -> [Group] {
         var groups: [Group] = []
         for row in rows.sorted(by: { ($0.start, $0.row) < ($1.start, $1.row) }) {
             guard !row.isChat, !EventStore.contentlessBundles.contains(row.appBundle), !TransientPages.isTransient(url: row.uri, title: row.title) else { continue }

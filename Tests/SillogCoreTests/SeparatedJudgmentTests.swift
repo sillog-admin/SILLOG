@@ -60,6 +60,16 @@ final class SeparatedJudgmentTests: XCTestCase {
         XCTAssertFalse(question.options["none"]?.contains("Too little content") == true, question.options["none"] ?? "")
     }
 
+    func testARowWithNothingToReadIsNoneWithoutAsking() async throws {
+        var rows = Array(Fixtures.frontendRows().prefix(2))
+        rows[1].title = nil; rows[1].uri = " "; rows[1].snippet = nil
+        // A reply keyed by the app name would be used if the empty row were sent.
+        let judge = RowJudge([r1: [pick("t_1")], rows[1].app: [pick("t_2")]])
+        let state = try await StagedPipeline.decideSeparately(JudgeInput(rows: rows, openTasks: tasks, now: 1_000_000), using: .choice(judge))
+        XCTAssertEqual(state.verdicts[rows[1].row]?.kind, RowKind.none)
+        XCTAssertNil(judge.optionCounts[rows[1].app], "the row with nothing to read is not sent")
+    }
+
     func testLowConfidenceBecomesNoneInsteadOfStalling() async throws {
         let judge = RowJudge([r1: [pick("t_1", 0.3)]])
         let state = try await StagedPipeline.decideSeparately(input(1), using: .choice(judge))
