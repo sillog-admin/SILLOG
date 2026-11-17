@@ -83,6 +83,7 @@ Password fields are never recorded. For apps like password managers and Keychain
 - **Organizing**: every five minutes, groups new activity into tasks and links them in the graph.
 - **Reopening**: brings back the files and pages behind a task.
 - **Chat**: answers questions and writes reports from your records.
+- **Other AI apps**: lets the ChatGPT and Claude desktop apps answer from your SILLOG records.
 - **Skills**: lets you edit the built-in skills or add your own.
 - **Artifacts**: saves results as documents, slides, and tables and keeps them in the library.
 - **Scheduled tasks**: runs recurring research or reports on the interval you set.
@@ -152,6 +153,12 @@ Connect services like Notion, Slack, Google Drive, and GitHub, and chat can look
 
 If you build SILLOG yourself, connector setup is in [docs/connectors.md](docs/connectors.md).
 
+## Other AI apps
+
+In Settings → AI connection, use "Connect other AI apps with MCP" to register SILLOG with the ChatGPT or Claude desktop app, and that app can look up and read your SILLOG records to answer. ChatGPT works in the desktop app's Work and Codex, and Claude in its desktop app. For other MCP apps such as Cursor, copy the config and paste it into that app.
+
+The tools SILLOG offers only read, and records from projects set to "Project memory" aren't sent. If you build SILLOG yourself, `sillogctl mcp` runs the same server; details are in [docs/development.md](docs/development.md).
+
 ## Privacy and data
 
 <a href="https://sillog.app"><img src="docs/readme/section-privacy-en.webp" alt=""></a>
@@ -162,6 +169,7 @@ Your records are stored on your Mac, but whatever is used for organizing and cha
 - **Name and time only**: excluded apps, password managers, and SILLOG itself.
 - **What chat can read**: records within the conversation's scope, files you attach, library items, and connectors you turn on.
 - **What chat won't do**: run commands, edit files, send messages, or write to connectors.
+- **What other AI apps read**: records and library items that an app connected through MCP looks up. That content goes to the AI that app uses.
 - **Secrets**: API keys and tokens go in the Keychain. ID numbers such as national ID numbers are masked before they reach the model.
 - **Deleting**: right-click a task or graph node to delete it together with its raw records.
 
@@ -199,7 +207,7 @@ On your Mac. SILLOG has no server of its own.
 <details>
 <summary><b>What leaves my Mac?</b></summary>
 
-To organize tasks and answer in chat, SILLOG sends record contents to the AI account you connect, along with screenshots of key screens. Sources looked up in chat, web searches you allow, and connector requests also leave your Mac. You can check what was sent in the activity log and turn off sending for each feature.
+To organize tasks and answer in chat, SILLOG sends record contents to the AI account you connect, along with screenshots of key screens. Sources looked up in chat, web searches you allow, and connector requests also leave your Mac. You can check what was sent in the activity log and turn off sending for each feature. Records that a ChatGPT or Claude app connected through MCP looks up go to that app's AI.
 </details>
 
 <details>
@@ -234,6 +242,7 @@ For now, Apple silicon Macs on macOS 14 or later. Windows and mobile aren't read
 - Scanned PDFs aren't OCR'd, and images are read only for the text in them.
 - With an API server, web search works only with the official OpenAI API.
 - There is no Gmail connector.
+- MCP works only in desktop apps. In ChatGPT it works in Work and Codex, not regular chat, and not on the web or mobile.
 
 ## Build from source
 
