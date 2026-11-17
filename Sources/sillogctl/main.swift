@@ -84,6 +84,7 @@ sillogctl [--db PATH] <command>
                                         --no-llm: 요약을 수치와 세션 요약으로만, --consent: 첫 정리 동의를 기록 (앱을 끄고 실행)
   digest list [--task KEY] | digest show --week 2026-W40 | --month 2026-10 [--task KEY]
                                         업무별 주간·월간 요약
+  mcp                                   MCP 서버(stdio). Claude 같은 AI 앱이 기록을 검색·조회할 때 실행한다 (읽기 전용)
 
 기본 DB: \(SillogDatabase.defaultPath())
 기본 LLM: ChatGPT 로그인(codex), 모델 \(CodexResponsesClient.defaultModel). --base-url 을 주면 OpenAI 호환 서버(openai)로 간주한다
@@ -125,7 +126,8 @@ args.removeFirst()
 let db: SillogDatabase
 do {
     db = try SillogDatabase(path: dbPath)
-    try db.writer.write { try TBox.seed(GraphTx($0), at: Date().timeIntervalSince1970) }
+    // The MCP server only reads, and it starts while the app may hold the write lock; the app seeds on launch anyway.
+    if command != "mcp" { try db.writer.write { try TBox.seed(GraphTx($0), at: Date().timeIntervalSince1970) } }
 } catch {
     fail("DB 를 열 수 없음 (\(dbPath)): \(error)")
 }
@@ -1436,6 +1438,21 @@ do {
         for digest in digests {
             print("== \(digest.title) [\(digest.status.rawValue)\(digest.model.map { ", \($0)" } ?? "")] key=\(digest.taskKey)")
             if sub == "show" { print(digest.body + "\n") }
+        }
+
+    case "mcp":
+        // Inside SILLOG.app the standard defaults are the app's own, so messages follow its language setting.
+        // Same defaults as AppSettings: the system language before the first save, Korean for a save without the field.
+        if let data = UserDefaults.standard.data(forKey: "sillog.settings.v1") {
+            let saved = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            L10n.current = (saved?["language"] as? String).flatMap(AppLanguage.init(rawValue:)) ?? .ko
+        } else {
+            L10n.current = .system
+        }
+        // stdout carries only JSON-RPC lines; anything else would break the client's parser.
+        let server = MCPServer(db: db)
+        while let line = readLine() {
+            if let reply = await server.handle(line) { print(reply) }
         }
 
     default:

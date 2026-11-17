@@ -503,7 +503,7 @@ public struct ChatTools: Sendable {
     /// Args: value는 YYYY-MM-DD, fallback은 빈 값의 기본 시각이다.
     /// Returns: 현지 시간 기준 날짜의 Unix 시각.
     /// Raises: 유효하지 않은 날짜.
-    private static func date(_ value: String, fallback: Double, endOfDay: Bool = false) throws -> Double {
+    static func date(_ value: String, fallback: Double, endOfDay: Bool = false) throws -> Double {
         if value.isEmpty { return fallback }
         let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM-dd"; formatter.isLenient = false
         formatter.locale = Locale(identifier: "en_US_POSIX")

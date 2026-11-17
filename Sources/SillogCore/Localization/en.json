@@ -1790,5 +1790,8 @@
   "동의하고 정리 (%@일)": "Agree and clean up (%@ days)",
   "정리 (%@일)": "Clean up (%@ days)",
   "%@ %@건": "%@ %@",
-  "판단 모델 밑에 키를 넣어 주세요": "Add the key under the judging model"
+  "판단 모델 밑에 키를 넣어 주세요": "Add the key under the judging model",
+  "'%@'에 맞는 업무를 찾지 못했어요. 업무 이름이나 key를 확인하세요.": "No task matches '%@'. Check the task name or key.",
+  "kind는 %@ 중 하나로 지정하세요.": "Set kind to one of %@.",
+  "type은 %@ 중 하나로 지정하세요.": "Set type to one of %@."
 }
