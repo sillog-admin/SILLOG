@@ -226,6 +226,14 @@ final class MenuLayoutTests: XCTestCase {
         XCTAssertFalse(ai.contains("정리모델과같음"), "채팅 모델도 연결과 모델을 따로 고른다: \(ai)")
     }
 
+    func testAIConnectionTabEndsWithTheMCPAppsSection() throws {
+        try XCTSkipIf(ProcessInfo.processInfo.environment["CI"] != nil, "OCR differs on CI")
+        let ai = longText(of: SettingsView(), height: 2400) { s in s.settingsSection = .ai }
+        for part in ["MCP로다른", "Work", "Claude", "MCP를지원하는앱", "설정복사", "연결하기", "프로젝트전용메모리"] {
+            XCTAssertTrue(ai.contains(part), "AI 연결 탭 끝의 MCP 구역에 \(part) 가 있어야 한다: \(ai)")
+        }
+    }
+
     // 파일 구역: 대기 중인 제안 옆에 '옮겨질 곳' 나무 (원래 폴더 → 옮길 폴더 → 파일, 같은 폴더로 가는 파일은 한 가지에)
     func testPendingSuggestionsShowWhereTheFilesWillGo() {
         let home = NSHomeDirectory()

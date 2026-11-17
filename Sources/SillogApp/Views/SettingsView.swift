@@ -242,6 +242,7 @@ struct SettingsView: View {
             ConnectionSection()
             SectionLabel(tr("채팅 답변 지침"))
             chatInstructions
+            MCPConnectSection()
         }
     }
 
@@ -335,7 +336,7 @@ private struct UsageMeter: View {
     }
 }
 
-/// Connection logo: ChatGPT and OpenAI Decisions use the OpenAI mark, Jev its own logo, an API server a server symbol.
+/// Connection logo: ChatGPT and OpenAI Decisions use the OpenAI mark, Jev and Claude their own logos, an API server a server symbol.
 struct ProviderLogo: View {
     let kind: String
 
@@ -345,6 +346,8 @@ struct ProviderLogo: View {
             if let mark = Brand.openAIMark { Image(nsImage: mark).renderingMode(.template).resizable().scaledToFit().foregroundStyle(Color(hex: 0x4A3E37)) }
         case "jev":
             if let logo = Brand.jevLogo { Image(nsImage: logo).resizable().interpolation(.high).scaledToFit().clipShape(Circle()) }
+        case "claude":
+            SVGIcon(d: Brand.claudePath).fill(Color(hex: 0xD97757))
         default:
             Image(systemName: "server.rack").resizable().scaledToFit().foregroundStyle(Brand.tabText)
         }
