@@ -107,12 +107,12 @@ SILLOG_DB=/tmp/wg-copy.sqlite swift run sillogctl find-events 1851 1779
 | 앱 | 설정 파일 | 메모 |
 | --- | --- | --- |
 | ChatGPT 데스크톱 | `~/.codex/config.toml`의 `[mcp_servers.SILLOG]` | Work와 Codex 대화에서만 씁니다. 일반 Chat에서는 로컬 MCP를 부르지 않습니다. |
-| Claude 데스크톱 | `~/Library/Application Support/Claude/claude_desktop_config.json`의 `mcpServers.SILLOG` | Claude는 켜져 있는 동안 이 파일을 덮어써서 추가한 항목을 지웁니다. 그래서 Claude가 켜져 있으면 연결하지 않고 종료하라고 안내합니다. |
+| Claude 데스크톱 | 확장 프로그램(.mcpb). `manifest.json`의 `display_name`과 `icon`으로 SILLOG 이름과 로고를 보여 줍니다 | 연결하기를 누르면 임시 폴더에 .mcpb를 만들어 Claude로 엽니다. 사용자가 설치를 눌러야 하고, 제거도 Claude 설정에서 합니다. |
 | 그 밖의 앱 | "설정 복사"로 받은 `mcpServers` JSON | Cursor처럼 MCP를 지원하는 앱에 붙여 넣습니다. |
 
 - 등록할 때는 파일의 다른 내용을 그대로 두고 SILLOG 항목만 바꿉니다. 고치기 전 내용은 `.sillog-backup`으로 남기고 파일 권한과 심볼릭 링크를 유지합니다.
-- 두 앱 모두 MCP 목록을 켤 때만 읽으므로 등록한 뒤 앱을 다시 열어야 합니다.
-- 두 앱은 설정 파일의 키를 서버 이름으로 그대로 보여 줍니다. 그래서 키를 `SILLOG`로 씁니다. Claude는 설정 파일로 등록한 서버의 아이콘을 바꿀 수 없고, 확장 프로그램(.mcpb)으로 설치한 서버만 아이콘을 보여 줍니다.
+- ChatGPT는 MCP 목록을 켤 때만 읽으므로 등록한 뒤 다시 열어야 합니다.
+- ChatGPT는 설정 파일의 키를 서버 이름으로 그대로 보여 줘서 키를 `SILLOG`로 씁니다. Claude는 `claude_desktop_config.json`으로 등록한 서버에 로고를 보여 주지 않아서 확장 프로그램으로 설치합니다.
 
 직접 확인할 때는 이렇게 합니다.
 
