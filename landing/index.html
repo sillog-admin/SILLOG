@@ -3,44 +3,78 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SILLOG, 업무 기록 정리 앱</title>
-<meta name="description" content="컴퓨터에서 한 일을 업무별로 정리하는 macOS 앱, SILLOG. 기록은 내 Mac에 저장하고, 쌓인 기록으로 보고서와 다음 할 일을 만들어요.">
-<meta name="robots" content="index, follow">
+<title>SILLOG(실록) · 한 일을 업무별로 자동 정리하는 macOS 앱</title>
+<meta name="description" content="SILLOG(실록)은 Mac에서 한 일을 자동으로 기록하고 업무별로 정리하는 macOS 앱이에요. 쌓인 기록으로 주간 업무 보고서, 회고, 다음 할 일을 AI와 함께 만들어요. 기록 원본은 내 Mac에 저장해요.">
+<meta name="application-name" content="SILLOG(실록)">
+<meta name="apple-mobile-web-app-title" content="SILLOG">
+<meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#050A15">
 <link rel="canonical" href="https://sillog.app/">
 <link rel="icon" type="image/png" href="assets/icon-256.png">
 <link rel="apple-touch-icon" href="assets/icon-256.png">
 <!-- Open Graph / Twitter: absolute URLs so link previews resolve -->
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="SILLOG">
+<meta property="og:site_name" content="SILLOG(실록)">
 <meta property="og:locale" content="ko_KR">
 <meta property="og:url" content="https://sillog.app/">
-<meta property="og:title" content="SILLOG, 업무 기록 정리 앱">
-<meta property="og:description" content="컴퓨터에서 한 일을 업무별로 정리하는 macOS 앱. 쌓아 온 기록으로 다음 일을 시작해요.">
+<meta property="og:title" content="SILLOG(실록) · 한 일을 업무별로 자동 정리하는 macOS 앱">
+<meta property="og:description" content="Mac에서 한 일을 자동으로 기록하고 업무별로 정리해요. 쌓아 온 기록으로 보고서와 다음 일을 시작해요.">
 <meta property="og:image" content="https://sillog.app/assets/og.png?v=2">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="SILLOG 로고와 민트색 캐릭터들">
+<meta property="og:image:alt" content="SILLOG(실록) 로고와 민트색 캐릭터">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="SILLOG, 업무 기록 정리 앱">
-<meta name="twitter:description" content="컴퓨터에서 한 일을 업무별로 정리하는 macOS 앱. 쌓아 온 기록으로 다음 일을 시작해요.">
+<meta name="twitter:title" content="SILLOG(실록) · 한 일을 업무별로 자동 정리하는 macOS 앱">
+<meta name="twitter:description" content="Mac에서 한 일을 자동으로 기록하고 업무별로 정리해요. 쌓아 온 기록으로 보고서와 다음 일을 시작해요.">
 <meta name="twitter:image" content="https://sillog.app/assets/og.png?v=2">
-<meta name="twitter:image:alt" content="SILLOG 로고와 민트색 캐릭터들">
+<meta name="twitter:image:alt" content="SILLOG(실록) 로고와 민트색 캐릭터">
+<!-- WebSite.alternateName is what Google uses for the site name, so searching 실록 can match -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "SILLOG",
-  "url": "https://sillog.app/",
-  "description": "컴퓨터에서 한 일을 업무별로 정리하는 macOS 앱",
-  "image": "https://sillog.app/assets/og.png?v=2",
-  "applicationCategory": "BusinessApplication",
-  "operatingSystem": "macOS 14 이상",
-  "downloadUrl": "https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg",
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "KRW" }
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://sillog.app/#website",
+      "url": "https://sillog.app/",
+      "name": "SILLOG",
+      "alternateName": ["실록", "SILLOG(실록)"],
+      "inLanguage": "ko-KR",
+      "publisher": { "@id": "https://sillog.app/#org" }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://sillog.app/#org",
+      "name": "SILLOG",
+      "alternateName": "실록",
+      "url": "https://sillog.app/",
+      "logo": "https://sillog.app/assets/icon-256.png",
+      "sameAs": ["https://github.com/sillog-admin/sillog"]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "SILLOG",
+      "alternateName": "실록",
+      "url": "https://sillog.app/",
+      "description": "Mac에서 한 일을 자동으로 기록하고 업무별로 정리하는 macOS 앱. 쌓인 기록으로 업무 보고서와 회고, 다음 할 일을 만들어요.",
+      "image": "https://sillog.app/assets/og.png?v=2",
+      "screenshot": "https://sillog.app/assets/screen-answer.webp",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "업무 기록, 생산성",
+      "operatingSystem": "macOS 14 이상",
+      "softwareRequirements": "Apple 실리콘 Mac",
+      "inLanguage": ["ko", "en"],
+      "featureList": ["앱·창·주소·화면 글자 자동 기록", "업무별 자동 정리", "업무 그래프", "기록 기반 AI 채팅", "주간 업무 보고서 작성", "강의·회의 녹음 받아쓰기"],
+      "downloadUrl": "https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "KRW" },
+      "publisher": { "@id": "https://sillog.app/#org" }
+    }
+  ]
 }
 </script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
 :root{
@@ -322,7 +356,7 @@ main>section::before{content:"";position:absolute;inset:0;z-index:-1;pointer-eve
 
 <header class="topbar">
   <div class="topbar-in">
-    <a href="#top" aria-label="SILLOG"><img decoding="async" class="wordmark" src="assets/wordmark.png" alt="SILLOG" width="131" height="22"></a>
+    <a href="#top" aria-label="SILLOG"><img decoding="async" class="wordmark" src="assets/wordmark.png" alt="SILLOG(실록)" width="131" height="22"></a>
     <nav class="nav">
       <a class="l" href="#features">기능</a>
       <a class="l" href="#privacy">개인정보</a>
@@ -349,7 +383,7 @@ main>section::before{content:"";position:absolute;inset:0;z-index:-1;pointer-eve
     </div>
     <div class="hero-copy">
       <h1>쌓아 온 기록으로<br>다음 일을 시작해요</h1>
-      <p class="sub">컴퓨터에서 한 일을 업무별로 정리하는 macOS 앱<img class="wordmark" src="assets/wordmark.png" alt="SILLOG" width="178" height="30"></p>
+      <p class="sub">컴퓨터에서 한 일을 업무별로 정리하는 macOS 앱<img class="wordmark" src="assets/wordmark.png" alt="SILLOG(실록)" width="178" height="30"></p>
     </div>
     <a class="chev" href="#intro" aria-label="아래로"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></a>
   </section>
@@ -448,9 +482,10 @@ main>section::before{content:"";position:absolute;inset:0;z-index:-1;pointer-eve
   <section class="faqs paper" id="faq">
     <div class="wrap">
       <h2 class="rv">자주 묻는 질문</h2>
-          <div class="q open rv"><button aria-expanded="true">SILLOG은 무엇을 기록하나요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>앱, 창 제목, 주소, 파일 경로, 화면 글자, 스크린샷, 다운로드한 파일, AI 코딩 도구(Claude Code, Codex CLI)에 입력한 메시지를 기록해요. 2분 넘게 입력이 없으면 자리 비움으로 기록해요. 녹음은 직접 시작했을 때만 하고 Mac 안에서 글로 받아써요.</p></div></div></div>
+          <div class="q open rv"><button aria-expanded="true">SILLOG(실록)은 어떤 앱인가요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>SILLOG(실록)은 Mac에서 한 일을 자동으로 기록하고 업무별로 정리하는 macOS 앱이에요. 따로 업무 일지를 쓰지 않아도 쓴 앱, 본 문서와 웹페이지, 작업 시간이 업무마다 모여요. 쌓인 기록을 근거로 주간 업무 보고서, 회고, 포트폴리오 항목을 AI 채팅으로 만들 수 있어요.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">SILLOG은 무엇을 기록하나요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>앱, 창 제목, 주소, 파일 경로, 화면 글자, 스크린샷, 다운로드한 파일, AI 코딩 도구(Claude Code, Codex CLI)에 입력한 메시지를 기록해요. 2분 넘게 입력이 없으면 자리 비움으로 기록해요. 녹음은 직접 시작했을 때만 하고 Mac 안에서 글로 받아써요.</p></div></div></div>
           <div class="q rv"><button aria-expanded="false">기록은 어디에 저장되나요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>내 Mac에 저장해요. SILLOG은 자체 서버를 두지 않아요.</p></div></div></div>
-          <div class="q rv"><button aria-expanded="false">밖으로 나가는 내용은 무엇인가요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>업무를 정리하고 채팅에 답하려고 기록 내용을 내가 연결한 AI 계정으로 보내요. 대표 화면의 스크린샷도 함께 보내요. 채팅에서 찾아본 자료, 허용한 웹 검색과 커넥터 통신도 밖으로 나가요. 보낸 내용은 활동 로그에서 확인하고 기능별로 전송을 끌 수 있어요.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">밖으로 나가는 내용은 무엇인가요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>업무를 정리하고 채팅에 답하려고 기록 내용을 내가 연결한 AI 계정으로 보내요. 대표 화면의 스크린샷과 녹음을 받아쓴 글도 함께 보내요. 음성 파일은 보내지 않아요. 기록에서 꺼낸 글은 전화번호, 이메일, 카드번호, 주민번호, API 키 같은 정보를 가려서 보내요. 채팅에서 찾아본 자료, 허용한 웹 검색과 커넥터 통신도 밖으로 나가요. 보낸 내용은 활동 로그에서 확인하고 기능별로 전송을 끌 수 있어요.</p></div></div></div>
           <div class="q rv"><button aria-expanded="false">어떤 AI 계정이 필요한가요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>ChatGPT 구독과 API(OpenAI 호환) 가운데 하나를 연결해요. ChatGPT 구독으로 채팅하려면 Codex CLI나 Codex 앱이 설치되어 있어야 해요. API로 연결하면 호출 요금이 나와요.</p></div></div></div>
           <div class="q rv"><button aria-expanded="false">기록하고 싶지 않은 앱이 있어요.<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>기록하지 않을 앱을 추가하면 그 앱은 이름과 시간만 남겨요. 비밀번호 관리자와 키체인은 처음부터 제외되어 있고 비밀번호 입력칸은 기록하지 않아요.</p></div></div></div>
           <div class="q rv"><button aria-expanded="false">스크린샷은 얼마나 보관하나요?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>기본 7일이고 1일에서 90일 사이로 바꿀 수 있어요.</p></div></div></div>
@@ -470,7 +505,7 @@ main>section::before{content:"";position:absolute;inset:0;z-index:-1;pointer-eve
     <div class="fm f4" style="--x:280px;--s:260px;--b:260px;--bd:-.8s"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m5.webp" alt=""><canvas data-m3d="solo" data-color="#C9FFFD" data-yaw="-7" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
     <div class="fm hide-s" style="--x:560px;--s:230px;--b:150px;--bd:-4.2s"><div class="m3d"><img class="m3d-fb" decoding="async" src="assets/m4.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="-14" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
     <div class="fmeta"><div>
-      <div><img decoding="async" class="wordmark" src="assets/wordmark.png" alt="SILLOG" width="107" height="18"><small>© 2026 SILLOG</small></div>
+      <div><img decoding="async" class="wordmark" src="assets/wordmark.png" alt="SILLOG(실록)" width="107" height="18"><small>© 2026 SILLOG(실록)</small></div>
       <nav><a href="#features">기능</a><a href="#privacy">개인정보</a><a href="#faq">자주 묻는 질문</a><a href="/privacy">개인정보 처리방침</a><a href="https://github.com/sillog-admin/sillog" target="_blank" rel="noopener">GitHub</a></nav>
     </div></div>
   </section>
