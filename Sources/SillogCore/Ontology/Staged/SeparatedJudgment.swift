@@ -152,6 +152,9 @@ extension StagedPipeline {
     /// Returns: the chosen task ID, `new`, `off` or `none`. Low confidence and refusals become `none`.
     /// Raises: never; transport errors come back as `.failure`.
     private static func chooseRow(_ row: ActivityRow, input: JudgeInput, chunks: [[TaskDigest]], client: any ChoiceModel) async -> Result<String, any Error> {
+        // The choice judge sees one row, so a row with nothing to read would be matched by its app name alone.
+        if [row.title, row.uri, row.snippet].allSatisfy({ ($0 ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }),
+           (input.cards[row.row] ?? []).isEmpty { return .success("none") }
         let text = choiceState(row, cards: input.cards, now: input.now, timeZone: input.timeZone)
         for (index, tasks) in chunks.enumerated() {
             var options = choiceSpecials
