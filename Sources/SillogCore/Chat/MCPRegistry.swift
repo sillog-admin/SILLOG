@@ -5,32 +5,31 @@ public struct MCPRegistry: Sendable {
     /// Apps SILLOG can register itself in.
     public enum Client: String, CaseIterable, Sendable {
         case chatGPT, claude
-
-        /// Claude rewrites its config from memory while it runs and drops an entry added meanwhile, so it must be closed first.
-        public var closeFirstBundleID: String? { self == .claude ? "com.anthropic.claudefordesktop" : nil }
     }
 
     public struct Failure: LocalizedError {
         public let errorDescription: String?
     }
 
-    // ChatGPT and Claude show this key as the server name, and serverInfo is ignored.
+    // ChatGPT shows this key as the server name and ignores serverInfo.
     static let name = "SILLOG"
     let command: String
     let home: URL
+    let icon: Data
 
-    /// Args: command is the sillogctl path the apps will launch; home is the user's home folder.
+    /// Args: command is the sillogctl path the apps will launch; home is the user's home folder; icon is the PNG Claude shows for the extension.
     /// Returns: A registry that edits the config files under home.
     /// Raises: nothing.
-    public init(command: String, home: URL = FileManager.default.homeDirectoryForCurrentUser) {
+    public init(command: String, home: URL = FileManager.default.homeDirectoryForCurrentUser, icon: Data = Data()) {
         self.command = command
         self.home = home
+        self.icon = icon
     }
 
     func configURL(_ client: Client) -> URL {
         switch client {
         case .chatGPT: home.appendingPathComponent(".codex/config.toml")
-        case .claude: home.appendingPathComponent("Library/Application Support/Claude/claude_desktop_config.json")
+        case .claude: home.appendingPathComponent("Library/Application Support/Claude/Claude Extensions")
         }
     }
 
@@ -43,59 +42,94 @@ public struct MCPRegistry: Sendable {
     /// Returns: Whether that app's config launches this SILLOG's sillogctl. An entry left by a moved app counts as not connected.
     /// Raises: nothing. An unreadable file counts as not connected.
     public func isConnected(_ client: Client) -> Bool {
-        guard let text = try? String(contentsOf: configURL(client), encoding: .utf8) else { return false }
-        return Self.registered(client, text) == command
+        switch client {
+        case .chatGPT:
+            guard let text = try? String(contentsOf: configURL(client), encoding: .utf8) else { return false }
+            return Self.registered(text) == command
+        case .claude:
+            // Claude names the extension folder itself, so look for our manifest in any of them.
+            let folders = (try? FileManager.default.contentsOfDirectory(at: configURL(client), includingPropertiesForKeys: nil)) ?? []
+            return folders.contains { folder in
+                let manifest = Self.object((try? String(contentsOf: folder.appendingPathComponent("manifest.json"), encoding: .utf8)) ?? "")
+                let config = (manifest?["server"] as? [String: Any])?["mcp_config"] as? [String: Any]
+                return manifest?["name"] as? String == Self.extensionName && config?["command"] as? String == command
+            }
+        }
     }
 
     /// Args: client is the app to register in.
-    /// Raises: Failure when sillogctl is missing or the existing config can't be read, understood or written.
-    public func connect(_ client: Client) throws {
+    /// Returns: For Claude, the .mcpb file to open in Claude, which asks the user to install it. Nil for ChatGPT.
+    /// Raises: Failure when sillogctl is missing, the existing config can't be read, understood or written, or the extension can't be packed.
+    @discardableResult
+    public func connect(_ client: Client) throws -> URL? {
         guard FileManager.default.isExecutableFile(atPath: command) else {
             throw Failure(errorDescription: tr("SILLOG 명령 도구를 찾지 못했어요. SILLOG을 다시 설치해 주세요."))
         }
+        guard client == .chatGPT else { return try claudeExtension() }
         try edit(client) { text in
-            switch client {
-            case .chatGPT:
-                let found = Self.scan(text)
-                guard !found.conflict else {
-                    throw Failure(errorDescription: tr("Codex 설정에 SILLOG 항목이 다른 형식으로 있어서 고치지 않았어요. ~/.codex/config.toml에서 직접 지워 주세요."))
-                }
-                var kept = found.kept.joined(separator: "\n")
-                if !kept.isEmpty { kept += kept.hasSuffix("\n") ? "\n" : "\n\n" }
-                let new = kept + "[mcp_servers.\(Self.name)]\ncommand = \(Self.tomlString(command))\nargs = [\"mcp\"]\n"
-                // A line the scan misread could leave a second table, which Codex refuses to load.
-                guard Self.scan(new).own.filter({ Self.tableHeader($0) != nil }).count == 1, Self.registered(client, new) == command else {
-                    throw Failure(errorDescription: tr("Codex 설정에 SILLOG 항목이 다른 형식으로 있어서 고치지 않았어요. ~/.codex/config.toml에서 직접 지워 주세요."))
-                }
-                return new
-            case .claude:
-                var root = try Self.claudeRoot(text)
-                var servers = root["mcpServers"] as? [String: Any] ?? [:]
-                servers[Self.name] = ["command": command, "args": ["mcp"]]
-                // Pre-release builds used this key; Claude can't be edited while open, so it is cleaned up here.
-                if (servers["sillog"] as? [String: Any])?["command"] as? String == command { servers["sillog"] = nil }
-                root["mcpServers"] = servers
-                return Self.json(root)
+            let found = Self.scan(text)
+            guard !found.conflict else {
+                throw Failure(errorDescription: tr("Codex 설정에 SILLOG 항목이 다른 형식으로 있어서 고치지 않았어요. ~/.codex/config.toml에서 직접 지워 주세요."))
             }
+            var kept = found.kept.joined(separator: "\n")
+            if !kept.isEmpty { kept += kept.hasSuffix("\n") ? "\n" : "\n\n" }
+            let new = kept + "[mcp_servers.\(Self.name)]\ncommand = \(Self.tomlString(command))\nargs = [\"mcp\"]\n"
+            // A line the scan misread could leave a second table, which Codex refuses to load.
+            guard Self.scan(new).own.filter({ Self.tableHeader($0) != nil }).count == 1, Self.registered(new) == command else {
+                throw Failure(errorDescription: tr("Codex 설정에 SILLOG 항목이 다른 형식으로 있어서 고치지 않았어요. ~/.codex/config.toml에서 직접 지워 주세요."))
+            }
+            return new
         }
+        return nil
     }
 
     /// Args: client is the app to remove SILLOG from.
-    /// Raises: Failure when the existing config can't be read or written.
+    /// Raises: Failure when the existing config can't be read or written, and always for Claude, whose extensions only Claude can remove.
     public func disconnect(_ client: Client) throws {
-        try edit(client) { text in
-            guard Self.registered(client, text) != nil else { return text }
-            switch client {
-            case .chatGPT:
-                return Self.scan(text).kept.joined(separator: "\n")
-            case .claude:
-                var root = try Self.claudeRoot(text)
-                var servers = root["mcpServers"] as? [String: Any] ?? [:]
-                servers[Self.name] = nil
-                root["mcpServers"] = servers
-                return Self.json(root)
-            }
+        guard client == .chatGPT else {
+            throw Failure(errorDescription: tr("Claude 설정에서 SILLOG 확장 프로그램을 제거해 주세요."))
         }
+        try edit(client) { text in
+            Self.registered(text) == nil ? text : Self.scan(text).kept.joined(separator: "\n")
+        }
+    }
+
+    static let extensionName = "sillog"
+
+    /// Claude shows a custom name and logo only for extensions, not for servers in claude_desktop_config.json.
+    /// Returns: A .mcpb file in the temporary folder that launches sillogctl.
+    /// Raises: Failure when the file can't be written or packed.
+    func claudeExtension() throws -> URL {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("SILLOG-mcpb-\(UUID().uuidString)")
+        let file = folder.appendingPathExtension("mcpb")
+        let manifest: [String: Any] = [
+            "manifest_version": "0.3",
+            "name": Self.extensionName,
+            "display_name": "SILLOG",
+            "version": "1.0.0",
+            "description": tr("SILLOG에 남은 업무, 화면, 녹음, 대화 기록을 찾아 읽어요."),
+            "author": ["name": "SILLOG", "url": "https://sillog.app"],
+            "homepage": "https://sillog.app",
+            "icon": "icon.png",
+            // sillogctl lives in SILLOG.app, so the extension only points at it instead of carrying a copy.
+            "server": ["type": "binary", "entry_point": command, "mcp_config": ["command": command, "args": ["mcp"]]],
+            "compatibility": ["platforms": ["darwin"]],
+        ]
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try Self.json(manifest).write(to: folder.appendingPathComponent("manifest.json"), atomically: true, encoding: .utf8)
+            try icon.write(to: folder.appendingPathComponent("icon.png"))
+            let zip = Process()
+            zip.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+            zip.arguments = ["-c", "-k", folder.path, file.path]
+            try zip.run()
+            zip.waitUntilExit()
+            try? FileManager.default.removeItem(at: folder)
+            guard zip.terminationStatus == 0 else { throw CocoaError(.fileWriteUnknown) }
+        } catch {
+            throw Failure(errorDescription: tr("Claude 확장 파일을 만들지 못했어요. (\(error.localizedDescription))"))
+        }
+        return file
     }
 
     /// Args: client picks the config file; change maps its old text to the new text.
@@ -125,19 +159,13 @@ public struct MCPRegistry: Sendable {
         }
     }
 
-    /// Returns: The command SILLOG's entry launches, "" for an entry without one, nil when there is no entry.
-    static func registered(_ client: Client, _ text: String) -> String? {
-        switch client {
-        case .chatGPT:
-            let own = scan(text).own
-            guard !own.isEmpty else { return nil }
-            let pairs = own.map { $0.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) } }
-            guard let value = pairs.first(where: { $0.count == 2 && $0[0] == "command" })?[1] else { return "" }
-            return String(value.dropFirst().dropLast()).replacingOccurrences(of: "\\\"", with: "\"").replacingOccurrences(of: "\\\\", with: "\\")
-        case .claude:
-            guard let entry = (object(text)?["mcpServers"] as? [String: Any])?[name] else { return nil }
-            return (entry as? [String: Any])?["command"] as? String ?? ""
-        }
+    /// Returns: The command SILLOG's Codex entry launches, "" for an entry without one, nil when there is no entry.
+    static func registered(_ text: String) -> String? {
+        let own = scan(text).own
+        guard !own.isEmpty else { return nil }
+        let pairs = own.map { $0.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) } }
+        guard let value = pairs.first(where: { $0.count == 2 && $0[0] == "command" })?[1] else { return "" }
+        return String(value.dropFirst().dropLast()).replacingOccurrences(of: "\\\"", with: "\"").replacingOccurrences(of: "\\\\", with: "\\")
     }
 
     /// The Codex config split into SILLOG's tables and everything else.
@@ -231,16 +259,6 @@ public struct MCPRegistry: Sendable {
 
     static func object(_ text: String) -> [String: Any]? {
         (try? JSONSerialization.jsonObject(with: Data(text.utf8))) as? [String: Any]
-    }
-
-    /// Returns: The config's top-level object, empty for a blank file.
-    /// Raises: Failure when the text isn't a JSON object, so a file Claude can't read either is never overwritten.
-    static func claudeRoot(_ text: String) throws -> [String: Any] {
-        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return [:] }
-        guard let root = object(text) else {
-            throw Failure(errorDescription: tr("Claude 설정 파일이 올바른 JSON이 아니라서 고치지 않았어요."))
-        }
-        return root
     }
 
     static func json(_ value: Any) -> String {

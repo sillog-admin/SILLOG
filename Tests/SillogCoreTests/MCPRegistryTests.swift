@@ -116,32 +116,31 @@ final class MCPRegistryTests: XCTestCase {
         XCTAssertEqual(try read(.chatGPT), "[mcp_servers.SILLOG]\ncommand = \"\(registry.command)\"\nargs = [\"mcp\"]\n")
     }
 
-    func testClaudeConfigKeepsOtherServersAndPreferences() throws {
-        try write(#"{"mcpServers":{"files":{"command":"npx"}},"preferences":{"theme":"dark"}}"#, .claude)
-        try registry.connect(.claude)
-        let root = try XCTUnwrap(MCPRegistry.object(try read(.claude)))
-        let servers = try XCTUnwrap(root["mcpServers"] as? [String: Any])
-        XCTAssertNotNil(servers["files"])
-        XCTAssertEqual((servers["SILLOG"] as? [String: Any])?["command"] as? String, registry.command)
-        XCTAssertEqual((root["preferences"] as? [String: String])?["theme"], "dark")
-        XCTAssertTrue(registry.isConnected(.claude))
+    func testClaudeGetsAnExtensionWithTheSILLOGNameAndLogo() throws {
+        let icon = Data([0x89, 0x50, 0x4E, 0x47])
+        let file = try XCTUnwrap(try MCPRegistry(command: registry.command, home: home, icon: icon).connect(.claude))
+        XCTAssertEqual(file.pathExtension, "mcpb")
+        let out = home.appendingPathComponent("unpacked")
+        let unzip = Process()
+        unzip.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+        unzip.arguments = ["-x", "-k", file.path, out.path]
+        try unzip.run()
+        unzip.waitUntilExit()
+        let manifest = try XCTUnwrap(MCPRegistry.object(try String(contentsOf: out.appendingPathComponent("manifest.json"), encoding: .utf8)))
+        XCTAssertEqual(manifest["display_name"] as? String, "SILLOG")
+        XCTAssertEqual(manifest["icon"] as? String, "icon.png")
+        XCTAssertEqual(try Data(contentsOf: out.appendingPathComponent("icon.png")), icon)
+        let config = (manifest["server"] as? [String: Any])?["mcp_config"] as? [String: Any]
+        XCTAssertEqual(config?["command"] as? String, registry.command)
+        XCTAssertEqual(config?["args"] as? [String], ["mcp"])
 
-        try registry.disconnect(.claude)
+        // Claude unpacks it into a folder it names itself.
         XCTAssertFalse(registry.isConnected(.claude))
-        XCTAssertNotNil((MCPRegistry.object(try read(.claude))?["mcpServers"] as? [String: Any])?["files"])
-    }
-
-    func testClaudeConnectDropsTheOldLowercaseEntry() throws {
-        try write(#"{"mcpServers":{"sillog":{"command":"\#(registry.command)"},"other":{"command":"sillog"}}}"#, .claude)
-        try registry.connect(.claude)
-        let servers = try XCTUnwrap(MCPRegistry.object(try read(.claude))?["mcpServers"] as? [String: Any])
-        XCTAssertEqual(Set(servers.keys), ["SILLOG", "other"])
-    }
-
-    func testBrokenClaudeConfigIsLeftAlone() throws {
-        try write("{ not json", .claude)
-        XCTAssertThrowsError(try registry.connect(.claude))
-        XCTAssertEqual(try read(.claude), "{ not json")
+        let installed = registry.configURL(.claude).appendingPathComponent("local.mcpb.sillog.sillog")
+        try FileManager.default.createDirectory(at: installed.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.copyItem(at: out, to: installed)
+        XCTAssertTrue(registry.isConnected(.claude))
+        XCTAssertThrowsError(try registry.disconnect(.claude))
     }
 
     func testMissingToolIsReported() {

@@ -9,8 +9,14 @@ struct MCPConnectSection: View {
     @State private var notes: [String: String] = [:]
 
     /// make-app.sh puts sillogctl next to the app's executable; swift build does the same in its bin folder.
-    private var registry: MCPRegistry {
-        MCPRegistry(command: Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("sillogctl").path ?? "")
+    private func registry(icon: Data = Data()) -> MCPRegistry {
+        MCPRegistry(command: Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("sillogctl").path ?? "", icon: icon)
+    }
+
+    private var iconPNG: Data {
+        var size = NSRect(x: 0, y: 0, width: 512, height: 512)
+        guard let image = NSApp.applicationIconImage?.cgImage(forProposedRect: &size, context: nil, hints: nil) else { return Data() }
+        return NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) ?? Data()
     }
 
     var body: some View {
@@ -24,7 +30,7 @@ struct MCPConnectSection: View {
                 SettingTile(tr("다른 앱"), detail: tr("Cursor처럼 MCP를 지원하는 앱에 직접 등록"), icon: "square.grid.2x2", notes: note("other")) {
                     Button(tr("설정 복사")) {
                         NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(registry.snippet, forType: .string)
+                        NSPasteboard.general.setString(registry().snippet, forType: .string)
                         notes["other"] = tr("복사했어요. 그 앱의 MCP 설정에 붙여 넣어 주세요.")
                     }
                     .buttonStyle(BrandButtonStyle())
@@ -55,14 +61,23 @@ struct MCPConnectSection: View {
     private func note(_ key: String) -> [String] { notes[key].map { [$0] } ?? [] }
 
     private func change(_ client: MCPRegistry.Client, _ title: String, connect: Bool) {
-        if let id = client.closeFirstBundleID, !NSRunningApplication.runningApplications(withBundleIdentifier: id).isEmpty {
-            notes[client.rawValue] = tr("\(title) 앱을 종료한 뒤 다시 눌러 주세요. 켜져 있으면 \(title) 앱이 설정을 덮어써요.")
-            return
-        }
         do {
-            try connect ? registry.connect(client) : registry.disconnect(client)
-            // Both apps read their MCP list only at launch.
-            notes[client.rawValue] = tr("\(title) 앱을 다시 열면 적용돼요.")
+            guard connect else {
+                try registry().disconnect(client)
+                notes[client.rawValue] = tr("\(title) 앱을 다시 열면 적용돼요.")
+                return refresh()
+            }
+            if let file = try registry(icon: client == .claude ? iconPNG : Data()).connect(client) {
+                guard let claude = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.anthropic.claudefordesktop") else {
+                    notes[client.rawValue] = tr("Claude 데스크톱 앱을 찾지 못했어요.")
+                    return
+                }
+                NSWorkspace.shared.open([file], withApplicationAt: claude, configuration: NSWorkspace.OpenConfiguration())
+                notes[client.rawValue] = tr("Claude 설치 창에서 설치를 누르면 연결돼요.")
+            } else {
+                // ChatGPT reads its MCP list only at launch.
+                notes[client.rawValue] = tr("\(title) 앱을 다시 열면 적용돼요.")
+            }
         } catch {
             notes[client.rawValue] = error.localizedDescription
         }
@@ -72,6 +87,6 @@ struct MCPConnectSection: View {
     /// Previews and UI tests must not read the real config files in the home folder.
     private func refresh() {
         guard !state.isPreview else { return }
-        connected = Set(MCPRegistry.Client.allCases.filter(registry.isConnected))
+        connected = Set(MCPRegistry.Client.allCases.filter(registry().isConnected))
     }
 }
