@@ -14,7 +14,8 @@ public struct MCPRegistry: Sendable {
         public let errorDescription: String?
     }
 
-    static let name = "sillog"
+    // ChatGPT and Claude show this key as the server name, and serverInfo is ignored.
+    static let name = "SILLOG"
     let command: String
     let home: URL
 
@@ -71,6 +72,8 @@ public struct MCPRegistry: Sendable {
                 var root = try Self.claudeRoot(text)
                 var servers = root["mcpServers"] as? [String: Any] ?? [:]
                 servers[Self.name] = ["command": command, "args": ["mcp"]]
+                // Pre-release builds used this key; Claude can't be edited while open, so it is cleaned up here.
+                if (servers["sillog"] as? [String: Any])?["command"] as? String == command { servers["sillog"] = nil }
                 root["mcpServers"] = servers
                 return Self.json(root)
             }
@@ -141,7 +144,7 @@ public struct MCPRegistry: Sendable {
     struct CodexScan {
         var kept: [Substring] = []
         var own: [Substring] = []
-        /// mcp_servers.sillog is also defined some other way, so adding the table would make the file invalid.
+        /// mcp_servers.SILLOG is also defined some other way, so adding the table would make the file invalid.
         var conflict = false
     }
 

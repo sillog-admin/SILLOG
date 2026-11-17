@@ -82,7 +82,7 @@ public struct MCPServer: Sendable {
             return Self.reply(id, result: [
                 "protocolVersion": params["protocolVersion"] ?? "2025-06-18",
                 "capabilities": .object(["tools": .object([:])]),
-                "serverInfo": .object(["name": "sillog", "version": "1"]),
+                "serverInfo": .object(["name": "SILLOG", "version": "1"]),
             ])
         case "ping":
             return Self.reply(id, result: [:])
