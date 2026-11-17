@@ -760,7 +760,9 @@ final class OnboardingPermissions: ObservableObject {
         case .speech: await requestSpeech(openSettingsOnFail)
         case .downloads: await requestFolder(.downloadsDirectory, item, openSettingsOnFail)
         case .documents: await requestFolder(.documentDirectory, item, openSettingsOnFail)
-        case .calendar: await CalendarService.shared.requestAccess(openSettingsOnFail: openSettingsOnFail)
+        // shortcut: onboarding never asks for calendar, so Allow All shows no prompt for a tile that isn't there; restore the line below when calendar returns.
+        // case .calendar: await CalendarService.shared.requestAccess(openSettingsOnFail: openSettingsOnFail)
+        case .calendar: break
         case .loginItem: await requestLoginItem(openSettingsOnFail)
         }
         await refresh()
