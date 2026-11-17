@@ -92,6 +92,33 @@ sqlite3 "file:$HOME/Library/Application Support/Sillog/sillog.sqlite?mode=ro" ".
 SILLOG_DB=/tmp/wg-copy.sqlite swift run sillogctl find-events 1851 1779
 ```
 
+### MCP 서버
+
+`sillogctl mcp`는 표준 입출력으로 MCP(줄마다 JSON-RPC 한 건)를 주고받는 읽기 전용 서버입니다. 다른 AI 앱이 이 명령을 실행해 SILLOG 기록을 읽습니다. `make-app.sh`가 `SILLOG.app/Contents/MacOS/sillogctl`에 함께 넣고 앱보다 먼저 서명합니다.
+
+- 도구는 `search`, `fetch`, `summarize_period`, `list_items`, `get_related` 다섯 개입니다(`MCPServer.swift`). 모두 `readOnlyHint`를 달아서 앱이 호출마다 승인을 묻지 않습니다.
+- '프로젝트 전용 메모리'로 둔 프로젝트의 업무, 기록, 대화, 보관함 자료는 내보내지 않습니다. 결과는 모두 `PIIMasker`를 거칩니다.
+- 보관함 자료는 전용이 아닌 프로젝트나 대화에 연결된 것만 내보냅니다. 연결이 끊긴 자료는 어디서 왔는지 알 수 없어서 뺍니다.
+- 파일(`kind=file`)은 경로와 받은 주소만 줍니다. 전용 프로젝트가 있으면 관측 기록과 이어진 파일만 보여 줍니다.
+- 언어는 앱 설정(`sillog.settings.v1`의 `language`)을 따릅니다. 앱이 쓰기 잠금을 잡고 있어도 시작되도록 DB에 쓰지 않습니다.
+
+설정 > AI 연결 > "MCP로 다른 AI 앱에 연결"에서 등록합니다(`MCPRegistry.swift`).
+
+| 앱 | 설정 파일 | 메모 |
+| --- | --- | --- |
+| ChatGPT 데스크톱 | `~/.codex/config.toml`의 `[mcp_servers.sillog]` | Work와 Codex 대화에서만 씁니다. 일반 Chat에서는 로컬 MCP를 부르지 않습니다. |
+| Claude 데스크톱 | `~/Library/Application Support/Claude/claude_desktop_config.json`의 `mcpServers.sillog` | Claude는 켜져 있는 동안 이 파일을 덮어써서 추가한 항목을 지웁니다. 그래서 Claude가 켜져 있으면 연결하지 않고 종료하라고 안내합니다. |
+| 그 밖의 앱 | "설정 복사"로 받은 `mcpServers` JSON | Cursor처럼 MCP를 지원하는 앱에 붙여 넣습니다. |
+
+- 등록할 때는 파일의 다른 내용을 그대로 두고 SILLOG 항목만 바꿉니다. 고치기 전 내용은 `.sillog-backup`으로 남기고 파일 권한과 심볼릭 링크를 유지합니다.
+- 두 앱 모두 MCP 목록을 켤 때만 읽으므로 등록한 뒤 앱을 다시 열어야 합니다.
+
+직접 확인할 때는 이렇게 합니다.
+
+```bash
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_items","arguments":{"type":"task"}}}' | build/SILLOG.app/Contents/MacOS/sillogctl mcp
+```
+
 ## 데이터 구조
 
 ```text

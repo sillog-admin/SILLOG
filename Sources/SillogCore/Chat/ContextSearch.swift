@@ -60,6 +60,24 @@ public struct ContextSearch: Sendable {
         }
     }
 
+    /// Returns: Library items linked to a shared project or conversation and to nothing project-only. An unlinked item is left out,
+    ///   because deleting its project-only conversation removes the only trace of where it came from.
+    /// Raises: DB read errors.
+    func openLibraryIDs() throws -> [String] {
+        // shortcut: items only in the global library are left out too, since nothing records where an upload came from; store the origin project to include them.
+        try db.writer.read { conn in
+            try String.fetchAll(conn, sql: """
+                WITH private(id) AS (SELECT id FROM app_projects WHERE json_extract(payload, '$.memoryMode') = 'projectOnly'),
+                links(item_id, hidden) AS (
+                  SELECT item_id, project_id IN private FROM library_project_sources
+                  UNION ALL SELECT s.item_id, COALESCE(c.project_id IN private, 0) FROM library_conversation_sources s JOIN app_conversations c ON c.id = s.conversation_id
+                )
+                SELECT id FROM app_library WHERE id NOT IN (SELECT item_id FROM links WHERE hidden)
+                  AND id IN (SELECT item_id FROM links)
+                """)
+        }
+    }
+
     /// 초점을 고르면 프로젝트가 허용한 범위 안에서 그 업무들만 남긴다 (focused 가 false 면 프로젝트 범위만: 범위 메뉴의 고를 거리)
     func access(_ conn: Database, focused: Bool = true) throws -> Access {
         let base = try projectAccess(conn)
@@ -98,6 +116,11 @@ public struct ContextSearch: Sendable {
         if access.strict { return restriction(column, tasks) }
         let list = tasks.sorted().map(String.init).joined(separator: ",")
         return " AND (\(column) IS NULL\(list.isEmpty ? "" : " OR \(column) IN (\(list))"))"
+    }
+
+    /// Pruning clears a file's observation link, which would make a project-only file look unassigned, so a file needs its link while anything is hidden.
+    private static func fileRestriction(_ access: Access) -> String {
+        access.tasks == nil ? "" : " AND o.id IS NOT NULL" + taskRestriction("o.task_id", access)
     }
 
     private static func cardRestriction(_ access: Access) -> String {
@@ -142,58 +165,70 @@ public struct ContextSearch: Sendable {
         return ("instr(lower(\(fallback)), lower(?)) > 0", query)
     }
 
-    /// Args: query는 핵심어, from·to는 검색 기간의 Unix 시각이다.
-    /// Returns: 업무·요약·원문·사용자 요청에서 찾은 출처 목록.
-    /// Raises: DB 검색 오류.
-    public func search(query: String, from: Double = 0, to: Double = Date().timeIntervalSince1970) throws -> [ChatSource] {
-        try db.writer.read { conn in
+    /// Args: query is the keyword, from and to bound the period in Unix seconds, kind keeps one id prefix (file is only searched when asked for),
+    ///   limit caps the results of that one kind.
+    /// Returns: Sources from tasks, digests, raw text and user requests. A kind gets up to limit of its own instead of a few of each.
+    /// Raises: DB read errors.
+    public func search(query: String, from: Double = 0, to: Double = Date().timeIntervalSince1970, kind: String? = nil, limit kindLimit: Int = 50) throws -> [ChatSource] {
+        func wants(_ name: String) -> Bool { kind == nil || kind == name }
+        func limit(_ mixed: Int) -> Int { kind == nil ? mixed : kindLimit }
+        return try db.writer.read { conn in
             var results: [ChatSource] = []
             let access = try access(conn), allowedNodes = access.nodes
             let activity = includeActivity ? "" : " AND 0"
             let needle = String(query.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
             let node = Self.match(needle, index: "nodes_chat_fts", row: "id", fallback: "title || ' ' || key || ' ' || props")
-            let nodes = try Row.fetchAll(conn, sql: "SELECT id, label, title, key, props FROM nodes WHERE label NOT IN ('TaskType', 'ResourceType') AND updated_at >= ? AND created_at <= ? AND (\(node.0))\(Self.restriction("id", allowedNodes))\(activity) ORDER BY updated_at DESC LIMIT 12", arguments: [from, to, node.1])
+            let nodes = try wants("node") ? Row.fetchAll(conn, sql: "SELECT id, label, title, key, props FROM nodes WHERE label NOT IN ('TaskType', 'ResourceType') AND updated_at >= ? AND created_at <= ? AND (\(node.0))\(Self.restriction("id", allowedNodes))\(activity) ORDER BY updated_at DESC LIMIT \(limit(12))", arguments: [from, to, node.1]) : []
             for row in nodes {
                 results.append(.init(id: "node:\(row["id"] as Int64)", title: "\(row["label"] as String) · \(row["title"] as String)", location: row["key"], excerpt: String((row["props"] as String).prefix(1200))))
             }
             let card = Self.match(needle, index: "screen_cards_fts", row: "id", fallback: "activity || ' ' || content || ' ' || COALESCE(uri, '')")
             let cards = Self.cardRestriction(access)
-            for row in try Row.fetchAll(conn, sql: "SELECT * FROM screen_cards WHERE ts_end >= ? AND ts_start <= ? AND (\(card.0))\(cards)\(activity) ORDER BY ts_start DESC LIMIT 10", arguments: [from, to, card.1]) {
+            for row in try !wants("card") ? [] : Row.fetchAll(conn, sql: "SELECT * FROM screen_cards WHERE ts_end >= ? AND ts_start <= ? AND (\(card.0))\(cards)\(activity) ORDER BY ts_start DESC LIMIT \(limit(10))", arguments: [from, to, card.1]) {
                 results.append(.init(id: "card:\(row["id"] as Int64)", title: "화면 요약 · \(row["activity"] as String)", location: row["uri"] ?? "", excerpt: tr("\(Self.date(row["ts_start"])) (AI 요약)\n") + String((row["content"] as String).prefix(1600))))
             }
             // 주간·월간 요약: 원문이 정리된 기간을 대신한다. 업무 접근 범위를 그대로 따른다
             let digest = Self.match(needle, index: "digests_fts", row: "d.id", fallback: "d.title || ' ' || d.body")
-            for row in try Row.fetchAll(conn, sql: """
+            for row in try !wants("digest") ? [] : Row.fetchAll(conn, sql: """
                 SELECT d.id, d.title, d.body FROM digests d JOIN nodes t ON t.label = 'Task' AND t.key = d.task_key
                 WHERE d.period_end > ? AND d.period_start <= ? AND (\(digest.0))\(Self.taskRestriction("t.id", access))\(activity)
-                ORDER BY d.period_start DESC, d.level DESC LIMIT 8
+                ORDER BY d.period_start DESC, d.level DESC LIMIT \(limit(8))
                 """, arguments: [from, to, digest.1]) {
                 results.append(.init(id: "digest:\(row["id"] as Int64)", title: row["title"], location: "",
                                      excerpt: tr("AI 요약 (수치는 사용 시간 기록)\n") + String((row["body"] as String).prefix(1600))))
             }
             let snapshot = Self.match(needle, index: "text_snapshots_chat_fts", row: "o.text_id", fallback: "COALESCE(t.text, '')")
-            for row in try Row.fetchAll(conn, sql: """
+            for row in try !wants("observation") ? [] : Row.fetchAll(conn, sql: """
                 SELECT o.id, o.ts, o.app_name, o.window_title, o.url, o.doc_path, t.text
                 FROM observations o LEFT JOIN text_snapshots t ON t.id = o.text_id
                 WHERE o.ts >= ? AND o.ts <= ? AND ((\(snapshot.0)) OR instr(lower(COALESCE(o.window_title, '') || ' ' || COALESCE(o.url, '') || ' ' || COALESCE(o.doc_path, '')), lower(?)) > 0)
-                \(Self.taskRestriction("o.task_id", access))\(activity) ORDER BY o.ts DESC LIMIT 10
+                \(Self.taskRestriction("o.task_id", access))\(activity) ORDER BY o.ts DESC LIMIT \(limit(10))
                 """, arguments: [from, to, snapshot.1, needle]) {
                 results.append(.init(id: "observation:\(row["id"] as Int64)", title: "\(row["app_name"] as String) · \(row["window_title"] as String? ?? "활동")", location: row["url"] ?? row["doc_path"] ?? "", excerpt: "\(Self.date(row["ts"]))\n" + String((row["text"] as String? ?? "화면 텍스트 없음").prefix(1600))))
             }
             let chat = Self.match(needle, index: "chat_messages_chat_fts", row: "id", fallback: "text || ' ' || COALESCE(cwd, '')")
-            for row in try Row.fetchAll(conn, sql: "SELECT * FROM chat_messages WHERE ts >= ? AND ts <= ? AND (\(chat.0))\(Self.taskRestriction("task_id", access))\(activity) ORDER BY ts DESC LIMIT 8", arguments: [from, to, chat.1]) {
+            for row in try !wants("chat") ? [] : Row.fetchAll(conn, sql: "SELECT * FROM chat_messages WHERE ts >= ? AND ts <= ? AND (\(chat.0))\(Self.taskRestriction("task_id", access))\(activity) ORDER BY ts DESC LIMIT \(limit(8))", arguments: [from, to, chat.1]) {
                 results.append(.init(id: "chat:\(row["id"] as Int64)", title: "\(row["tool"] as String) 사용자 메시지", location: row["cwd"] ?? "", excerpt: "\(Self.date(row["ts"]))\n" + String((row["text"] as String).prefix(1600))))
             }
             // 받아쓴 녹음: 제목·요약·받아쓴 글. 업무 접근 범위를 AI 도구 대화처럼 따른다
             let recording = Self.match(needle, index: "recordings_fts", row: "id", fallback: "COALESCE(title, '') || ' ' || COALESCE(summary, '') || ' ' || transcript")
-            for row in try Row.fetchAll(conn, sql: """
+            for row in try !wants("recording") ? [] : Row.fetchAll(conn, sql: """
                 SELECT id, started_at, duration, title, summary, transcript, text_path FROM recordings
                 WHERE status = 'ready' AND \(RecordingStore.hasTranscriptSQL) AND started_at <= ? AND COALESCE(ended_at, started_at) >= ?
                   AND (\(recording.0))\(Self.taskRestriction("task_id", access))\(activity)
-                ORDER BY started_at DESC LIMIT 6
+                ORDER BY started_at DESC LIMIT \(limit(6))
                 """, arguments: [to, from, recording.1]) {
                 results.append(Self.recordingSource(row, needle: needle))
             }
+            // Downloaded and created files: paths only, matched on the path and the page they came from.
+            for row in try kind != "file" ? [] : Row.fetchAll(conn, sql: """
+                SELECT f.id, f.ts, f.path, f.origin_url FROM file_events f LEFT JOIN observations o ON o.id = f.observation_id
+                WHERE f.ts >= ? AND f.ts <= ? AND instr(lower(f.path || ' ' || COALESCE(f.origin_url, '')), lower(?)) > 0
+                \(Self.fileRestriction(access))\(activity) ORDER BY f.ts DESC LIMIT \(kindLimit)
+                """, arguments: [from, to, needle]) {
+                results.append(Self.fileSource(row))
+            }
+            guard wants("message") else { return results }
             let filter = try conversationFilter(conn)
             let words = needle.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init).prefix(24)
             let match = words.allSatisfy { $0.count >= 3 } && !words.isEmpty
@@ -210,7 +245,7 @@ public struct ContextSearch: Sendable {
                 JOIN app_messages_fts f ON f.message_id = m.id
                 WHERE m.created_at >= ? AND m.created_at <= ? AND json_extract(m.payload, '$.status') = 'complete'
                   AND (\(match) OR instr(lower(json_extract(c.payload, '$.title')), lower(?)) > 0) AND \(filter.0) AND \(focusFilter.0)
-                ORDER BY CASE WHEN c.project_id = ? THEN 0 ELSE 1 END, m.created_at DESC, m.rowid DESC LIMIT 8
+                ORDER BY CASE WHEN c.project_id = ? THEN 0 ELSE 1 END, m.created_at DESC, m.rowid DESC LIMIT \(limit(8))
                 """, arguments: arguments)
             for row in conversations {
                 let text: String = row["text"]
@@ -256,6 +291,7 @@ public struct ContextSearch: Sendable {
                 case "observation": allowed = try Bool.fetchOne(conn, sql: "SELECT EXISTS(SELECT 1 FROM observations WHERE id = ?\(Self.taskRestriction("task_id", access)))", arguments: [id]) == true
                 case "card": allowed = try Bool.fetchOne(conn, sql: "SELECT EXISTS(SELECT 1 FROM screen_cards WHERE id = ?\(Self.cardRestriction(access)))", arguments: [id]) == true
                 case "chat": allowed = try Bool.fetchOne(conn, sql: "SELECT EXISTS(SELECT 1 FROM chat_messages WHERE id = ?\(Self.taskRestriction("task_id", access)))", arguments: [id]) == true
+                case "file": allowed = try Bool.fetchOne(conn, sql: "SELECT EXISTS(SELECT 1 FROM file_events f LEFT JOIN observations o ON o.id = f.observation_id WHERE f.id = ?\(Self.fileRestriction(access)))", arguments: [id]) == true
                 case "recording":
                     allowed = try Bool.fetchOne(conn, sql: "SELECT EXISTS(SELECT 1 FROM recordings WHERE id = ?\(Self.taskRestriction("task_id", access)))", arguments: [id]) == true
                 case "digest":
@@ -283,6 +319,13 @@ public struct ContextSearch: Sendable {
             case "chat":
                 guard let row = try Row.fetchOne(conn, sql: "SELECT * FROM chat_messages WHERE id = ?", arguments: [id]) else { return [] }
                 return [.init(id: sourceID, title: "\(row["tool"] as String? ?? "AI 도구") 사용자 메시지", location: row["cwd"] ?? "", excerpt: tr("사용자의 요청 원문 (실행 완료 증거 아님)\n") + String((row["text"] as String).prefix(18000)))]
+            case "file":
+                guard let row = try Row.fetchOne(conn, sql: "SELECT * FROM file_events WHERE id = ?", arguments: [id]) else { return [] }
+                var source = Self.fileSource(row)
+                let path: String = row["path"]
+                let moved = try String.fetchOne(conn, sql: "SELECT moved_to FROM file_suggestions WHERE path = ? AND moved_to IS NOT NULL ORDER BY ts DESC", arguments: [path])
+                source.excerpt += FileManager.default.fileExists(atPath: path) ? "\n지금도 이 위치에 있음" : "\n이 위치에 없음" + (moved.map { " · SILLOG 제안으로 옮긴 곳: \($0)" } ?? "")
+                return [source]
             case "digest":
                 guard let digest = try DigestStore.digest(conn, id: id) else { return [] }
                 var header = tr("AI 요약 · 수치는 사용 시간 기록에서 계산")
@@ -309,6 +352,66 @@ public struct ContextSearch: Sendable {
         }
     }
 
+    /// Args: label is a node label, from and to bound the period in Unix seconds.
+    /// Returns: The newest `limit` nodes of that label active in the period, oldest first. Each excerpt has the node's time, its props, and up to 8 directly linked nodes.
+    /// Raises: DB read errors.
+    public func nodes(label: String, from: Double = 0, to: Double = Date().timeIntervalSince1970, limit: Int = 100) throws -> [ChatSource] {
+        guard includeActivity else { return [] }
+        return try db.writer.read { conn in
+            let allowed = Self.restriction("id", try access(conn).nodes)
+            // Sessions carry start/end, problems and later items carry at, tasks carry last_active.
+            let rows = try Row.fetchAll(conn, sql: """
+                SELECT id, label, title, key, props, COALESCE(json_extract(props, '$.start'), json_extract(props, '$.at'), created_at) AS at,
+                  EXISTS(SELECT 1 FROM edges r WHERE r.src = nodes.id AND r.type = 'RESOLVED_BY') AS resolved
+                FROM nodes WHERE label = ? AND COALESCE(json_extract(props, '$.end'), json_extract(props, '$.last_active'), updated_at) >= ? AND at <= ?
+                \(allowed) ORDER BY at DESC LIMIT ?
+                """, arguments: [label, from, to, limit]).reversed()
+            // Without the links a model calls get_related once per item to learn what a problem was solved by or which task a to-do is for.
+            let list = rows.map { String($0["id"] as Int64) }.joined(separator: ",")
+            var links: [Int64: [String]] = [:]
+            for row in try Row.fetchAll(conn, sql: """
+                SELECT item, type, id, label, title, key FROM (
+                  SELECT e.src AS item, e.type, e.weight, n.id, n.label, n.title, n.key FROM edges e JOIN nodes n ON n.id = e.dst WHERE e.src IN (\(list))
+                  UNION ALL
+                  SELECT e.dst, e.type, e.weight, n.id, n.label, n.title, n.key FROM edges e JOIN nodes n ON n.id = e.src WHERE e.dst IN (\(list))
+                ) WHERE label NOT IN ('TaskType', 'ResourceType')\(allowed) ORDER BY weight DESC
+                """) where links[row["item"], default: []].count < 8 {
+                let key = row["label"] == NodeLabel.resource ? " (\(row["key"] as String))" : ""
+                links[row["item"], default: []].append("- \(row["type"] as String) \(row["label"] as String) · \(row["title"] as String)\(key) [node:\(row["id"] as Int64)]")
+            }
+            return rows.map { row in
+                let label: String = row["label"], id: Int64 = row["id"]
+                let state = label == NodeLabel.problem ? (row["resolved"] as Bool ? " · 해결됨" : " · 미해결") : ""
+                let linked = links[id].map { "\n연결:\n" + $0.joined(separator: "\n") } ?? ""
+                return .init(id: "node:\(id)", title: "\(label) · \(row["title"] as String)", location: row["key"],
+                             excerpt: "\(Self.date(row["at"]))\(state)\n" + String((row["props"] as String).prefix(1200)) + linked)
+            }
+        }
+    }
+
+    /// Args: sourceID is a "node:<id>" from search results, hops is how many edges to follow (1 or 2).
+    /// Returns: The reachable nodes, start node first then most recent, with the edges between them. Empty when the node is outside the allowed scope.
+    /// Raises: DB read errors.
+    public func related(_ sourceID: String, hops: Int = 1) throws -> Subgraph {
+        let pieces = sourceID.split(separator: ":")
+        guard includeActivity, pieces.count == 2, pieces[0] == "node", let id = Int64(pieces[1]) else { return Subgraph() }
+        let hops = min(max(hops, 1), 2)
+        return try db.writer.read { conn in
+            let allowed = try access(conn).nodes
+            guard allowed?.contains(id) != false else { return Subgraph() }
+            var graph = try GraphTx(conn).neighbors(of: id, hops: hops)
+            if let allowed {
+                let edges = graph.edges.filter { allowed.contains($0.src) && allowed.contains($0.dst) }
+                // A node reached only through a hidden one would reveal that the hidden one links them.
+                var reach: Set<Int64> = [id]
+                for _ in 0..<hops { reach.formUnion(edges.filter { reach.contains($0.src) || reach.contains($0.dst) }.flatMap { [$0.src, $0.dst] }) }
+                graph = Subgraph(nodes: graph.nodes.filter { reach.contains($0.id) }, edges: edges.filter { reach.contains($0.src) && reach.contains($0.dst) })
+            }
+            graph.nodes.sort { ($0.id == id ? .infinity : $0.updatedAt) > ($1.id == id ? .infinity : $1.updatedAt) }
+            return graph
+        }
+    }
+
     /// 원문(화면 텍스트)이 남아 있는 첫 날. 정리한 적이 없으면 nil
     public func rawRecordsSince() throws -> String? {
         try db.writer.read { conn in
@@ -316,10 +419,10 @@ public struct ContextSearch: Sendable {
         }
     }
 
-    /// 기간 집계: 업무별 시간, 자주 쓴 자료, 앱 분포(사용 시간 기록), 문제·할 일 변화(그래프). 원문이 정리된 기간도 같은 수치를 낸다
-    /// Args: from·to는 Unix 시각 [from, to), task는 업무 key 또는 제목 일부(없으면 전체)이다.
-    /// Returns: 결정적으로 계산한 집계 한 건.
-    /// Raises: DB 오류.
+    /// Period totals from the usage ledger and the graph; periods whose raw text was pruned give the same numbers.
+    /// Args: from and to are Unix seconds [from, to); task is a task key, part of a task title, or a project name (nil for all).
+    /// Returns: One deterministic summary: time per task, top resources and apps, problem and to-do changes.
+    /// Raises: ChatToolError when the period is over 400 days or task matches no visible task, and DB read errors.
     public func summarize(from: Double, to: Double, task: String?, calendar: PeriodCalendar = PeriodCalendar()) throws -> [ChatSource] {
         guard includeActivity else { return [] }
         let days = calendar.days(from: from, to: to)
@@ -336,7 +439,15 @@ public struct ContextSearch: Sendable {
             }
             var wanted: Set<String>?
             if let task = task?.trimmingCharacters(in: .whitespacesAndNewlines), !task.isEmpty {
-                wanted = Set(tasks.filter { $0.key == task || $0.value.title.localizedCaseInsensitiveContains(task) }.map(\.key))
+                var keys = Set(tasks.filter { $0.key == task || $0.value.title.localizedCaseInsensitiveContains(task) }.map(\.key))
+                // People often name the project when they mean its tasks.
+                for project in try ProjectStore.projects(conn) where project.title.localizedCaseInsensitiveContains(task) {
+                    let ids = Set(try Int64.fetchAll(conn, sql: "SELECT task_id FROM project_tasks WHERE project_id = ?", arguments: [project.id]))
+                    keys.formUnion(tasks.filter { ids.contains($0.value.id) }.map(\.key))
+                }
+                // A name that matches nothing would otherwise read as zero minutes of work.
+                wanted = keys.filter(allowed)
+                guard wanted?.isEmpty == false else { throw ChatToolError.unavailable(tr("'\(task)'에 맞는 업무를 찾지 못했어요. 업무 이름이나 key를 확인하세요.")) }
             }
             let ledger = LedgerBuilder(calendar: calendar)
             let rows = try ledger.rows(conn, days: days).filter { row in allowed(row.taskKey) && (wanted?.contains(row.taskKey) ?? true) }
@@ -398,6 +509,26 @@ public struct ContextSearch: Sendable {
             return [.init(id: "usage:\(firstDay)..\(lastDay)\(scope)", title: "사용 시간 집계 · \(firstDay) ~ \(lastDay)", location: "",
                           excerpt: lines.joined(separator: "\n"))]
         }
+    }
+
+    /// Args: messageIDs are SILLOG chat message ids.
+    /// Returns: A "[conversation:<id> · 사용자/AI 메시지]" line per message, so a model can open the whole conversation and tell who wrote it.
+    /// Raises: DB read errors.
+    func messageHeaders(_ messageIDs: [String]) throws -> [String: String] {
+        guard !messageIDs.isEmpty else { return [:] }
+        return try db.writer.read { conn in
+            let rows = try Row.fetchAll(conn, sql: "SELECT id, conversation_id, json_extract(payload, '$.role') AS role FROM app_messages WHERE id IN (\(messageIDs.map { _ in "?" }.joined(separator: ",")))",
+                                        arguments: StatementArguments(messageIDs))
+            return Dictionary(uniqueKeysWithValues: rows.map { row in
+                (row["id"] as String, "[conversation:\(row["conversation_id"] as String) · \(row["role"] as String? == "user" ? "사용자" : "AI") 메시지]\n")
+            })
+        }
+    }
+
+    private static func fileSource(_ row: Row) -> ChatSource {
+        let path: String = row["path"], origin: String? = row["origin_url"]
+        return .init(id: "file:\(row["id"] as Int64)", title: "파일 · \(URL(fileURLWithPath: path).lastPathComponent)", location: path,
+                     excerpt: "\(date(row["ts"])) 생김" + (origin.map { "\n받은 곳: \($0)" } ?? ""))
     }
 
     /// 녹음 출처 머리: 녹음 시각·길이, 받아쓴 글이라는 표시, 요약

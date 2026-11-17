@@ -21,7 +21,9 @@ rsync -a --delete "$ROOT/Tests/" "$STAGE_DIR/Tests/"
 cp "$ROOT/Package.swift" "$ROOT/Package.resolved" "$STAGE_DIR/"
 # Swift Build's Bundle.module looks in Contents/Resources, where the bundles are copied below. The native build system
 # (Swift 6.2's default) looks only at the app root and this build folder, so the released app crashed on a user's Mac.
-swift build --package-path "$STAGE_DIR" -c release --build-system swiftbuild --product SillogApp --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox -j 2
+for product in SillogApp sillogctl; do   # sillogctl is the MCP server other AI apps launch
+swift build --package-path "$STAGE_DIR" -c release --build-system swiftbuild --product "$product" --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox -j 2
+done
 BIN_DIR="$(swift build --package-path "$STAGE_DIR" -c release --build-system swiftbuild --show-bin-path --scratch-path "$BUILD_DIR" --cache-path "$BUILD_DIR/cache" --config-path "$BUILD_DIR/config" --security-path "$BUILD_DIR/security" --disable-sandbox)"
 APP="$BUILD_DIR/Sillog.app"
 APP_LINK="$ROOT/build/SILLOG.app"
@@ -30,6 +32,7 @@ INSTALLED_APP="$HOME/Applications/SILLOG.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/SillogApp" "$APP/Contents/MacOS/Sillog"
+cp "$BIN_DIR/sillogctl" "$APP/Contents/MacOS/sillogctl"
 cp -R "$ROOT/Sources/SillogApp/Resources/graph" "$APP/Contents/Resources/graph"
 cp -R "$ROOT/Sources/SillogApp/Resources/calendar" "$APP/Contents/Resources/calendar"   # 캘린더 화면 (FullCalendar 6, MIT)
 cp -R "$ROOT/Sources/SillogApp/Resources/mermaid" "$APP/Contents/Resources/mermaid"     # 채팅 다이어그램 (mermaid 11.4.1, MIT)
@@ -111,9 +114,9 @@ if [ -z "$IDENTITY" ]; then
 fi
 IDENTITY="${IDENTITY:--}"
 
-sign() {   # 25s cap in case a Keychain prompt blocks codesign
+sign() {   # identity, then codesign arguments. 25s cap in case a Keychain prompt blocks codesign
   # Hardened runtime and a timestamp are what notarization requires.
-  codesign --force --options runtime --timestamp --entitlements "$ROOT/scripts/SILLOG.entitlements" --sign "$1" "$APP" &
+  codesign --force --options runtime --timestamp --sign "$1" "${@:2}" &
   local pid=$!
   ( sleep 25; kill "$pid" 2>/dev/null ) &
   local watchdog=$!
@@ -123,7 +126,8 @@ sign() {   # 25s cap in case a Keychain prompt blocks codesign
   return "$status"
 }
 
-if [ "$IDENTITY" != "-" ] && sign "$IDENTITY"; then
+# Nested code is signed before the app that seals it.
+if [ "$IDENTITY" != "-" ] && sign "$IDENTITY" "$APP/Contents/MacOS/sillogctl" && sign "$IDENTITY" --entitlements "$ROOT/scripts/SILLOG.entitlements" "$APP"; then
   echo "서명: $IDENTITY"
 elif [ -n "${SIGN_IDENTITY:-}" ] && [ "$SIGN_IDENTITY" != "-" ]; then
   # A release must never fall back to ad-hoc, or every user is asked for keychain access and permissions again.
@@ -131,6 +135,7 @@ elif [ -n "${SIGN_IDENTITY:-}" ] && [ "$SIGN_IDENTITY" != "-" ]; then
   exit 1
 else
   [ "$IDENTITY" != "-" ] && echo "'$IDENTITY' 서명 실패 → ad-hoc 으로 서명합니다 (다시 빌드하면 권한을 다시 줘야 합니다)"
+  codesign --force --sign - "$APP/Contents/MacOS/sillogctl"
   codesign --force --sign - "$APP"
   echo "서명: ad-hoc"
 fi
