@@ -67,6 +67,15 @@ jobs:
           rm "$RUNNER_TEMP/sign.p12"
           security find-identity -v -p codesigning "$keychain" | grep -q "Developer ID Application"
 
+      # The release build has its own folder, so without this it recompiles every dependency on each run.
+      - name: Restore app build cache
+        id: app-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/sillog-build
+          key: app-build-${{ runner.os }}-${{ hashFiles('Package.resolved', 'scripts/make-app.sh') }}
+          restore-keys: app-build-${{ runner.os }}-
+
       - name: Build app bundle
         env:
           SIGN_IDENTITY: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'Developer ID Application' || '-' }}
@@ -74,6 +83,14 @@ jobs:
           SILLOG_GOOGLE_API_KEY: ${{ secrets.SILLOG_GOOGLE_API_KEY }}
           SILLOG_BUILD_DIR: ${{ runner.temp }}/sillog-build
         run: ./scripts/make-app.sh
+
+      # Saved here because the smoke test moves the folder away; the built app was already moved out, so no secrets.
+      - name: Save app build cache
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/sillog-build
+          key: ${{ steps.app-cache.outputs.cache-primary-key }}
 
       # With the build folder gone, as on a user's Mac, a resource only this runner can see fails here instead of in the release.
       - name: Smoke test app bundle
