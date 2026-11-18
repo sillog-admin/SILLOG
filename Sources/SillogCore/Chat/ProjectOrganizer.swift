@@ -50,8 +50,7 @@ public struct ProjectOrganizer: Sendable {
         tokens = ", 토큰 \(answer.promptTokens)+\(answer.completionTokens)"
         try Task.checkCancellation()
         struct Reply: Decodable { var groups: [ProjectSuggestion] }
-        // The model often adds one-item, empty or context-only groups, reuses an item or puts an item id in target despite the prompt;
-        // rejecting the whole answer threw away the valid groups and resent the same items every time.
+        // Drop the model's bad groups only; rejecting the whole answer lost the valid ones and resent the same items every run.
         let known = Set(review.items.map(\.id)), targets = Set(review.destinations.map(\.id))
         var used: Set<String> = []
         let groups = try JSONDecoder().decode(Reply.self, from: answer.arguments).groups.compactMap { group -> ProjectSuggestion? in

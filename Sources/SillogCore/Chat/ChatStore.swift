@@ -80,6 +80,11 @@ public struct ChatSource: Codable, Identifiable, Equatable, Sendable {
     public init(id: String, title: String, location: String, excerpt: String) {
         self.id = id; self.title = title; self.location = location; self.excerpt = excerpt
     }
+    /// The excerpt without the paging footer, which only the model reads.
+    public var shownExcerpt: String {
+        excerpt.replacingOccurrences(of: #"(?m)^\[[^\n]*(characters in all|Next message position|다음 시작 위치|다음 메시지 위치)[^\n]*\]$\n?"#,
+                                     with: "", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
     /// The task node's key when this source is a task; ContextSearch titles nodes "<label> · <title>" and puts the key in location.
     public var taskKey: String? {
         id.hasPrefix("node:") && title.hasPrefix("\(NodeLabel.task) · ") && !location.isEmpty ? location : nil

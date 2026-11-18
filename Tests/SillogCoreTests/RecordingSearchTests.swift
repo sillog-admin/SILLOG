@@ -25,6 +25,8 @@ final class RecordingSearchTests: XCTestCase {
         let read = try XCTUnwrap(ContextSearch(db).read("recording:\(lecture.id!)").first)
         XCTAssertTrue(read.excerpt.contains("다음 시간에는 스택입니다."))
         XCTAssertTrue(read.excerpt.contains("characters in all · next start position"))
+        XCTAssertFalse(read.shownExcerpt.contains("next start position"), "the paging footer is for the model only")
+        XCTAssertTrue(read.shownExcerpt.hasSuffix("다음 시간에는 스택입니다."), read.shownExcerpt)
 
         // 업무를 프로젝트 전용으로 옮기면 프로젝트 밖에서는 찾지도 읽지도 못한다
         let projects = ProjectStore(db)

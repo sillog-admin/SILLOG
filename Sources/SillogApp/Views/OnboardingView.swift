@@ -6,8 +6,7 @@ import UserNotifications
 import SillogCollectors
 import SillogCore
 
-/// Full-window onboarding on an opaque light backdrop (#EFECE8). Steps: language, then login (AI connection, then judge model),
-/// then permissions (Figma 859:1862, 877:2403~2553, judge OUT-24~27).
+/// Full-window onboarding on an opaque backdrop: language, login, then permissions.
 struct OnboardingOverlay: View {
     let step: OnboardingStep
 

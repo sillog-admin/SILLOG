@@ -134,7 +134,7 @@ extension ContextSearch {
         }
     }
 
-    /// 사용 시간 근사: about 2h 40m, about 51m
+    /// Rounded usage time: about 2h 40m, about 51m
     static func approximate(_ seconds: Double) -> String {
         let minutes = Int((seconds / 60).rounded())
         guard minutes >= 60 else { return "about \(minutes)m" }

@@ -1652,6 +1652,7 @@
   "웹 페이지를 읽지 못했거나 크기가 너무 큽니다.": "Couldn't read the web page, or it's too large.",
   "%@ 커넥터를 설정에서 연결하세요.": "Connect %@ in Settings.",
   "Drive 파일 ID가 올바르지 않습니다.": "Invalid Drive file ID.",
+  "이 대화에서 고른 Drive 파일만 읽을 수 있어요. + 메뉴의 'Google Drive에서 선택'으로 추가해 주세요.": "Only Drive files picked in this chat can be read. Add the file with 'Choose from Google Drive' in the + menu.",
   "현재 문서·시트·슬라이드·PDF·텍스트 파일을 읽을 수 있습니다.": "Only Docs, Sheets, Slides, PDF and text files can be read.",
   "Drive 파일을 읽지 못했거나 크기가 너무 큽니다.": "Couldn't read the Drive file, or it's too large.",
   "PDF 텍스트를 추출하지 못했습니다.": "Couldn't extract text from the PDF.",

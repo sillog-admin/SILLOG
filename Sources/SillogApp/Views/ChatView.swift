@@ -1292,7 +1292,7 @@ struct ChatSourceSheet: View {
                     if !source.location.isEmpty {
                         Text(source.location).font(Brand.font(.caption)).foregroundStyle(Brand.gray).textSelection(.enabled)
                     }
-                    Text(source.excerpt).font(Brand.font(.body)).foregroundStyle(Brand.tabText).lineSpacing(6).textSelection(.enabled)
+                    Text(source.shownExcerpt).font(Brand.font(.body)).foregroundStyle(Brand.tabText).lineSpacing(6).textSelection(.enabled)
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 27).padding(.vertical, 24)
             }
         } footer: {

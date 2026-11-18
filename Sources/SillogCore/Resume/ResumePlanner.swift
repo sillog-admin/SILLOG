@@ -82,8 +82,7 @@ public enum ResumePlanner {
                     fileSeconds[path]!.lastAt = max(fileSeconds[path]!.lastAt, edge.lastAt)
                     if projectByFile[path] == nil { projectByFile[path] = try projectFolder(of: resource, tx: tx, home: home) }
                 } else if resource.key.hasPrefix("chat:") {
-                    // AI chat rows have no dwell; the folder the chat ran in is what to reopen.
-                    // A chat run from the home directory records file:~, which is no project to reopen.
+                    // AI chat rows have no dwell; reopen the folder the chat ran in, unless that is the home folder.
                     if let folder = try projectFolder(of: resource, tx: tx, home: home), folder != home {
                         chatFolders[folder] = max(chatFolders[folder] ?? 0, edge.lastAt)
                     }
@@ -145,8 +144,7 @@ public enum ResumePlanner {
         return expand(String(project.key.dropFirst("file:".count)), home: home)
     }
 
-    /// Turns on files and pages touched within recentWindow of the latest one, newest first, up to maxDefaultItems, plus the folders of those files.
-    /// Recent apps and folders are turned on only when no file or page is. Selected items come first, then newest.
+    /// Turns on the latest files, pages and their folders; recent apps and folders only when no file or page is on.
     static func markLastUsed(_ items: [ResumePlan.Item], options: Options) -> [ResumePlan.Item] {
         var items = items
         let latest = items.filter { $0.kind != .folder }.map(\.lastAt).max() ?? 0
