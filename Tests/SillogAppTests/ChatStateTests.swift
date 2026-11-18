@@ -1,3 +1,5 @@
+import Combine
+import SwiftUI
 import XCTest
 @testable import SillogApp
 @testable import SillogCore
@@ -238,6 +240,42 @@ final class ChatStateTests: XCTestCase {
         XCTAssertEqual(chat.draft, "home", "a tab round trip keeps the home input")
         chat.select(a); chat.newConversation()
         XCTAssertEqual(chat.draft, "home", "opening a chat and starting a new one keeps the home input")
+    }
+
+    func testTypingRedrawsOnlyTheComposer() throws {
+        let chat = try chatState()
+        var chatChanges = 0, draftChanges = 0
+        let watch = [chat.objectWillChange.sink { chatChanges += 1 }, chat.composerDraft.objectWillChange.sink { draftChanges += 1 }]
+        defer { watch.forEach { $0.cancel() } }
+        chat.draft = "a"; chat.draft = "ab"
+        XCTAssertEqual(chatChanges, 1, "the start screen redraws only when the draft stops being empty")
+        chat.messages = [ConversationMessage(conversationID: chat.current.id, role: "user", text: "q")]
+        chatChanges = 0
+        chat.draft = "abc"; chat.draft = ""
+        XCTAssertEqual(chatChanges, 0, "typing in a conversation leaves the messages and the chat list alone")
+        XCTAssertEqual(draftChanges, 4)
+    }
+
+    func testAStreamedAnswerLeavesTheChatListAlone() throws {
+        let chat = try chatState()
+        chat.conversations = [ChatConversation(), ChatConversation()]
+        chat.messages = [ConversationMessage(conversationID: chat.current.id, role: "assistant", text: "a")]
+        var pane = ChatPane.chat
+        func list() -> ChatSidebar {
+            ChatSidebar(chat: chat, projects: chat.projects, pane: Binding(get: { pane }, set: { pane = $0 }), isSearching: false,
+                        onSearch: {}, onSchedules: {}, onCollapse: {}, onRename: { _ in }, onDelete: { _ in })
+        }
+        let shown = list()
+        chat.messages[0].text += "b"
+        XCTAssertEqual(list(), shown)
+        chat.conversations[1].title = "renamed"
+        XCTAssertNotEqual(list(), shown)
+        let renamed = list()
+        chat.activeMessages["other"] = ConversationMessage(conversationID: "other", role: "assistant", text: "")
+        XCTAssertNotEqual(list(), renamed, "a chat that starts answering shows its spinner")
+        let busy = list()
+        pane = .results
+        XCTAssertNotEqual(list(), busy)
     }
 
     func testTheInputIsFocusedAfterSendingAndSwitching() async throws {

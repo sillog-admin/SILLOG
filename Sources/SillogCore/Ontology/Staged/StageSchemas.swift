@@ -34,18 +34,18 @@ public struct DescribeResult: Equatable, Sendable {
 
 /// 세 단계의 도구 정의
 public enum StageTool {
-    static let rowRange: JSONValue = .object(["type": "string", "description": "행 번호 \"7\" 또는 범위 \"5-12\""])
-    static let rowNumber: JSONValue = .object(["type": "integer", "description": "행 번호"])
+    static let rowRange: JSONValue = .object(["type": "string", "description": "Row number \"7\" or range \"5-12\""])
+    static let rowNumber: JSONValue = .object(["type": "integer", "description": "Row number"])
 
     public static var classify: ToolSpec {
         ToolSpec(name: "classify_rows", description: "For every activity row: work toward a goal, off-task, or no content.", parameters: .object([
             "type": "object",
-            "properties": .object(["rows": .object(["type": "array", "description": "모든 행을 빠짐없이. 연속 행이 같은 판정·같은 이유면 \"5-12\" 처럼 범위로", "items": .object([
+            "properties": .object(["rows": .object(["type": "array", "description": "Every row, none left out. When consecutive rows have the same kind and the same reason, use a range like \"5-12\"", "items": .object([
                 "type": "object",
                 "properties": .object([
                     "rows": rowRange,
                     "kind": .object(["type": "string", "enum": .array(["work", "off", "none"])]),
-                    "reason": .object(["type": "string", "description": .string("\(L10n.current.nameInKorean) 몇 단어: 업무면 무엇에 쓰였는지, 업무 외면 왜 어떤 목표에도 안 쓰이는지, 없음이면 '\(tr("내용 없음"))'")]),
+                    "reason": .object(["type": "string", "description": .string("A few \(L10n.current.promptName) words: for work, what it was used for; for off, why it serves no goal; for none, '\(tr("내용 없음"))'")]),
                 ]),
                 "required": .array(["rows", "kind", "reason"]),
             ])])]),
@@ -57,23 +57,23 @@ public enum StageTool {
         ToolSpec(name: "assign_tasks", description: "Assign every work row to the goal (task) it serves.", parameters: .object([
             "type": "object",
             "properties": .object([
-                "tasks": .object(["type": "array", "description": "이번 답에서 쓰는 업무들. rows 는 ref 로 가리킨다", "items": .object([
+                "tasks": .object(["type": "array", "description": "The tasks used in this answer. rows refer to them by ref", "items": .object([
                     "type": "object",
                     "properties": .object([
-                        "ref": .object(["type": "string", "description": "이 답 안에서만 쓰는 짧은 이름 (A, B, …). \"off\" 는 쓰지 않는다"]),
+                        "ref": .object(["type": "string", "description": "A short name used only within this answer (A, B, …). Do not use \"off\""]),
                         "match": .object(["type": "string", "enum": .array(["existing", "new"])]),
-                        "id": .object(["type": "string", "description": "match=existing 일 때 OPEN_TASKS 의 id"]),
-                        "title": .object(["type": "string", "description": .string("match=new 일 때: 과목·프로젝트와 목표를 담은 짧은 \(L10n.current.nameInKorean) 제목")]),
-                        "goal": .object(["type": "string", "description": .string("match=new 일 때 필수: 무엇을 위한 업무인지 \(L10n.current.nameInKorean) 한 문장 (회사·과목·프로젝트, 행사·마감 등 맥락 포함)")]),
+                        "id": .object(["type": "string", "description": "When match=existing: the id from OPEN_TASKS"]),
+                        "title": .object(["type": "string", "description": .string("When match=new: a short \(L10n.current.promptName) title naming the course/project and the goal")]),
+                        "goal": .object(["type": "string", "description": .string("Required when match=new: one \(L10n.current.promptName) sentence on what the task is for (with its context: company, course, project, event, deadline, etc.)")]),
                     ]),
                     "required": .array(["ref", "match"]),
                 ])]),
-                "rows": .object(["type": "array", "description": "받은 행을 빠짐없이", "items": .object([
+                "rows": .object(["type": "array", "description": "Every row you received, none left out", "items": .object([
                     "type": "object",
                     "properties": .object([
                         "rows": rowRange,
-                        "task": .object(["type": "string", "description": "tasks 의 ref, 또는 어느 목표에도 안 맞으면 \"off\""]),
-                        "reason": .object(["type": "string", "description": .string("이 행이 그 목표에 무엇으로 기여하는지 \(L10n.current.nameInKorean) 몇 단어")]),
+                        "task": .object(["type": "string", "description": "A ref from tasks, or \"off\" when the row fits no goal"]),
+                        "reason": .object(["type": "string", "description": .string("A few \(L10n.current.promptName) words on what this row contributes to that goal")]),
                     ]),
                     "required": .array(["rows", "task", "reason"]),
                 ])]),
@@ -86,30 +86,30 @@ public enum StageTool {
         ToolSpec(name: "describe_work", description: "Mark resources and describe the work done per task.", parameters: .object([
             "type": "object",
             "properties": .object([
-                "resources": .object(["type": "array", "description": "모든 행을 빠짐없이", "items": .object([
+                "resources": .object(["type": "array", "description": "Every row, none left out", "items": .object([
                     "type": "object",
                     "properties": .object(["rows": rowRange, "resource": .object(["type": "boolean"])]),
                     "required": .array(["rows", "resource"]),
                 ])]),
-                "work": .object(["type": "array", "description": "업무마다 하나", "items": .object([
+                "work": .object(["type": "array", "description": "One per task", "items": .object([
                     "type": "object",
                     "properties": .object([
-                        "task": .object(["type": "string", "description": "TASKS 의 ref"]),
-                        "summary": .object(["type": "string", "description": .string("이 행들에서 사용자가 한 일. 구체적인 대상(파일·문서 부분·페이지)과 행이 보여 주는 동사(작성·수정·제출은 근거가 보일 때만)로 쓴 \(L10n.current.nameInKorean) 한 문장, 100자 이내")]),
-                        "topics": .object(["type": "array", "items": .object(["type": "string"]), "description": .string("무엇에 관한 일인지 \(L10n.current.nameInKorean) 1~4개 (개념·기술·과목·문제 영역, 기술 이름은 원래 표기대로). 앱·사이트·플랫폼·프로젝트 이름과 채움말은 아님")]),
-                        "task_type": .object(["type": "string", "enum": .array(TBox.leafTaskTypes.map { .string($0) }), "description": "NEW 업무일 때 필수"]),
+                        "task": .object(["type": "string", "description": "A ref from TASKS"]),
+                        "summary": .object(["type": "string", "description": .string("What the user did in these rows. One \(L10n.current.promptName) sentence of at most 100 characters, written with the specific object (file, document section, page) and the verb the rows show (wrote, edited or submitted only when the evidence shows it)")]),
+                        "topics": .object(["type": "array", "items": .object(["type": "string"]), "description": .string("1-4 \(L10n.current.promptName) topics on what the work is about (concepts, technologies, course subjects, problem domains; technology names keep their original spelling). Not app, site, platform or project names, and no filler")]),
+                        "task_type": .object(["type": "string", "enum": .array(TBox.leafTaskTypes.map { .string($0) }), "description": "Required for a NEW task"]),
                     ]),
                     "required": .array(["task", "summary", "topics"]),
                 ])]),
                 "problems": .object(["type": "array", "items": .object([
                     "type": "object",
-                    "properties": .object(["row": rowNumber, "kind": .object(["type": "string", "description": "build, runtime, network, config 등"]),
-                                           "message": .object(["type": "string", "description": .string("무엇이 막혔는지 \(L10n.current.nameInKorean) 한 문장")]), "resolved_by_row": rowNumber]),
+                    "properties": .object(["row": rowNumber, "kind": .object(["type": "string", "description": "build, runtime, network, config, etc."]),
+                                           "message": .object(["type": "string", "description": .string("What failed or got stuck, in one \(L10n.current.promptName) sentence")]), "resolved_by_row": rowNumber]),
                     "required": .array(["row", "kind", "message"]),
                 ])]),
                 "later_items": .object(["type": "array", "items": .object([
                     "type": "object",
-                    "properties": .object(["row": rowNumber, "text": .object(["type": "string", "description": .string("처리하지 못한 요청이나 할 일, \(L10n.current.nameInKorean) 한 문장")])]),
+                    "properties": .object(["row": rowNumber, "text": .object(["type": "string", "description": .string("A request or todo that was not handled, one \(L10n.current.promptName) sentence")])]),
                     "required": .array(["row", "text"]),
                 ])]),
             ]),

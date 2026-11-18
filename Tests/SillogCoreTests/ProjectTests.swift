@@ -19,6 +19,12 @@ private actor ProjectTestClient: LLMClient {
     }
 }
 
+private func group(_ title: String, _ items: [String], target: String = "") -> String {
+    #"{"target":"\#(target)","title":"\#(title)","goal":"목표","reason":"근거","items":[\#(items.map { "\"\($0)\"" }.joined(separator: ","))]}"#
+}
+
+private func groups(_ list: [String]) -> String { #"{"groups":["# + list.joined(separator: ",") + "]}" }
+
 final class ProjectTests: XCTestCase {
     func testStoredDuplicateSuggestionsCombineItemsAndAcceptTogether() throws {
         let db = try SillogDatabase.inMemory(), store = ProjectStore(db)
@@ -252,6 +258,20 @@ final class ProjectTests: XCTestCase {
         XCTAssertFalse(results.contains { ["node:\(other)", "node:\(shared.1)", "observation:\(foreignObservation)", "chat:\(foreignChat)"].contains($0.id) })
     }
 
+    func testTaskItemSummaryUsesSessionSummariesOnly() throws {
+        let db = try SillogDatabase.inMemory(), store = ProjectStore(db), id = try task(db)
+        try db.writer.write { conn in
+            let tx = GraphTx(conn)
+            let session = try tx.upsertNode(label: "Session", key: "session", subtype: nil, title: "문서 작업",
+                                            props: ["start": .number(10), "end": .number(20), "active_seconds": .number(10), "work_end": .number(20),
+                                                    "summary": .string("목차 정리"), "summaries": .array([.string("초안 작성"), .string("목차 정리")])], at: 10)
+            _ = try tx.upsertEdge(src: session, dst: id, type: "PART_OF", props: [:], addWeight: 0, at: 10)
+        }
+        let summary = try XCTUnwrap(store.items().first(where: { $0.id == "task:\(id)" })?.summary)
+        XCTAssertTrue(summary.hasPrefix("초안 작성 / 목차 정리\n"))
+        XCTAssertFalse(summary.contains("active_seconds"))
+    }
+
     func testOrganizerReviewsEveryExistingItemOnceAndPreservesFailures() async throws {
         let db = try SillogDatabase.inMemory(), store = ProjectStore(db), client = ProjectTestClient()
         for _ in 0..<45 { _ = try task(db) }
@@ -269,6 +289,30 @@ final class ProjectTests: XCTestCase {
         do { _ = try await ProjectOrganizer.run(db: db, llm: ProjectTestClient(fail: true)); XCTFail("모델 실패가 전달돼야 함") }
         catch { XCTAssertEqual(error as? LLMError, .transport("offline")) }
         XCTAssertEqual(try store.review().newIDs.count, 1)
+    }
+
+    func testBadGroupsFromTheModelAreDroppedAndTheRestIsKept() async throws {
+        let db = try SillogDatabase.inMemory(), store = ProjectStore(db)
+        let ids = try (0..<6).map { _ in "task:\(try task(db))" }
+        let reply = groups([group("묶음", [ids[0], ids[1]]), group("하나", [ids[2]]), group("빈", []),
+                            group("겹침", [ids[1], ids[2], ids[3], "task:999999"]),
+                            group("잘못된 대상", [ids[4], ids[5]], target: ids[4])])
+        let reviewed = try await ProjectOrganizer.run(db: db, llm: ProjectTestClient(reply: reply))
+        XCTAssertEqual(reviewed, 6)
+        XCTAssertEqual(try store.proposals().map(\.title), ["묶음", "겹침", "잘못된 대상"])
+        XCTAssertEqual(try store.proposals().map { Set($0.items.map(\.id)) }, [Set(ids[0...1]), Set(ids[2...3]), Set(ids[4...5])])
+        XCTAssertEqual(try store.proposals().map(\.projectID), [nil, nil, nil], "an unknown target becomes a new project")
+        XCTAssertTrue(try store.review().newIDs.isEmpty, "dropped items are not sent again as new")
+    }
+
+    func testAGroupOfContextItemsOnlyIsDropped() async throws {
+        let db = try SillogDatabase.inMemory(), store = ProjectStore(db)
+        let seen = try (0..<2).map { _ in "task:\(try task(db))" }
+        _ = try await ProjectOrganizer.run(db: db, llm: ProjectTestClient())
+        let fresh = "task:\(try task(db))"
+        _ = try await ProjectOrganizer.run(db: db, llm: ProjectTestClient(reply: groups([group("예전 항목만", seen), group("새 항목 포함", [fresh, seen[0]])])))
+        XCTAssertEqual(try store.proposals().map(\.title), ["새 항목 포함"])
+        XCTAssertTrue(try store.review().newIDs.isEmpty)
     }
 
     func testCancellationDoesNotSaveProposalsOrReviewProgress() async throws {

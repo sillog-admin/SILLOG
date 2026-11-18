@@ -140,7 +140,7 @@ public enum EventCompressor {
             guard let id = recording.id, recording.hasTranscript else { return nil }
             let excerpt = makeSnippet(recording.transcript, limit: snippetChars * 2)
             var parts: [String] = []
-            if let summary = recording.summary, !summary.isEmpty { parts.append("요약: " + makeSnippet(summary, limit: 200)) }
+            if let summary = recording.summary, !summary.isEmpty { parts.append("summary: " + makeSnippet(summary, limit: 200)) }
             if !excerpt.isEmpty { parts.append("「\(excerpt)」") }
             let start = clamp(recording.startedAt)
             let end = max(clamp(recording.endedAt ?? recording.startedAt), start)

@@ -6,9 +6,8 @@ import UserNotifications
 import SillogCollectors
 import SillogCore
 
-/// 온보딩 화면 전체: 창 전체를 연한 바탕(#EFECE8)으로 덮고 내용을 가운데에 둔다. 뒤 화면은 비치지 않는다.
-/// 1단계(로그인)는 AI 연결 고르기 → ChatGPT 계정 / API 키, 연결되면 판단 모델 고르기 → Jev API / 건너뛰기,
-/// 2단계는 권한 허용 (Figma 859:1862, 877:2403~2553, 판단 모델은 OUT-24~27)
+/// Full-window onboarding on an opaque light backdrop (#EFECE8). Steps: language, then login (AI connection, then judge model),
+/// then permissions (Figma 859:1862, 877:2403~2553, judge OUT-24~27).
 struct OnboardingOverlay: View {
     let step: OnboardingStep
 
@@ -139,9 +138,10 @@ struct OnboardingSheet: View {
     }
 
     @ViewBuilder private var page: some View {
-        if step == .permissions {
-            permissionPage
-        } else {
+        switch step {
+        case .language: languagePage
+        case .permissions: permissionPage
+        case .login:
             switch method {
             case .choose: choosePage
             case .chatgpt: chatgptPage
@@ -178,6 +178,33 @@ struct OnboardingSheet: View {
     private func goJudge() {
         // 이미 마친 계정(phase .ready)이 다시 로그인한 경우는 예전처럼 시트를 닫는다. 판단 모델은 설정에서 바꾼다
         if state.phase == .ready { state.advanceOnboarding() } else if connected { go(.judge) }
+    }
+
+    // MARK: 0. Language
+
+    private var languagePage: some View {
+        VStack(spacing: 40) {
+            heading(tr("언어를 골라요"), tr("화면과 AI가 만드는 업무 이름·요약에 써요. 설정에서 언제든 바꿀 수 있어요."))
+            HStack(spacing: 20) {
+                // Each choice stays in its own language so either reader finds theirs.
+                languageTile(.ko, glyph: "가", name: "한국어", detail: "SILLOG을 한국어로 써요")
+                languageTile(.en, glyph: "A", name: "English", detail: "Use SILLOG in English")
+            }
+            .frame(maxWidth: 700)
+        }
+    }
+
+    private func languageTile(_ language: AppLanguage, glyph: String, name: String, detail: String) -> some View {
+        MethodTile(title: name, detail: detail, selected: state.settings.language == language) {
+            Text(verbatim: glyph).font(Brand.suit(56, .bold)).foregroundStyle(OB.brown).frame(width: 72, height: 72)
+        } action: { pickLanguage(language) }
+    }
+
+    /// Same path as the settings language picker: the window redraws in the new language, applySettings saves it.
+    private func pickLanguage(_ language: AppLanguage) {
+        guard state.settings.language != language else { return }
+        state.settings.language = language
+        state.applySettings()
     }
 
     // MARK: 1. AI 연결 고르기
@@ -405,9 +432,10 @@ struct OnboardingSheet: View {
         }
     }
 
-    /// 판단 모델을 저장하고 권한 단계로 ("none" 은 쓰지 않음)
+    /// Saves the picked judge, turns off-work collection on and moves to permissions; skip never calls this.
     private func finishJudge(_ provider: String) {
         state.settings.judgeProvider = provider
+        state.settings.collectOffWork = true
         state.applySettings()
         state.advanceOnboarding()
     }
@@ -562,6 +590,7 @@ struct OnboardingSheet: View {
     }
 
     private var backLabel: String? {
+        if step == .language { return nil }
         if step == .permissions || method == .judge { return tr("이전") }
         return method == .choose ? nil : tr("다른 방법 고르기")
     }
@@ -580,7 +609,9 @@ struct OnboardingSheet: View {
     }
 
     @ViewBuilder private var actions: some View {
-        if step == .permissions {
+        if step == .language {
+            Button(tr("다음")) { state.advanceOnboarding() }.buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
+        } else if step == .permissions {
             Button(tr("모두 허용")) { allowAll() }.buttonStyle(OBButtonStyle(kind: .secondary))
             Button(state.askedScreenRecording ? tr("다시 실행하고 시작") : tr("시작")) {
                 if state.askedScreenRecording { state.completeOnboardingAndRelaunch() } else { state.completeOnboarding() }
@@ -637,6 +668,7 @@ struct OnboardingSheet: View {
 private struct MethodTile<Icon: View>: View {
     let title: String
     let detail: String
+    var selected = false
     @ViewBuilder let icon: () -> Icon
     let action: () -> Void
     @State private var hover = false
@@ -650,10 +682,12 @@ private struct MethodTile<Icon: View>: View {
             }
             .frame(maxWidth: .infinity, minHeight: 300)
             .background(RoundedRectangle(cornerRadius: 26).fill(.white))
+            .overlay { if selected { RoundedRectangle(cornerRadius: 26).strokeBorder(OB.accent, lineWidth: 2) } }
             .shadow(color: OB.shadow.opacity(hover ? 1.6 : 1), radius: hover ? 18 : 12, y: hover ? 8 : 4)
             .contentShape(RoundedRectangle(cornerRadius: 26))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
     }
 }

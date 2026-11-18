@@ -206,17 +206,17 @@ extension ChatModelClient {
     /// Returns: 없음. 개인 자료를 전송하지 않고 도구 호출과 후속 본문 응답을 확인한다.
     /// Raises: 연결·도구 호출·빈 응답 오류. 자동 재시도하지 않는다.
     public func checkChatConnection() async throws {
-        let tool = ToolSpec(name: "connection_check", description: "연결 확인용 도구. 인자 없이 한 번 호출한다.", parameters: .object([
+        let tool = ToolSpec(name: "connection_check", description: "Tool for checking the connection. Call it once with no arguments.", parameters: .object([
             "type": "object", "properties": .object([:]), "additionalProperties": false,
         ]))
-        let system = "연결 검사입니다. connection_check를 한 번 호출하고, 결과를 받은 뒤 '연결 확인 완료'라고 답하세요."
-        var messages = [ChatModelMessage(role: "user", text: "연결을 확인해주세요.")]
+        let system = "This is a connection check. Call connection_check once, and after you receive the result, reply '연결 확인 완료'."
+        var messages = [ChatModelMessage(role: "user", text: "Please check the connection.")]
         let reply = try await respond(system: system, messages: messages, tools: [tool]) { _ in }
         guard !reply.calls.isEmpty, reply.calls.allSatisfy({ $0.name == tool.name }) else {
             throw LLMError.backend(tr("본문 연결은 되었지만 도구 호출을 확인하지 못했습니다. 도구 호출을 지원하는 채팅 모델을 선택하세요."))
         }
         messages.append(.init(role: "assistant", text: reply.text, calls: reply.calls, responseItems: reply.responseItems))
-        messages += reply.calls.map { .init(role: "tool", text: "확인 성공", callID: $0.id) }
+        messages += reply.calls.map { .init(role: "tool", text: "Check succeeded.", callID: $0.id) }
         let answer = try await respond(system: system, messages: messages, tools: [tool]) { _ in }
         guard answer.calls.isEmpty, !answer.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw LLMError.backend(tr("도구 호출 후 최종 답변을 확인하지 못했습니다."))

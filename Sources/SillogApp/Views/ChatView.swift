@@ -34,7 +34,6 @@ struct ChatView: View {
     @State private var expandedSteps: Set<String> = []     // 끝난 답변의 단계 목록: 기본 접힘
     @State private var collapsedSteps: Set<String> = []    // 실행 중 답변의 단계 목록: 기본 펼침(CH-15)
     @State private var editingMessageID: String?
-    @State private var editText = ""
     @State private var hoveredMessageID: String?
     @State private var expandedQuestions: Set<String> = []
     @State private var pendingResend: PendingResend?
@@ -53,7 +52,6 @@ struct ChatView: View {
     @State private var shownVersions: [String: Int] = [:]
     @FocusState private var focusedActions: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @FocusState private var editFocused: Bool
     @State private var artifactExpanded = false
 
     private struct PendingResend: Identifiable {
@@ -74,6 +72,7 @@ struct ChatView: View {
                             onCollapse: { sidebarVisible = false },
                             onRename: { item in editingConversation = item; conversationName = ChatConversation.display(item.title); showRename = true },
                             onDelete: { item in deletingConversation = item; showDelete = true })
+                    .equatable()
                     .frame(width: ChatPalette.sidebarWidth)
                 Rectangle().fill(Brand.line).frame(width: 1)
             }
@@ -211,7 +210,7 @@ struct ChatView: View {
                 if let project = chat.projects.projects.first(where: { $0.id == id }) {
                     ProjectOverview(projects: chat.projects, chat: chat, project: project,
                                     onConversation: { chat.select($0); pane = .chat },
-                                    composer: ChatComposer(chat: chat, library: library, voice: $voice, speaker: speaker, modelName: modelName, openSettings: openSettings,
+                                    composer: ChatComposer(chat: chat, library: library, typed: chat.composerDraft, voice: $voice, speaker: speaker, modelName: modelName, openSettings: openSettings,
                                                            pendingRecords: pendingRecords, tidyNow: tidyNow,
                                                            onOpenConnectors: { state.selectedTab = .connectors },
                                                            onSent: { pane = .chat }, showsNotice: false))
@@ -290,10 +289,10 @@ struct ChatView: View {
     }
 
     private var composer: some View {
-        ChatComposer(chat: chat, library: library, voice: $voice, speaker: speaker, modelName: modelName, openSettings: openSettings,
+        ChatComposer(chat: chat, library: library, typed: chat.composerDraft, voice: $voice, speaker: speaker, modelName: modelName, openSettings: openSettings,
                      pendingRecords: pendingRecords, tidyNow: tidyNow, onOpenConnectors: { state.selectedTab = .connectors },
                      onEditLast: {
-                         if !chat.currentRunning, let last = chat.messages.last(where: { $0.role == "user" }) { editText = last.text; editingMessageID = last.id }
+                         if !chat.currentRunning, let last = chat.messages.last(where: { $0.role == "user" }) { editingMessageID = last.id }
                      })
             .frame(maxWidth: ChatPalette.readingWidth).frame(maxWidth: .infinity)     // 대화 본문과 같은 폭
             .padding(.horizontal, 32).padding(.top, 8).padding(.bottom, 14)
@@ -319,7 +318,7 @@ struct ChatView: View {
                     Text(Self.temporaryNotice).font(Brand.font(.body)).foregroundStyle(Brand.tabText)
                         .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.top, 8)
                 }
-                ChatComposer(chat: chat, library: library, voice: $voice, speaker: speaker, modelName: modelName, openSettings: openSettings,
+                ChatComposer(chat: chat, library: library, typed: chat.composerDraft, voice: $voice, speaker: speaker, modelName: modelName, openSettings: openSettings,
                              pendingRecords: pendingRecords, tidyNow: tidyNow, onOpenConnectors: { state.selectedTab = .connectors },
                              showsNotice: false)
                     .background(alignment: .topTrailing) {             // Figma 1591:18788: 입력칸 오른쪽 위에 올라앉은 심볼
@@ -655,23 +654,9 @@ struct ChatView: View {
     /// Raises: 없음.
     @ViewBuilder private func messageView(_ message: ConversationMessage) -> some View {
         if message.role == "user", editingMessageID == message.id {
-            VStack(alignment: .trailing, spacing: 8) {
-                TextEditor(text: $editText)
-                    .font(Brand.font(.sectionTitle, .regular)).foregroundStyle(Brand.text).scrollContentBackground(.hidden)
-                    .focused($editFocused).onAppear { editFocused = true }
-                    .frame(minHeight: 60, maxHeight: 240).fixedSize(horizontal: false, vertical: true)
-                    .padding(10)
-                    .background(.white, in: RoundedRectangle(cornerRadius: 16))
-                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Brand.line))
-                HStack(spacing: 8) {
-                    Button(tr("취소")) { editingMessageID = nil; chat.inputFocusRequest += 1 }.keyboardShortcut(.cancelAction)
-                    Button(tr("보내기")) { requestResend(message, text: editText) }
-                        .keyboardShortcut(.return, modifiers: .command).help(tr("보내기 (⌘↩)"))
-                        .buttonStyle(BrandButtonStyle())
-                        .disabled(chat.currentRunning || editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }.font(Brand.font(.caption))
-            }
-            .frame(maxWidth: ChatPalette.bubbleWidth).frame(maxWidth: .infinity, alignment: .trailing)
+            QuestionEditor(text: message.text, running: chat.currentRunning,
+                           onCancel: { editingMessageID = nil; chat.inputFocusRequest += 1 },
+                           onSend: { requestResend(message, text: $0) })
         } else if message.role == "user" {
             // 내 질문: 오른쪽 말풍선 (이름표 없이). 올리면 복사·편집
             let expanded = expandedQuestions.contains(message.id)
@@ -698,7 +683,7 @@ struct ChatView: View {
                         .opacity(showsActions ? 1 : 0)
                     ChatIconButton(systemName: copiedID == message.id ? "checkmark" : "doc.on.doc", help: tr("질문 복사"), color: Brand.gray) { copy(message.text, id: message.id) }
                         .opacity(showsActions ? 1 : 0)
-                    ChatIconButton(systemName: "pencil", help: tr("질문 편집"), color: Brand.gray) { editText = message.text; editingMessageID = message.id }
+                    ChatIconButton(systemName: "pencil", help: tr("질문 편집"), color: Brand.gray) { editingMessageID = message.id }
                         .disabled(chat.currentRunning)
                         .opacity(showsActions ? 1 : 0)
                 }
@@ -1086,6 +1071,39 @@ enum ChatPalette {
     static let rowHover = Color(hex: 0xF3EFEA)      // 검색 결과, 메뉴 줄 고름과 마우스 올림
     static let panelLine = Color(hex: 0xE6E1DB)     // 검색 창 테두리
     static let field = Color(hex: 0xF5F2EE)         // 한 줄 입력칸 바탕 (둥글기 8, 테두리 없음)
+}
+
+/// Holds its own text so a keystroke while editing a question redraws only this box, not the conversation.
+private struct QuestionEditor: View {
+    let running: Bool
+    let onCancel: () -> Void
+    let onSend: (String) -> Void
+    @State private var text: String
+    @FocusState private var focused: Bool
+
+    init(text: String, running: Bool, onCancel: @escaping () -> Void, onSend: @escaping (String) -> Void) {
+        _text = State(initialValue: text); self.running = running; self.onCancel = onCancel; self.onSend = onSend
+    }
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 8) {
+            TextEditor(text: $text)
+                .font(Brand.font(.sectionTitle, .regular)).foregroundStyle(Brand.text).scrollContentBackground(.hidden)
+                .focused($focused).onAppear { focused = true }
+                .frame(minHeight: 60, maxHeight: 240).fixedSize(horizontal: false, vertical: true)
+                .padding(10)
+                .background(.white, in: RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Brand.line))
+            HStack(spacing: 8) {
+                Button(tr("취소"), action: onCancel).keyboardShortcut(.cancelAction)
+                Button(tr("보내기")) { onSend(text) }
+                    .keyboardShortcut(.return, modifiers: .command).help(tr("보내기 (⌘↩)"))
+                    .buttonStyle(BrandButtonStyle())
+                    .disabled(running || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }.font(Brand.font(.caption))
+        }
+        .frame(maxWidth: ChatPalette.bubbleWidth).frame(maxWidth: .infinity, alignment: .trailing)
+    }
 }
 
 /// 작은 상태 태그: 일부, 예정, 일시 중지됨

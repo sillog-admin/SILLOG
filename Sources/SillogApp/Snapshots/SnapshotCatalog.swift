@@ -68,6 +68,7 @@ enum SnapshotCatalog {
 
     static var windows: [Snapshot] {
         [
+            shot("OUT-00", MainWindow(), size: window) { s in loginStep(s); s.onboardingStep = .language },
             shot("OUT-01", MainWindow(), size: window) { s in loginStep(s) },
             shot("OUT-02", MainWindow(), size: window) { s in loginStep(s); s.deviceCode = sampleCode },
             shot("OUT-02-signed-in", MainWindow(), size: window) { s in

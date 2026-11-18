@@ -1,11 +1,11 @@
 import CoreGraphics
 import Foundation
 
-/// 온보딩 시트의 단계 (Figma OUT-01~05)
+/// Onboarding sheet steps, in order (Figma OUT-00~05).
 public enum OnboardingStep: Equatable, Sendable {
-    /// 01 로그인
+    /// Asked before anything else on first launch, so the rest reads in the chosen language.
+    case language
     case login
-    /// 02 권한
     case permissions
 }
 
@@ -24,23 +24,32 @@ public struct PermissionGrants: Equatable, Sendable {
 
 /// 온보딩 시트를 언제, 어느 단계로 보여 줄지. 로그인이 끝나도 사용자가 "로그인 완료, 다음" 을 누를 때까지 1단계에 머문다.
 public enum OnboardingFlow {
-    /// 앱 단계(phase)가 정해지거나 바뀐 뒤 보여 줄 단계. nil 이면 시트가 없다
-    public static func step(after current: OnboardingStep?, phase: AppPhase) -> OnboardingStep? {
+    /// Args: current is the step on screen, phase the app phase just decided, askLanguage whether onboarding is unfinished and no language was chosen yet.
+    /// Returns: the step to show next, or nil for no sheet.
+    /// Raises: none.
+    public static func step(after current: OnboardingStep?, phase: AppPhase, askLanguage: Bool) -> OnboardingStep? {
         switch phase {
-        case .login: return .login                             // 로그아웃하면 언제든 1단계부터
-        case .permissions: return current ?? .permissions     // 방금 로그인했으면 1단계에 머물고, 다시 실행했으면 2단계
-        case .ready: return current == .login ? .login : nil  // 마친 계정이 다시 로그인했으면 성공을 보여 준 뒤 닫는다
+        case .login:                                           // a logout always goes back to login, past the language step
+            return current == .language || (current == nil && askLanguage) ? .language : .login
+        case .permissions:                                     // a fresh login stays on login; a relaunch opens permissions, or language if unasked
+            return current ?? (askLanguage ? .language : .permissions)
+        case .ready: return current == .login ? .login : nil  // a finished account that logs in again sees success, then the sheet closes
         }
     }
 
-    /// "로그인 완료, 다음" 을 누를 수 있는가
+    /// Args: step is the step on screen, phase the app phase.
+    /// Returns: whether its Next button works: always on the language step, on login only once connected.
+    /// Raises: none.
     public static func canAdvance(from step: OnboardingStep, phase: AppPhase) -> Bool {
-        step == .login && phase != .login
+        step == .language || (step == .login && phase != .login)
     }
 
-    /// "로그인 완료, 다음": 권한 단계가 남았으면 2단계, 이미 마친 계정이면 닫는다
+    /// Args: step is the step on screen, phase the app phase.
+    /// Returns: the step after Next: login if not connected yet, then permissions if left, else nil to close.
+    /// Raises: none.
     public static func advance(from step: OnboardingStep, phase: AppPhase) -> OnboardingStep? {
         guard canAdvance(from: step, phase: phase) else { return step }
+        if phase == .login { return .login }
         return phase == .permissions ? .permissions : nil
     }
 

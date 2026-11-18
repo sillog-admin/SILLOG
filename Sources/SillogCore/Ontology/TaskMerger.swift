@@ -48,14 +48,14 @@ public struct TaskMerger: Sendable {
                 "groups": .object(["type": "array", "items": .object([
                     "type": "object",
                     "properties": .object([
-                        "keep": .object(["type": "string", "description": "남길 업무 id"]),
-                        "merge": .object(["type": "array", "items": .object(["type": "string"]), "description": "keep 에 합칠 업무 id 들 (이름만 고칠 때는 빈 목록)"]),
-                        "title": .object(["type": "string", "description": .string("남길 업무의 제목이 모호할 때만, 더 나은 \(L10n.current.nameInKorean) 제목")]),
-                        "goal": .object(["type": "string", "description": .string("남길 업무의 목표 문장이 모호할 때만, 더 나은 \(L10n.current.nameInKorean) 한 문장")]),
+                        "keep": .object(["type": "string", "description": "The id of the task to keep"]),
+                        "merge": .object(["type": "array", "items": .object(["type": "string"]), "description": "Task ids to fold into keep (an empty list when only fixing the name)"]),
+                        "title": .object(["type": "string", "description": .string("Only when the kept task's title is vague: a better \(L10n.current.promptName) title")]),
+                        "goal": .object(["type": "string", "description": .string("Only when the kept task's goal sentence is vague: a better one, in one \(L10n.current.promptName) sentence")]),
                     ]),
                     "required": .array(["keep", "merge"]),
                 ])]),
-                "not_goals": .object(["type": "array", "items": .object(["type": "string"]), "description": "목표가 아닌 업무 id 들 (목적 불명·분류 이름뿐, 오락·취미·목적 없는 탐색)"]),
+                "not_goals": .object(["type": "array", "items": .object(["type": "string"]), "description": "Ids of tasks that are not goals (purpose unknown or only a category name; entertainment, hobbies, aimless browsing)"]),
             ]),
             "required": .array(["groups", "not_goals"]),
         ]))

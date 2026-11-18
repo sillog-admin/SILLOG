@@ -116,6 +116,8 @@ final class AppState: ObservableObject {
     @Published var recordingWork: RecordingPipeline.Step?
     @Published var recordingProblem: RecordingProblem?
     @Published var recordings: [Recording] = []
+    @Published var availableUpdate: UpdateCheck.Update?
+    @Published var updating = false
 
     let databasePath = SillogDatabase.defaultPath()
     private(set) var db: SillogDatabase?
@@ -149,6 +151,7 @@ final class AppState: ObservableObject {
     private(set) var isPreview = false
     private let instanceLock = InstanceLock(databasePath: SillogDatabase.defaultPath())
     private static let onboardingKey = "sillog.onboardingCompleted"
+    private static let languageChosenKey = "sillog.languageChosen"
     /// Figma OUT-W3 문구
     static var alreadyRunningMessage: String { tr("SILLOG이 이미 실행 중이에요. 메뉴 막대의 아이콘을 확인해 주세요.") }
 
@@ -179,7 +182,7 @@ final class AppState: ObservableObject {
             self.coordinator = coordinator
             FrameMonitor.shared.screen = { [weak self] in self?.screenName ?? "" }   // 개발용 프레임 측정 로그의 화면 이름
             self.chat = ChatState(db: database, makeClient: { [unowned self] in self.makeChatClient() },
-                                  makeProjectClient: { [unowned self] in self.makeClient() })
+                                  makeProjectClient: { [unowned self] in self.makeQuickClient() })
             self.chat?.userInstructions = { [unowned self] in self.settings.chatInstructions }
             // 숨은 설정: defaults write com.sillog.app batchPipeline single (없으면 기본값인 3단계),
             // themes -bool true (없으면 분야 붙이기는 꺼짐), calendar -bool true (없으면 일정 찾기는 꺼짐, AppFeatures)
@@ -244,10 +247,11 @@ final class AppState: ObservableObject {
 
     private func updatePhase() {
         let previous = phase
-        // OpenAI 호환 서버(API 키)로 연결했으면 ChatGPT 로그인이 없어도 연결된 것으로 본다
-        phase = AppPhase.decide(loggedIn: codexStatus != .loggedOut || settings.llmUsesAPI,
-                                onboardingCompleted: UserDefaults.standard.bool(forKey: Self.onboardingKey))
-        onboardingStep = OnboardingFlow.step(after: onboardingStep, phase: phase)
+        let completed = UserDefaults.standard.bool(forKey: Self.onboardingKey)
+        // An API server key counts as connected without a ChatGPT login.
+        phase = AppPhase.decide(loggedIn: codexStatus != .loggedOut || settings.llmUsesAPI, onboardingCompleted: completed)
+        onboardingStep = OnboardingFlow.step(after: onboardingStep, phase: phase,
+                                             askLanguage: !completed && !UserDefaults.standard.bool(forKey: Self.languageChosenKey))
         if previous != phase || !bootstrapLogged {
             bootstrapLogged = true
             AppLog.write("단계: \(phase) (손쉬운 사용 \(Permissions.accessibility(prompt: false) ? tr("허용") : tr("없음")), 화면 기록 \(Permissions.screenRecording() ? tr("허용") : tr("없음")))")
@@ -277,9 +281,13 @@ final class AppState: ObservableObject {
         updatePhase()
     }
 
-    /// 온보딩 1단계의 "로그인 완료, 다음"
+    /// Next on the onboarding sheet: language, then login, then permissions.
     func advanceOnboarding() {
         guard let step = onboardingStep else { return }
+        if step == .language, !isPreview {
+            UserDefaults.standard.set(true, forKey: Self.languageChosenKey)
+            settings.save()                                 // the shown language may be the unsaved system default
+        }
         onboardingStep = OnboardingFlow.advance(from: step, phase: phase)
     }
 
@@ -313,10 +321,9 @@ final class AppState: ObservableObject {
         Task { await coordinator?.stop() }
     }
 
-    /// 화면 기록 권한은 허용한 뒤 앱을 다시 켜야 적용된다.
+    /// Screen recording permission and updates only apply after a restart.
     func relaunch() {
-        // 새 실행이 잠금을 먼저 잡으려 하므로 미리 놓는다. 놓지 않으면 새 실행이 '이미 실행 중'(W3)으로 막힌다.
-        // 다시 실행은 온보딩(수집기가 돌기 전)에서만 쓴다
+        // Release the lock first or the new instance stops as already running (W3); quitting with collectors on is the same path as the menu's Quit.
         instanceLock.release()
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.createsNewApplicationInstance = true
@@ -354,6 +361,12 @@ final class AppState: ObservableObject {
                 await self?.reviewIfDue()                  // 하루 한 번 정리 제안 (오늘 아직 안 만들었으면)
             }
         })
+        tasks.append(Task { [weak self] in                 // update check at launch, then every 6 hours
+            while !Task.isCancelled {
+                await self?.checkForUpdate()
+                try? await Task.sleep(nanoseconds: 21_600_000_000_000)
+            }
+        })
         tasks.append(Task { [weak self] in                 // 녹음: 꺼지기 전에 못 끝낸 것을 이어서 정리하고, 7일 지난 녹음 파일을 지운다 (켤 때와 하루 한 번)
             await self?.resumeRecordings()
             while !Task.isCancelled {
@@ -361,6 +374,28 @@ final class AppState: ObservableObject {
                 try? await Task.sleep(nanoseconds: 86_400_000_000_000)
             }
         })
+    }
+
+    private func checkForUpdate() async {
+        // shortcut: local builds stamp CFBundleVersion 1 and never see updates; upgrade if dev builds need to test this.
+        guard let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String, let current = Int(build), current > 1 else { return }
+        if let update = await UpdateCheck.latest(currentBuild: current), update != availableUpdate { availableUpdate = update }
+    }
+
+    /// Installs the newer release in place and restarts; falls back to the browser download if that fails.
+    func installUpdate() {
+        guard let update = availableUpdate, !updating else { return }
+        updating = true
+        Task {
+            do {
+                try await UpdateInstaller.install(dmg: update.url)
+                relaunch()
+            } catch {
+                AppLog.write("업데이트 설치 실패: \(error)")
+                NSWorkspace.shared.open(update.url)
+                updating = false
+            }
+        }
     }
 
     private func makeOpenAIClient() -> OpenAICompatClient {
@@ -383,8 +418,9 @@ final class AppState: ObservableObject {
         settings.llmUsesAPI ? makeOpenAIClient() : CodexResponsesClient(auth: codexAuth, model: settings.codexModel, reasoningEffort: "medium")
     }
 
-    private func makeJudge() -> ActivityJudging {
+    private func makeJudge() -> ActivityJudging? {
         let s = settings
+        guard s.collectOffWork else { return nil }
         switch s.judgeChoice {
         case .jev:
             guard let endpoint = s.judgeEndpoint else { return .unavailable(tr("판단 모델 Jev의 API 키를 설정해 주세요.")) }
@@ -404,7 +440,7 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// 파일 정리 제안용: 알림이 바로 떠야 하므로 low
+    /// Low effort: folder suggestions, recording titles and project suggestions are waited on by the user.
     private func makeQuickClient() -> any LLMClient {
         settings.llmUsesAPI ? makeOpenAIClient() : CodexResponsesClient(auth: codexAuth, model: settings.codexModel, reasoningEffort: "low")
     }
@@ -486,9 +522,9 @@ final class AppState: ObservableObject {
         codexUsage = try? await CodexResponsesClient.fetchUsage(auth: codexAuth)
     }
 
-    /// 선택한 ChatGPT 연결만 확인한다. 취소된 검사 결과는 새 로그인·검사에 적용하지 않는다.
+    /// Checks only the ChatGPT models in use; a cancelled check never overwrites a newer login or check.
     func loadCodexModels(force: Bool = false) async {
-        let usesCodexJudge = settings.judgeChoice == .codex
+        let usesCodexJudge = settings.collectOffWork && settings.judgeChoice == .codex
         let checkBatch = (settings.llmProvider == "codex" || usesCodexJudge) && (force || codexModels.isEmpty)
         let checkChat = settings.effectiveChatProvider == "codex" && (force || chatCodexModels.isEmpty)
         guard codexStatus != .loggedOut, !codexModelsLoading, checkBatch || checkChat else { return }

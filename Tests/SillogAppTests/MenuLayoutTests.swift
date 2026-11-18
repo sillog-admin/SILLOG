@@ -226,6 +226,13 @@ final class MenuLayoutTests: XCTestCase {
         XCTAssertFalse(ai.contains("정리모델과같음"), "채팅 모델도 연결과 모델을 따로 고른다: \(ai)")
     }
 
+    func testTurningOffWorkCollectionOffHidesTheJudgeModel() throws {
+        try XCTSkipIf(ProcessInfo.processInfo.environment["CI"] != nil, "OCR differs on CI")
+        let ai = longText(of: SettingsView(), height: 2400) { s in s.settingsSection = .ai; s.settings.judgeChoice = .jev; s.settings.collectOffWork = false }
+        XCTAssertTrue(ai.contains("정리모델"), ai)
+        XCTAssertFalse(ai.contains("판단모델") || ai.contains("Jev"), "the judge row and its Jev connection go away: \(ai)")
+    }
+
     func testAIConnectionTabEndsWithTheMCPAppsSection() throws {
         try XCTSkipIf(ProcessInfo.processInfo.environment["CI"] != nil, "OCR differs on CI")
         let ai = longText(of: SettingsView(), height: 2400) { s in s.settingsSection = .ai }

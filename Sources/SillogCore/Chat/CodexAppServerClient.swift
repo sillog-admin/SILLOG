@@ -62,7 +62,7 @@ public struct CodexAppServerClient: Sendable {
             let thread = try await connection.request("thread/start", [
                 "model": .string(model), "cwd": .string(connection.directory.path), "ephemeral": true,
                 "approvalPolicy": "never", "sandbox": "read-only", "environments": .array([]),
-                "baseInstructions": .string(system + "\n코드·파일은 제공된 읽기 도구만 사용한다. 웹 출처는 답변에 Markdown 링크로 표시한다. 추가 정보가 필요하면 답변에서 사용자에게 질문한다."),
+                "baseInstructions": .string(system + "\nFor code and files, use only the provided read tools. Show web sources in the answer as Markdown links. If you need more information, ask the user in your answer."),
                 "config": .object(["web_search": .string(useWeb ? "live" : "disabled")]),
                 "dynamicTools": .array(tools.map { .object(["type": "function", "name": .string($0.name), "description": .string($0.description), "inputSchema": $0.parameters]) }),
             ])

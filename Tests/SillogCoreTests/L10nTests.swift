@@ -28,20 +28,20 @@ final class L10nTests: XCTestCase {
         XCTAssertFalse(AppLanguage.en.fitsScript("온보딩 개편"))
     }
 
-    /// Tool schemas are written in Korean; they must still ask for text in the app language.
+    /// Tool schemas are written in English; they must still ask for text in the app language.
     func testGeneratedTextIsAskedForInTheAppLanguage() throws {
         func schemas() throws -> [(name: String, text: String)] {
             try [StageTool.classify, StageTool.assign, StageTool.describe, AssignmentSchema.tool,
                  TaskMerger.tool, ThemeStep.tool, DigestPrompt.tool, EventFinder.tool]
                 .map { ($0.name, String(decoding: try JSONEncoder().encode($0.parameters), as: UTF8.self)) }
         }
-        for schema in try schemas() { XCTAssertTrue(schema.text.contains("한국어"), schema.name) }
+        for schema in try schemas() { XCTAssertTrue(schema.text.contains("Korean"), schema.name) }
         XCTAssertFalse(StagePrompt.describeSystem.contains("examples below are Korean"))
 
         L10n.current = .en
         for schema in try schemas() {
-            XCTAssertFalse(schema.text.contains("한국어"), schema.name)
-            XCTAssertTrue(schema.text.contains("영어"), schema.name)
+            XCTAssertFalse(schema.text.contains("Korean"), schema.name)
+            XCTAssertTrue(schema.text.contains("English"), schema.name)
         }
         XCTAssertTrue(StagePrompt.describeSystem.contains("write the summary in English"))
     }
@@ -68,11 +68,11 @@ final class L10nTests: XCTestCase {
         let rule = "Write every text you produce (titles, goals, reasons, summaries, topics, problems, later items) in English"
 
         for prompt in prompts() { XCTAssertFalse(prompt.contains("Write every text you produce"), "Korean prompts stay as they were") }
-        for description in try fieldDescriptions() { XCTAssertTrue(description.contains("한국어"), description) }
+        for description in try fieldDescriptions() { XCTAssertTrue(description.contains("Korean"), description) }
 
         L10n.current = .en
         for prompt in prompts() { XCTAssertTrue(prompt.contains(rule)) }
-        for description in try fieldDescriptions() { XCTAssertTrue(description.contains("영어"), description) }
+        for description in try fieldDescriptions() { XCTAssertTrue(description.contains("English"), description) }
     }
 
     /// Screens translate these stored Korean names with `L10n.tr(key:)`.

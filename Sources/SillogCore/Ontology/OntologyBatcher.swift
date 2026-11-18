@@ -70,7 +70,10 @@ public actor OntologyBatcher {
 
     public func setUpcomingEvents(_ provider: (@Sendable (Date, Date) async -> [EventFinder.Known])?) { upcomingEvents = provider }
 
-    public func setModels(organizer: any LLMClient, judge: ActivityJudging) {
+    /// Args: organizer is the organize model; judge picks a task per row, or nil to send rows to the organizer-only pipeline.
+    /// Returns: nothing; also clears the failure backoff.
+    /// Raises: none.
+    public func setModels(organizer: any LLMClient, judge: ActivityJudging?) {
         llm = organizer
         activityJudge = judge
         failures = 0; nextAllowedAt = 0
@@ -140,7 +143,7 @@ public actor OntologyBatcher {
                 let organized = try await StagedPipeline.organizeDecisions(accepted, llm: organizer)
                 judgment = Judgment(patch: StagedPipeline.patch(from: organized), calls: organized.calls, failure: nil, fallbackModel: model)
             } else {
-                // 명시적으로 단일 모델을 사용하는 기존 CLI와 평가 경로.
+                // No judge: the CLI, evals, and the app with off-work collection turned off.
                 if config.screenCards, let vision = organizer as? any VisionLLMClient {
                     cards = await makeCards(rows: rows, window: window, llm: vision, now: now)
                 }

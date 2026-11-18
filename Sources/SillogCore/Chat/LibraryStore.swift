@@ -297,7 +297,7 @@ public struct LibraryStore: Sendable {
             let text: String = row["text"], offset = max(1, start)
             let page = String(text.dropFirst(offset - 1).prefix(18000))
             return .init(id: "library:\(id):\(offset)", title: item.title, location: url(for: item).path,
-                         excerpt: page + "\n\n[전체 \(text.count)자 · \(offset)부터 · 다음 시작 위치 \(offset + page.count)]\n\(item.extractionNote)")
+                         excerpt: page + "\n\n[\(text.count) characters in all · from \(offset) · next start position \(offset + page.count)]\n\(item.extractionNote)")
         }
     }
 }

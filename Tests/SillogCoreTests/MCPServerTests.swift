@@ -114,7 +114,7 @@ final class MCPServerTests: XCTestCase {
         let text = try await callText(MCPServer(db: db), "list_items", ["type": "session"])
         XCTAssertTrue(text.contains("\"s_\(MCPServer.maxItems)\""), "the newest is kept")
         XCTAssertFalse(text.contains("\"s_0\""), "the oldest is the one left out")
-        XCTAssertTrue(text.hasSuffix("보세요.]"))
+        XCTAssertTrue(text.hasSuffix("to an earlier date.]"))
         let bad = try await result(MCPServer(db: db), "tools/call", ["name": "list_items", "arguments": .object(["type": "note"])])
         XCTAssertTrue(bad["content"]?.arrayValue?.first?.objectValue?["text"]?.stringValue?.contains("task, session, problem, todo") ?? false)
     }

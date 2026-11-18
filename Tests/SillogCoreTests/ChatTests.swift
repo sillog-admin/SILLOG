@@ -379,7 +379,7 @@ final class ChatTests: XCTestCase {
         let systems = await model.systems
         let main = try XCTUnwrap(systems.first), sub = try XCTUnwrap(systems.first { $0.contains("agent_role: context") })
         XCTAssertTrue(main.hasPrefix("You are the chat assistant inside SILLOG"))
-        XCTAssertTrue(main.contains("<skill_instructions>\n## 문서 작성\n# Writing\n\n## Purpose"))
+        XCTAssertTrue(main.contains("<skill_instructions>\n## Writing\n# Writing\n\n## Purpose"))
         XCTAssertTrue(main.contains("chat_model: scripted\nrun_mode: interactive\nagent_role: main\nraw_records_since: all"))
         XCTAssertFalse(main.contains("{{"))
         XCTAssertFalse(sub.contains("<skill_instructions>\n"))
@@ -410,11 +410,11 @@ final class ChatTests: XCTestCase {
         }
         let prompts = await model.prompts
         XCTAssertFalse(prompts[0].contains("\n<skill_instructions>\n"))
-        XCTAssertTrue(prompts[1].contains("## 문서 작성"))
-        XCTAssertFalse(prompts[1].contains("## 리서치"))
-        XCTAssertTrue(prompts[2].contains("## 리서치"))
+        XCTAssertTrue(prompts[1].contains("## Writing"))
+        XCTAssertFalse(prompts[1].contains("## Research"))
+        XCTAssertTrue(prompts[2].contains("## Research"))
         XCTAssertTrue(prompts[2].contains("검토 결과를 세 줄로 쓰세요."))
-        XCTAssertFalse(prompts[2].contains("## 문서 작성"))
+        XCTAssertFalse(prompts[2].contains("## Writing"))
     }
 
     func testSkillEditsAndDeletionsPersistForBundledAndCustomSkills() async throws {
@@ -536,7 +536,7 @@ final class ChatTests: XCTestCase {
         let events = await emitted.items
         XCTAssertEqual(events, result.artifacts)
         let replies = await model.replies
-        XCTAssertTrue(replies[2].contains("도구 실행 실패"), replies[2])
+        XCTAssertTrue(replies[2].contains("Tool call failed"), replies[2])
         let sent = await model.firstRequest
         XCTAssertTrue(sent.contains("<previous_artifact id=\"\(id)\" format=\"markdown\""), sent)
 

@@ -23,7 +23,7 @@ final class RecordingBatchTests: XCTestCase {
         XCTAssertEqual(row.dwell, 0, "창 기록과 겹치므로 작업 시간에 더하지 않는다")
         XCTAssertEqual(row.recordingIds, [7])
         XCTAssertTrue(row.isChat, "창 기록이 아닌 행: 앱 노드·화면 카드 없음")
-        XCTAssertEqual(row.snippet, "요약: 연결 리스트 강의. 「오늘은 연결 리스트를 봅니다. 노드는 값과 포인터를 가집니다.」")
+        XCTAssertEqual(row.snippet, "summary: 연결 리스트 강의. 「오늘은 연결 리스트를 봅니다. 노드는 값과 포인터를 가집니다.」")
         XCTAssertEqual(rows.reduce(0) { $0 + $1.dwell }, 600)
     }
 
@@ -52,7 +52,7 @@ final class RecordingBatchTests: XCTestCase {
         let batcher = OntologyBatcher(db: db, llm: llm, config: .singleCall, home: "/Users/me", fileExists: { _ in false }, clock: { 2_000 })
         guard case .ok = await batcher.runIfDue(force: true) else { return XCTFail("첫 배치가 성공해야 한다") }
         XCTAssertTrue(llm.lastUser.contains("| 0s | 녹음 | Recording | 자료구조 3주차 강의 | recording:\(ready.id!)"), llm.lastUser)
-        XCTAssertTrue(llm.lastUser.contains("text: 요약: 연결 리스트 강의. 「오늘은 연결 리스트를 봅니다."))
+        XCTAssertTrue(llm.lastUser.contains("text: summary: 연결 리스트 강의. 「오늘은 연결 리스트를 봅니다."))
         XCTAssertFalse(llm.lastUser.contains("recording:\(silent.id!)"), "받아쓴 글이 없는 녹음은 넣지 않는다")
 
         let used = try XCTUnwrap(recordings.find(id: ready.id!))

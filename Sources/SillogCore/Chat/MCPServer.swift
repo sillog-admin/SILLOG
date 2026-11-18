@@ -41,29 +41,29 @@ public struct MCPServer: Sendable {
     }
 
     static let specs: [ToolSpec] = [
-        spec("search", "사용자의 SILLOG 기록(업무 그래프, 화면 요약, 화면 원문, AI 도구에 보낸 요청, 녹음, 주간·월간 요약, SILLOG 채팅, 보관함 자료, 파일)을 검색한다. 종류를 정하지 않으면 종류마다 최근 몇 개씩, kind를 정하면 그 종류만 50개까지 준다. 결과의 id를 fetch나 get_related에 넘긴다.", required: ["query"], [
-            "query": field("기록에 그대로 나올 단어 하나나 짧은 구절. 여러 단어를 나열하면 그 구절 전체가 있어야 찾으므로 한 번에 하나씩 검색한다. 빈 문자열은 최근 기록"),
-            "from": field("시작일 YYYY-MM-DD. 제한 없으면 생략"),
-            "to": field("종료일 YYYY-MM-DD. 제한 없으면 생략"),
-            "kind": field("한 종류만 볼 때: node(업무·자료 그래프), card(화면 요약), observation(화면 원문), digest(주간·월간 요약), chat(AI 도구에 보낸 요청), recording(녹음), message(SILLOG 채팅), library(SILLOG 보관함에 올린 자료와 저장한 결과물), file(새로 생기거나 내려받은 파일의 경로. 이 종류는 지정해야만 찾는다)", options: Kind.allCases.map(\.rawValue)),
+        spec("search", "Searches the user's SILLOG records (work graph, screen summaries, raw screen text, requests sent to AI tools, recordings, weekly and monthly summaries, SILLOG chats, library materials, files). Without a kind it returns a few recent results of each kind; with kind it returns up to 50 of that kind only. Pass a result's id to fetch or get_related.", required: ["query"], [
+            "query": field("One word or a short phrase that appears verbatim in the records. Listing several words finds only records that contain the whole phrase, so search for one at a time. An empty string returns recent records"),
+            "from": field("Start date YYYY-MM-DD. Omit for no limit"),
+            "to": field("End date YYYY-MM-DD. Omit for no limit"),
+            "kind": field("To see one kind only: node (task and material graph), card (screen summary), observation (raw screen text), digest (weekly and monthly summary), chat (request sent to an AI tool), recording (recording), message (SILLOG chat), library (materials uploaded to the SILLOG library and saved outputs), file (paths of newly created or downloaded files; this kind is found only when specified)", options: Kind.allCases.map(\.rawValue)),
         ]),
-        spec("fetch", "검색 결과의 원문을 읽는다. 긴 글은 응답 끝에 적힌 다음 시작 위치로 이어 읽는다.", required: ["id"], [
-            "id": field("검색 결과의 id. SILLOG 채팅 결과에 적힌 conversation:<id>로 대화 전체를 읽는다"),
-            "start": field("대화는 시작 메시지 번호, 메시지·녹음은 시작 문자 위치. 처음이면 1", type: "integer"),
+        spec("fetch", "Reads the original text of a search result. For long text, continue reading from the next start position given at the end of the response.", required: ["id"], [
+            "id": field("The id from a search result. Use the conversation:<id> shown in a SILLOG chat result to read the whole conversation"),
+            "start": field("For a conversation, the starting message number; for a message or recording, the starting character position. 1 to start from the beginning", type: "integer"),
         ]),
-        spec("summarize_period", "기간의 업무별 작업 시간, 많이 쓴 자료, 앱 분포, 문제·할 일 변화를 사용 시간 기록으로 계산한다. 시간과 건수는 검색 결과로 어림하지 말고 이 도구로 구한다. 그 기간에 한 일을 글로 정리한 것은 search의 kind=digest로 찾는다.", required: ["from", "to"], [
-            "from": field("시작일 YYYY-MM-DD"),
-            "to": field("종료일 YYYY-MM-DD (포함)"),
-            "task": field("업무 key, 업무 제목 일부, 또는 프로젝트 이름. 전체면 생략"),
+        spec("summarize_period", "Calculates from the usage-time ledger the work time per task, the most-used materials, the app breakdown, and changes in problems and to-dos for a period. Get time and counts from this tool; do not estimate them from search results. For a written account of what was done in the period, use search with kind=digest.", required: ["from", "to"], [
+            "from": field("Start date YYYY-MM-DD"),
+            "to": field("End date YYYY-MM-DD (inclusive)"),
+            "task": field("A task key, part of a task title, or a project name. Omit for all"),
         ]),
-        spec("list_items", "기간 안의 업무, 세션, 문제, 할 일을 종류별로 시간순으로 나열한다. 100개가 넘으면 최근 100개만 주고 끝에 알린다. 하루를 시간순으로 정리하거나 막힌 문제·미뤄 둔 할 일을 볼 때는 검색 대신 이 도구를 쓴다.", required: ["type"], [
-            "type": field("task(업무), session(업무를 한 시간 구간과 한 일 요약), problem(막힌 문제와 해결 여부), todo(나중에 하기로 한 일)", options: ItemType.allCases.map(\.rawValue)),
-            "from": field("시작일 YYYY-MM-DD. 제한 없으면 생략"),
-            "to": field("종료일 YYYY-MM-DD (포함). 제한 없으면 생략"),
+        spec("list_items", "Lists the tasks, sessions, problems or to-dos in a period, by type, in chronological order. Over 100, it returns only the latest 100 and says so at the end. To lay out a day in time order or to see blocked problems and postponed to-dos, use this tool instead of search.", required: ["type"], [
+            "type": field("task (task), session (a time span spent on a task and a summary of what was done), problem (a blocking problem and whether it was solved), todo (something set aside to do later)", options: ItemType.allCases.map(\.rawValue)),
+            "from": field("Start date YYYY-MM-DD. Omit for no limit"),
+            "to": field("End date YYYY-MM-DD (inclusive). Omit for no limit"),
         ]),
-        spec("get_related", "업무 그래프에서 한 노드와 이어진 세션, 자료, 앱, 주제, 문제, 할 일을 따라간다.", required: ["id"], [
-            "id": field("검색 결과 중 node:로 시작하는 id"),
-            "hops": field("몇 단계까지 따라갈지. 1 또는 2, 기본 1", type: "integer"),
+        spec("get_related", "Follows the sessions, materials, apps, topics, problems and to-dos linked to one node in the work graph.", required: ["id"], [
+            "id": field("An id from the search results that starts with node:"),
+            "hops": field("How many steps to follow. 1 or 2, default 1", type: "integer"),
         ]),
     ]
 
@@ -130,7 +130,7 @@ public struct MCPServer: Sendable {
             var found = kind == .library ? [] : try tools.search.search(query: text("query"), from: from, to: to, kind: kind?.rawValue, limit: Self.maxSearch + 1)
             // shortcut: library search ignores the period and stops at 8 items, fine while the library stays small.
             if kind == nil || kind == .library { found += try tools.library.search(text("query"), ids: tools.search.openLibraryIDs()) }
-            let note = kind != nil && found.count > Self.maxSearch ? "\n[\(Self.maxSearch)개까지만 보여 줬어요. 기간을 좁혀 다시 검색하세요.]" : ""
+            let note = kind != nil && found.count > Self.maxSearch ? "\n[Showed only up to \(Self.maxSearch). Narrow the period and search again.]" : ""
             return try ChatTools.output(withConversation(Array(found.prefix(kind == nil ? found.count : Self.maxSearch)))).text + note
         case "fetch":
             if text("id").hasPrefix("library:") {
@@ -147,7 +147,7 @@ public struct MCPServer: Sendable {
             let to = try ChatTools.date(text("to"), fallback: Date().timeIntervalSince1970, endOfDay: true)
             // One extra row tells whether older items were left out.
             let items = try tools.search.nodes(label: type.label, from: from, to: to, limit: Self.maxItems + 1)
-            let note = items.count > Self.maxItems ? "\n[최근 \(Self.maxItems)개만 보여 줬어요. 더 이른 항목은 to를 앞당겨 보세요.]" : ""
+            let note = items.count > Self.maxItems ? "\n[Showed only the latest \(Self.maxItems). For earlier items, set `to` to an earlier date.]" : ""
             return try ChatTools.output(Array(items.suffix(Self.maxItems))).text + note
         case "get_related":
             return Self.describe(try tools.search.related(text("id"), hops: Int(text("hops", "1")) ?? 1))
@@ -174,7 +174,7 @@ public struct MCPServer: Sendable {
         let nodes = graph.nodes.prefix(maxNodes), shown = Set(nodes.map(\.id))
         var lines = nodes.map { "node:\($0.id) | \($0.label) | \($0.title) | \($0.key)" }
         lines += graph.edges.filter { shown.contains($0.src) && shown.contains($0.dst) }.map { "node:\($0.src) -[\($0.type)]-> node:\($0.dst)" }
-        if graph.nodes.count > maxNodes { lines.append("[전체 \(graph.nodes.count)개 중 최근 \(maxNodes)개만 표시]") }
+        if graph.nodes.count > maxNodes { lines.append("[Showing only the latest \(maxNodes) of \(graph.nodes.count)]") }
         return lines.isEmpty ? "[]" : lines.joined(separator: "\n")
     }
 

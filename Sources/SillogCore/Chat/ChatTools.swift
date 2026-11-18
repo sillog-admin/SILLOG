@@ -50,37 +50,38 @@ public struct ChatTools: Sendable {
         var tools: [ToolSpec] = []
         if scope.useActivity || scope.projectID != nil {
             tools += [
-                Self.spec("search_context", "허용된 업무·대화·결과물·녹음의 전체 기록을 검색한다. 프로젝트 전용 기록은 소속 밖에서 읽지 않는다. 현재 프로젝트의 대화를 우선한다.", ["query": "핵심 검색어. 빈 문자열은 최근 기록", "from": "시작일 YYYY-MM-DD, 제한 없으면 빈 문자열", "to": "종료일 YYYY-MM-DD, 제한 없으면 빈 문자열"]),
-                Self.spec("read_context", "검색한 원문을 이어 읽는다. 긴 대화는 메시지 ID로 원문을 읽는다.", ["id": "검색 결과의 id", "start": "대화는 시작 메시지 번호, 메시지·녹음은 시작 문자 위치. 처음이면 1"]),
-                Self.spec("summarize_period", "기간의 업무별 작업 시간, 많이 쓴 자료, 앱 분포, 문제·할 일 변화를 사용 시간 기록으로 계산한다. 원문이 정리된 기간도 같은 수치를 돌려준다. 기간 시간·건수는 이 도구로 계산한다.", ["from": "시작일 YYYY-MM-DD", "to": "종료일 YYYY-MM-DD (포함)", "task": "업무 key 또는 제목 일부. 전체면 빈 문자열"]),
+                Self.spec("search_context", "Searches all permitted records of tasks, conversations, outputs and recordings. Project-only records are not read outside their project. Conversations in the current project come first.", ["query": "Key search terms. An empty string returns recent records", "from": "Start date YYYY-MM-DD, or an empty string for no limit", "to": "End date YYYY-MM-DD, or an empty string for no limit"]),
+                Self.spec("read_context", "Continues reading the original text of a search result. For a long conversation, read the original text by message ID.", ["id": "The id from a search result", "start": "For a conversation, the starting message number; for a message or recording, the starting character position. 1 to start from the beginning"]),
+                Self.spec("summarize_period", "Calculates from the usage-time ledger the work time per task, the most-used materials, the app breakdown, and changes in problems and to-dos for a period. Periods whose original text has already been pruned still return the same figures. Compute time and counts for a period with this tool.", ["from": "Start date YYYY-MM-DD", "to": "End date YYYY-MM-DD (inclusive)", "task": "A task key or part of its title. An empty string for all"]),
             ]
         }
         if !scope.libraryIDs.isEmpty || scope.useActivity || scope.projectID != nil {
             tools += [
-                Self.spec("search_library", "이 대화의 첨부와 기억 범위에서 허용된 프로젝트 자료·이전 결과물을 검색한다. 다른 대화의 전용 첨부는 읽지 않는다.", ["query": "핵심 검색어. 빈 문자열은 자료 목록"]),
-                Self.spec("read_library", "연결한 보관 자료의 추출된 원문을 이어 읽는다.", ["id": "검색 결과의 library ID", "start": "시작 문자 위치. 처음이면 1"]),
+                Self.spec("search_library", "Searches this conversation's attachments and the project materials and previous outputs permitted by the memory scope. Attachments private to other conversations are not read.", ["query": "Key search terms. An empty string returns the list of materials"]),
+                Self.spec("read_library", "Continues reading the extracted original text of a connected library item.", ["id": "The library ID from a search result", "start": "Starting character position. 1 to start from the beginning"]),
             ]
         }
         if !scope.paths.isEmpty {
             tools += [
-                Self.spec("list_files", "연결한 폴더 내 파일을 찾는다. 숨김·빌드·의존성 폴더는 제외한다. 최대 100개를 반환한다.", ["path": "연결한 폴더 또는 그 하위 폴더. 빈 문자열은 연결 목록", "query": "파일 경로 검색어, 전체 목록이면 빈 문자열"]),
-                Self.spec("read_file", "연결 범위 안의 텍스트 또는 PDF 원문을 읽는다. 비밀 키 파일은 읽지 않는다.", ["path": "파일 절대 경로", "start": "시작 줄 번호 또는 PDF 페이지 번호, 1부터"]),
-                Self.spec("inspect_repository", "연결 범위 내 Git 저장소의 최근 커밋과 변경 파일 목록을 확인한다. 사용자 기여는 이름 추측 없이 커밋·PR로 확인한다.", ["path": "저장소 루트 절대 경로"]),
-                Self.spec("read_revision", "특정 커밋의 파일 내용을 읽는다. 현재 파일과 과거 구현을 비교할 때 사용한다.", ["path": "저장소 루트", "commit": "전체 커밋 SHA", "file": "저장소 기준 파일 경로"]),
+                Self.spec("list_files", "Finds files in the connected folders. Hidden, build and dependency folders are excluded. Returns at most 100.", ["path": "A connected folder or one of its subfolders. An empty string returns the list of connected folders", "query": "Search term for file paths, or an empty string for the full list"]),
+                Self.spec("read_file", "Reads the original text of a text or PDF file within the connected scope. Secret key files are not read.", ["path": "Absolute file path", "start": "Starting line number or PDF page number, from 1"]),
+                Self.spec("inspect_repository", "Checks the recent commits and changed files of a Git repository within the connected scope. Confirm the user's contributions from commits and PRs, without guessing from names.", ["path": "Absolute path of the repository root"]),
+                Self.spec("read_revision", "Reads a file's contents at a specific commit. Use it to compare the current file with a past implementation.", ["path": "Repository root", "commit": "Full commit SHA", "file": "File path relative to the repository"]),
             ]
         }
         if scope.useGitHub {
-            tools.append(Self.spec("github_search", "연결된 GitHub 계정의 저장소를 이름과 설명으로 찾는다.", ["query": "저장소 이름 또는 설명 검색어. 전체 목록이면 빈 문자열"]))
-            tools.append(Self.spec("github_read", "GitHub 커넥터에서 저장소·PR·코드 파일을 읽는다.", ["repository": "owner/repository", "path": "저장소 안 파일 경로. 빈 문자열이면 저장소와 최근 PR 목록", "pull": "PR 번호. 파일을 읽을 때는 빈 문자열"]))
-            tools.append(Self.spec("github_list", "GitHub 커넥터에서 저장소 루트 또는 하위 폴더의 파일 목록을 확인한다.", ["repository": "owner/repository", "path": "폴더 경로. 빈 문자열이면 저장소 루트"]))
+            tools.append(Self.spec("github_search", "Finds repositories of the connected GitHub account by name and description.", ["query": "Search term for repository names or descriptions. An empty string for the full list"]))
+            tools.append(Self.spec("github_read", "Reads repositories, PRs and code files from the GitHub connector.", ["repository": "owner/repository", "path": "File path within the repository. An empty string returns the repository and its recent PRs", "pull": "PR number. An empty string when reading a file"]))
+            tools.append(Self.spec("github_list", "Lists the files in a repository's root or a subfolder from the GitHub connector.", ["repository": "owner/repository", "path": "Folder path. An empty string for the repository root"]))
         }
         if scope.connectors.contains("drive") {
-            tools.append(Self.spec("drive_search", "Google Drive 커넥터에서 사용자가 이 대화에 고른 파일을 이름으로 검색한다. 찾는 파일이 없으면 + 메뉴의 'Google Drive에서 선택'으로 추가하라고 안내한다.", ["query": "파일 이름 검색어. 고른 파일 전체면 빈 문자열"]))
-            tools.append(Self.spec("drive_read", "Google Drive 커넥터에서 이 대화에 고른 텍스트 파일 또는 Google 문서의 내용을 읽는다.", ["id": "파일 ID"]))
+            // The menu label follows the app language so the model names what the user sees.
+            tools.append(Self.spec("drive_search", "Searches by name the files the user picked for this conversation from the Google Drive connector. If the wanted file is not there, tell the user to add it with '\(tr("Google Drive에서 선택"))' in the + menu.", ["query": "Search term for file names. An empty string for all picked files"]))
+            tools.append(Self.spec("drive_read", "Reads the contents of a text file or Google document picked for this conversation from the Google Drive connector.", ["id": "File ID"]))
         }
         if scope.connectors.contains("notion") && !remoteConnectors.contains("notion") {
-            tools.append(Self.spec("notion_search", "Notion 커넥터에서 페이지 제목을 검색한다.", ["query": "페이지 제목 검색어"]))
-            tools.append(Self.spec("notion_read", "Notion 커넥터에서 페이지의 블록 내용을 읽는다.", ["id": "페이지 ID"]))
+            tools.append(Self.spec("notion_search", "Searches page titles in the Notion connector.", ["query": "Search term for page titles"]))
+            tools.append(Self.spec("notion_read", "Reads a page's block contents from the Notion connector.", ["id": "Page ID"]))
         }
         for connector in RemoteReadConnector.allCases where scope.connectors.contains(connector.rawValue) && remoteConnectors.contains(connector.rawValue) {
             tools += connector.specs
@@ -90,8 +91,8 @@ public struct ChatTools: Sendable {
         }
         if scope.useWeb {
             tools += [
-                Self.spec("web_search", "웹에서 자료를 검색한다. 사적인 대화·전체 기록·비밀 값은 검색어에 넣지 않는다.", ["query": "공개해도 되는 주제 중심 검색어"]),
-                Self.spec("web_read", "공개 웹 페이지의 본문을 읽는다.", ["url": "검색되었거나 사용자가 제공한 HTTPS URL"]),
+                Self.spec("web_search", "Searches the web for material. Do not put private conversations, whole records or secret values in the query.", ["query": "A topic-focused query that is safe to make public"]),
+                Self.spec("web_read", "Reads the body text of a public web page.", ["url": "An HTTPS URL found by a search or given by the user"]),
             ]
         }
         return tools
@@ -299,7 +300,7 @@ public struct ChatTools: Sendable {
             if query.isEmpty || url.path.localizedCaseInsensitiveContains(query) { paths.append(url.path) }
             if paths.count >= 100 { break }
         }
-        return paths.joined(separator: "\n") + "\n(최대 5,000개 항목 탐색 / 100개 반환. 없으면 검색 폴더를 좁히세요.)"
+        return paths.joined(separator: "\n") + "\n(Scans at most 5,000 entries / returns 100. If it is not here, narrow the search folder.)"
     }
 
     /// Args: path는 파일 경로, start는 시작 줄 또는 PDF 페이지이다.
@@ -360,8 +361,7 @@ public struct ChatTools: Sendable {
         request.setValue("Bearer \(searchKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(JSONValue.object([
-            "model": .string(searchModel), "input": .string(L10n.current == .ko ? "다음 주제의 신뢰할 만한 웹 자료를 찾아 간단히 요약하세요. 검색어: \(query)"
-                                            : "Find reliable web sources on this topic and summarize them briefly in English. Query: \(query)"),
+            "model": .string(searchModel), "input": .string("Find reliable web sources on this topic and summarize them briefly in \(L10n.current.promptName). Query: \(query)"),
             "tools": .array([.object(["type": .string("web_search")])]),
             "tool_choice": .string("required"), "include": .array([.string("web_search_call.action.sources")]),
         ]))
@@ -387,7 +387,7 @@ public struct ChatTools: Sendable {
             }
         }
         let unique = Array(Dictionary(sources.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }).values).prefix(10)
-        return .init(text: "검색 요약:\n\(summary)\n출처:\n\(try Self.output(Array(unique)).text)", sources: Array(unique))
+        return .init(text: "Search summary:\n\(summary)\nSources:\n\(try Self.output(Array(unique)).text)", sources: Array(unique))
     }
 
     /// Args: repository는 owner/name, path는 코드 파일 경로, pull은 PR 번호 또는 빈 문자열이다.

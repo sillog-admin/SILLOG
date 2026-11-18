@@ -46,6 +46,7 @@ struct SettingsView: View {
         .onChange(of: state.settings.chatProvider) { _, _ in state.updateCodexModelProviders() }
         .onChange(of: state.settings.judgeProvider) { _, _ in state.updateCodexModelProviders() }
         .onChange(of: state.settings.judgeGPTProvider) { _, _ in state.updateCodexModelProviders() }
+        .onChange(of: state.settings.collectOffWork) { _, _ in state.updateCodexModelProviders() }
         .onAppear { if !state.isPreview { state.refreshCodexStatus() } }
         .task {
             // 로그인 항목 상태 조회는 수 초 걸릴 수 있는 동기 XPC 호출이라 메인 스레드 밖에서 읽는다.
@@ -198,6 +199,9 @@ struct SettingsView: View {
                     .disabled(!state.settings.captureScreenshots)
             }
             .help(tr("스크린샷이 켜져 있어야 해요."))
+            SettingTile(tr("업무가 아닌 기록도 수집하기"), detail: tr("판단 모델이 업무와 업무 밖 기록을 나눠요"), icon: "cup.and.saucer") {
+                Toggle("", isOn: $state.settings.collectOffWork).toggleStyle(BrandSwitchStyle())
+            }
             SettingTile(tr("기록하지 않을 앱"), detail: tr("비밀번호 관리 앱과 시크릿 창은 사용 시간만 남겨요"), icon: "eye.slash") {
                 Button(tr("편집")) { editingExcluded = true }.buttonStyle(BrandButtonStyle(kind: .primary))
             }
@@ -413,8 +417,9 @@ private struct ConnectionSection: View {
     }
 
     private var judge: AppSettings.JudgeChoice { state.settings.judgeChoice }
-    private var usesCodex: Bool { state.settings.llmProvider == "codex" || state.settings.chatProvider == "codex" || judge == .codex }
-    private var usesAPI: Bool { state.settings.llmProvider == "openai" || state.settings.chatProvider == "openai" || judge == .api }
+    private var judgeOn: Bool { state.settings.collectOffWork }
+    private var usesCodex: Bool { state.settings.llmProvider == "codex" || state.settings.chatProvider == "codex" || (judgeOn && judge == .codex) }
+    private var usesAPI: Bool { state.settings.llmProvider == "openai" || state.settings.chatProvider == "openai" || (judgeOn && judge == .api) }
 
     private func chatUses(_ provider: String) -> Bool { state.settings.effectiveChatProvider == provider }
 
@@ -443,14 +448,14 @@ private struct ConnectionSection: View {
                     codexExtras
                 }
                 if usesAPI { connectionTile(tr("API 서버"), detail: tr("OpenAI 호환 서버"), logo: "openai", ready: !state.settings.llmBaseURL.trimmingCharacters(in: .whitespaces).isEmpty, provider: "openai", open: .api, closed: tr("설정")) }
-                // Jev, Decisions: 연결 목록엔 상태와 연결 확인, 키 칸은 판단 모델 줄 밑에 있다
-                if judge == .jev || judge == .decisions { choiceTile }
+                // Jev and Decisions: status and check here, the key field under the judge row.
+                if judgeOn, judge == .jev || judge == .decisions { choiceTile }
             }
             SectionLabel(tr("모델"))
             VStack(spacing: 8) {
                 organizeRow; modelNote(organizeModelError); apiFields(under: .organize)
                 chatRow; modelNote(chatModelError); apiFields(under: .chat)
-                judgeRow; modelNote(judgeModelError); apiFields(under: .judge); choiceFields
+                if judgeOn { judgeRow; modelNote(judgeModelError); apiFields(under: .judge); choiceFields }
             }
             Text(tr("기록은 Mac에 저장되고, 정리와 채팅을 쓸 때 창 제목, 주소, 화면 텍스트 일부, 질문, 새 파일 정보가 연결한 AI 계정으로 전송돼요. 연결 확인은 개인 자료 없이 시험 호출만 하고, 모델 사용량이 소량 발생해요."))
                 .font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
@@ -474,12 +479,12 @@ private struct ConnectionSection: View {
         }
         .task(id: [state.settings.llmProvider, state.settings.chatProvider, state.settings.judgeChoice.rawValue, state.settings.llmBaseURL, state.settings.llmAPIKey]) {
             let s = state.settings
-            let used = s.llmProvider == "openai" || s.chatProvider == "openai" || s.judgeChoice == .api
+            let used = s.llmProvider == "openai" || s.chatProvider == "openai" || (s.collectOffWork && s.judgeChoice == .api)
             apiModels = await availableAPIModels(enabled: used, address: s.llmBaseURL, key: s.llmAPIKey)
         }
         .task(id: [state.settings.judgeChoice.rawValue, state.settings.judgeBaseURL, state.settings.judgeAPIKey]) {
             let settings = state.settings
-            judgeAPIModels = await availableAPIModels(enabled: settings.judgeChoice == .customAPI, address: settings.judgeBaseURL, key: settings.judgeAPIKey)
+            judgeAPIModels = await availableAPIModels(enabled: settings.collectOffWork && settings.judgeChoice == .customAPI, address: settings.judgeBaseURL, key: settings.judgeAPIKey)
         }
     }
 

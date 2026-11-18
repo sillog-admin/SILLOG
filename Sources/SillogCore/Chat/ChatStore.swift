@@ -186,7 +186,7 @@ public struct ChatAutomationProposal: Codable, Equatable, Sendable {
     public var intervalHours: Int
 }
 
-public struct ChatConversation: Codable, Identifiable, Sendable {
+public struct ChatConversation: Codable, Equatable, Identifiable, Sendable {
     public var id = UUID().uuidString
     /// Stored untranslated so the auto-title check works in every language.
     public static let defaultTitle = "새 대화"

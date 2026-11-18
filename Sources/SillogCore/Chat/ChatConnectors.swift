@@ -88,7 +88,7 @@ extension ChatTools {
         let id = reference.hasPrefix("drive:") ? String(reference.dropFirst(6)) : reference
         guard id.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression) != nil else { throw ChatToolError.unavailable(tr("Drive 파일 ID가 올바르지 않습니다.")) }
         guard anyPicked || scope.driveFiles.contains(where: { $0.id == id }) else {
-            throw ChatToolError.unavailable("이 대화에서 고른 Drive 파일만 읽을 수 있습니다. + 메뉴의 'Google Drive에서 선택'으로 추가하라고 안내하세요.")
+            throw ChatToolError.unavailable("Only Drive files picked in this conversation can be read. Tell the user to add the file with '\(tr("Google Drive에서 선택"))' in the + menu.")
         }
         let metadataURL = URL(string: "https://www.googleapis.com/drive/v3/files/\(id)?fields=id,name,mimeType,webViewLink")!
         let file = try await Self.json(connectorRequest("drive", metadataURL)).objectValue ?? [:]
