@@ -52,6 +52,13 @@ final class URINormalizerTests: XCTestCase {
         XCTAssertEqual(URINormalizer.normalize(filePath: "/opt/tool/x.sh", home: "/Users/me"), "file:/opt/tool/x.sh")
     }
 
+    func testDecomposedHangulPathGivesTheComposedKey() {
+        let decomposed = "/Users/me/캡스톤/SILLOG".decomposedStringWithCanonicalMapping
+        let key = URINormalizer.normalize(filePath: decomposed, home: "/Users/me")
+        // Swift compares strings canonically, so compare the stored bytes
+        XCTAssertEqual(Array(key.utf8), Array("file:~/캡스톤/SILLOG".precomposedStringWithCanonicalMapping.utf8))
+    }
+
     func testNonHttpIsReturnedTrimmed() {
         XCTAssertEqual(URINormalizer.normalize(url: "  chrome://settings  "), "chrome://settings")
     }
