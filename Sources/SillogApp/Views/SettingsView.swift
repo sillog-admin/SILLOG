@@ -279,6 +279,7 @@ struct SettingPill<Content: View>: View {
     var body: some View {
         Button(action: action) {
             content()
+                .fixedSize()                                   // a pill label never wraps; the row's description gives way instead
                 .font(Brand.font(.caption, on ? .medium : .regular))
                 .foregroundStyle(on ? Color(hex: 0x3D2F27) : Brand.tabText)
                 .padding(.horizontal, 14).frame(height: 28)
