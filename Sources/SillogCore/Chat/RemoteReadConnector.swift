@@ -63,9 +63,9 @@ public enum RemoteReadConnector: String, CaseIterable, Sendable {
     }
 
     var specs: [ToolSpec] {
-        [ChatTools.spec("\(rawValue)_tools", "\(rawValue)의 검색·읽기 도구와 인자 형식을 확인한다. 먼저 호출한 다음 허용된 도구만 사용한다.", [:]),
-         ChatTools.spec("\(rawValue)_read", "\(rawValue)의 자료를 검색하거나 읽는다. tools에서 확인한 이름과 JSON 인자를 사용한다. 쓰기·생성·삭제는 실행할 수 없다.",
-                        ["tool": "tools에서 받은 읽기 도구 이름", "arguments": "도구의 인자 JSON 객체 문자열. 비밀 값이나 대화 전체를 넣지 않는다."])]
+        [ChatTools.spec("\(rawValue)_tools", "Looks up \(rawValue)'s search and read tools and their argument formats. Call it first, then use only the allowed tools.", [:]),
+         ChatTools.spec("\(rawValue)_read", "Searches or reads \(rawValue)'s materials. Use a name and JSON arguments confirmed from tools. Writing, creating, and deleting cannot be run.",
+                        ["tool": "Name of a read tool received from tools", "arguments": "The tool's arguments as a JSON object string. Do not include secret values or the whole conversation."])]
     }
 }
 

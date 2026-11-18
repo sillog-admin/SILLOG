@@ -33,8 +33,8 @@ public enum DigestPrompt {
     public static var tool: ToolSpec {
         func items(_ extra: [String: JSONValue], required: [String]) -> JSONValue {
             var properties: [String: JSONValue] = [
-                "text": .object(["type": "string", "description": .string("\(L10n.current.nameInKorean) 한 문장")]),
-                "anchors": .object(["type": "array", "items": .object(["type": "string"]), "description": "ANCHORS 에서 그대로 복사한 key 1~3개"]),
+                "text": .object(["type": "string", "description": .string("one \(L10n.current.promptName) sentence")]),
+                "anchors": .object(["type": "array", "items": .object(["type": "string"]), "description": "1-3 keys copied exactly from ANCHORS"]),
             ]
             properties.merge(extra) { _, new in new }
             return .object(["type": "array", "maxItems": 8, "items": .object([
@@ -44,7 +44,7 @@ public enum DigestPrompt {
         return ToolSpec(name: "write_digest", description: "Write the digest of one task for one period.", parameters: .object([
             "type": "object",
             "properties": .object([
-                "summary": .object(["type": "string", "description": "3~5문장, 600자 이내"]),
+                "summary": .object(["type": "string", "description": "3-5 sentences, at most 600 characters"]),
                 "progress": items(["status": .object(["type": "string", "enum": .array(["evidenced", "in_progress", "requested"])])], required: ["status"]),
                 "problems": items(["state": .object(["type": "string", "enum": .array(["resolved", "open"])])], required: ["state"]),
                 "open_items": items([:], required: []),

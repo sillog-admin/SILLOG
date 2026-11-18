@@ -94,4 +94,113 @@ final class ResumePlannerTests: XCTestCase {
         XCTAssertEqual(plan.items.map(\.id), ["app:com.hnc.Discord"])
         XCTAssertTrue(plan.items[0].selected, "파일·페이지가 없으면 그때 쓴 앱을 켠다")
     }
+
+    func testAIChatSessionOffersTheFolderTheChatRanIn() throws {
+        let start = 1_000.0
+        let session: GraphNode = try db.writer.write { conn in
+            let tx = GraphTx(conn)
+            let task = try tx.upsertNode(label: NodeLabel.task, key: "t_ai", subtype: nil, title: "Claude Code 작업", props: [:], at: start)
+            let session = try tx.upsertNode(label: NodeLabel.session, key: "s_ai", subtype: nil, title: "AI 대화", props: ["start": .number(start), "end": .number(start)], at: start)
+            try tx.upsertEdge(src: session, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: start)
+            let project = try tx.upsertNode(label: NodeLabel.project, key: "file:~/Desktop/study/기학기/실습환경", subtype: nil, title: "실습환경", props: [:], at: start)
+            let chat = try tx.upsertNode(label: NodeLabel.resource, key: "chat:claude-code:abc", subtype: "AIChat", title: "Claude Code: 고쳐 줘", props: [:], at: start)
+            try tx.upsertEdge(src: chat, dst: project, type: EdgeType.belongsTo, props: [:], addWeight: 0, at: start)
+            try tx.upsertEdge(src: session, dst: chat, type: EdgeType.touched, props: [:], addWeight: 0, at: start)   // chat rows have no dwell
+            return try tx.node(id: session)!
+        }
+        let plan = try db.writer.read { try ResumePlanner.plan(session: session, tx: GraphTx($0), home: self.home, fileExists: { self.existing.contains($0) }) }
+        XCTAssertEqual(plan.items.map(\.id), ["folder:/Users/me/Desktop/study/기학기/실습환경"])
+        XCTAssertEqual(plan.items.first?.selected, true)
+    }
+
+    func testOnlyTheLatestAIChatFolderIsTurnedOn() throws {
+        let start = 1_000.0
+        existing.formUnion(["/Users/me/old", "/Users/me/new"])
+        let session: GraphNode = try db.writer.write { conn in
+            let tx = GraphTx(conn)
+            let task = try tx.upsertNode(label: NodeLabel.task, key: "t_two", subtype: nil, title: "두 폴더", props: [:], at: start)
+            let session = try tx.upsertNode(label: NodeLabel.session, key: "s_two", subtype: nil, title: "AI 대화", props: ["start": .number(start), "end": .number(start + 3_600)], at: start)
+            try tx.upsertEdge(src: session, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: start)
+            for (name, at) in [("old", start), ("new", start + 3_600)] {
+                let project = try tx.upsertNode(label: NodeLabel.project, key: "file:~/\(name)", subtype: nil, title: name, props: [:], at: at)
+                let chat = try tx.upsertNode(label: NodeLabel.resource, key: "chat:codex:\(name)", subtype: "AIChat", title: name, props: [:], at: at)
+                try tx.upsertEdge(src: chat, dst: project, type: EdgeType.belongsTo, props: [:], addWeight: 0, at: at)
+                try tx.upsertEdge(src: session, dst: chat, type: EdgeType.touched, props: [:], addWeight: 0, at: at)
+            }
+            return try tx.node(id: session)!
+        }
+        let plan = try db.writer.read { try ResumePlanner.plan(session: session, tx: GraphTx($0), home: self.home, fileExists: { self.existing.contains($0) }) }
+        XCTAssertEqual(plan.items.filter(\.selected).map(\.id), ["folder:/Users/me/new"])
+        XCTAssertEqual(plan.items.count, 2)
+    }
+
+    func testShortSessionStillOffersItsPages() throws {
+        let start = 1_000.0
+        let session: GraphNode = try db.writer.write { conn in
+            let tx = GraphTx(conn)
+            let task = try tx.upsertNode(label: NodeLabel.task, key: "t_short", subtype: nil, title: "잠깐 확인", props: [:], at: start)
+            let session = try tx.upsertNode(label: NodeLabel.session, key: "s_short", subtype: nil, title: "잠깐 확인", props: ["start": .number(start), "end": .number(start + 12)], at: start)
+            try tx.upsertEdge(src: session, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: start)
+            let page = try tx.upsertNode(label: NodeLabel.resource, key: "https://example.com/docs", subtype: "Documentation", title: "문서", props: [:], at: start)
+            try tx.upsertEdge(src: session, dst: page, type: EdgeType.touched, props: [:], addWeight: 12, at: start + 12)
+            let chrome = try tx.upsertNode(label: NodeLabel.app, key: "com.google.Chrome", subtype: nil, title: "Google Chrome", props: [:], at: start)
+            try tx.upsertEdge(src: session, dst: chrome, type: EdgeType.used, props: [:], addWeight: 12, at: start + 12)
+            return try tx.node(id: session)!
+        }
+        let plan = try db.writer.read { try ResumePlanner.plan(session: session, tx: GraphTx($0), home: self.home, fileExists: { _ in false }) }
+        XCTAssertEqual(plan.items.map(\.id), ["url:https://example.com/docs"], "nothing reaches the minimums, so the short visit is offered")
+        XCTAssertEqual(plan.items.first?.selected, true)
+        XCTAssertEqual(plan.items.first?.appBundle, "com.google.Chrome")
+    }
+
+    func testShortSessionWithOnlyABriefAppUseOffersThatApp() throws {
+        let start = 1_000.0
+        let session: GraphNode = try db.writer.write { conn in
+            let tx = GraphTx(conn)
+            let task = try tx.upsertNode(label: NodeLabel.task, key: "t_brief", subtype: nil, title: "메모 확인", props: [:], at: start)
+            let session = try tx.upsertNode(label: NodeLabel.session, key: "s_brief", subtype: nil, title: "메모 확인", props: ["start": .number(start), "end": .number(start + 9)], at: start)
+            try tx.upsertEdge(src: session, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: start)
+            let notes = try tx.upsertNode(label: NodeLabel.app, key: "com.apple.Notes", subtype: nil, title: "메모", props: [:], at: start)
+            try tx.upsertEdge(src: session, dst: notes, type: EdgeType.used, props: [:], addWeight: 9, at: start + 9)
+            return try tx.node(id: session)!
+        }
+        let plan = try db.writer.read { try ResumePlanner.plan(session: session, tx: GraphTx($0), home: self.home, fileExists: { _ in false }) }
+        XCTAssertEqual(plan.items.map(\.id), ["app:com.apple.Notes"], "a 9-second app use is below minAppSeconds but is all there is")
+        XCTAssertEqual(plan.items.first?.selected, true)
+    }
+
+    func testNormalizedPageKeysReopenAsTheirURLs() throws {
+        let start = 1_000.0
+        let session: GraphNode = try db.writer.write { conn in
+            let tx = GraphTx(conn)
+            let task = try tx.upsertNode(label: NodeLabel.task, key: "t_keys", subtype: nil, title: "논문과 로컬 서버", props: [:], at: start)
+            let session = try tx.upsertNode(label: NodeLabel.session, key: "s_keys", subtype: nil, title: "논문과 로컬 서버", props: ["start": .number(start), "end": .number(start + 600)], at: start)
+            try tx.upsertEdge(src: session, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: start)
+            for (key, seconds) in [("local:3000/app", 300.0), ("arxiv:2401.05566", 200.0), ("doi:10.1000/xyz123", 100.0), ("recording:7", 400.0)] {
+                let resource = try tx.upsertNode(label: NodeLabel.resource, key: key, subtype: nil, title: key, props: [:], at: start)
+                try tx.upsertEdge(src: session, dst: resource, type: EdgeType.touched, props: [:], addWeight: seconds, at: start + 300 + seconds)
+            }
+            return try tx.node(id: session)!
+        }
+        let plan = try db.writer.read { try ResumePlanner.plan(session: session, tx: GraphTx($0), home: self.home, fileExists: { _ in false }) }
+        XCTAssertEqual(plan.items.map(\.id), ["url:http://localhost:3000/app", "url:https://arxiv.org/abs/2401.05566", "url:https://doi.org/10.1000/xyz123"],
+                       "stored short keys open as web pages; a recording is not a page")
+    }
+
+    func testAIChatRunFromHomeDoesNotOfferTheHomeFolder() throws {
+        let start = 1_000.0
+        let session: GraphNode = try db.writer.write { conn in
+            let tx = GraphTx(conn)
+            let task = try tx.upsertNode(label: NodeLabel.task, key: "t_home", subtype: nil, title: "Claude Code 질문", props: [:], at: start)
+            let session = try tx.upsertNode(label: NodeLabel.session, key: "s_home", subtype: nil, title: "AI 대화", props: ["start": .number(start), "end": .number(start)], at: start)
+            try tx.upsertEdge(src: session, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: start)
+            let home = try tx.upsertNode(label: NodeLabel.project, key: "file:~", subtype: nil, title: "me", props: [:], at: start)
+            let chat = try tx.upsertNode(label: NodeLabel.resource, key: "chat:claude-code:home", subtype: "AIChat", title: "Claude Code: 질문", props: [:], at: start)
+            try tx.upsertEdge(src: chat, dst: home, type: EdgeType.belongsTo, props: [:], addWeight: 0, at: start)
+            try tx.upsertEdge(src: session, dst: chat, type: EdgeType.touched, props: [:], addWeight: 0, at: start)
+            return try tx.node(id: session)!
+        }
+        let plan = try db.writer.read { try ResumePlanner.plan(session: session, tx: GraphTx($0), home: self.home, fileExists: { _ in true }) }
+        XCTAssertEqual(plan.items, [])
+    }
 }

@@ -71,18 +71,18 @@ public enum EventFinder {
         ToolSpec(name: "find_events", description: "Every mention of a coming day or time in the rows, with whose it is and whether to suggest it.", parameters: .object([
             "type": "object",
             "properties": .object([
-                "mentions": .object(["type": "array", "description": "기록에서 앞으로의 날짜·시간을 가리키는 표현 전부. 없으면 빈 배열", "items": .object([
+                "mentions": .object(["type": "array", "description": "every expression in the records that points to a coming date or time; an empty array if there are none", "items": .object([
                     "type": "object",
                     "properties": .object([
-                        "row": .object(["type": "integer", "description": "표현이 나온 행 번호"]),
-                        "evidence": .object(["type": "string", "description": "날짜나 시간을 말하는 기록의 문구 그대로, 80자 이내"]),
-                        "title": .object(["type": "string", "description": .string("무엇인지와 누구와·어느 과목인지 담은 짧은 \(L10n.current.nameInKorean) 제목")]),
+                        "row": .object(["type": "integer", "description": "number of the row where the expression appears"]),
+                        "evidence": .object(["type": "string", "description": "the record's words that state the date or time, as written, under 80 characters"]),
+                        "title": .object(["type": "string", "description": .string("a short \(L10n.current.promptName) title that says what it is and with whom or for which course")]),
                         "date": .object(["type": "string", "description": "yyyy-MM-dd"]),
-                        "start_time": .object(["type": "string", "description": "HH:mm, 시간이 나올 때만 (마감 시각도 여기)"]),
-                        "end_time": .object(["type": "string", "description": "HH:mm, 끝 시간이 나올 때만"]),
+                        "start_time": .object(["type": "string", "description": "HH:mm, only when a time is stated (a deadline's time goes here too)"]),
+                        "end_time": .object(["type": "string", "description": "HH:mm, only when an end time is stated"]),
                         "whose": .object(["type": "string", "enum": .array(["mine", "others", "public"]),
-                                          "description": "mine: 사용자 본인 일정(약속, 제출, 속한 수업·팀·모임의 마감과 회의), others: 다른 사람의 일정, public: 둘러본 공지·게시글·광고"]),
-                        "keep": .object(["type": "boolean", "description": "mine 이고 지나지 않았고 KNOWN 에 없을 때만 true"]),
+                                          "description": "mine: the user's own schedule (appointments, submissions, deadlines and meetings of a class, team or group the user belongs to), others: another person's schedule, public: a notice, post or ad the user browsed"]),
+                        "keep": .object(["type": "boolean", "description": "true only when it is mine, not past, and not in KNOWN"]),
                     ]),
                     "required": .array(["row", "evidence", "title", "date", "whose", "keep"]),
                 ])]),

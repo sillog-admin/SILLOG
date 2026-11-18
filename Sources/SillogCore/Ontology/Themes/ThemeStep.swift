@@ -44,13 +44,13 @@ public enum ThemeStep {
     public static var tool: ToolSpec {
         ToolSpec(name: "assign_themes", description: "Assign a theme, and a task type when asked, to every task.", parameters: .object([
             "type": "object",
-            "properties": .object(["tasks": .object(["type": "array", "description": "받은 업무를 빠짐없이", "items": .object([
+            "properties": .object(["tasks": .object(["type": "array", "description": "Every task received, none left out", "items": .object([
                 "type": "object",
                 "properties": .object([
-                    "id": .object(["type": "string", "description": "TASKS 의 id"]),
-                    "theme": .object(["type": "string", "description": .string("NEEDS_THEME 일 때: 분야 이름 (짧은 \(L10n.current.nameInKorean) 명사구)")]),
-                    "new_theme": .object(["type": "boolean", "description": "THEMES·DEFAULT_THEMES 에 없는 새 분야면 true"]),
-                    "task_type": .object(["type": "string", "enum": .array(TBox.leafTaskTypes.map { .string($0) }), "description": "NEEDS_TYPE 일 때"]),
+                    "id": .object(["type": "string", "description": "The id from TASKS"]),
+                    "theme": .object(["type": "string", "description": .string("When NEEDS_THEME: the theme name (a short \(L10n.current.promptName) noun phrase)")]),
+                    "new_theme": .object(["type": "boolean", "description": "true when it is a new theme not in THEMES or DEFAULT_THEMES"]),
+                    "task_type": .object(["type": "string", "enum": .array(TBox.leafTaskTypes.map { .string($0) }), "description": "When NEEDS_TYPE"]),
                 ]),
                 "required": .array(["id"]),
             ])])]),

@@ -2,8 +2,27 @@ import XCTest
 @testable import SillogCore
 
 final class OnboardingFlowTests: XCTestCase {
+    func testFirstLaunchAsksLanguageBeforeLogin() {
+        XCTAssertEqual(OnboardingFlow.step(after: nil, phase: .login, askLanguage: true), .language)
+        XCTAssertEqual(OnboardingFlow.step(after: .language, phase: .login, askLanguage: true), .language, "a status refresh keeps the language step up")
+        XCTAssertTrue(OnboardingFlow.canAdvance(from: .language, phase: .login))
+        XCTAssertEqual(OnboardingFlow.advance(from: .language, phase: .login), .login)
+    }
+
+    func testLanguageIsNotAskedAgain() {
+        XCTAssertEqual(OnboardingFlow.step(after: nil, phase: .login, askLanguage: false), .login, "finished account that logged out, or a quit before login")
+        XCTAssertEqual(OnboardingFlow.step(after: .permissions, phase: .login, askLanguage: true), .login, "logout during onboarding")
+    }
+
+    func testTokenOnFirstLaunchStillAsksLanguage() {
+        XCTAssertEqual(OnboardingFlow.step(after: nil, phase: .permissions, askLanguage: true), .language, "leftover login from an earlier install")
+        XCTAssertEqual(OnboardingFlow.step(after: .language, phase: .permissions, askLanguage: true), .language)
+        XCTAssertTrue(OnboardingFlow.canAdvance(from: .language, phase: .permissions))
+        XCTAssertEqual(OnboardingFlow.advance(from: .language, phase: .permissions), .permissions)
+    }
+
     func testFirstLoginStaysOnStepOneUntilNext() {
-        XCTAssertEqual(OnboardingFlow.step(after: .login, phase: .permissions), .login)
+        XCTAssertEqual(OnboardingFlow.step(after: .login, phase: .permissions, askLanguage: true), .login)
         XCTAssertTrue(OnboardingFlow.canAdvance(from: .login, phase: .permissions))
         XCTAssertEqual(OnboardingFlow.advance(from: .login, phase: .permissions), .permissions)
     }
@@ -14,26 +33,26 @@ final class OnboardingFlowTests: XCTestCase {
     }
 
     func testRelaunchDuringPermissionsReopensStepTwo() {
-        XCTAssertEqual(OnboardingFlow.step(after: nil, phase: .permissions), .permissions)
+        XCTAssertEqual(OnboardingFlow.step(after: nil, phase: .permissions, askLanguage: false), .permissions, "language already chosen, e.g. after Screen Recording's Quit & Reopen")
     }
 
     func testFinishingPermissionsClosesSheet() {
-        XCTAssertNil(OnboardingFlow.step(after: .permissions, phase: .ready))
+        XCTAssertNil(OnboardingFlow.step(after: .permissions, phase: .ready, askLanguage: false))
     }
 
     func testReloginOfFinishedAccountShowsSuccessThenCloses() {
-        XCTAssertEqual(OnboardingFlow.step(after: .login, phase: .ready), .login)
+        XCTAssertEqual(OnboardingFlow.step(after: .login, phase: .ready, askLanguage: false), .login)
         XCTAssertTrue(OnboardingFlow.canAdvance(from: .login, phase: .ready))
         XCTAssertNil(OnboardingFlow.advance(from: .login, phase: .ready))
     }
 
     func testLogoutAlwaysReturnsToLogin() {
-        XCTAssertEqual(OnboardingFlow.step(after: nil, phase: .login), .login)
-        XCTAssertEqual(OnboardingFlow.step(after: .permissions, phase: .login), .login)
+        XCTAssertEqual(OnboardingFlow.step(after: nil, phase: .login, askLanguage: false), .login)
+        XCTAssertEqual(OnboardingFlow.step(after: .permissions, phase: .login, askLanguage: false), .login)
     }
 
     func testReadyLaunchShowsNoSheet() {
-        XCTAssertNil(OnboardingFlow.step(after: nil, phase: .ready))
+        XCTAssertNil(OnboardingFlow.step(after: nil, phase: .ready, askLanguage: false))
     }
 
     func testCloseKeepsUnfinishedStep() {

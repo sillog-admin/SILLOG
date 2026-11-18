@@ -49,10 +49,35 @@ struct NavRail: View {
         .accessibilityLabel(tab.rawValue)
     }
 
+    /// Shown only while a newer release is out; installs it and restarts.
+    private func updateButton(_ update: UpdateCheck.Update) -> some View {
+        Button { state.installUpdate() } label: {
+            VStack(spacing: 4) {
+                if state.updating {
+                    ProgressView().controlSize(.small).frame(width: 18, height: 18)
+                } else {
+                    SVGIcon(d: RailIcon.update)
+                        .stroke(Brand.tabText, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                        .frame(width: 18, height: 18)
+                }
+                Text(tr("업데이트")).font(Brand.font(.tag)).lineLimit(1)
+            }
+            .foregroundStyle(Brand.tabText)
+            .frame(width: 60, height: 56)
+            .hoverHighlight(cornerRadius: 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(state.updating)
+        .help(tr("빌드 \(update.build) 설치하고 다시 시작"))
+        .accessibilityLabel(tr("업데이트"))
+    }
+
     var body: some View {
         VStack(spacing: 8) {
             ForEach(MainWindow.Tab.visible()) { railTab($0) }   // 설정도 다른 탭과 한 줄에 (맨 아래로 내리지 않는다)
             Spacer(minLength: 0)
+            if let update = state.availableUpdate { updateButton(update) }
             AccountDot().padding(.top, 8)
         }
         .padding(.top, 10).padding(.bottom, 14).padding(.horizontal, 6)
@@ -144,7 +169,7 @@ struct TitleConnection: View {
             Text(Self.modelTitle(state.settings.chatModelName)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x7A716B)).lineLimit(1)
             Circle().fill(connected ? Brand.connected : Brand.sub).frame(width: 6, height: 6)
         }
-        .padding(.horizontal, 10).frame(height: 24)
+        .padding(.horizontal, 10).frame(height: titlePillHeight)
         .background(Capsule().fill(Brand.pillFill))
         .help(connected ? tr("연결됨") : tr("연결되지 않음"))
     }
@@ -192,7 +217,10 @@ private struct WaveformIcon: View {
     }
 }
 
-/// Title bar pill: brown with white text for recording, light for 지금 정리; both 24 high so the row lines up.
+/// One height for the record, 지금 정리 and connection pills; the user chose this over Figma's 32pt record button.
+private let titlePillHeight: CGFloat = 24
+
+/// Title bar pill: brown with white text for recording, light for 지금 정리.
 private struct TitlePill<Content: View>: View {
     var primary = false
     @ViewBuilder var content: () -> Content
@@ -202,8 +230,8 @@ private struct TitlePill<Content: View>: View {
         content()
             .font(primary ? Brand.font(.body, .bold) : Brand.font(.body))
             .foregroundStyle(primary ? .white : Brand.tabText)
-            .lineLimit(1).fixedSize()                              // 옆 문구에 밀려 두 줄로 꺾이지 않게
-            .padding(.horizontal, primary ? 30 : 10).frame(height: primary ? 32 : 24)   // 녹음 단추는 32, 보조 알약은 24
+            .lineLimit(1).fixedSize()                              // keep the label on one line when the row is tight
+            .padding(.horizontal, primary ? 30 : 10).frame(height: titlePillHeight)
             .background(Capsule().fill(primary ? (hover ? Brand.accentDark : Brand.accent) : hover ? Brand.pillFill.opacity(0.7) : Brand.pillFill))
             .contentShape(Capsule())
             .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }

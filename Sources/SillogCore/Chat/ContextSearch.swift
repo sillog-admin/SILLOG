@@ -271,14 +271,14 @@ public struct ContextSearch: Sendable {
                     guard let row = try Row.fetchOne(conn, sql: "SELECT f.text, c.payload FROM app_messages_fts f JOIN app_messages m ON m.id = f.message_id JOIN app_conversations c ON c.id = m.conversation_id WHERE m.id = ? AND \(filter.0) AND \(focusFilter.0)", arguments: args) else { return [] }
                     let text: String = row["text"], offset = max(1, start), page = String(text.dropFirst(offset - 1).prefix(18000))
                     let title = try JSONDecoder().decode(ChatConversation.self, from: Data((row["payload"] as String).utf8)).title
-                    return [.init(id: "message:\(pieces[1]):\(offset)", title: "대화 · \(title)", location: "", excerpt: page + "\n[전체 \(text.count)자 · 다음 시작 위치 \(offset + page.count)]")]
+                    return [.init(id: "message:\(pieces[1]):\(offset)", title: "대화 · \(title)", location: "", excerpt: page + "\n[\(text.count) characters in all · next start position \(offset + page.count)]")]
                 }
                 var args: StatementArguments = [String(pieces[1])]; args += filter.1; args += focusFilter.1
                 guard let row = try Row.fetchOne(conn, sql: "SELECT c.payload FROM app_conversations c WHERE c.id = ? AND \(filter.0) AND \(focusFilter.0)", arguments: args) else { return [] }
                 let title = try JSONDecoder().decode(ChatConversation.self, from: Data((row["payload"] as String).utf8)).title
                 let rows = try Row.fetchAll(conn, sql: "SELECT m.id, f.text FROM app_messages m JOIN app_messages_fts f ON f.message_id = m.id WHERE conversation_id = ? ORDER BY created_at, m.rowid LIMIT 20 OFFSET ?", arguments: [String(pieces[1]), max(0, start - 1)])
                 let text = rows.map { "[message:\($0["id"] as String)]\n\(String(($0["text"] as String).prefix(700)))" }.joined(separator: "\n\n")
-                return [.init(id: "conversation:\(pieces[1]):\(max(1, start))", title: "대화 · \(title)", location: "", excerpt: text + "\n[다음 메시지 위치 \(max(1, start) + rows.count). 메시지 원문은 message ID로 조회하세요.]" )]
+                return [.init(id: "conversation:\(pieces[1]):\(max(1, start))", title: "대화 · \(title)", location: "", excerpt: text + "\n[Next message position \(max(1, start) + rows.count). Read a message's full text by its message ID.]" )]
             }
         }
         guard includeActivity, let id = Int64(pieces[1]) else { return [] }
@@ -344,7 +344,7 @@ public struct ContextSearch: Sendable {
                 let title: String? = row["title"]
                 let offset = max(1, start)
                 let page = String(transcript.dropFirst(offset - 1).prefix(18000))
-                let footer = "[전체 \(transcript.count)자 · 다음 시작 위치 \(offset + page.count)]"
+                let footer = "[\(transcript.count) characters in all · next start position \(offset + page.count)]"
                 return [.init(id: sourceID, title: "녹음 · \(title ?? "제목 없음")", location: row["text_path"] ?? "",
                               excerpt: Self.recordingHeader(row) + "\n\n" + page + "\n" + footer)]
             default: return []

@@ -38,7 +38,7 @@ SwiftPM 패키지 하나에 타깃이 네 개 있습니다(`Package.swift`). 의
 1. **수집**: `CollectorCoordinator`가 모은 관측 행을 `EventStore`가 SQLite에 씁니다.
 2. **정리 배치**: `OntologyBatcher`(actor)가 5분마다 미처리 행을 가져와 `EventCompressor`로 압축한 뒤 둘 중 한 경로로 보냅니다.
    - 앱 기본 경로(`Ontology/Staged/SeparatedJudgment.swift`): **판단 모델**(`ActivityJudging`)이 행마다 기존 업무 / `new` / `off` / `none` 중 하나를 고르고(`decideSeparately`), **정리 모델**이 새 업무의 이름과 요약을 씁니다(`organizeDecisions`). 고르기 전용 모델(Jev, Decisions)은 행 4개씩 동시에 묻고, 확신이 낮으면 `none`으로 봅니다. 앞에서부터 이어서 판단된 행만 반영하고 나머지는 다음 배치로 넘깁니다.
-   - 판단 모델이 없을 때(CLI·평가): `StagedPipeline.run`의 분류→배정→서술 3단계, 또는 한 번에 묻는 `single`.
+   - 판단 모델이 없을 때(CLI·평가, 또는 일반 > 업무가 아닌 기록도 수집하기를 끈 앱): `StagedPipeline.run`의 분류→배정→서술 3단계, 또는 한 번에 묻는 `single`.
 
    결과(`AssignmentPatch`)는 `AssignmentApplier`가 한 트랜잭션으로 그래프에 반영하고 처리 완료로 표시합니다. 실패하면 행을 그대로 두고 잠시 뒤 다시 시도합니다. 건너뛰지 않습니다.
 3. **기억 정리**: `Consolidator`가 사용 시간 기록(`usage_ledger`) → 주간·월간 요약 → 보관 기간이 지난 원문 삭제 순서로 진행합니다. 요약에 나온 숫자와 근거는 `DigestValidator`가 검증합니다.
@@ -60,6 +60,7 @@ LLM 클라이언트는 `Settings.swift`(`AppSettings`)의 값으로 `AppState.ma
 설정 화면(`SettingsView.swift`의 `ConnectionSection`)은 이렇게 동작합니다.
 
 - 연결 목록에는 ChatGPT 구독만 늘 보입니다. API 서버, Jev, OpenAI Decisions는 그 연결을 쓰는 모델 줄이 있을 때만 나옵니다.
+- 판단 모델 줄과 Jev·OpenAI Decisions 연결은 '업무가 아닌 기록도 수집하기'(`AppSettings.collectOffWork`)가 켜져 있을 때만 보입니다.
 - 정리, 채팅, 판단 모델은 모두 알약 단추로 연결을 고릅니다. 판단 모델 순서는 ChatGPT 구독, OpenAI Decisions, Jev, API 서버입니다. 연결 이름 앞에는 브랜드 로고(`ProviderLogo`)를 붙입니다.
 - 판단 모델의 "다른 API 서버"(`JudgeChoice.customAPI`)는 고르는 단추에서 뺐습니다. 예전 저장값은 그대로 읽히고 화면에는 "API 서버"로 보입니다.
 - API 서버 주소와 키 입력칸은 API 서버를 고른 모델 줄 바로 밑에 엽니다.
@@ -80,7 +81,7 @@ LLM 클라이언트는 `Settings.swift`(`AppSettings`)의 값으로 `AppState.ma
 - **화면 문구는 `tr("한국어 원문")`으로 씁니다.** 한국어 원문이 키이고, 영어는 `Sources/SillogCore/Localization/en.json` 한 곳에서 찾습니다. 보간 값은 키에서 `%@`로 바뀌고, 영어에서 순서를 바꿔야 하면 `%1$@`처럼 씁니다. 번역이 없으면 한국어 원문이 그대로 나옵니다. 저장값으로 쓰는 enum 원시값은 그대로 두고 화면에서만 `L10n.tr(key:)`로 바꿉니다. AppLog, 프롬프트, DB에 저장되는 이름은 감싸지 않습니다. 새 문구를 넣으면 `en.json`에도 추가합니다(`L10nTests`가 자리표시자 수를 확인합니다).
 - **글자 크기는 역할 6단계로만 씁니다.** 화면 글자는 `Brand.font(.역할)`로 지정합니다. 역할은 화면 제목(`.screenTitle`, 22 bold), 구역 제목(`.sectionTitle`, 15 medium), 줄 제목(`.rowTitle`, 13 medium), 본문(`.body`, 12), 보조 설명(`.caption`, 11), 작은 표식(`.tag`, 10)입니다. 크기가 아니라 그 글이 화면에서 하는 역할로 고르고, 굵기는 강조가 필요할 때만 두 번째 인자로 바꿉니다. `Brand.suit(크기)`를 직접 쓰는 것은 처음 실행 화면 같은 26pt 이상의 큰 글자뿐입니다. 숫자용 Jost 글꼴(`Brand.jost`)도 놓이는 자리의 역할 크기에 맞춥니다.
 - **이름은 SILLOG로 씁니다.** 화면 문구, 문서, 커밋 메시지, PR 설명에서 앱 이름은 대문자 `SILLOG`로 씁니다(`Sillog`, `sillog` 아님). 한국어 문장에서는 "실록"으로 읽어 조사를 붙입니다(SILLOG은, SILLOG이, SILLOG을). 코드 식별자(`SillogCore`, `SillogApp` 등 타깃·타입 이름), 번들 ID `com.sillog.app`, URL scheme `sillog`, 데이터 경로, `SILLOG_*` 환경변수는 호환성 때문에 지금 이름을 그대로 둡니다.
-- **언어 설정**은 `AppSettings.language`(`ko`/`en`)이고 `L10n.current`에 반영됩니다. 바꾸면 창 전체를 다시 그립니다(`View.localized`). 그래프·캘린더 웹 화면은 `WebL10n`이 같은 표로 글자를 바꿔 주므로 JS에는 한국어 원문을 그대로 씁니다. AI가 만드는 업무 이름·요약은 프롬프트의 `L10n.current.promptName`으로 언어를 정합니다. 한국어로 쓴 도구 스키마 설명에서는 출력 언어를 `L10n.current.nameInKorean`("한국어"/"영어")으로 씁니다. "한국어 한 문장"처럼 박아 두면 프롬프트와 어긋나서 영어 설정에서도 모델이 한국어로 답합니다(`L10nTests`가 확인합니다).
+- **언어 설정**은 `AppSettings.language`(`ko`/`en`)이고 `L10n.current`에 반영됩니다. 바꾸면 창 전체를 다시 그립니다(`View.localized`). 그래프·캘린더 웹 화면은 `WebL10n`이 같은 표로 글자를 바꿔 주므로 JS에는 한국어 원문을 그대로 씁니다. 모델에 보내는 시스템 프롬프트, 도구 설명, 스키마 설명은 영어로 쓰고, AI가 만드는 업무 이름·요약의 언어는 `L10n.current.promptName`("Korean"/"English")으로 정합니다. "one Korean sentence"처럼 언어를 박아 두면 영어 설정에서도 모델이 한국어로 답합니다(`L10nTests`가 확인합니다). 따옴표 안 출력 예시와 코드가 비교하는 값(업무 종류 이름 등)은 그대로 둡니다.
 - **영어 설정에서 한국어가 남지 않게** 아래를 지킵니다.
   - 날짜 형식기에는 `Locale(identifier: L10n.current.rawValue)`를 쓰고 형식 문자열도 `tr("M월 d일")`처럼 감쌉니다. `ko_KR`을 박거나 시스템 지역을 따르는 `.formatted()` 기본값에 맡기지 않습니다.
   - `tr()` 결과를 `static let`에 담지 않습니다. 처음 읽은 언어로 굳으므로 계산 속성이나 함수로 씁니다.

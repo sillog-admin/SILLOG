@@ -46,6 +46,8 @@ struct AppSettings: Codable, Equatable {
     var suggestFolders = true
     /// 화면 기억 카드: 대표 화면을 LLM 에 보내 화면 내용을 기록한다
     var screenCards = true
+    /// Off runs the batch without the judge model.
+    var collectOffWork = true
     var maskPII = true
     /// 정리 위치 후보를 찾을 폴더들 (~ 표기 허용)
     var folderRoots: [String] = ["~/Desktop", "~/Documents"]
@@ -108,6 +110,7 @@ struct AppSettings: Codable, Equatable {
             .filter { !PrivacyFilter.alwaysExcludedBundles.contains($0) }
         suggestFolders = try c.decodeIfPresent(Bool.self, forKey: .suggestFolders) ?? d.suggestFolders
         screenCards = try c.decodeIfPresent(Bool.self, forKey: .screenCards) ?? d.screenCards
+        collectOffWork = try c.decodeIfPresent(Bool.self, forKey: .collectOffWork) ?? d.collectOffWork
         maskPII = try c.decodeIfPresent(Bool.self, forKey: .maskPII) ?? d.maskPII
         folderRoots = try c.decodeIfPresent([String].self, forKey: .folderRoots) ?? d.folderRoots
         // Saves from before the setting existed had a Korean UI.

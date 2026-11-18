@@ -356,7 +356,7 @@ private struct ChatCitationButton: View {
                                     if !source.location.isEmpty {
                                         Text(source.location).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
                                     }
-                                    Text(source.excerpt).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(4)
+                                    Text(source.shownExcerpt).font(Brand.font(.caption)).foregroundStyle(Brand.tabText).lineLimit(4)
                                 }.frame(maxWidth: .infinity, alignment: .leading)
                             }.buttonStyle(.plain)
                         }

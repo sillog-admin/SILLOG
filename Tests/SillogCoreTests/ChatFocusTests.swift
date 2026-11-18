@@ -139,16 +139,16 @@ final class ChatFocusTests: XCTestCase {
     func testTheOutlineTellsWhatTheFocusCovers() throws {
         let db = try SillogDatabase.inMemory(); _ = try seed(db)
         let task = try XCTUnwrap(try ContextSearch(db, focus: [flask]).focusOutline())
-        for part in ["selected: 업무 Flask 웹앱 개발", "- Flask 웹앱 개발", "약 2시간 40분", "세션 3개"] {
+        for part in ["selected: task Flask 웹앱 개발", "- Flask 웹앱 개발", "about 2h 40m", "3 sessions"] {
             XCTAssertTrue(task.contains(part), "\(part): \(task)")
         }
         let theme = try XCTUnwrap(try ContextSearch(db, focus: [study]).focusOutline())
-        for part in ["selected: 분야 학업", "- 통계학 수업", "- 선형대수 과제"] {
+        for part in ["selected: field 학업", "- 통계학 수업", "- 선형대수 과제"] {
             XCTAssertTrue(theme.contains(part), "\(part): \(theme)")
         }
         XCTAssertFalse(theme.contains("Flask"), theme)
         let both = try XCTUnwrap(try ContextSearch(db, focus: [study, flask]).focusOutline())
-        XCTAssertTrue(both.contains("selected: 분야 학업, 업무 Flask 웹앱 개발"), both)
+        XCTAssertTrue(both.contains("selected: field 학업, task Flask 웹앱 개발"), both)
         XCTAssertTrue(both.contains("- Flask 웹앱 개발") && both.contains("- 통계학 수업"), both)
         XCTAssertNil(try ContextSearch(db).focusOutline(), "초점이 없으면 블록도 없다")
     }
@@ -177,7 +177,7 @@ final class ChatFocusTests: XCTestCase {
         _ = try await ChatRunner(client: model, tools: ChatTools(db: db, scope: scope))
             .run(history: [ConversationMessage(conversationID: "c", role: "user", text: "요약해 줘")], skillIDs: []) { _ in }
         let system = await model.systems.first ?? ""
-        XCTAssertTrue(system.contains("<focus>\nselected: 업무 Flask 웹앱 개발"), system.suffix(1200).description)
+        XCTAssertTrue(system.contains("<focus>\nselected: task Flask 웹앱 개발"), system.suffix(1200).description)
     }
 
     func testPersonalInstructionsAreAddedOnlyWhenWrittenAndOnlyForTheMainAgent() async throws {

@@ -138,15 +138,15 @@ public struct ProjectStore: Sendable {
     static func items(_ conn: Database) throws -> [ProjectItem] {
         var items = try Row.fetchAll(conn, sql: """
             SELECT t.id, t.title, p.project_id,
-              (SELECT group_concat(props, char(10)) FROM (
+              (SELECT group_concat(line.value, ' / ') FROM (
                 SELECT s.props FROM nodes s JOIN edges e ON e.src = s.id AND e.type = 'PART_OF'
                 WHERE e.dst = t.id AND s.label = 'Session' ORDER BY s.updated_at DESC LIMIT 3
-              )) AS summary,
+              ) recent, json_each(recent.props, '$.summaries') line) AS summary,
               (SELECT group_concat(r.title, ', ') FROM edges part JOIN edges used ON used.src = part.src AND used.type = 'TOUCHED'
                 JOIN nodes r ON r.id = used.dst WHERE part.dst = t.id AND part.type = 'PART_OF' AND r.label = 'Resource') AS resources
             FROM nodes t LEFT JOIN project_tasks p ON p.task_id = t.id WHERE t.label = 'Task' ORDER BY t.updated_at DESC
             """).map { row -> ProjectItem in
-                let summary = (row["summary"] as String? ?? "") + "\n자료: " + (row["resources"] as String? ?? "")
+                let summary = (row["summary"] as String? ?? "") + "\nMaterials: " + (row["resources"] as String? ?? "")
                 return .init(id: "task:\(row["id"] as Int64)", title: row["title"], summary: String(summary.prefix(1600)), projectID: row["project_id"])
             }
         for row in try Row.fetchAll(conn, sql: "SELECT id, payload, project_id FROM app_conversations ORDER BY updated_at DESC") {

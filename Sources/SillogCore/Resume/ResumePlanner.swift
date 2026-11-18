@@ -62,11 +62,15 @@ public enum ResumePlanner {
         return try build(title: task.title, sessions: Array(sessions), tx: tx, home: home, fileExists: fileExists, options: options)
     }
 
+    /// Args: sessions to merge; options sets the minimum seconds per kind.
+    /// Returns: the plan; if nothing passes the minimums, it rebuilds once with every minimum at 0.
+    /// Raises: database errors from tx.
     static func build(title: String, sessions: [GraphNode], tx: GraphTx, home: String, fileExists: (String) -> Bool, options: Options) throws -> ResumePlan {
         var fileSeconds: [String: (node: GraphNode, seconds: Double, lastAt: Double)] = [:]
         var urlSeconds: [String: (node: GraphNode, seconds: Double, lastAt: Double)] = [:]
         var appSeconds: [String: (title: String, seconds: Double, lastAt: Double)] = [:]
         var projectByFile: [String: String] = [:]
+        var chatFolders: [String: Double] = [:]
 
         for session in sessions {
             for edge in try tx.edges(from: session.id, type: EdgeType.touched) {
@@ -76,13 +80,15 @@ public enum ResumePlanner {
                     guard fileExists(path) else { continue }
                     fileSeconds[path, default: (resource, 0, 0)].seconds += edge.weight
                     fileSeconds[path]!.lastAt = max(fileSeconds[path]!.lastAt, edge.lastAt)
-                    if projectByFile[path] == nil, let project = try tx.edges(from: resource.id, type: EdgeType.belongsTo).first,
-                       let projectNode = try tx.node(id: project.dst), projectNode.key.hasPrefix("file:") {
-                        projectByFile[path] = expand(String(projectNode.key.dropFirst("file:".count)), home: home)
+                    if projectByFile[path] == nil { projectByFile[path] = try projectFolder(of: resource, tx: tx, home: home) }
+                } else if resource.key.hasPrefix("chat:") {
+                    // AI chat rows have no dwell; reopen the folder the chat ran in, unless that is the home folder.
+                    if let folder = try projectFolder(of: resource, tx: tx, home: home), folder != home {
+                        chatFolders[folder] = max(chatFolders[folder] ?? 0, edge.lastAt)
                     }
-                } else if resource.key.hasPrefix("http://") || resource.key.hasPrefix("https://"), !isTransient(url: resource.key) {
-                    urlSeconds[resource.key, default: (resource, 0, 0)].seconds += edge.weight
-                    urlSeconds[resource.key]!.lastAt = max(urlSeconds[resource.key]!.lastAt, edge.lastAt)
+                } else if let url = URINormalizer.openableURL(forKey: resource.key, home: home)?.absoluteString, !isTransient(url: url) {
+                    urlSeconds[url, default: (resource, 0, 0)].seconds += edge.weight
+                    urlSeconds[url]!.lastAt = max(urlSeconds[url]!.lastAt, edge.lastAt)
                 }
             }
             for edge in try tx.edges(from: session.id, type: EdgeType.used) {
@@ -102,8 +108,9 @@ public enum ResumePlanner {
         for (path, entry) in files where entry.node.subtype == "CodeFile" {
             if let project = projectByFile[path], fileExists(project) { folders[project, default: 0] += entry.seconds }
         }
+        for folder in chatFolders.keys where folders[folder] == nil && fileExists(folder) { folders[folder] = 0 }
         for (folder, seconds) in folders.sorted(by: { $0.value > $1.value }) {
-            let lastAt = files.filter { projectByFile[$0.key] == folder }.map(\.value.lastAt).max() ?? 0
+            let lastAt = max(files.filter { projectByFile[$0.key] == folder }.map(\.value.lastAt).max() ?? 0, chatFolders[folder] ?? 0)
             items.append(.init(kind: .folder, target: folder, title: (folder as NSString).lastPathComponent, appBundle: editor, seconds: seconds, lastAt: lastAt))
         }
         for (path, entry) in files {
@@ -119,11 +126,25 @@ public enum ResumePlanner {
         where entry.seconds >= options.minAppSeconds && !coveredApps.contains(bundle) {
             items.append(.init(kind: .app, target: bundle, title: entry.title, appBundle: bundle, seconds: entry.seconds, lastAt: entry.lastAt))
         }
+        // Short work never reaches the minimums; offer its files, pages and apps instead of an empty sheet.
+        if items.isEmpty, options.minFileSeconds > 0 || options.minURLSeconds > 0 || options.minAppSeconds > 0 {
+            var all = options
+            all.minFileSeconds = 0; all.minURLSeconds = 0; all.minAppSeconds = 0
+            return try build(title: title, sessions: sessions, tx: tx, home: home, fileExists: fileExists, options: all)
+        }
         return ResumePlan(title: title, items: markLastUsed(items, options: options))
     }
 
-    /// 기본으로 켤 것: 마지막으로 만진 시각에서 recentWindow 안에 만진 파일·페이지, 최근 순으로 maxDefaultItems 개.
-    /// 그 파일이 속한 프로젝트 폴더도 켠다. 앱은 파일·페이지가 하나도 없을 때만. 목록은 켠 것이 앞에, 그다음 최근 순.
+    /// Args: a resource node.
+    /// Returns: the absolute folder of the `file:` project the resource BELONGS_TO, or nil.
+    /// Raises: database errors from `tx`.
+    static func projectFolder(of resource: GraphNode, tx: GraphTx, home: String) throws -> String? {
+        guard let edge = try tx.edges(from: resource.id, type: EdgeType.belongsTo).first, let project = try tx.node(id: edge.dst),
+              project.key.hasPrefix("file:") else { return nil }
+        return expand(String(project.key.dropFirst("file:".count)), home: home)
+    }
+
+    /// Turns on the latest files, pages and their folders; recent apps and folders only when no file or page is on.
     static func markLastUsed(_ items: [ResumePlan.Item], options: Options) -> [ResumePlan.Item] {
         var items = items
         let latest = items.filter { $0.kind != .folder }.map(\.lastAt).max() ?? 0
@@ -137,8 +158,10 @@ public enum ResumePlanner {
             for index in items.indices where items[index].kind == .app && items[index].lastAt >= latest - options.recentWindow { items[index].selected = true }
         }
         let selectedFiles = items.filter { $0.selected && $0.kind == .file }.map(\.target)
+        let newest = items.map(\.lastAt).max() ?? 0          // chat folders may be all there is, so measure them against each other too
         for index in items.indices where items[index].kind == .folder {
-            items[index].selected = selectedFiles.contains { $0.hasPrefix(items[index].target + "/") }
+            let alone = picked == 0 && items[index].lastAt >= newest - options.recentWindow     // an AI chat's folder, like apps above
+            items[index].selected = alone || selectedFiles.contains { $0.hasPrefix(items[index].target + "/") }
         }
         return items.sorted { ($0.selected ? 1 : 0, $0.lastAt) > ($1.selected ? 1 : 0, $1.lastAt) }
     }

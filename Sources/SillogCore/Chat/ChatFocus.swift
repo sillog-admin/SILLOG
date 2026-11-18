@@ -121,23 +121,23 @@ extension ContextSearch {
             let day = DateFormatter()
             day.locale = Locale(identifier: "en_US_POSIX"); day.dateFormat = "yyyy-MM-dd"
             let shown = 30
-            let selected = focus.map { "\($0.kind == .task ? "업무" : "분야") \($0.title)" }.joined(separator: ", ")
-            var lines = ["selected: \(selected)", rows.isEmpty ? "tasks: none (찾을 수 없음)" : "tasks:"]
+            let selected = focus.map { "\($0.kind == .task ? "task" : "field") \($0.title)" }.joined(separator: ", ")
+            var lines = ["selected: \(selected)", rows.isEmpty ? "tasks: none (not found)" : "tasks:"]
             for row in rows.prefix(shown) {
                 let theme: String? = row["theme"]
-                let facts = [theme.map { "분야 \($0)" }, "누적 \(Self.approximate(row["seconds"]))", "세션 \(row["sessions"] as Int)개",
-                             "마지막 활동 \(day.string(from: Date(timeIntervalSince1970: row["last"])))"].compactMap { $0 }
+                let facts = [theme.map { "field \($0)" }, "total \(Self.approximate(row["seconds"]))", "\(row["sessions"] as Int) session\(row["sessions"] as Int == 1 ? "" : "s")",
+                             "last active \(day.string(from: Date(timeIntervalSince1970: row["last"])))"].compactMap { $0 }
                 lines.append("- \(row["title"] as String) (\(facts.joined(separator: ", ")))")
             }
-            if rows.count > shown { lines.append("- 외 \(rows.count - shown)개") }
+            if rows.count > shown { lines.append("- \(rows.count - shown) more") }
             return lines.joined(separator: "\n")
         }
     }
 
-    /// 사용 시간 근사: 약 2시간 40분, 약 51분
+    /// Rounded usage time: about 2h 40m, about 51m
     static func approximate(_ seconds: Double) -> String {
         let minutes = Int((seconds / 60).rounded())
-        guard minutes >= 60 else { return "약 \(minutes)분" }
-        return "약 \(minutes / 60)시간" + (minutes % 60 > 0 ? " \(minutes % 60)분" : "")
+        guard minutes >= 60 else { return "about \(minutes)m" }
+        return "about \(minutes / 60)h" + (minutes % 60 > 0 ? " \(minutes % 60)m" : "")
     }
 }

@@ -48,6 +48,16 @@ final class OnboardingOverlayTests: XCTestCase {
         XCTAssertTrue(text.contains("판단모델을골라요"), "Return 은 시트의 '로그인 완료, 다음' 을 눌러 판단 모델 고르기로 가야 한다 (시트 뒤 파일 탭의 '옮기기' 가 아니라): \(text.prefix(200))")
     }
 
+    func testReturnOnLanguageStepGoesToLogin() {
+        let state = AppState(preview: { s in s.phase = .login; s.onboardingStep = .language; s.selectedTab = .records })
+        let window = show(MainWindow(), state)
+        let enter = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
+                                     context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)!
+        _ = window.performKeyEquivalent(with: enter)
+        settle(window)
+        XCTAssertEqual(state.onboardingStep, .login)
+    }
+
     func testSheetTakesFocusAwayFromATextFieldBehindIt() {
         let state = AppState(preview: { s in s.phase = .ready; s.selectedTab = .records; s.recordsSection = .files })
         let window = show(MainWindow(), state)

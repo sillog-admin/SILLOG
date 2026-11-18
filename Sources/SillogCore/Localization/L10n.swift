@@ -6,9 +6,6 @@ public enum AppLanguage: String, CaseIterable, Codable, Sendable {
     /// Language name used in LLM prompts for generated titles and summaries.
     public var promptName: String { self == .ko ? "Korean" : "English" }
 
-    /// `promptName` for tool schema descriptions written in Korean.
-    public var nameInKorean: String { self == .ko ? "한국어" : "영어" }
-
     /// Args: text is a user-facing name such as a task title.
     /// Returns: true when its script fits this language: Korean needs Hangul, English has none.
     /// Raises: none.

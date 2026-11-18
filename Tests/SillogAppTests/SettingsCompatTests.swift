@@ -95,6 +95,13 @@ final class SettingsCompatTests: XCTestCase {
         XCTAssertEqual(own.chatModelName, "b", "a chat model picked earlier is not overwritten")
     }
 
+    func testOffWorkCollectionStartsOnForOldSavesAndRoundTrips() throws {
+        XCTAssertTrue(try decode(#"{"screenCards":false}"#).collectOffWork, "saves from before the setting keep using the judge")
+        var s = AppSettings()
+        s.collectOffWork = false
+        XCTAssertFalse(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s)).collectOffWork)
+    }
+
     func testOldExcludedListDropsSystemWindowsAndMaskingStartsOn() throws {
         let s = try decode(#"{"excludedBundles":["com.apple.loginwindow","com.apple.Passwords","com.example.app"]}"#)
         XCTAssertEqual(s.excludedBundles, ["com.apple.Passwords", "com.example.app"])

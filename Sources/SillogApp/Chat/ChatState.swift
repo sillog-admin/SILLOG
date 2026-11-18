@@ -21,7 +21,16 @@ final class ChatState: ObservableObject {
     @Published private(set) var pinnedSkillIDs: [String] = []
     var pinnedSkills: [ChatSkill] { pinnedSkillIDs.compactMap { id in skills.first { $0.id == id } } }
     @Published var automations: [ChatAutomation] = []
-    @Published var draft = ""
+    /// Only ChatComposer observes this; other views reading draft won't refresh while typing.
+    let composerDraft = ChatDraft()
+    var draft: String {
+        get { composerDraft.text }
+        set {
+            // ChatView reads the draft only on the empty start screen, and only whether it is empty.
+            if messages.isEmpty, newValue.isEmpty != composerDraft.text.isEmpty { objectWillChange.send() }
+            composerDraft.text = newValue
+        }
+    }
     @Published var draftConnectors: [String] = []
     @Published var error: String?
     @Published var openArtifactID: String?
@@ -842,4 +851,9 @@ final class ChatState: ObservableObject {
             }
         } catch { self.error = error.localizedDescription }
     }
+}
+
+@MainActor
+final class ChatDraft: ObservableObject {
+    @Published var text = ""
 }

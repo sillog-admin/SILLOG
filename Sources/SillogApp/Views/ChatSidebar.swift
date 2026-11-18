@@ -2,16 +2,35 @@ import SwiftUI
 import SillogCore
 
 /// 채팅 탭 왼쪽 대화 목록 (Figma CH-02, 29, 30). 폭 261, 오른쪽 선은 바깥에서 그린다.
-struct ChatSidebar: View {
-    @ObservedObject var chat: ChatState
+struct ChatSidebar: View, Equatable {
+    /// Not observed: a streamed answer changes ChatState every 40ms. ChatView redraws this list only when `shown` changes.
+    let chat: ChatState
     @ObservedObject var projects: ProjectState
     @Binding var pane: ChatPane
-    var isSearching: Bool
-    var onSearch: () -> Void
-    var onSchedules: () -> Void
-    var onCollapse: () -> Void
-    var onRename: (ChatConversation) -> Void
-    var onDelete: (ChatConversation) -> Void
+    let isSearching: Bool
+    let onSearch: () -> Void
+    let onSchedules: () -> Void
+    let onCollapse: () -> Void
+    let onRename: (ChatConversation) -> Void
+    let onDelete: (ChatConversation) -> Void
+    /// Everything the body reads from chat, pane and isSearching; a read left out of it goes stale.
+    private let shown: Shown
+
+    private struct Shown: Equatable {
+        let conversations: [ChatConversation], currentID: String, busyIDs: Set<String>, isNewChat: Bool, automations: Int
+        let pane: ChatPane, isSearching: Bool
+    }
+
+    init(chat: ChatState, projects: ProjectState, pane: Binding<ChatPane>, isSearching: Bool, onSearch: @escaping () -> Void,
+         onSchedules: @escaping () -> Void, onCollapse: @escaping () -> Void,
+         onRename: @escaping (ChatConversation) -> Void, onDelete: @escaping (ChatConversation) -> Void) {
+        self.chat = chat; _projects = ObservedObject(wrappedValue: projects); _pane = pane; self.isSearching = isSearching
+        self.onSearch = onSearch; self.onSchedules = onSchedules; self.onCollapse = onCollapse; self.onRename = onRename; self.onDelete = onDelete
+        shown = Shown(conversations: chat.conversations, currentID: chat.current.id, busyIDs: Set(chat.activeMessages.keys),
+                      isNewChat: chat.messages.isEmpty, automations: chat.automations.count, pane: pane.wrappedValue, isSearching: isSearching)
+    }
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.shown == rhs.shown }
 
     @State private var pinnedOpen = true
     @State private var recentOpen = true
@@ -200,24 +219,36 @@ struct ChatSidebar: View {
                 Button(tr("완료")) { selecting = false; selected = []; selectionError = nil }
                     .buttonStyle(.plain).font(Brand.font(.caption))
             }
-            HStack {
+            let active = !selected.isEmpty
+            HStack(spacing: 2) {
                 Menu {
                     ForEach(projects.projects) { project in
                         Button(project.title) { performSelectionAction { try chat.moveConversations(selected, to: project.id) } }
                     }
                     Divider()
                     Button(tr("일반 채팅으로 이동")) { performSelectionAction { try chat.moveConversations(selected, to: nil) } }
-                } label: { Label(tr("이동"), systemImage: "folder") }
-                let unarchive = !selected.isEmpty && selected.allSatisfy { id in chat.archivedConversations.contains { $0.id == id } }
+                } label: { selectionIcon("folder") }
+                    .menuStyle(.button).menuIndicator(.hidden).fixedSize()
+                    .hoverHighlight(cornerRadius: 5, active: active).help(tr("이동")).accessibilityLabel(tr("이동"))
+                let unarchive = active && selected.allSatisfy { id in chat.archivedConversations.contains { $0.id == id } }
+                let archiveTitle = unarchive ? tr("보관 해제") : tr("보관하기")
                 Button { performSelectionAction { chat.setArchived(selected, !unarchive) } } label: {
-                    unarchive ? Label(tr("보관 해제"), systemImage: "tray.and.arrow.up") : Label(tr("보관하기"), systemImage: "archivebox")
-                }
-                Button { confirmDelete = true } label: { Label(tr("삭제"), systemImage: "trash") }
-                    .foregroundStyle(PopRow.red)
-            }.disabled(selected.isEmpty)
+                    selectionIcon(unarchive ? "tray.and.arrow.up" : "archivebox")
+                }.hoverHighlight(cornerRadius: 5, active: active).help(archiveTitle).accessibilityLabel(archiveTitle)
+                Button { confirmDelete = true } label: { selectionIcon("trash", color: PopRow.red) }
+                    .hoverHighlight(cornerRadius: 5, active: active).help(tr("삭제")).accessibilityLabel(tr("삭제"))
+            }
+            .buttonStyle(.plain).padding(.leading, -6)   // glyphs line up with the count text above
+            .disabled(!active).opacity(active ? 1 : 0.4)
             if let selectionError { Text(selectionError).font(Brand.font(.caption)).foregroundStyle(.red) }
         }.foregroundStyle(Brand.tabText).padding(12)
             .overlay(alignment: .top) { Rectangle().fill(Brand.line).frame(height: 1) }
+    }
+
+    /// ChatIconButton size; its hover fill is the sidebar paper color, so the bar uses hoverHighlight.
+    private func selectionIcon(_ name: String, color: Color = Brand.tabText) -> some View {
+        Image(systemName: name).font(.system(size: 13)).foregroundStyle(color)
+            .frame(width: 28, height: 28).contentShape(Rectangle())
     }
 
     private func performSelectionAction(_ action: () throws -> Void) {

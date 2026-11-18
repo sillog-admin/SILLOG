@@ -227,7 +227,7 @@ public struct ChatRunner: Sendable {
                     project: ChatProject? = nil, memory: ChatMemory? = nil, userInstructions: String = "",
                     onEvent: @escaping @Sendable (ChatRunEvent) async -> Void) async throws -> ChatRunResult {
         let selected = skillIDs.isEmpty ? [] : try (skillCatalog ?? ChatSkill.load()).filter { skillIDs.contains($0.id) }
-        let procedures = try selected.map { "## \($0.title)\n\(try $0.instructions())" }.joined(separator: "\n\n")
+        let procedures = try selected.map { "## \($0.isCustom ? $0.title : L10n.english[$0.title] ?? $0.title)\n\(try $0.instructions())" }.joined(separator: "\n\n")
         var prompt = ChatSystemPrompt(template: try ChatSystemPrompt.template(), scope: tools.scope, chatModel: backend.modelName,
                                       scheduled: scheduled, skillInstructions: procedures, project: project)
         prompt.userInstructions = userInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -246,7 +246,7 @@ public struct ChatRunner: Sendable {
             let last = index == eligible.count - 1 && message.role == "user"
             var text = String(message.text.prefix(last ? Self.historyBudget : 12000))
             for artifact in message.artifacts.filter({ latest.contains($0.id) }).suffix(2) { text += "\n<previous_artifact id=\"\(artifact.id)\" format=\"\(artifact.format)\" title=\"\(artifact.title)\">\n\(String(artifact.content.prefix(18000)))\n</previous_artifact>" }
-            if !message.sources.isEmpty { text += "\n이전 조회 출처:\n" + message.sources.prefix(12).map { "[\($0.id)] \($0.title) \($0.location)\n\(String($0.excerpt.prefix(500)))" }.joined(separator: "\n") }
+            if !message.sources.isEmpty { text += "\nSources retrieved earlier:\n" + message.sources.prefix(12).map { "[\($0.id)] \($0.title) \($0.location)\n\(String($0.excerpt.prefix(500)))" }.joined(separator: "\n") }
             return text
         }
         let (start, memory) = try await window(eligible, rendered, memory: memory)
@@ -343,7 +343,7 @@ public struct ChatRunner: Sendable {
                                 await onEvent(.step("\(Self.roleTitle(assignment.role)) 시작"))
                                 let answer = try await loop(messages: [.init(role: "user", text: assignment.task)], prompt: prompt, role: assignment.role, allowAutomation: false, ledger: ledger, onEvent: onEvent)
                                 await onEvent(.step("\(Self.roleTitle(assignment.role)) 완료"))
-                                return (index, "\(Self.roleTitle(assignment.role)):\n\(answer)")
+                                return (index, "\(assignment.role):\n\(answer)")
                             }
                         }
                         var answers: [(Int, String)] = []
@@ -356,13 +356,13 @@ public struct ChatRunner: Sendable {
                     guard Self.artifactFormats.contains(args.format), !args.content.isEmpty, args.content.utf8.count <= 200000 else { throw ChatToolError.unavailable(tr("결과물은 내용이 있는 200KB 이하 Markdown, HTML, CSV, JSON, TXT, DOCX, PPTX 또는 XLSX여야 합니다.")) }
                     let artifact = await ledger.record(ChatArtifact(title: String(args.title.prefix(160)), format: args.format, content: args.content), revises: args.revises)
                     await onEvent(.artifact(artifact))
-                    output = "결과물 생성됨: \(artifact.title) (id: \(artifact.id)). 사용자가 미리보기·파일 저장·PDF 내보내기를 할 수 있다."
+                    output = "Artifact created: \(artifact.title) (id: \(artifact.id)). The user can preview it, save it as a file, and export it to PDF."
                     shown = tr("결과물 생성됨: \(artifact.title)")
                 case "propose_automation":
                     let args = try JSONDecoder().decode(ChatAutomationProposal.self, from: Data(call.arguments.utf8))
                     guard (1...8760).contains(args.intervalHours), !args.prompt.isEmpty, !args.title.isEmpty else { throw ChatToolError.unavailable(tr("예약 이름·실행 요청과 1~8760시간 간격이 필요합니다.")) }
                     await ledger.record(args); await onEvent(.automation(args))
-                    output = "예약안이 표시됨. 아직 등록되지 않았으며 사용자의 버튼 승인이 필요하다."
+                    output = "Scheduled task proposal shown. It is not registered yet and needs the user's approval with the button."
                     shown = tr("예약안을 표시했어요. 등록하려면 승인이 필요해요.")
                 default:
                     if call.name == "web_read" {
@@ -379,7 +379,7 @@ public struct ChatRunner: Sendable {
             } catch {
                 if Task.isCancelled || error is CancellationError { throw CancellationError() }
                 AppLog.write("chat tool \(call.name) failed: \(error) args(\(call.arguments.utf8.count)B)=\(PIIMasker.mask(String(call.arguments.prefix(120))))")
-                output = "도구 실행 실패: \(error.localizedDescription). 같은 인자로 자동 재시도하지 말고 원인을 설명하거나 다른 자료를 사용하세요."
+                output = "Tool call failed: \(error.localizedDescription). Don't retry automatically with the same arguments; explain the cause or use other material."
                 shown = tr("도구 실행 실패: \(error.localizedDescription)")
                 failed = true
             }
@@ -446,19 +446,19 @@ public struct ChatRunner: Sendable {
             }
             return specs.filter { names.contains($0.name) }
         }
-        specs.append(.init(name: "delegate", description: "복잡한 요청을 독립적인 조사·검토 에이전트에 위임한다. 각 작업에 필요한 질문, 경로, 출처 또는 검토할 초안을 포함한다. 최대 3개를 병렬 실행한다.", parameters: .object([
+        specs.append(.init(name: "delegate", description: "Delegates a complex request to independent investigation and review agents. Include in each task the question, paths, sources, or draft to review that it needs. Runs up to 3 in parallel.", parameters: .object([
             "type": "object", "properties": .object(["tasks": .object(["type": "array", "maxItems": 3, "items": .object([
                 "type": "object", "properties": .object(["role": .object(["type": "string", "enum": .array(["context", "repository", "research", "review"])]), "task": .object(["type": "string"])]),
                 "required": .array(["role", "task"]), "additionalProperties": false,
             ])])]), "required": .array(["tasks"]), "additionalProperties": false,
         ])))
-        specs.append(.init(name: "create_artifact", description: "저장 가능한 결과물을 만든다. 요청에 맞는 형식을 선택한다. HTML은 스크립트나 외부 리소스 없이 자체 포함시킨다. docx는 Markdown, pptx는 슬라이드마다 # 제목과 - 항목을 쓴 Markdown, xlsx는 머리글 행이 있는 CSV로 content를 쓴다. 이전 결과물을 고친 것이면 그 previous_artifact의 id를 revises에 넣는다.", parameters: .object([
+        specs.append(.init(name: "create_artifact", description: "Creates an artifact the user can save. Choose the format that fits the request. Make HTML self-contained, with no scripts or external resources. Write content as Markdown for docx, as Markdown with a # heading and - items for each slide for pptx, and as CSV with a header row for xlsx. If it revises an earlier artifact, put that previous_artifact's id in revises.", parameters: .object([
             "type": "object", "properties": .object(["title": .object(["type": "string"]), "format": .object(["type": "string", "enum": .array(Self.artifactFormats.map { .string($0) })]), "content": .object(["type": "string"]),
                                                      "revises": .object(["type": "string", "description": "id of the previous_artifact this revises; omit for a new artifact"])]),
             "required": .array(["title", "format", "content"]), "additionalProperties": false,
         ])))
         if allowAutomation {
-            specs.append(.init(name: "propose_automation", description: "사용자가 반복 실행을 요청했을 때 예약안을 제안한다. 등록은 UI에서 사용자가 승인해야 한다. 읽기·문서 생성만 가능하다.", parameters: .object([
+            specs.append(.init(name: "propose_automation", description: "Proposes a scheduled task when the user asks for something to run repeatedly. It is registered only after the user approves it in the UI. It can only read and create documents.", parameters: .object([
                 "type": "object", "properties": .object(["title": .object(["type": "string"]), "prompt": .object(["type": "string"]), "intervalHours": .object(["type": "integer", "minimum": 1, "maximum": 8760])]),
                 "required": .array(["title", "prompt", "intervalHours"]), "additionalProperties": false,
             ])))

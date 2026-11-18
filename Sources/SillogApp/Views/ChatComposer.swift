@@ -6,6 +6,8 @@ import SillogCore
 struct ChatComposer: View {
     @ObservedObject var chat: ChatState
     @ObservedObject var library: LibraryState
+    /// chat.composerDraft; observed here so each keystroke redraws only the composer.
+    @ObservedObject var typed: ChatDraft
     /// Kept by ChatView so the mode survives the home input giving way to the conversation input.
     @Binding var voice: VoiceConversation
     @ObservedObject var speaker: ChatSpeaker
@@ -153,6 +155,7 @@ struct ChatComposer: View {
 
     /// The chat's own artifacts stay attached for the model but are not shown as chips.
     static func shownAttachments(_ attached: [ChatLibraryItem], messages: [ConversationMessage]) -> [ChatLibraryItem] {
+        guard !attached.isEmpty else { return [] }
         let own = Set(messages.flatMap { $0.versions.flatMap(\.artifacts) }.map(\.id))
         return attached.filter { !($0.kind == "generated" && own.contains($0.originID ?? "")) }
     }

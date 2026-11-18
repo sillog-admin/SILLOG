@@ -21,17 +21,17 @@ public enum ExternalReadConnector: String, CaseIterable, Identifiable, Sendable 
         let searchable: String
         let readable: String
         switch self {
-        case .figma: (searchable, readable) = ("지정한 폴더의 디자인 파일 이름", "파일의 화면·레이어 이름과 텍스트")
-        case .slack: (searchable, readable) = ("메시지 본문과 원문 링크", "")
-        case .discord: (searchable, readable) = ("지정한 채널의 최근 100개 메시지 본문", "메시지 본문")
-        case .higgsfield: (searchable, readable) = ("등록한 API 요청의 ID 또는 상태", "API 요청 상태와 결과 파일 종류")
-        case .canva: (searchable, readable) = ("디자인 제목", "디자인 제목·종류·페이지 수와 수정 시각")
-        case .lovable: (searchable, readable) = ("지정한 워크스페이스의 프로젝트 이름과 설명", "프로젝트 설명과 공개 상태")
+        case .figma: (searchable, readable) = ("design file names in the specified folder", "a file's screen and layer names and its text")
+        case .slack: (searchable, readable) = ("message text and links to the originals", "")
+        case .discord: (searchable, readable) = ("the text of the latest 100 messages in the specified channel", "message text")
+        case .higgsfield: (searchable, readable) = ("the ID or status of registered API requests", "API request status and result file types")
+        case .canva: (searchable, readable) = ("design titles", "a design's title, type, page count, and last modified time")
+        case .lovable: (searchable, readable) = ("project names and descriptions in the specified workspace", "project description and publication status")
         }
-        let search = ChatTools.spec("\(id)_search", "\(name)에서 \(searchable)을 찾아 채팅의 참고 자료로 사용한다.",
-                                    ["query": "검색에 필요한 짧은 검색어. 비밀 값이나 대화 전체를 넣지 않는다."])
+        let search = ChatTools.spec("\(id)_search", "Finds \(searchable) in \(name) to use as reference material for the chat.",
+                                    ["query": "A short search term for the search. Do not include secret values or the whole conversation."])
         guard !readable.isEmpty else { return [search] }
-        return [search, ChatTools.spec("\(id)_read", "\(name)에서 \(readable)을 읽는다.", ["id": "검색 결과의 ID"])]
+        return [search, ChatTools.spec("\(id)_read", "Reads \(readable) from \(name).", ["id": "The ID from a search result"])]
     }
 
     public func verify(token: String, resource: String) async throws {
