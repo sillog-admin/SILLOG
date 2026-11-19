@@ -366,6 +366,9 @@ public final class SillogDatabase: @unchecked Sendable {
             // Orphan-text cleanup checks every deleted snapshot against observations; without this it scans the table each time.
             try db.execute(sql: "CREATE INDEX idx_observations_text ON observations(text_id)")
         }
+        migrator.registerMigration("v23-composed-file-keys") { db in
+            try FileKeys.composeStored(db)
+        }
         return migrator
     }
 }

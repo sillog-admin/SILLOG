@@ -87,7 +87,8 @@ public enum URINormalizer {
         let homeStd = (home as NSString).standardizingPath
         if path == "~" { return "file:~" }
         if path.hasPrefix("~/") { path = homeStd + String(path.dropFirst(1)) }
-        path = (path as NSString).standardizingPath
+        // Some macOS sources give decomposed Hangul, which made one folder two nodes
+        path = (path as NSString).standardizingPath.precomposedStringWithCanonicalMapping
         if path == homeStd { return "file:~" }
         if path.hasPrefix(homeStd + "/") { return "file:~" + String(path.dropFirst(homeStd.count)) }
         return "file:" + path
