@@ -20,6 +20,12 @@ SILLOG records what you do on your Mac: the apps and windows you use, the pages 
 
 It's an early prototype. It collects a lot about your work, so please read [Privacy and data](#privacy-and-data) before you turn it on.
 
+<img src="docs/readme/install-steps-en.webp" alt="Easy install. 1 Press ⌘ Space, type Terminal, Return. 2 Copy the command below with ⌘ C. 3 Paste in Terminal with ⌘ V, Return.">
+
+```bash
+brew install --cask sillog-admin/tap/sillog
+```
+
 ## Tasks and sources, connected in a graph
 
 Tasks, sessions, sources, and topics are stored with their links. You can switch between a 2D network, a 3D network, a sunburst chart, and a Sankey diagram.

@@ -20,6 +20,12 @@ SILLOG(실록)은 Mac에서 쓰는 앱과 창, 웹페이지, 화면 글자, 파�
 
 아직 초기 프로토타입입니다. 업무 기록을 꽤 많이 모으니 쓰기 전에 [개인정보와 데이터](#개인정보와-데이터)를 먼저 읽어 주세요.
 
+<img src="docs/readme/install-steps.webp" alt="쉽게 설치하기. 1 ⌘ Space를 누르고 터미널을 입력한 뒤 Return, 2 아래 명령을 ⌘ C로 복사, 3 터미널에 ⌘ V로 붙여넣고 Return">
+
+```bash
+brew install --cask sillog-admin/tap/sillog
+```
+
 ## 업무와 자료가 그래프로 이어져요
 
 업무, 세션, 자료, 주제를 서로 연결해 저장해요. 2D와 3D 연결망, 원형 차트, 생키 다이어그램으로 바꿔 볼 수 있어요.
