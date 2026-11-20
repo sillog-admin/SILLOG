@@ -13,6 +13,7 @@ swift test --filter SillogCoreTests.JevClientTests             # 테스트 클�
 swift test --filter SillogCoreTests.JevClientTests/testName    # 테스트 하나
 ./scripts/make-app.sh && open build/SILLOG.app   # 릴리스 빌드, 서명, ~/Applications 설치
 ./scripts/dev.sh                                  # 개발용: 데모 기록으로 디버그 빌드를 실제 앱 옆에 띄우고, Sources 를 저장하면 다시 빌드해 다시 띄움
+./scripts/make-dmg.sh build/SILLOG.app out.dmg    # 설치 창(민트 배경, 화살표, Applications)이 있는 dmg. main 릴리스에서 CI 가 씀. dmgbuild 를 PyPI 에서 받음
 swift run sillogctl                               # 개발용 CLI. 기본 DB가 실제 기록이므로 실험할 때는 --db로 다른 파일 지정
 swift run sillogctl check-judge jev|decisions     # 판단 모델 실제 호출 확인. 키는 .env에서 읽음
 ```

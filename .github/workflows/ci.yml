@@ -104,11 +104,7 @@ jobs:
       - name: Package dmg
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: |
-          stage="$RUNNER_TEMP/dmg"
-          rm -rf "$stage" && mkdir -p "$stage"
-          ditto "$HOME/Applications/SILLOG.app" "$stage/SILLOG.app"
-          ln -s /Applications "$stage/Applications"
-          hdiutil create -volname SILLOG -srcfolder "$stage" -ov -format UDZO "$RUNNER_TEMP/SILLOG.dmg"
+          ./scripts/make-dmg.sh "$HOME/Applications/SILLOG.app" "$RUNNER_TEMP/SILLOG.dmg"
           codesign --sign "Developer ID Application" --timestamp "$RUNNER_TEMP/SILLOG.dmg"
 
       # Notarizing the dmg also registers the app inside, so Gatekeeper accepts it after it's copied out.
