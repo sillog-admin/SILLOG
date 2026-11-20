@@ -4,7 +4,7 @@
   "compatibility_date": "2025-10-01",
   "main": "worker.js",
   "build": {
-    "command": "rm -rf dist && mkdir dist && cp -R index.html privacy.html robots.txt sitemap.xml assets dist/"
+    "command": "rm -rf dist && mkdir dist && cp -R index.html privacy.html en robots.txt sitemap.xml assets dist/"
   },
   "assets": {
     "directory": "./dist",
