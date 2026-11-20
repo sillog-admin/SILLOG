@@ -82,6 +82,11 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 PLIST
 # CI's run number, so a crash report names the release build it came from.
 plutil -replace CFBundleVersion -string "${GITHUB_RUN_NUMBER:-1}" "$APP/Contents/Info.plist"
+# Each CI build is a release, so its run number is also the last version part (0.1.0 -> 0.1.96). Bump 0.1 above by hand.
+if [ -n "${GITHUB_RUN_NUMBER:-}" ]; then
+  base="$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")"
+  plutil -replace CFBundleShortVersionString -string "${base%.*}.$GITHUB_RUN_NUMBER" "$APP/Contents/Info.plist"
+fi
 
 # OAuth client settings: env (SILLOG_* or legacy WORKGRAPH_*), then Config/OAuthClients.plist.
 OAUTH_CONFIG="$ROOT/Config/OAuthClients.plist"
