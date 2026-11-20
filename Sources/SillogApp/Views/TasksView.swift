@@ -367,7 +367,7 @@ struct TasksView: View {
     /// The chosen row toggles off only while its own card shows; otherwise pressing it (re)opens that task
     static func pressCloses(chosen: Bool, cardOpen: Bool, showingNode: Bool) -> Bool { chosen && cardOpen && !showingNode }
 
-    /// 업무 줄(타임라인): 분야 색 점, 제목 한 줄, 아래에 분야 › 종류와 작업 시간. 고른 줄은 점에 연한 고리, 제목은 굵게
+    /// Task row: field dot, title, field › type, then the total time with the 14-day bars at the right edge. The chosen row gets a ring and a bold title
     private func taskRow(_ task: TaskSummary, color: Color) -> some View {
         let on = task.id == selectedTask
         let field = task.field ?? Self.noField
@@ -392,8 +392,9 @@ struct TasksView: View {
                 .frame(width: 14, height: 10).padding(.top, 4)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(task.title).font(Brand.font(.rowTitle, on ? .semibold : .medium)).foregroundStyle(Color(hex: 0x2A201B)).lineLimit(1)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        meta.lineLimit(1)
+                    meta.lineLimit(1)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {               // bars last so they line up whatever the time text width
+                        Text(Self.rowDuration(task.activeSeconds)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x8C837C)).fixedSize()
                         Spacer(minLength: 4)
                         if !task.recent.isEmpty {
                             ActivityBars(values: task.recent, color: color, height: 11)
@@ -401,7 +402,6 @@ struct TasksView: View {
                                 .help(tr("최근 14일 하루 작업 시간"))
                                 .accessibilityLabel(tr("최근 14일 하루 작업 시간"))
                         }
-                        Text(Self.rowDuration(task.activeSeconds)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x8C837C)).fixedSize()
                     }
                 }
             }

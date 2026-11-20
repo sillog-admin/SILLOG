@@ -1,3 +1,4 @@
+import SwiftUI
 import XCTest
 @testable import SillogApp
 import SillogCore
@@ -47,6 +48,51 @@ final class TaskTreeTests: XCTestCase {
         XCTAssertEqual(recent.count, 14)
         XCTAssertEqual(recent.last, 600)
         XCTAssertEqual(recent.reduce(0, +), 600, "20일 전 세션은 빠진다")
+    }
+
+    // 14일 막대는 작업 시간 글자 길이("40분", "12시간 5분")와 상관없이 줄마다 같은 x 에 있다
+    func testFourteenDayBarsLineUpWhateverTheTimeText() throws {
+        let today = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
+        let database = try SillogDatabase.inMemory()
+        try database.writer.write { conn in
+            let tx = GraphTx(conn)
+            for (key, title, total) in [("short", "짧은 업무", 2400.0), ("long", "긴 업무", 43_500.0)] {
+                let taskId = try tx.upsertNode(label: NodeLabel.task, key: key, subtype: nil, title: title,
+                                               props: ["active_seconds": .number(total), "last_active": .number(today)], at: today)
+                for day in 0..<14 {                                // every day worked: all 14 bars drawn in the field color
+                    let start = today - Double(day) * 86_400 + 60
+                    let sessionId = try tx.upsertNode(label: NodeLabel.session, key: "\(key)-\(day)", subtype: nil, title: "세션",
+                                                      props: ["start": .number(start), "active_seconds": .number(600)], at: start)
+                    _ = try tx.upsertEdge(src: sessionId, dst: taskId, type: EdgeType.partOf, props: [:], addWeight: 0, at: start)
+                }
+                _ = try ThemeGraph.attach(taskId: taskId, to: "프로젝트", tx, now: today)
+            }
+        }
+        let state = AppState(preview: { s in s.phase = .ready }, database: database)
+        let host = NSHostingView(rootView: AnyView(TasksView(showsDetail: false).environmentObject(state)))
+        host.frame = NSRect(x: 0, y: 0, width: 277, height: 420)
+        let window = NSWindow(contentRect: host.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = host
+        for _ in 0..<8 { host.layoutSubtreeIfNeeded(); RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
+        let rep = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: rep)
+        let scale = Double(rep.pixelsWide) / host.bounds.width
+        // Pixel rows with field-colored pixels right of the dot column, grouped into runs: one run per task's bars
+        var runs: [(minX: Int, maxX: Int)] = [], inRun = false
+        for y in 0..<rep.pixelsHigh {
+            var minX = Int.max, maxX = -1
+            for x in Int(50 * scale)..<rep.pixelsWide {
+                guard let c = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+                if max(c.redComponent, c.greenComponent, c.blueComponent) - min(c.redComponent, c.greenComponent, c.blueComponent) > 0.25 { minX = min(minX, x); maxX = max(maxX, x) }
+            }
+            if maxX < 0 { inRun = false; continue }
+            if inRun, let last = runs.popLast() { runs.append((min(last.minX, minX), max(last.maxX, maxX))) } else { runs.append((minX, maxX)) }
+            inRun = true
+        }
+        let bars = runs.filter { abs(Double($0.maxX - $0.minX) / scale - 48) < 6 }         // the bars are 48pt wide
+        XCTAssertEqual(bars.count, 2, "업무 두 줄의 막대: \(runs)")
+        guard bars.count == 2 else { return }
+        XCTAssertEqual(bars[0].minX, bars[1].minX, accuracy: Int(scale), "막대가 줄마다 같은 x 에서 시작한다: \(bars)")
     }
 
     // 업무 화면이 닫혀 있어도 그래프가 바뀌면 업무 목록이 따라온다 (분야 다시 매기기, 녹음 연결 등)
