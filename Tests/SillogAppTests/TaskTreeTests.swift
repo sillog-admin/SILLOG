@@ -27,6 +27,28 @@ final class TaskTreeTests: XCTestCase {
         XCTAssertNil(state.taskList.first { $0.key == "misc" }?.theme)
     }
 
+    // 업무 줄의 작은 막대: 최근 14일 하루 작업 시간 (오래된 날부터, 마지막이 오늘)
+    func testTaskListCarriesTheLastFourteenDays() throws {
+        let today = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
+        let database = try SillogDatabase.inMemory()
+        try database.writer.write { conn in
+            let tx = GraphTx(conn)
+            let taskId = try tx.upsertNode(label: NodeLabel.task, key: "flask", subtype: nil, title: "Flask 웹앱 개발",
+                                           props: ["active_seconds": .number(1500), "last_active": .number(today)], at: today)
+            for (key, start, seconds) in [("today", today + 1, 600.0), ("old", today - 20 * 86_400, 900.0)] {
+                let sessionId = try tx.upsertNode(label: NodeLabel.session, key: key, subtype: nil, title: "세션",
+                                                  props: ["start": .number(start), "active_seconds": .number(seconds)], at: start)
+                _ = try tx.upsertEdge(src: sessionId, dst: taskId, type: EdgeType.partOf, props: [:], addWeight: 0, at: start)
+            }
+        }
+        let state = AppState(preview: { s in s.phase = .ready }, database: database)
+        state.refreshTasks()
+        let recent = try XCTUnwrap(state.taskList.first?.recent)
+        XCTAssertEqual(recent.count, 14)
+        XCTAssertEqual(recent.last, 600)
+        XCTAssertEqual(recent.reduce(0, +), 600, "20일 전 세션은 빠진다")
+    }
+
     // 업무 화면이 닫혀 있어도 그래프가 바뀌면 업무 목록이 따라온다 (분야 다시 매기기, 녹음 연결 등)
     func testAGraphChangeRefreshesTheTaskList() throws {
         let database = try SillogDatabase.inMemory()

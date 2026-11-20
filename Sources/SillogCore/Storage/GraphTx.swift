@@ -153,6 +153,15 @@ public struct GraphTx {
             .map { (src: $0["src"], dst: $0["dst"], type: $0["type"]) }
     }
 
+    /// Start and active seconds of every session that started at or after `since`.
+    public func sessionTimes(since: Double) throws -> [(id: Int64, start: Double, seconds: Double)] {
+        try Row.fetchAll(db, sql: """
+            SELECT id, COALESCE(json_extract(props, '$.start'), created_at) AS start, COALESCE(json_extract(props, '$.active_seconds'), 0) AS seconds
+            FROM nodes WHERE label = ? AND COALESCE(json_extract(props, '$.start'), created_at) >= ?
+            """, arguments: [NodeLabel.session, since])
+            .map { (id: $0["id"], start: $0["start"], seconds: $0["seconds"]) }
+    }
+
     /// Label and title of every node that an edge of these types points to.
     public func targets(ofEdgeTypes types: [String]) throws -> [Int64: (label: String, title: String)] {
         let marks = types.map { _ in "?" }.joined(separator: ",")

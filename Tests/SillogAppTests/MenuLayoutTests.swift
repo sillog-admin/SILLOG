@@ -10,8 +10,8 @@ import XCTest
 @MainActor
 final class MenuLayoutTests: XCTestCase {
     /// 창에 그린 화면 (그린 뒤 레이아웃이 자리 잡을 때까지 기다린다)
-    private func host(of view: some View, size: CGSize = CGSize(width: 1180, height: 716), _ configure: (AppState) -> Void) -> NSView {
-        let state = AppState(preview: { s in s.phase = .ready; configure(s) })
+    private func host(of view: some View, size: CGSize = CGSize(width: 1180, height: 716), database: SillogDatabase? = nil, _ configure: (AppState) -> Void) -> NSView {
+        let state = AppState(preview: { s in s.phase = .ready; configure(s) }, database: database)
         let host = NSHostingView(rootView: AnyView(view.environmentObject(state)))
         host.frame = NSRect(origin: .zero, size: size)
         let window = NSWindow(contentRect: host.frame, styleMask: [.titled], backing: .buffered, defer: false)
@@ -21,8 +21,8 @@ final class MenuLayoutTests: XCTestCase {
     }
 
     /// 글자 인식 결과를 줄(인식된 덩어리)마다 공백 없이
-    private func lines(of view: some View, size: CGSize = CGSize(width: 1180, height: 716), _ configure: (AppState) -> Void) -> [String] {
-        OnboardingOverlayTests.recognizedText(host(of: view, size: size, configure)).components(separatedBy: "\n").map { $0.filter { !$0.isWhitespace } }
+    private func lines(of view: some View, size: CGSize = CGSize(width: 1180, height: 716), database: SillogDatabase? = nil, _ configure: (AppState) -> Void) -> [String] {
+        OnboardingOverlayTests.recognizedText(host(of: view, size: size, database: database, configure)).components(separatedBy: "\n").map { $0.filter { !$0.isWhitespace } }
     }
 
     private func text(of view: some View, size: CGSize = CGSize(width: 1180, height: 716), _ configure: (AppState) -> Void) -> String {
@@ -82,41 +82,60 @@ final class MenuLayoutTests: XCTestCase {
         XCTAssertTrue(text.contains("아직업무가없어요"), "상세가 접혀 있어도 빈 목록에 안내가 보여야 한다: \(text)")
     }
 
-    func testTheTaskPanelShowsTheDetailOnlyWhenExpanded() {
-        let open = text(of: TasksPanel().frame(maxWidth: .infinity, alignment: .leading)) { s in s.taskList = tasks; s.selectedTaskId = 1; s.taskDetailOpen = true }
-        XCTAssertTrue(open.contains("작업시간"), "펼치면 고른 업무의 상세(작업 시간)가 보인다: \(open)")
-        XCTAssertTrue(open.contains("이업무지우기"), "상세 아래쪽에 지우기: \(open)")
-        let closed = text(of: TasksPanel().frame(maxWidth: .infinity, alignment: .leading)) { s in s.taskList = tasks; s.selectedTaskId = 1; s.taskDetailOpen = false }
-        XCTAssertTrue(closed.contains("Flask웹앱개발"), closed)
-        XCTAssertFalse(closed.contains("작업시간"), "접으면 목록만: \(closed)")
+    // 업무 패널은 목록만: 업무 상세는 그래프 위에 뜨는 카드
+    func testTheTaskPanelIsOnlyTheListAndTheDetailIsACard() {
+        let panel = text(of: TasksPanel().frame(maxWidth: .infinity, alignment: .leading)) { s in s.taskList = tasks; s.selectedTaskId = 1; s.taskDetailOpen = true }
+        XCTAssertTrue(panel.contains("Flask웹앱개발"), panel)
+        XCTAssertFalse(panel.contains("작업세션"), "목록 패널에는 상세가 없다: \(panel)")
+        let card = text(of: TaskDetailCard(width: 460).frame(maxWidth: .infinity, alignment: .trailing)) { s in s.taskList = tasks; s.selectedTaskId = 1; s.taskDetailOpen = true }
+        XCTAssertTrue(card.contains("작업세션"), "카드에 고른 업무의 상세(작업 세션 탭): \(card)")
+        XCTAssertFalse(card.contains("이업무지우기"), "지우기는 상세 아래가 아니라 ··· 메뉴 안에: \(card)")
     }
 
-    // 드로어가 열리면 그래프를 덮지 않고 오른쪽으로 민다: 그래프 화면이 드로어 오른쪽 끝에서 시작한다
-    func testTheOpenDrawerPushesTheGraphInsteadOfCoveringIt() throws {
+    // 상세 카드는 그래프 위에 뜬다: 그래프는 밀리지 않고 목록 오른쪽 끝에서 창 끝까지
+    func testTheOpenDetailFloatsOverTheGraphWithoutPushingIt() throws {
         let view = host(of: MainWindow()) { s in s.selectedTab = .graph; s.taskList = tasks; s.selectedTaskId = 1; s.taskDetailOpen = true }
-        XCTAssertTrue(OnboardingOverlayTests.recognizedText(view).filter { !$0.isWhitespace }.contains("작업시간"), "드로어의 상세")
+        XCTAssertTrue(OnboardingOverlayTests.recognizedText(view).filter { !$0.isWhitespace }.contains("작업세션"), "상세 카드")
         func webView(in view: NSView) -> WKWebView? { (view as? WKWebView) ?? view.subviews.lazy.compactMap(webView).first }
         let web = try XCTUnwrap(webView(in: view), "그래프 웹 화면")
-        let available = 1180 - NavRail.width - TasksPanel.listWidth
-        XCTAssertEqual(web.convert(web.bounds, to: nil).minX, NavRail.width + TasksPanel.listWidth + TasksPanel.detailWidth(available: available), accuracy: 2)
+        let frame = web.convert(web.bounds, to: nil)
+        XCTAssertEqual(frame.minX, NavRail.width + TasksPanel.listWidth, accuracy: 2)
+        XCTAssertEqual(frame.maxX, 1180, accuracy: 2)
     }
 
-    // 드로어 상세 폭: 넓은 창에서는 460, 좁으면 본문에 480을 남기고 줄어든다 (340 아래로는 안 줄어든다)
-    func testTheDrawerDetailWidthShrinksWithTheWindow() {
+    // 상세 카드 폭: 넓은 창에서는 460, 좁으면 그래프에 480을 남기고 줄어든다 (340 아래로는 안 줄어든다)
+    func testTheDetailCardWidthShrinksWithTheWindow() {
         XCTAssertEqual(TasksPanel.detailWidth(available: 1187), 460)
         XCTAssertEqual(TasksPanel.detailWidth(available: 855), 375)
         XCTAssertEqual(TasksPanel.detailWidth(available: 715), 340)
     }
 
-    // 창이 좁아 드로어가 줄어도(1180 창 → 상세 375) 상세 머리의 업무 이름과 작업 시간 큰 숫자는 잘리지 않는다
-    func testANarrowDrawerKeepsTheTitleAndTheNumbersWhole() {
-        let stamp = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 1, hour: 9, minute: 5))!.timeIntervalSince1970   // 마지막 활동 시각에 40 이 안 들어가게
-        let flask = TaskSummary(id: 1, key: "flask", title: "Flask 웹앱 개발", taskType: nil, activeSeconds: 9600, lastActive: stamp, sessionCount: 12)   // 세션 12: 잘린 4 가 옆 칸 03 의 0 과 붙어 40 으로 읽히지 않게
-        let lines = lines(of: MainWindow()) { s in
-            s.selectedTab = .graph; s.taskList = [flask]; s.selectedTaskId = 1; s.taskDetailOpen = true
+    // 창이 좁아 드로어가 줄어도(1180 창 → 상세 375) 상세 머리의 업무 이름과 작업 시간 합계 줄은 잘리지 않는다
+    func testANarrowDrawerKeepsTheTitleAndTheNumbersWhole() throws {
+        let stamp = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 1, hour: 9, minute: 5))!.timeIntervalSince1970
+        // The detail counts the last 7 days from sessions: 12 yesterday make 2h 40m and a 1h 20m daily average over 2 days
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: Date()))!.timeIntervalSince1970
+        let database = try SillogDatabase.inMemory()
+        let taskId = try database.writer.write { conn in
+            let tx = GraphTx(conn)
+            let task = try tx.upsertNode(label: NodeLabel.task, key: "flask", subtype: nil, title: "Flask 웹앱 개발",
+                                         props: ["active_seconds": 9600, "last_active": .number(stamp)], at: stamp)
+            for hour in 8..<20 {
+                let start = yesterday + Double(hour) * 3600
+                let session = try tx.upsertNode(label: NodeLabel.session, key: "s\(hour)", subtype: nil, title: "세션",
+                                                props: ["start": .number(start), "end": .number(start + 600), "active_seconds": 800], at: stamp)
+                try tx.upsertEdge(src: session, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: stamp)
+            }
+            return task
+        }
+        let flask = TaskSummary(id: taskId, key: "flask", title: "Flask 웹앱 개발", taskType: nil, activeSeconds: 9600, lastActive: stamp, sessionCount: 12)
+        UserDefaults.standard.removeObject(forKey: "taskDetailRange")                          // 기본 기간 7일
+        let lines = lines(of: MainWindow(), database: database) { s in
+            s.selectedTab = .graph; s.taskList = [flask]; s.selectedTaskId = taskId; s.taskDetailOpen = true
         }
         XCTAssertEqual(lines.filter { $0.contains("Flask웹앱개발") }.count, 2, "목록 줄과 상세 머리 둘 다 이름 전체: \(lines)")
-        XCTAssertEqual(lines.filter { $0.contains("40") }.count, 2, "목록 줄의 2시간 40분과 상세의 큰 숫자 40 (줄을 나눠 세서 옆 숫자와 붙어 읽히는 것을 막는다): \(lines)")
+        XCTAssertTrue(lines.contains { $0.hasPrefix("2시간40분") }, "상세 합계가 줄 맨 앞에 통째로: \(lines)")
+        XCTAssertTrue(lines.joined().contains("하루평균1시간20분"), "하루 평균이 잘리지 않는다: \(lines)")
     }
 
     // 업무 상세는 드로어 하나: 그래프에서 업무를 눌러도(노드 키) 같은 드로어가 그 업무로 열린다

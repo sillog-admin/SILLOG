@@ -341,41 +341,50 @@ private struct TitleRefresh: View {
     }
 }
 
-/// 업무 패널(업무 드로어): 그래프 탭에서 아이콘 줄 오른쪽에 열려 있는 업무 목록. 업무를 누르면 상세가 오른쪽으로 펼쳐지며 그래프를 덮지 않고 밀어낸다(그래프 폭이 줄어든다).
-/// ×나 Esc 로 접는다. 업무 상세는 이 드로어 하나다: 그래프에서 업무를 눌러도(AppState.openTaskDetail) 같은 드로어가 그 업무로 열린다. 다른 탭으로 가면 접힌다
+/// 업무 패널: 그래프 탭에서 아이콘 줄 오른쪽에 늘 열려 있는 업무 목록. 업무를 누르면 상세가 그래프 위에 카드로 뜬다(TaskDetailCard).
+/// 업무 상세는 그 카드 하나다: 그래프에서 업무를 눌러도(AppState.openTaskDetail) 같은 카드가 그 업무로 열린다. 다른 탭으로 가면 닫힌다
 struct TasksPanel: View {
     static let listWidth: CGFloat = 277                         // 업무 목록 폭 (구분선 없이 바탕 톤으로 나눈다)
     static let maxDetail: CGFloat = 460
     static let minDetail: CGFloat = 340
-    static let contentKeeps: CGFloat = 480                      // 드로어를 열어도 본문(그래프, 채팅)에 남기는 폭
+    static let contentKeeps: CGFloat = 480                      // 카드를 열어도 그래프가 드러나게 남기는 폭
 
-    /// 상세 폭: 넓은 창에서는 460, 좁으면 본문에 480을 남기고 줄인다. 340 아래로는 안 줄인다. available = 창 폭 - 아이콘 줄 - 업무 목록
+    /// 상세 카드 폭: 넓은 창에서는 460, 좁으면 그래프에 480을 남기고 줄인다. 340 아래로는 안 줄인다. available = 창 폭 - 아이콘 줄 - 업무 목록
     static func detailWidth(available: CGFloat) -> CGFloat {
         max(minDetail, min(maxDetail, available - contentKeeps))
     }
 
     @EnvironmentObject private var state: AppState
-    /// 펼쳤을 때 상세 폭 (창 폭에 맞춰 MainWindow 가 정한다)
-    var detailWidth: CGFloat = TasksPanel.maxDetail
-
-    private var expanded: Bool { state.taskDetailOpen }
 
     var body: some View {
-        TasksView(selectedTask: state.selectedTaskId, showsDetail: expanded, onSelect: { state.openTaskDetail(id: $0) })   // 접히면 상세를 아예 안 그린다 (가려진 상세가 본문 클릭을 가로채지 않게)
-            .frame(width: expanded ? Self.listWidth + detailWidth : Self.listWidth, alignment: .leading)
-            .clipped()
-            .overlay(alignment: .topTrailing) {
-                if expanded {
-                    Button { state.taskDetailOpen = false } label: {
-                        Image(systemName: "xmark").font(.system(size: 11, weight: .medium)).foregroundStyle(Brand.tabText)
-                            .frame(width: 26, height: 26).background(Circle().fill(Color.black.opacity(0.05))).contentShape(Circle())
-                    }
-                    .buttonStyle(.plain).keyboardShortcut(.cancelAction).help(tr("업무 상세 닫기 (Esc)"))
-                    .padding(10)
-                }
-            }
+        TasksView(selectedTask: state.selectedTaskId, showsDetail: false, onSelect: { state.openTaskDetail(id: $0) })
+            .frame(width: Self.listWidth)
             .frame(maxHeight: .infinity)
-            .animation(.easeOut(duration: 0.22), value: expanded)
+    }
+}
+
+/// 업무 상세 카드: 그래프 오른쪽 위에 떠 있는 둥근 카드. 그래프를 밀지 않고 위에 겹친다. ×나 Esc 로 닫는다
+struct TaskDetailCard: View {
+    @EnvironmentObject private var state: AppState
+    let width: CGFloat
+    private let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+
+    var body: some View {
+        TasksView(selectedTask: state.selectedTaskId, showsList: false, onSelect: { state.openTaskDetail(id: $0) })
+            .frame(width: width)
+            .frame(maxHeight: .infinity)
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(Color(hex: 0x24150F).opacity(0.06)))
+            .overlay(alignment: .topTrailing) {
+                Button { state.taskDetailOpen = false } label: {
+                    Image(systemName: "xmark").font(.system(size: 11, weight: .medium)).foregroundStyle(Brand.tabText)
+                        .frame(width: 26, height: 26).background(Circle().fill(Color.black.opacity(0.05))).contentShape(Circle())
+                }
+                .buttonStyle(.plain).keyboardShortcut(.cancelAction).help(tr("업무 상세 닫기 (Esc)"))
+                .padding(10)
+            }
+            .shadow(color: Color(hex: 0x24150F).opacity(0.12), radius: 22, y: 8)
+            .padding(14)
     }
 }
 
@@ -488,13 +497,14 @@ struct MainWindow: View {
     private var sheetShown: Bool { showsTabs && state.onboardingStep != nil }
 
     var body: some View {
-        // 왼쪽부터 아이콘 줄, 업무 드로어(목록, 펼치면 상세), 본문. 상세가 펼쳐지면 본문을 덮지 않고 오른쪽으로 밀어 본문 폭이 줄어든다
+        // 왼쪽부터 아이콘 줄, 업무 목록, 본문. 업무를 고르면 상세가 본문(그래프) 오른쪽 위에 카드로 뜬다
         GeometryReader { geo in
             let available = geo.size.width - (showsTabs ? NavRail.width : 0) - TasksPanel.listWidth
             let corner: CGFloat = 12                            // 본문 영역 왼쪽 위 모서리 반지름 (Figma GR-01)
+            let detailOpen = ready && state.selectedTab == .graph && state.taskDetailOpen
             ZStack(alignment: .topLeading) {
                 HStack(spacing: 0) {
-                    if ready && state.selectedTab == .graph { TasksPanel(detailWidth: TasksPanel.detailWidth(available: available)) }   // 업무 목록은 그래프 옆에만 (채팅·기록 자료·설정은 본문만)
+                    if ready && state.selectedTab == .graph { TasksPanel() }   // 업무 목록은 그래프 옆에만 (채팅·기록 자료·설정은 본문만)
                     Group {
                         if let error = state.startupError {
                             BrandStartupErrorView(message: error)
@@ -504,7 +514,7 @@ struct MainWindow: View {
                             LoginBlockedView()
                         } else {
                             switch state.selectedTab {
-                            case .graph: GraphWebView(version: state.graphVersion).ignoresSafeArea(edges: .bottom)   // 웹 페이지의 빈 곳으로 창 바탕 유리가 보인다
+                            case .graph: GraphWebView(version: state.graphVersion, rightInset: detailOpen ? TasksPanel.detailWidth(available: available) + 14 : 0).ignoresSafeArea(edges: .bottom)   // 웹 페이지의 빈 곳으로 창 바탕 유리가 보인다
                             case .chat: if let chat = state.chat {
                                 ChatView(chat: chat, library: chat.library, modelName: state.settings.chatModelName,
                                          openSettings: { state.settingsSection = .ai; state.selectedTab = .settings },   // 모델 메뉴의 설정 → AI 연결
@@ -518,6 +528,13 @@ struct MainWindow: View {
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(alignment: .topTrailing) {
+                        if detailOpen {                          // 닫히면 카드를 아예 안 그린다 (안 보이는 상세가 그래프 클릭을 가로채지 않게)
+                            TaskDetailCard(width: TasksPanel.detailWidth(available: available))
+                                .transition(.move(edge: .trailing).combined(with: .opacity))
+                        }
+                    }
+                    .animation(.easeOut(duration: 0.22), value: detailOpen)
                 }
                 .background(Brand.paper, ignoresSafeAreaEdges: [])   // 비치는 곳은 예전처럼 창 바탕색 (모서리 바깥만 아래 색이 보이게)
                 .clipShape(UnevenRoundedRectangle(topLeadingRadius: showsTabs ? corner : 0, style: .circular))   // 모든 탭 공통: 본문 영역(창 머리 아래, 아이콘 줄 오른쪽) 왼쪽 위만 둥글게
