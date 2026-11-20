@@ -169,7 +169,7 @@ The tools SILLOG offers only read, and records from projects set to "Project mem
 
 <a href="https://sillog.app"><img src="docs/readme/section-privacy-en.webp" alt=""></a>
 
-Your records are stored on your Mac, but whatever is used for organizing and chat is sent to the model you pick. With a cloud model, that text leaves your Mac. The [Privacy Policy](https://sillog.app/privacy) covers what the app handles, what leaves your Mac, retention and deletion, and how to contact us.
+Your records are stored on your Mac, but whatever is used for organizing and chat is sent to the model you pick. With a cloud model, that text leaves your Mac. The [Privacy Policy](https://sillog.app/en/privacy) covers what the app handles, what leaves your Mac, retention and deletion, and how to contact us.
 
 - **What's recorded**: app names, window titles, URLs, on-screen text, screenshots, downloaded files, your prompts to AI coding tools, and recordings you start.
 - **Name and time only**: excluded apps, password managers, and SILLOG itself.

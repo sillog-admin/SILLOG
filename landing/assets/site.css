@@ -44,6 +44,10 @@ section[id]{scroll-margin-top:60px}
 .nav{display:flex;align-items:center;gap:23px}
 .nav a.l{font-size:18px;line-height:21.6px;font-weight:500;letter-spacing:-.36px;transition:opacity .16s}
 .nav a.l:hover{opacity:.6}
+/* Language switch: set apart from the text links, and kept on phones */
+.nav a.lang{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px 0 11px;border:1px solid color-mix(in srgb,currentColor 35%,transparent);border-radius:999px;font-size:15px;font-weight:600;letter-spacing:-.15px;white-space:nowrap;transition:background-color .16s,border-color .16s}
+.nav a.lang:hover{background:color-mix(in srgb,currentColor 10%,transparent);border-color:color-mix(in srgb,currentColor 55%,transparent)}
+.nav a.lang svg{width:16px;height:16px;flex:none}
 .mint{display:inline-flex;align-items:center;justify-content:center;gap:12px;width:fit-content;border-radius:999px;background:var(--mint);color:var(--ink);font-weight:600;box-shadow:0 8px 28px rgba(10,255,247,.22)}
 .mint:not(.rv){transition:transform .18s,background-color .24s,color .24s}
 .paper .mint,.onpaper .mint{background:var(--brown);color:#fff;box-shadow:0 10px 28px rgba(36,21,15,.18)}
@@ -196,6 +200,7 @@ main>section::before{content:"";position:absolute;inset:0;z-index:-1;pointer-eve
   .topbar{height:68px}
   .topbar-in{width:calc(100% - 32px)}
   .nav a.l{display:none}
+  .nav a.lang{height:34px;padding:0 11px 0 9px;font-size:14px}
   .dl{height:40px;font-size:15px;padding:0 14px}
   .topbar .wordmark{height:19px}
   .hero h1{font-size:36px;line-height:46.8px;letter-spacing:-1.08px}
