@@ -299,6 +299,8 @@ struct PillPicker: View {
     @Binding var selection: String
     let options: [(String, String)]
     var logos = false
+    /// 단추에 커서를 대면 보일 글 (값별, 없으면 없음)
+    var tips: [String: String] = [:]
     var body: some View {
         HStack(spacing: 6) {
             ForEach(options, id: \.0) { value, label in
@@ -308,6 +310,7 @@ struct PillPicker: View {
                         Text(label)
                     }
                 }
+                .help(tips[value] ?? "")
             }
         }
     }

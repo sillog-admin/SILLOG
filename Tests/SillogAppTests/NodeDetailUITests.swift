@@ -59,11 +59,11 @@ final class NodeDetailUITests: XCTestCase {
         XCTAssertNil(state.openNode, "드로어를 닫으면 노드 상세도 닫는다")
     }
 
-    func testTheDrawerShowsTheNodeDetail() throws {
+    func testTheDetailCardShowsTheNodeDetail() throws {
         let db = try database()
         let state = AppState(preview: { s in s.phase = .ready; s.taskList = [] }, database: db)
         state.openNodeDetail(card)
-        let host = NSHostingView(rootView: AnyView(TasksPanel().environmentObject(state)))
+        let host = NSHostingView(rootView: AnyView(TaskDetailCard(width: 460).environmentObject(state)))
         host.frame = NSRect(x: 0, y: 0, width: 760, height: 716)
         let window = NSWindow(contentRect: host.frame, styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = host

@@ -15,6 +15,8 @@ struct TaskSummary: Identifiable, Equatable {
     var theme: String? = nil
     /// 업무 목록의 분야 색: 분야(theme)가 있으면 그것, 없으면 업무 종류의 최상위 분류(그래프와 같은 기준)
     var field: String? = nil
+    /// Seconds per day for the last 14 days, oldest first: the small bars on the task row
+    var recent: [Double] = []
 }
 
 struct SessionSummary: Identifiable, Equatable {
@@ -25,8 +27,7 @@ struct SessionSummary: Identifiable, Equatable {
     let summaries: [String]
     let start: Double
     let end: Double
-    let apps: [String]
-    let resourceCount: Int
+    let activeSeconds: Double
 }
 
 struct ResumeRequest: Identifiable, Equatable {
@@ -43,14 +44,22 @@ extension AppState {
             let types = [EdgeType.partOf, EdgeType.instanceOf, EdgeType.subclassOf]
             let names = try tx.targets(ofEdgeTypes: types)
             var sessions: [Int64: Int] = [:], instance: [Int64: Int64] = [:], parent: [Int64: Int64] = [:], themes: [Int64: String] = [:]
+            var owner: [Int64: Int64] = [:]                       // session -> task
             for edge in try tx.edgeEnds(types: types) {          // oldest first, so "first" matches the old per-task reads
                 switch edge.type {
                 case EdgeType.partOf:
                     sessions[edge.dst, default: 0] += 1
+                    if owner[edge.src] == nil { owner[edge.src] = edge.dst }
                     if themes[edge.src] == nil, let target = names[edge.dst], target.label == NodeLabel.theme { themes[edge.src] = target.title }
                 case EdgeType.instanceOf: if instance[edge.src] == nil { instance[edge.src] = edge.dst }
                 default: if parent[edge.src] == nil { parent[edge.src] = edge.dst }
                 }
+            }
+            let now = Date().timeIntervalSince1970
+            var recent: [Int64: [(start: Double, seconds: Double)]] = [:]
+            let since = Calendar.current.date(byAdding: .day, value: -13, to: Calendar.current.startOfDay(for: Date(timeIntervalSince1970: now)))?.timeIntervalSince1970 ?? now
+            for session in try tx.sessionTimes(since: since) {
+                if let task = owner[session.id] { recent[task, default: []].append((session.start, session.seconds)) }
             }
             return try tx.nodes(label: NodeLabel.task).map { node in
                 let typeId = instance[node.id]
@@ -60,7 +69,8 @@ extension AppState {
                 return TaskSummary(id: node.id, key: node.key, title: node.title, taskType: typeId.flatMap { names[$0]?.title },
                                    activeSeconds: node.props["active_seconds"]?.doubleValue ?? 0,
                                    lastActive: node.props["last_active"]?.doubleValue ?? node.updatedAt, sessionCount: sessions[node.id] ?? 0,
-                                   theme: theme, field: theme ?? top.flatMap { names[$0]?.title })
+                                   theme: theme, field: theme ?? top.flatMap { names[$0]?.title },
+                                   recent: RangeTime.daily(recent[node.id] ?? [], days: 14, now: now).map(\.seconds))
             }
             .filter { $0.sessionCount > 0 }
             .sorted { $0.lastActive > $1.lastActive }
@@ -79,14 +89,11 @@ extension AppState {
             let tx = GraphTx(conn)
             return try tx.edges(to: taskId, type: EdgeType.partOf).compactMap { edge -> SessionSummary? in
                 guard let node = try tx.node(id: edge.src) else { return nil }
-                let apps = try tx.edges(from: node.id, type: EdgeType.used).sorted { $0.weight > $1.weight }.prefix(4)
-                    .compactMap { try tx.node(id: $0.dst)?.title }.filter { !["Sillog", "SILLOG", "WorkGraph", tr("제외된 앱")].contains($0) }   // WorkGraph: app name in records made before the rename
-                let resources = try tx.edges(from: node.id, type: EdgeType.touched).count
                 let summaries = node.props["summaries"]?.arrayValue?.compactMap(\.stringValue)
                     ?? [node.props["summary"]?.stringValue].compactMap { $0 }.filter { !$0.isEmpty }
                 return SessionSummary(id: node.id, key: node.key, title: node.title, summaries: summaries,
                                       start: node.props["start"]?.doubleValue ?? node.createdAt, end: node.props["end"]?.doubleValue ?? node.updatedAt,
-                                      apps: apps, resourceCount: resources)
+                                      activeSeconds: node.props["active_seconds"]?.doubleValue ?? 0)
             }
             .sorted { $0.start > $1.start }
         }) ?? []

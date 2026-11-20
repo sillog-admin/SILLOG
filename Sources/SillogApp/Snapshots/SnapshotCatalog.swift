@@ -89,14 +89,8 @@ enum SnapshotCatalog {
             },
             // 업무를 누르면(목록이든 그래프든) 업무 드로어의 상세가 목록 오른쪽으로 펼쳐지고 본문은 오른쪽으로 밀려 좁아진다 (×, Esc 로 접는다)
             // 기본 창(1180)에서는 상세가 375 로 줄어 단추가 이름 아래 줄로, 넓은 창에서는 460 에 나란히
-            shot("TK-02", MainWindow(), size: window) { s in
-                s.phase = .ready; s.status = collector(); s.selectedTab = .graph; s.taskList = recentTasks
-                s.selectedTaskId = 1; s.taskDetailOpen = true
-            },
-            shot("TK-02-WIDE", MainWindow(), size: CGSize(width: 1500, height: 900)) { s in
-                s.phase = .ready; s.status = collector(); s.selectedTab = .graph; s.taskList = recentTasks
-                s.selectedTaskId = 1; s.taskDetailOpen = true
-            },
+            taskDetailShot("TK-02", size: window),
+            taskDetailShot("TK-02-WIDE", size: CGSize(width: 1500, height: 900)),
             shot("OUT-W5", MainWindow(), size: window) { s in
                 s.phase = .ready; s.status = collector(); s.batchRunning = true; s.pendingCount = 6
                 s.fileSuggestions = pendingFiles(2); s.taskList = recentTasks; s.selectedTab = .records
@@ -743,8 +737,50 @@ enum SnapshotCatalog {
             ("현대오토에버 2026년 4분기 신입채용 지원서 작성", "취업 준비", "신청·지원", 240, 9, 10), ("분류 전 업무", nil, "기타", 120, 8, 0),
         ]
         return rows.enumerated().map { i, r in
-            TaskSummary(id: Int64(i + 1), key: "t\(i)", title: r.0, taskType: r.2, activeSeconds: r.3, lastActive: todayAt(r.4, r.5), sessionCount: 1, theme: r.1)
+            let recent = (0..<14).map { d in (i * 5 + d * 3) % 7 < 3 ? 0 : Double((i + d) % 5 + 1) * 600 }   // 쉰 날이 섞인 14일
+            return TaskSummary(id: Int64(i + 1), key: "t\(i)", title: r.0, taskType: r.2, activeSeconds: r.3, lastActive: todayAt(r.4, r.5), sessionCount: 1,
+                               theme: r.1, recent: recent)
         }
+    }
+
+    /// 업무 드로어 상세: 기간 막대와 날짜별 세션. 세션은 DB 에서 읽으므로 메모리 DB 에 며칠치를 넣는다
+    private static func taskDetailShot(_ name: String, size: CGSize) -> Snapshot {
+        let database = try? SillogDatabase.inMemory()
+        let rows: [(key: String, title: String, sessions: [(daysAgo: Int, hour: Int, minutes: Int, summaries: [String])])] = [
+            ("flask", "Flask 웹앱 개발", [
+                (0, 14, 38, ["로그인 오류(세션 만료)를 해결했다.", "세션 쿠키가 저장되지 않던 설정을 고쳤다."]),
+                (0, 10, 32, ["회원가입 폼 검증을 작성했다."]),
+                (1, 16, 55, ["비밀번호 재설정 메일 구현을 AI에게 요청했다.", "메일 템플릿을 정리했다.", "SMTP 설정을 확인했다."]),
+                (2, 9, 25, ["Flask 공식 문서의 세션 설명을 읽었다."]),
+                (4, 20, 70, ["배포용 환경 변수를 정리했다."]),
+                (5, 13, 40, ["로그인 페이지 레이아웃을 손봤다."]),
+            ]),
+            ("stats", "통계학 수업", [(0, 12, 50, ["회귀 분석 강의를 들었다."]), (3, 11, 30, ["과제 2번을 풀었다."])]),
+            ("report", "분기 성과 보고서", [(1, 11, 45, ["3분기 매출 표를 정리했다."])]),
+        ]
+        var flaskId: Int64?
+        try? database?.writer.write { conn in
+            let tx = GraphTx(conn)
+            for row in rows {
+                let starts = row.sessions.map { Calendar.current.date(byAdding: .day, value: -$0.daysAgo, to: Date(timeIntervalSince1970: todayAt($0.hour, 0)))!.timeIntervalSince1970 }
+                let task = try tx.upsertNode(label: NodeLabel.task, key: row.key, subtype: nil, title: row.title,
+                                             props: ["active_seconds": .number(Double(row.sessions.reduce(0) { $0 + $1.minutes } * 60)), "last_active": .number(starts.max() ?? 0)],
+                                             at: starts.max() ?? 0)
+                for (session, start) in zip(row.sessions, starts) {
+                    let id = try tx.upsertNode(label: NodeLabel.session, key: "\(row.key)-\(start)", subtype: nil, title: "세션",
+                                               props: ["start": .number(start), "end": .number(start + Double(session.minutes * 60 + 300)),
+                                                       "active_seconds": .number(Double(session.minutes * 60)), "summaries": .array(session.summaries.map { .string($0) })],
+                                               at: start)
+                    try tx.upsertEdge(src: id, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: start)
+                }
+                if row.key == "flask" { flaskId = task }
+            }
+        }
+        let state = AppState(preview: { s in
+            s.phase = .ready; s.status = collector(); s.selectedTab = .graph; s.selectedTaskId = flaskId; s.taskDetailOpen = true
+            s.offTaskToday = [(app: "YouTube", seconds: 1_500), (app: "KFPL", seconds: 600)]
+        }, database: database)
+        return Snapshot(name: name, size: size, view: AnyView(MainWindow().environmentObject(state)))
     }
 
     /// 지난 기록 줄: 옮김(되돌리기 단추)과 무시(단추 없음)를 섞는다

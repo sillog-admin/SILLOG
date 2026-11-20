@@ -8,11 +8,15 @@ struct TasksView: View {
     @State private var selectedTask: Int64?
     @State private var collapsed: Set<String> = []          // 접은 분야 폴더
     @State private var fieldFilter: Set<String> = []        // 분야 막대에서 고른 분야들 (다시 누르면 빠짐, 비면 전체)
+    @State private var typeFilter: Set<String> = []         // type pills chosen under the open fields (typeKey); a field with none shows all its tasks
     @State private var rowFrames: [Int64: CGRect] = [:]     // 업무 줄 위치(목록 좌표). 고른 줄 상자를 옮기는 데 씀
     @State private var boxTop: CGFloat = 0                  // 고른 줄 상자 위 모서리. 위아래를 따로 움직여 물방울처럼 늘었다 모임
     @State private var boxBottom: CGFloat = 0
     @State private var boxX = CGRect.zero                   // 가로 위치와 폭(줄마다 같음)
     @State private var sessions: [SessionSummary] = []
+    @AppStorage("taskDetailRange") private var rangeRaw = RangeTime.Range.week.rawValue
+    @State private var hoveredSession: Int64?               // 다시 열기 단추를 보일 세션
+    @State private var hoveredBar: Int?                     // 날짜와 시간을 보일 막대
     @State private var digests: [Digest] = []
     @State private var tab: DetailTab
     @State private var materials = TaskMaterials()
@@ -20,16 +24,19 @@ struct TasksView: View {
     @State private var editing: Digest?
     /// 목록에서 업무를 눌렀을 때 (업무 패널이 상세를 펼친다)
     private let onSelect: (Int64) -> Void
-    /// 목록 옆에 상세를 그릴지. 업무 패널이 접혀 있으면 목록만 (안 보이는 상세가 옆 본문의 클릭을 가로채지 않게)
+    /// 상세를 그릴지 (업무 패널은 목록만)
     private let showsDetail: Bool
+    /// 목록을 그릴지 (상세 카드는 상세만)
+    private let showsList: Bool
 
     /// 상세의 탭: 작업 세션, 요약(주간·월간), 자료(그래프 업무 팝업과 같은 종류별 자료와 같은 맥락 업무)
     enum DetailTab { case sessions, digests, materials }
 
     /// 스냅샷용: 고른 업무와 탭으로 시작
-    init(selectedTask: Int64? = nil, tab: DetailTab = .sessions, showsDetail: Bool = true, onSelect: @escaping (Int64) -> Void = { _ in }) {
+    init(selectedTask: Int64? = nil, tab: DetailTab = .sessions, showsList: Bool = true, showsDetail: Bool = true, onSelect: @escaping (Int64) -> Void = { _ in }) {
         _selectedTask = State(initialValue: selectedTask)
         _tab = State(initialValue: tab)
+        self.showsList = showsList
         self.showsDetail = showsDetail
         self.onSelect = onSelect
     }
@@ -49,7 +56,7 @@ struct TasksView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            sidebar.frame(width: 277)
+            if showsList { sidebar.frame(width: 277) }
             if showsDetail {
                 Group {
                     if let node = state.openNode {
@@ -154,13 +161,19 @@ struct TasksView: View {
     private var sidebar: some View {
         let fields = Self.fieldStats(state.taskList)
         let filter = fieldFilter.intersection(fields.map(\.name))                              // 그 분야 업무가 없어졌으면 무시
-        let shown = filter.isEmpty ? state.taskList : state.taskList.filter { filter.contains($0.field ?? Self.noField) }   // 받은 순서(최근 활동 순) 그대로
+        let shown = state.taskList.filter { Self.passes($0, fields: filter, types: typeFilter) }   // 받은 순서(최근 활동 순) 그대로
         let colors = Dictionary(uniqueKeysWithValues: fields.map { ($0.name, $0.color) })
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline, spacing: 9) {
                     Text(tr("업무")).font(Brand.font(.screenTitle)).tracking(-0.8).foregroundStyle(Brand.ink)
                     Text("\(state.taskList.count)").font(Brand.font(.sectionTitle)).foregroundStyle(Brand.gray)
+                }
+                if !state.offTaskToday.isEmpty {
+                    // 업무 외(집중 이탈): 하루 전체 수치라 업무 상세가 아니라 목록 위에. 앱별 시간은 커서를 대면
+                    let total = state.offTaskToday.reduce(0) { $0 + $1.seconds }
+                    Text(tr("업무 외 오늘 \(Self.duration(total))")).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+                        .help(state.offTaskToday.prefix(5).map { "\($0.app) \(Self.duration($0.seconds))" }.joined(separator: "\n"))
                 }
                 if !fields.isEmpty { fieldBar(fields, filter: filter) }
                 ReviewBanner()                                              // 정리 제안이 있으면 한 줄
@@ -201,74 +214,145 @@ struct TasksView: View {
 
     private func toggleField(_ name: String) {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-            if fieldFilter.contains(name) { fieldFilter.remove(name) } else { fieldFilter.insert(name) }
+            if fieldFilter.contains(name) { fieldFilter.remove(name); typeFilter = typeFilter.filter { !$0.hasPrefix(Self.typeKey(name, "")) } } else { fieldFilter.insert(name) }
         }
     }
 
     /// 분야 비율 막대: 분야마다 업무 수에 비례한 둥근 조각. 누르면 넣고 빼며(여러 개), 고른 분야는 아래로 늘어나 종류 나무가 펼쳐진다
     private func fieldBar(_ fields: [FieldStat], filter: Set<String>) -> some View {
+        let width: CGFloat = 277 - 27 * 2                                                 // shortcut: the sidebar is a fixed 277pt with 27pt padding
         let sel = fields.filter { filter.contains($0.name) }
         let rows = sel.map { Self.typeRows(state.taskList, field: $0.name) }
-        let longest = rows.map(\.count).max() ?? 1
-        let treeH: CGFloat = 46 + CGFloat(max(longest, 1) - 1) * 26 + 14
-        return GeometryReader { geo in
-            let total = CGFloat(fields.reduce(0) { $0 + $1.count })
-            let room = geo.size.width - 3 * CGFloat(fields.count - 1)
-            let widths = fields.map { max(8, room * CGFloat($0.count) / total) }
-            let starts: [CGFloat] = widths.indices.map { i in widths[..<i].reduce(CGFloat(0), +) + 3 * CGFloat(i) }
-            ZStack(alignment: .topLeading) {
-                HStack(spacing: 3) {
-                    ForEach(Array(fields.enumerated()), id: \.element.id) { i, field in
-                        let on = filter.contains(field.name)
-                        Button {
-                            toggleField(field.name)
-                        } label: {
-                            RoundedRectangle(cornerRadius: 4).fill(field.color)
-                                .opacity(filter.isEmpty || on ? 1 : 0.28)
-                                .frame(width: widths[i], height: 8)
-                                .contentShape(Rectangle().inset(by: -4))
-                        }
-                        .buttonStyle(.plain)
-                        .help(tr("\(field.title) \(field.count)개"))
-                        .accessibilityLabel(tr("\(field.title) 분야, 업무 \(field.count)개, \(on ? tr("골라짐") : tr("안 골라짐"))"))
+        let total = CGFloat(fields.reduce(0) { $0 + $1.count })
+        let room = width - 3 * CGFloat(fields.count - 1)
+        let widths = fields.map { max(8, room * CGFloat($0.count) / total) }
+        let starts: [CGFloat] = widths.indices.map { i in widths[..<i].reduce(CGFloat(0), +) + 3 * CGFloat(i) }
+        let at = sel.map { field in fields.firstIndex { $0.id == field.id } ?? 0 }
+        let colW = width / CGFloat(max(sel.count, 1))
+        let plan = Self.treeLayout(circles: at.indices.map { k in max(starts[at[k]] + 12, CGFloat(k) * colW + 12) },
+                                   needs: rows.map { $0.map { Self.pillWidth(L10n.tr(key: $0.label), $0.count) }.max() ?? 0 },
+                                   rows: rows.map(\.count), width: width)
+        let pillRows = zip(plan.spots, rows).map { $0.top + $1.count }.max() ?? 1
+        return ZStack(alignment: .topLeading) {
+            HStack(spacing: 3) {
+                ForEach(Array(fields.enumerated()), id: \.element.id) { i, field in
+                    let on = filter.contains(field.name)
+                    Button {
+                        toggleField(field.name)
+                    } label: {
+                        RoundedRectangle(cornerRadius: 4).fill(field.color)
+                            .opacity(filter.isEmpty || on ? 1 : 0.28)
+                            .frame(width: widths[i], height: 8)
+                            .contentShape(Rectangle().inset(by: -4))
                     }
-                }
-                if sel.isEmpty {
-                    Text(tr("막대를 누르면 종류가 펼쳐져요. 여러 개 고를 수 있어요."))
-                        .font(Brand.font(.tag)).foregroundStyle(Color(hex: 0x8C837C)).lineLimit(1)
-                        .offset(y: 16)
-                }
-                ForEach(Array(sel.enumerated()), id: \.element.id) { k, field in
-                    let i = fields.firstIndex { $0.id == field.id } ?? 0
-                    let colW = geo.size.width / CGFloat(sel.count)
-                    let left = CGFloat(k) * colW
-                    fieldTree(field, rows: rows[k], a: starts[i], b: starts[i] + widths[i], left: left, colW: colW)
-                        .offset(y: 8)
-                        .transition(.scale(scale: 0.01, anchor: .top).combined(with: .opacity))
+                    .buttonStyle(.plain)
+                    .help(tr("\(field.title) \(field.count)개"))
+                    .accessibilityLabel(tr("\(field.title) 분야, 업무 \(field.count)개, \(on ? tr("골라짐") : tr("안 골라짐"))"))
                 }
             }
+            if sel.isEmpty {
+                Text(tr("막대를 누르면 종류가 펼쳐져요. 여러 개 고를 수 있어요."))
+                    .font(Brand.font(.tag)).foregroundStyle(Color(hex: 0x8C837C)).lineLimit(1)
+                    .offset(y: 16)
+            }
+            ForEach(Array(sel.enumerated()), id: \.element.id) { k, field in
+                fieldTree(field, rows: rows[k], a: starts[at[k]], b: starts[at[k]] + widths[at[k]], cx: plan.circles[k], spot: plan.spots[k])
+                    .offset(y: 8)
+                    .transition(.scale(scale: 0.01, anchor: .top).combined(with: .opacity))
+            }
         }
-        .frame(height: 8 + (sel.isEmpty ? 22 : treeH))
+        .frame(width: width, height: 8 + (sel.isEmpty ? 22 : 46 + CGFloat(max(pillRows, 1) - 1) * 26 + 14), alignment: .topLeading)
     }
 
-    /// 그 분야 업무의 종류별 개수: 많은 순, 최대 4개, 넘치면 마지막에 "외 N". 종류가 비었거나 분야와 같으면 세지 않는다
-    static func typeRows(_ tasks: [TaskSummary], field: String) -> [(String, Int)] {
+    /// 그 분야 업무의 종류별 개수: 많은 순, 최대 4개, 넘치면 마지막에 "외 N". 종류가 비었거나 분야와 같으면 세지 않는다.
+    /// types: the task types a pill stands for ("외 N" stands for the rest)
+    static func typeRows(_ tasks: [TaskSummary], field: String) -> [(label: String, count: Int, types: [String])] {
         var counts: [String: Int] = [:]
         for t in tasks where (t.field ?? noField) == field {
             if let type = t.taskType, !type.isEmpty, type != field { counts[type, default: 0] += 1 }
         }
         let sorted = counts.sorted { ($0.value, $1.key) > ($1.value, $0.key) }
-        var rows = sorted.prefix(4).map { ($0.key, $0.value) }
-        if sorted.count > 4 { rows.append((tr("외 \(sorted.count - 4)"), sorted.dropFirst(4).reduce(0) { $0 + $1.value })) }
+        var rows = sorted.prefix(4).map { (label: $0.key, count: $0.value, types: [$0.key]) }
+        if sorted.count > 4 { rows.append((tr("외 \(sorted.count - 4)"), sorted.dropFirst(4).reduce(0) { $0 + $1.value }, sorted.dropFirst(4).map(\.key))) }
         return rows
     }
 
+    static func typeKey(_ field: String, _ type: String) -> String { field + "\u{1F}" + type }
+
+    /// Whether a task stays in the list: in a chosen field (or none chosen), and of a chosen type when its field has type picks
+    static func passes(_ task: TaskSummary, fields: Set<String>, types: Set<String>) -> Bool {
+        let field = task.field ?? noField
+        if !fields.isEmpty, !fields.contains(field) { return false }
+        let picks = types.filter { $0.hasPrefix(typeKey(field, "")) }
+        return picks.isEmpty || picks.contains(typeKey(field, task.taskType ?? ""))
+    }
+
+    private func toggleTypes(_ field: String, _ types: [String]) {
+        let keys = Set(types.map { Self.typeKey(field, $0) })
+        if keys.isSubset(of: typeFilter) { typeFilter.subtract(keys) } else { typeFilter.formUnion(keys) }
+    }
+
+    /// Width a type pill needs: padding, the medium type name, a gap and the count
+    static func pillWidth(_ label: String, _ count: Int) -> CGFloat {
+        func width(_ text: String, _ weight: Brand.Weight) -> CGFloat {
+            let font = NSFont(name: "SUIT-\(weight.rawValue)", size: 11 * Brand.scale) ?? .systemFont(ofSize: 11 * Brand.scale)
+            return ceil((text as NSString).size(withAttributes: [.font: font]).width)
+        }
+        return 18 + width(label, .medium) + 5 + width("\(count)", .regular) + 2
+    }
+
+    /// Where one field tree's type pills go: which side of its circle, how wide, and the first pill row (0 = right under the circles)
+    struct TreeSpot: Equatable { var left: Bool; var room: CGFloat; var top: Int }
+
+    /// Lays out the chosen field trees so every pill gets the width it needs and nothing crosses: a tree's pills open beside its
+    /// circle up to the next line still running down, trees that do not fit drop below the earlier pills, and when no tree fits
+    /// at first the circles on one side spread out to make room.
+    /// Args: circles: circle x per tree (left to right), needs: widest pill per tree, rows: pills per tree, width: bar width
+    static func treeLayout(circles: [CGFloat], needs: [CGFloat], rows: [Int], width: CGFloat) -> (circles: [CGFloat], spots: [TreeSpot]) {
+        var cx = circles, spots = [TreeSpot?](repeating: nil, count: circles.count), active = Array(circles.indices)
+        func room(_ k: Int, _ left: Bool, _ cx: [CGFloat]) -> CGFloat {
+            let p = active.firstIndex(of: k)!
+            let lo = p > 0 ? cx[active[p - 1]] + 15 : 0, hi = p < active.count - 1 ? cx[active[p + 1]] - 15 : width - 4
+            return max(0, left ? cx[k] - 14 - lo : hi - cx[k] - 14)
+        }
+        func spread(_ k: Int, _ left: Bool) -> [CGFloat] {                                // push the circles beside k away, kept 26pt apart and on the bar
+            var c = cx
+            if left {
+                for j in stride(from: k - 1, through: 0, by: -1) { c[j] = min(c[j], j == k - 1 ? c[k] - 29 - needs[k] : c[j + 1] - 26) }
+                if c[0] < 11 { c[0] = 11; for j in 1..<k { c[j] = max(c[j], c[j - 1] + 26) } }
+            } else {
+                for j in (k + 1)..<c.count { c[j] = max(c[j], j == k + 1 ? c[k] + 29 + needs[k] : c[j - 1] + 26) }
+                if let last = c.indices.last, c[last] > width - 11 { c[last] = width - 11; for j in stride(from: last - 1, to: k, by: -1) { c[j] = min(c[j], c[j + 1] - 26) } }
+            }
+            return c
+        }
+        while !active.isEmpty {
+            let options = active.flatMap { k in [(k: k, left: true), (k: k, left: false)] }
+            var pick = options.filter { room($0.k, $0.left, cx) >= needs[$0.k] }.max { room($0.k, $0.left, cx) < room($1.k, $1.left, cx) }
+            if pick == nil, spots.allSatisfy({ $0 == nil }) {                               // nothing fits yet: spread the circles for the best tree
+                let best = options.max { room($0.k, $0.left, spread($0.k, $0.left)) - needs[$0.k] < room($1.k, $1.left, spread($1.k, $1.left)) - needs[$1.k] }!
+                cx = spread(best.k, best.left); pick = best
+            }
+            let p = pick ?? options.max { room($0.k, $0.left, cx) - needs[$0.k] < room($1.k, $1.left, cx) - needs[$1.k] }!
+            let w = min(room(p.k, p.left, cx), needs[p.k])
+            let region = p.left ? (cx[p.k] - 14 - w)...(cx[p.k] - 14) : (cx[p.k] + 14)...(cx[p.k] + 14 + w)
+            var top = 0                                                                    // below every earlier tree whose pills or line are in the way
+            for u in cx.indices { if let s = spots[u] {
+                let r = s.left ? (cx[u] - 14 - s.room)...(cx[u] - 14) : (cx[u] + 14)...(cx[u] + 14 + s.room)
+                if region.overlaps(min(r.lowerBound, cx[u])...max(r.upperBound, cx[u])) { top = max(top, s.top + rows[u]) }
+            } }
+            spots[p.k] = TreeSpot(left: p.left, room: w, top: top)
+            active.removeAll { $0 == p.k }
+        }
+        return (cx, spots.map { $0! })
+    }
+
     /// 막대 조각(a..b) 아래로 늘어난 목과 동그라미, 종류 가지와 알약. 좌표는 막대 아래 끝이 y=0
-    private func fieldTree(_ field: FieldStat, rows: [(String, Int)], a: CGFloat, b: CGFloat, left: CGFloat, colW: CGFloat) -> some View {
-        let cx = max(a + 12, left + 12)
-        let avail = max(20, left + colW - (cx + 14) - 4)
+    private func fieldTree(_ field: FieldStat, rows: [(label: String, count: Int, types: [String])], a: CGFloat, b: CGFloat, cx: CGFloat, spot: TreeSpot) -> some View {
+        let side: CGFloat = spot.left ? -1 : 1                                            // branches and pills go this way from the circle
         let count = TasksView.fieldCount(state.taskList, field.name)
-        let lastY = 46 + CGFloat(max(rows.count, 1) - 1) * 26
+        let firstY = 46 + CGFloat(spot.top) * 26                                          // a tree that did not fit beside the others hangs lower
+        let lastY = firstY + CGFloat(max(rows.count, 1) - 1) * 26
         return ZStack(alignment: .topLeading) {
             Path { p in
                 p.move(to: CGPoint(x: a, y: -2))
@@ -286,25 +370,30 @@ struct TasksView: View {
                 Path { p in
                     p.move(to: CGPoint(x: cx, y: 37))
                     p.addLine(to: CGPoint(x: cx, y: lastY - 6))
-                    p.addQuadCurve(to: CGPoint(x: cx + 6, y: lastY), control: CGPoint(x: cx, y: lastY))
-                    p.addLine(to: CGPoint(x: cx + 12, y: lastY))
+                    p.addQuadCurve(to: CGPoint(x: cx + 6 * side, y: lastY), control: CGPoint(x: cx, y: lastY))
+                    p.addLine(to: CGPoint(x: cx + 12 * side, y: lastY))
                     for i in 0..<(rows.count - 1) {
-                        let y = 46 + CGFloat(i) * 26
-                        p.move(to: CGPoint(x: cx, y: y)); p.addLine(to: CGPoint(x: cx + 12, y: y))
+                        let y = firstY + CGFloat(i) * 26
+                        p.move(to: CGPoint(x: cx, y: y)); p.addLine(to: CGPoint(x: cx + 12 * side, y: y))
                     }
                 }
                 .stroke(field.color.opacity(0.55), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
             }
             ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
-                HStack(spacing: 5) {
-                    Text(L10n.tr(key: row.0)).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
-                    Text("\(row.1)").font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
+                let on = Set(row.types.map { Self.typeKey(field.name, $0) }).isSubset(of: typeFilter)
+                Button { toggleTypes(field.name, row.types) } label: {                    // narrows the list to this type
+                    HStack(spacing: 5) {
+                        Text(L10n.tr(key: row.label)).font(Brand.font(.caption, on ? .semibold : .medium)).foregroundStyle(Brand.ink).lineLimit(1)
+                        Text("\(row.count)").font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
+                    }
+                    .padding(.vertical, 3).padding(.horizontal, 9)
+                    .background(Capsule().fill(field.color.opacity(on ? 0.34 : 0.13)))
+                    .contentShape(Capsule())
                 }
-                .padding(.vertical, 3).padding(.horizontal, 9)
-                .background(Capsule().fill(field.color.opacity(0.13)))
-                .frame(maxWidth: avail, alignment: .leading)
+                .buttonStyle(.plain)
+                .frame(maxWidth: spot.room, alignment: spot.left ? .trailing : .leading)
                 .frame(height: 20)
-                .offset(x: cx + 14, y: 46 + CGFloat(i) * 26 - 10)
+                .offset(x: spot.left ? cx - 14 - spot.room : cx + 14, y: firstY + CGFloat(i) * 26 - 10)
             }
         }
     }
@@ -352,7 +441,10 @@ struct TasksView: View {
         .padding(.top, 6)
     }
 
-    /// 업무 줄(타임라인): 분야 색 점, 제목 한 줄, 아래에 분야 › 종류와 작업 시간. 고른 줄은 점에 연한 고리, 제목은 굵게
+    /// The chosen row toggles off only while its own card shows; otherwise pressing it (re)opens that task
+    static func pressCloses(chosen: Bool, cardOpen: Bool, showingNode: Bool) -> Bool { chosen && cardOpen && !showingNode }
+
+    /// Task row: field dot, title, field › type, then the total time with the 14-day bars at the right edge. The chosen row gets a ring and a bold title
     private func taskRow(_ task: TaskSummary, color: Color) -> some View {
         let on = task.id == selectedTask
         let field = task.field ?? Self.noField
@@ -361,7 +453,7 @@ struct TasksView: View {
             Text("\(Text(L10n.tr(key: field)).font(Brand.font(.caption, .medium)).foregroundStyle(Color(hex: 0x6E6862)))\(Text(" › ").font(Brand.font(.caption)).foregroundStyle(Color(hex: 0xB8AFA8)))\(Text(L10n.tr(key: t)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x8C837C)))")
         } ?? Text(L10n.tr(key: field)).font(Brand.font(.caption, .medium)).foregroundStyle(Color(hex: 0x6E6862))
         return Button {
-            if on {   // 고른 업무를 다시 누르면: 상자 지우고, 그래프 확대 풀고, 업무 상세도 닫는다
+            if Self.pressCloses(chosen: on, cardOpen: state.taskDetailOpen, showingNode: state.openNode != nil) {   // clears the box and the graph zoom too
                 selectedTask = nil; state.selectedTaskId = nil; state.taskDetailOpen = false
                 return
             }
@@ -377,10 +469,16 @@ struct TasksView: View {
                 .frame(width: 14, height: 10).padding(.top, 4)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(task.title).font(Brand.font(.rowTitle, on ? .semibold : .medium)).foregroundStyle(Color(hex: 0x2A201B)).lineLimit(1)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        meta.lineLimit(1)
-                        Spacer(minLength: 4)
+                    meta.lineLimit(1)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {               // bars last so they line up whatever the time text width
                         Text(Self.rowDuration(task.activeSeconds)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x8C837C)).fixedSize()
+                        Spacer(minLength: 4)
+                        if !task.recent.isEmpty {
+                            ActivityBars(values: task.recent, color: color, height: 11)
+                                .frame(width: 48).alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
+                                .help(tr("최근 14일 하루 작업 시간"))
+                                .accessibilityLabel(tr("최근 14일 하루 작업 시간"))
+                        }
                     }
                 }
             }
@@ -443,8 +541,12 @@ struct TasksView: View {
     }
 
     private func detail(_ task: TaskSummary) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // 이름과 단추가 한 줄에 다 들어가면 나란히, 드로어가 좁아 안 들어가면 단추를 이름 아래 줄로
+        let range = RangeTime.Range(rawValue: rangeRaw) ?? .week
+        let now = Date().timeIntervalSince1970
+        let from = RangeTime.start(of: range, now: now) ?? -.infinity
+        let shown = sessions.filter { $0.start >= from }                   // 세션 목록도 고른 기간만
+        return VStack(alignment: .leading, spacing: 0) {
+            // 이름과 단추가 한 줄에 다 들어가면 나란히, 카드가 좁아 안 들어가면 단추를 이름 아래 줄로
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .center) {
                     heading(task, lines: 1)
@@ -456,29 +558,18 @@ struct TasksView: View {
                     HStack(spacing: 8) { headerButtons(task) }
                 }
             }
-            .padding(.horizontal, 33).padding(.vertical, 30)
-            .frame(maxWidth: .infinity, minHeight: 155, alignment: .leading)
-
-            if !state.offTaskToday.isEmpty {
-                // 업무 외(집중 이탈): 업무, 세션, 자료 없이 시간만
-                let total = state.offTaskToday.reduce(0) { $0 + $1.seconds }
-                let top = state.offTaskToday.prefix(3).map { "\($0.app) \(Self.duration($0.seconds))" }.joined(separator: ", ")
-                Text(tr("업무 외 오늘 \(Self.duration(total)), \(top)"))
-                    .font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
-                    .padding(.horizontal, 33).frame(height: 44, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
-            }
+            .padding(.horizontal, 33).padding(.top, 28).padding(.bottom, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    stats(task)
+                    summary(range, now: now)
                     HStack(alignment: .firstTextBaseline, spacing: 22) {
-                        tabButton(tr("작업 세션"), count: sessions.count, on: tab == .sessions) { tab = .sessions }
+                        tabButton(tr("작업 세션"), count: shown.count, on: tab == .sessions) { tab = .sessions }
                         tabButton(tr("요약"), count: digests.count, on: tab == .digests) { tab = .digests }
                         tabButton(tr("자료"), count: Self.kinds.reduce(0) { $0 + materials[keyPath: $1.items].count }, on: tab == .materials) { tab = .materials }
-                        Spacer()
-                        Text(tab == .digests ? tr("주간·월간, 최근 기간 순") : tab == .materials ? tr("종류별, 처음 쓴 순") : tr("최근 활동 순")).font(Brand.font(.tag)).foregroundStyle(Brand.gray)
                     }
-                    .padding(.vertical, 23)
+                    .padding(.top, 26).padding(.bottom, 18)
                     if tab == .digests {
                         digestList
                     } else if tab == .materials {
@@ -490,42 +581,31 @@ struct TasksView: View {
                             Text(tr("이 업무의 활동이 기록되면 시간과 사용한 자료를 함께 보여 드려요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 40)
+                    } else if shown.isEmpty {
+                        Text(tr("이 기간에는 세션이 없어요. 기간을 넓혀 보세요."))
+                            .font(Brand.font(.body)).foregroundStyle(Brand.gray).frame(maxWidth: .infinity).padding(.vertical, 30)
                     } else {
-                        ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
-                            sessionRow(session, first: index == 0)
+                        ForEach(RangeTime.byDay(shown, start: \.start), id: \.day) { group in
+                            dayGroup(group.day, group.items)
                         }
                     }
-                    eraseButton(task).padding(.top, 40)
                 }
                 .padding(.horizontal, 33).padding(.bottom, 24)
             }
         }
     }
 
-    /// 상세 맨 아래 '이 업무 지우기': 누르면 지울 것을 세어 확인 창에 보여 준다 (확인 창은 MainWindow 의 EraseDialog 하나)
-    private func eraseButton(_ task: TaskSummary) -> some View {
-        Button { state.askErase(NodeRef(label: NodeLabel.task, key: task.key)) } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "trash").font(.system(size: 11))
-                Text(tr("이 업무 지우기")).font(Brand.font(.body))
-            }
-            .foregroundStyle(Color(hex: 0xC0573F))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(state.erasing)
-        .help(tr("이 업무와 그 기록(원시 기록·화면 카드·요약)을 지워요. 되돌릴 수 없어요"))
-    }
-
     private func heading(_ task: TaskSummary, lines: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
+            HStack(spacing: 6) {
                 if let type = task.taskType { BrandBadge(L10n.tr(key: type)) }
+                if state.isTaskPinned(task.key) { GrayBadge(tr("원문 보존 중")) }
             }
             Text(task.title).font(Brand.font(.screenTitle)).tracking(-1.26).foregroundStyle(Brand.ink).lineLimit(lines).padding(.top, 14)
         }
     }
 
+    /// 묻기, 다시 열기, 그리고 자주 안 쓰는 원문 보존·지우기는 ··· 메뉴에
     @ViewBuilder
     private func headerButtons(_ task: TaskSummary) -> some View {
         let pinned = state.isTaskPinned(task.key)
@@ -535,14 +615,6 @@ struct TasksView: View {
         .buttonStyle(BrandButtonStyle())
         .help(tr("이 업무로 묻기: 채팅에서 이 업무 기록만 보고 답해요"))
         .accessibilityLabel(tr("이 업무로 묻기"))
-        Button { state.toggleTaskPin(task.key) } label: {
-            HStack(spacing: 6) {
-                Image(systemName: pinned ? "pin.fill" : "pin").font(.system(size: 11))
-                Text(pinned ? tr("원문 보존 중") : tr("원문 보존"))
-            }
-        }
-        .buttonStyle(BrandButtonStyle())
-        .help(tr("이 업무의 화면 텍스트와 활동 기록을 보관 기간이 지나도 지우지 않아요"))
         Button { state.prepareResume(taskId: task.id) } label: {
             HStack(spacing: 7) {
                 Image(systemName: "arrow.counterclockwise").font(.system(size: 12))
@@ -551,88 +623,130 @@ struct TasksView: View {
             .padding(.horizontal, 6)
         }
         .buttonStyle(BrandButtonStyle(kind: .primary))
+        Menu {
+            // 원문 보존: 이 업무의 화면 텍스트와 활동 기록을 보관 기간이 지나도 지우지 않는다
+            Toggle(tr("원문 보존"), isOn: Binding(get: { pinned }, set: { _ in state.toggleTaskPin(task.key) }))
+            Divider()
+            // 지울 것을 세어 확인 창에 보여 준다 (확인 창은 MainWindow 의 EraseDialog 하나)
+            Button(tr("이 업무 지우기"), role: .destructive) { state.askErase(NodeRef(label: NodeLabel.task, key: task.key)) }
+                .disabled(state.erasing)
+        } label: {
+            Image(systemName: "ellipsis").font(.system(size: 13))
+        }
+        .menuStyle(.button).menuIndicator(.hidden).buttonStyle(BrandButtonStyle()).fixedSize()
+        .help(tr("원문 보존, 이 업무 지우기"))
+        .accessibilityLabel(tr("더 보기"))
     }
 
-    private func stats(_ task: TaskSummary) -> some View {
-        let minutes = Int(task.activeSeconds / 60)
-        return HStack(alignment: .top, spacing: 0) {
-            statCell(tr("작업 시간"), note: tr("누적 작업 시간"), leading: false) {
-                bigNumber(minutes >= 60 ? [("\(minutes / 60)", tr("시간")), ("\(minutes % 60)", tr("분"))] : [("\(minutes)", tr("분"))])
+    /// 기간 고르기, 합계 한 줄, 날짜별 막대
+    private func summary(_ range: RangeTime.Range, now: Double) -> some View {
+        let times = sessions.map { (start: $0.start, seconds: $0.activeSeconds) }
+        let time = RangeTime.of(times, range: range, now: now)
+        let bars = RangeTime.bars(times, range: range, now: now)
+        let weekly = bars.count > 1 && bars[1].start.timeIntervalSince(bars[0].start) > 2 * 86_400
+        let total = Text(Self.duration(time.seconds)).font(Brand.suit(22, .semibold)).tracking(-0.6).foregroundStyle(Brand.ink)
+        let note = Text(Self.rangeNote(time, range)).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
+        let tips = Dictionary(uniqueKeysWithValues: RangeTime.Range.allCases.map { range in
+            (range.rawValue, Self.rangeSpan(range, first: sessions.map(\.start).min(), now: now))
+        })
+        let hovered = hoveredBar.flatMap { bars.indices.contains($0) ? $0 : nil }
+        return VStack(alignment: .leading, spacing: 14) {
+            PillPicker(selection: $rangeRaw, options: RangeTime.Range.allCases.map { ($0.rawValue, Self.rangeName($0)) }, tips: tips)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) { total; note.lineLimit(1) }
+                VStack(alignment: .leading, spacing: 4) { total; note }
             }
-            statCell(tr("세션"), note: tr("이어진 작업 세션"), leading: true) {
-                bigNumber([(String(format: "%02d", task.sessionCount), tr("개"))])
-            }
-            statCell(tr("마지막 활동"), note: tr("내 업무 기록"), leading: true) {
-                Text(task.sessionCount == 0 ? tr("활동 없음") : Self.lastActive(task.lastActive))
-                    .font(Brand.font(.sectionTitle)).foregroundStyle(Brand.ink).frame(height: 60)
+            if let first = bars.first, !sessions.isEmpty {                     // 세션이 아예 없으면 빈 막대 대신 아래 안내만
+                VStack(spacing: 6) {
+                    ActivityBars(values: bars.map(\.seconds), color: Color(hex: 0xB3A69C), height: 40, highlight: hovered,
+                                 onHover: { hoveredBar = $0 })
+                    // 아래 줄: 평소엔 첫날과 오늘, 막대에 커서를 대면 그 막대 밑에 날짜와 시간
+                    GeometryReader { g in
+                        if let index = hovered {
+                            let x = (CGFloat(index) + 0.5) * g.size.width / CGFloat(bars.count)
+                            Text(Self.barLabel(bars[index], weekly: weekly)).font(Brand.font(.tag, .semibold)).foregroundStyle(Brand.ink)
+                                .fixedSize().position(x: min(max(x, 62), g.size.width - 62), y: g.size.height / 2)
+                        } else {
+                            HStack {
+                                Text(Self.day.string(from: first.start))
+                                Spacer()
+                                Text(tr("오늘"))
+                            }
+                            .font(Brand.font(.tag)).foregroundStyle(Brand.gray)
+                        }
+                    }
+                    .frame(height: 13)
+                }
+                .padding(.top, 4)
             }
         }
-        .padding(.top, 28).padding(.bottom, 28)
+        .padding(.top, 18)
     }
 
-    /// 큰 숫자와 작은 단위를 한 글줄로 (예: 2 시간  40 분). 칸이 좁으면(드로어가 줄면) 잘리지 않고 통째로 작아진다
-    private func bigNumber(_ parts: [(value: String, unit: String)]) -> some View {
-        parts.enumerated().reduce(Text(verbatim: "")) { line, part in
-            let gap = Text(verbatim: part.offset == 0 ? "" : "   ").font(Brand.font(.caption))
-            let value = Text(verbatim: part.element.value).font(.custom("Jost-ExtraLight", size: 48)).foregroundStyle(Brand.ink)
-            let unit = Text(verbatim: " " + part.element.unit).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
-            return Text("\(line)\(gap)\(value)\(unit)")
+    /// 막대에 커서를 대면: 날짜(한 주면 그 주 첫날부터)와 그날 시간
+    static func barLabel(_ bar: RangeTime.Bar, weekly: Bool) -> String {
+        let day = Self.day.string(from: bar.start)
+        return weekly ? tr("\(day)부터 한 주 \(duration(bar.seconds))") : tr("\(day) · \(duration(bar.seconds))")
+    }
+
+    /// 기간 단추에 커서를 대면: 그 기간의 날짜 (예: 11월 13일 ~ 오늘). 전체는 첫 세션 날부터
+    static func rangeSpan(_ range: RangeTime.Range, first: Double?, now: Double) -> String {
+        guard range != .today, let start = RangeTime.start(of: range, now: now) ?? first else { return day.string(from: Date(timeIntervalSince1970: now)) }
+        return tr("\(day.string(from: Date(timeIntervalSince1970: start))) ~ 오늘")
+    }
+
+    static func rangeName(_ range: RangeTime.Range) -> String {
+        switch range {
+        case .today: tr("오늘")
+        case .week: tr("7일")
+        case .month: tr("30일")
+        case .all: tr("전체")
         }
-        .lineLimit(1).minimumScaleFactor(0.5)
     }
 
-    private func statCell<Content: View>(_ eyebrow: String, note: String, leading: Bool, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Eyebrow(eyebrow)
-            content().frame(height: 60, alignment: .leading)
-            Text(note).font(Brand.font(.tag)).foregroundStyle(Brand.gray).padding(.top, 0)
+    static func rangeNote(_ time: RangeTime, _ range: RangeTime.Range) -> String {
+        range == .today ? tr("오늘 작업 시간") : tr("하루 평균 \(duration(time.dailyAverage)) · \(time.spanDays)일 중 \(time.workedDays)일")
+    }
+
+    /// 하루치 세션: 날짜와 그날 합계 한 줄, 그 아래 세션들
+    private func dayGroup(_ day: Date, _ items: [SessionSummary]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: "\(Self.dayLabel(day)) · \(Self.duration(items.reduce(0) { $0 + $1.activeSeconds }))")
+                .font(Brand.font(.caption, .semibold)).foregroundStyle(Brand.ink).padding(.bottom, 4)
+            ForEach(items) { sessionRow($0) }
         }
-        .padding(.leading, leading ? 29 : 0)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 22)
     }
 
-    private func sessionRow(_ session: SessionSummary, first: Bool) -> some View {
+    /// 세션 한 줄: 왼쪽에 시각과 길이, 오른쪽에 한 일 (최대 2줄, 전체는 커서를 대면). 다시 열기는 커서를 댈 때만
+    private func sessionRow(_ session: SessionSummary) -> some View {
         let start = Date(timeIntervalSince1970: session.start)
-        let range = Self.clock.string(from: start) + (session.end > session.start ? " — " + Self.clock.string(from: Date(timeIntervalSince1970: session.end)) : "")
-        let meta = [session.apps.joined(separator: ", "), session.resourceCount > 0 ? tr("자료 \(session.resourceCount)개") : ""].filter { !$0.isEmpty }
-        return HStack(alignment: .top, spacing: 18) {
-            RoundedRectangle(cornerRadius: 1).fill(first ? Brand.ink : .white)
-                .overlay(RoundedRectangle(cornerRadius: 1).strokeBorder(first ? Brand.ink : Color(hex: 0xBDB5AE)))
-                .frame(width: 7, height: 7).padding(.top, 7)
-                .frame(width: 9)
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 14) {
-                    Text(Self.dayLabel(start)).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.tabText)
-                    Text(range).font(Brand.jost(12)).tracking(0.18).foregroundStyle(Brand.gray)
-                    Spacer()
-                    Text(Self.duration(max(0, session.end - session.start))).font(Brand.font(.body)).foregroundStyle(Brand.tabText)
-                }
-                if session.summaries.isEmpty {
-                    Text(session.title).font(Brand.font(.body)).foregroundStyle(Brand.tabText).lineLimit(2).padding(.top, 11)
-                } else {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(Array(session.summaries.prefix(4).enumerated()), id: \.offset) { _, line in
-                            Text(line).font(Brand.font(.body)).foregroundStyle(Brand.tabText).lineLimit(2)
-                        }
-                        if session.summaries.count > 4 { Text(tr("외 \(session.summaries.count - 4)개")).font(Brand.font(.tag)).foregroundStyle(Brand.gray) }
-                    }
-                    .padding(.top, 11)
-                }
-                HStack {
-                    Text(meta.joined(separator: "   |   ")).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(1)
-                    Spacer()
-                    Button { state.prepareResume(sessionId: session.id) } label: {
-                        HStack(spacing: 6) {
-                            Text(tr("다시 열기")).font(Brand.font(.caption))
-                            Image(systemName: "arrow.up.right").font(.system(size: 10))
-                        }
-                        .foregroundStyle(Brand.tabText)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.top, 12)
+        let range = Self.clock.string(from: start) + (session.end > session.start ? "–" + Self.clock.string(from: Date(timeIntervalSince1970: session.end)) : "")
+        let lines = session.summaries.isEmpty ? [session.title] : session.summaries
+        let hovered = hoveredSession == session.id
+        return HStack(alignment: .firstTextBaseline, spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(range).font(Brand.jost(12)).tracking(0.18).foregroundStyle(Brand.tabText)
+                Text(Self.rowDuration(session.activeSeconds)).font(Brand.font(.caption)).foregroundStyle(Brand.gray)
             }
-            .padding(.bottom, 26)
+            .frame(width: 84, alignment: .leading)
+            Text(lines.prefix(2).joined(separator: "\n")).font(Brand.font(.body)).foregroundStyle(Brand.tabText).lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .help(lines.joined(separator: "\n"))
+            Button { state.prepareResume(sessionId: session.id) } label: {
+                Image(systemName: "arrow.counterclockwise").font(.system(size: 11)).foregroundStyle(Brand.tabText)
+            }
+            .buttonStyle(.plain)
+            .help(tr("다시 열기"))
+            .accessibilityLabel(tr("다시 열기"))
+            .opacity(hovered ? 1 : 0)
+        }
+        .padding(.vertical, 6).padding(.horizontal, 8)
+        .background(RoundedRectangle(cornerRadius: 6).fill(hovered ? Color(hex: 0xF6F4F2) : .clear))
+        .padding(.horizontal, -8)
+        .contentShape(Rectangle())
+        .onHover { inside in
+            if inside { hoveredSession = session.id } else if hoveredSession == session.id { hoveredSession = nil }
         }
     }
 
@@ -825,9 +939,43 @@ struct TasksView: View {
         (Calendar.current.isDateInToday(date) ? tr("오늘, ") : "") + day.string(from: date)
     }
 
-    private static func lastActive(_ stamp: Double) -> String {
-        let date = Date(timeIntervalSince1970: stamp)
-        return (Calendar.current.isDateInToday(date) ? tr("오늘") : day.string(from: date)) + " " + clock.string(from: date)
+}
+
+/// 하루(또는 한 주) 작업 시간 막대: 가장 긴 칸이 꽉 찬 높이, 쉰 날은 바닥에 옅은 선
+struct ActivityBars: View {
+    let values: [Double]
+    let color: Color
+    let height: CGFloat
+    /// 커서가 올라간 칸 (진하게)
+    var highlight: Int? = nil
+    /// 커서가 칸 위를 지날 때 그 칸 번호, 벗어나면 nil (없으면 커서를 따라가지 않음)
+    var onHover: ((Int?) -> Void)? = nil
+
+    var body: some View {
+        let top = max(values.max() ?? 0, 1)
+        HStack(alignment: .bottom, spacing: height > 20 ? 3 : 1.5) {
+            ForEach(Array(values.enumerated()), id: \.offset) { index, value in
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(index == highlight ? Brand.tabText : value > 0 ? color : Color(hex: 0xE2DDD8))
+                    .frame(height: value > 0 ? max(2, height * value / top) : 1.5)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            }
+        }
+        .frame(height: height)
+        .overlay {
+            if let onHover {
+                // 칸 사이 틈에서도 끊기지 않게 막대 전체에서 커서 위치로 칸을 고른다
+                GeometryReader { g in
+                    Color.clear.contentShape(Rectangle()).onContinuousHover { phase in
+                        if case .active(let point) = phase, g.size.width > 0, !values.isEmpty {
+                            onHover(min(values.count - 1, max(0, Int(point.x / g.size.width * CGFloat(values.count)))))
+                        } else {
+                            onHover(nil)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

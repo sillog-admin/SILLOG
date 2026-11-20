@@ -699,7 +699,7 @@ html, body { background: #fff; }
 .phead h1 { margin-top: 8px; font-size: 28px; font-weight: 700; line-height: 1.25; color: var(--text); }
 .pdesc { margin-top: 10px; font-size: 13px; color: var(--muted); }
 .toolbar { flex: none; display: flex; align-items: center; gap: 22px; padding: 14px 34px; }
-.tsearch { display: flex; align-items: center; gap: 10px; flex: 0 1 56%; min-width: 240px; height: 42px; padding: 0 2px; border-bottom: 1px solid rgba(36, 21, 15, 0.15); cursor: text; }   /* 상자 없이 밑줄만 */
+.tsearch { display: flex; align-items: center; gap: 10px; flex: 0 1 56%; min-width: 120px; height: 42px; padding: 0 2px; border-bottom: 1px solid rgba(36, 21, 15, 0.15); cursor: text; }   /* 상자 없이 밑줄만 */
 .tsearch input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font-size: 15px; color: var(--text); }
 .tsearch input::placeholder { color: var(--sub); }
 .askchat { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 999px; background: #8A7566; color: #fff; cursor: pointer; }   /* 검색어를 채팅으로 묻기 */
@@ -727,6 +727,18 @@ html, body { background: #fff; }
 .tbtn.on::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #24150F; }
 .tbtn:focus-visible, .tdrop-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tdrop-pop { display: none; position: absolute; top: 44px; left: -10px; z-index: 30; min-width: 190px; padding: 6px; background: #fff; border-radius: 8px; box-shadow: 0 6px 22px rgba(36, 21, 15, 0.12), 0 1px 3px rgba(36, 21, 15, 0.08); }
+#viewSec .tdrop-pop { left: auto; right: 0; }   /* 맨 오른쪽 단추의 메뉴는 오른쪽 끝을 맞춰 왼쪽으로 펼친다 (창 밖으로 잘리지 않게) */
+/* 거르기 단추는 오른쪽 여백(34px, 카드가 있으면 그만큼 더) 안쪽 끝에 붙인다. 칸이 좁아지면 검색칸이 줄고, 더 좁으면 단추의 '기간'·'보기' 이름표를 숨긴다 */
+.toolbar { container-type: inline-size; }
+.tfilters { flex: none; display: flex; align-items: center; gap: 22px; margin-left: auto; }
+@container (max-width: 380px) { .toolbar .tlab { display: none; } .tfilters { gap: 12px; } .tsearch { min-width: 80px; } }
+/* 앱의 업무 상세 카드가 그래프 오른쪽을 덮는 동안(--card-inset) 머리글과 단추줄을 카드 왼쪽으로 비킨다 */
+html .phead, html .toolbar { padding-right: calc(34px + var(--card-inset, 0px)); }   /* 뒤에서 .phead 여백을 다시 정해도 이 규칙이 이기게 html 을 붙인다 */
+html .lgp { right: calc(24px + var(--card-inset, 0px)); }   /* 범례 단추도 카드 왼쪽으로 */
+/* 머리글 칸이 좁아지면(카드가 덮을 때) 보기 단추는 아이콘만, 제목은 꺾지 않는다 */
+.phead { container-type: inline-size; }
+html .phead h1 { white-space: nowrap; }
+@container (max-width: 520px) { .vseg button span { display: none; } }
 .tdrop.open .tdrop-pop { display: block; }
 .tlist button { display: block; width: 100%; padding: 7px 9px; border: 0; border-radius: 5px; background: none; text-align: left; font-size: 12px; color: var(--text); cursor: pointer; }
 .tlist button:hover { background: rgba(36, 21, 15, 0.04); }
@@ -878,33 +890,35 @@ html, body, .window, .stage { background: transparent; }
 
   <div class="toolbar">
     <label class="tsearch"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#736d68" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input id="search" type="search" placeholder="업무, 자료 검색" autocomplete="off" spellcheck="false" aria-label="업무, 자료 검색"><button type="button" id="askChat" class="askchat" title="채팅으로 묻기 (Enter)" aria-label="채팅으로 묻기" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button></label>
-    <div class="tdrop" id="fieldSec" hidden>
-      <button type="button" class="tdrop-btn" aria-haspopup="true" aria-expanded="false"><span id="fieldLabel"><span class="tlab">분야</span><b>전체</b></span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-      <div class="tdrop-pop"><ul class="legend" id="fieldList"></ul></div>
-    </div>
-    <div class="tdrop" id="kindSec" hidden>
-      <button type="button" class="tdrop-btn" aria-haspopup="true" aria-expanded="false"><span id="kindLabel">모든 종류</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-      <div class="tdrop-pop"><ul class="legend" id="kinds"></ul></div>
-    </div>
-    <div class="tdrop" id="rangeSec">
-      <button type="button" class="tdrop-btn" aria-haspopup="true" aria-expanded="false"><span id="rangeLabel">전체 기간</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-      <div class="tdrop-pop">
-        <div class="tlist" id="range" role="radiogroup" aria-label="기간">
-          <button type="button" data-range="today" role="radio" aria-checked="false">오늘</button>
-          <button type="button" data-range="week" role="radio" aria-checked="false">최근 7일</button>
-          <button type="button" data-range="month" role="radio" aria-checked="false">최근 30일</button>
-          <button type="button" data-range="all" class="on" role="radio" aria-checked="true">전체</button>
+    <div class="tfilters">   <!-- 거르기 단추 묶음: 단추줄 오른쪽 끝에 -->
+      <div class="tdrop" id="fieldSec" hidden>
+        <button type="button" class="tdrop-btn" aria-haspopup="true" aria-expanded="false"><span id="fieldLabel"><span class="tlab">분야</span><b>전체</b></span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="tdrop-pop"><ul class="legend" id="fieldList"></ul></div>
+      </div>
+      <div class="tdrop" id="kindSec" hidden>
+        <button type="button" class="tdrop-btn" aria-haspopup="true" aria-expanded="false"><span id="kindLabel">모든 종류</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="tdrop-pop"><ul class="legend" id="kinds"></ul></div>
+      </div>
+      <div class="tdrop" id="rangeSec">
+        <button type="button" class="tdrop-btn" aria-haspopup="true" aria-expanded="false"><span id="rangeLabel">전체 기간</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="tdrop-pop">
+          <div class="tlist" id="range" role="radiogroup" aria-label="기간">
+            <button type="button" data-range="today" role="radio" aria-checked="false">오늘</button>
+            <button type="button" data-range="week" role="radio" aria-checked="false">최근 7일</button>
+            <button type="button" data-range="month" role="radio" aria-checked="false">최근 30일</button>
+            <button type="button" data-range="all" class="on" role="radio" aria-checked="true">전체</button>
+          </div>
         </div>
       </div>
-    </div>
-    <button type="button" class="tbtn" id="showEtc" aria-pressed="false" hidden>기타 업무</button>
-    <div class="tdrop" id="viewSec">
-      <button type="button" class="tdrop-btn" aria-haspopup="true" aria-expanded="false"><span id="viewLabel"><span class="tlab">보기</span><b>기본</b></span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-      <div class="tdrop-pop vpop">
-        <p class="vhead">그래프에 보일 것</p>
-        <button type="button" class="vopt" id="optItems">자료<i></i></button>
-        <button type="button" class="vopt" id="optLinks">같은 자료 연결선<i></i></button>
-        <button type="button" class="vopt" id="optEtc">기타 업무<i></i></button>
+      <button type="button" class="tbtn" id="showEtc" aria-pressed="false" hidden>기타 업무</button>
+      <div class="tdrop" id="viewSec">
+        <button type="button" class="tdrop-btn" aria-haspopup="true" aria-expanded="false"><span id="viewLabel"><span class="tlab">보기</span><b>기본</b></span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="tdrop-pop vpop">
+          <p class="vhead">그래프에 보일 것</p>
+          <button type="button" class="vopt" id="optItems">자료<i></i></button>
+          <button type="button" class="vopt" id="optLinks">같은 자료 연결선<i></i></button>
+          <button type="button" class="vopt" id="optEtc">기타 업무<i></i></button>
+        </div>
       </div>
     </div>
     <p id="stats" hidden></p>   <!-- 통계 글자는 보이지 않는다: 보기마다 쓰는 코드가 있어 요소만 남긴다 -->
@@ -2647,7 +2661,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     // 가운데 구("나"): 2D 와 같은 makeMarble, 분야 색은 2D 와 같은 팔레트(업무 시간 순), 비율은 업무 개수
     const MB = (() => {
       const g = new Map();
-      nodes.forEach(n => { const o = g.get(n.t.theme) || g.set(n.t.theme, { n: 0, mins: 0 }).get(n.t.theme); o.n++; o.mins += n.mins; });
+      nodes.forEach(n => { const o = g.get(n.t.theme) || g.set(n.t.theme, { id: n.t.theme, n: 0, mins: 0 }).get(n.t.theme); o.n++; o.mins += n.mins; });
       const byMin = [...g.values()].sort((a, b) => b.mins - a.mins);
       byMin.forEach((o, i) => { o.c = hexRgb(THEME[o.id]?.color || SOLAR_PAL[i % SOLAR_PAL.length]); });
       return makeMarble([...byMin].sort((a, b) => b.n - a.n), nodes.length);
@@ -2903,6 +2917,10 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
         });
         if (u >= 1) anim = null;
       }
+      // 이동(Shift+끌기, 방향키, 커서 쪽 확대)은 화면 밖으로 끝없이 가지 않게: 맞춤 배율에서 화면의 40%, 확대할수록 넓게
+      const lim = k => Math.max(0, k * 0.5 - 0.1);
+      cvV.x = Math.max(-W * lim(cvV.k), Math.min(W * lim(cvV.k), cvV.x));
+      cvV.y = Math.max(-H * lim(cvV.k), Math.min(H * lim(cvV.k), cvV.y));
       draw();
       if (cvPlay || anim || cvCB || spin.y || spin.p) kick(); else last = 0;
     }
@@ -3673,7 +3691,8 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       if (zc !== zg) { const t = Math.min(1, (now - zt0) / 350), e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;   // 선택 쪽으로 확대: 0.35초 ease
         zc = t >= 1 ? zg : { k: za.k + (zg.k - za.k) * e, x: za.x + (zg.x - za.x) * e, y: za.y + (zg.y - za.y) * e }; }
       ctx.clearRect(0, 0, w, h);
-      ctx.save(); ctx.translate(w / 2 - zc.k * (w / 2 + zc.x), h / 2 - zc.k * (h / 2 + zc.y)); ctx.scale(zc.k, zc.k);
+      clampPan();
+      ctx.save(); ctx.translate(w / 2 - zc.k * (w / 2 + zc.x + pan.x), h / 2 - zc.k * (h / 2 + zc.y + pan.y)); ctx.scale(zc.k, zc.k);
       items = rows.map(r => ({ r, x: cx + r.x, y: cy + r.y, rad: r.r }));
       [...ths, ...tys].forEach(n => { n.sx = cx + n.x; n.sy = cy + n.y; });
       const at = new Map(items.map(o => [o.r.t.id, o]));
@@ -3730,10 +3749,9 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
         ctx.globalAlpha = lv(inN(y), hn(y), 1, 0.3); ctx.fillStyle = '#fff'; ctx.strokeStyle = y.g.hex; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(y.sx, y.sy, y.nr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       });
-      ths.forEach(t => {   // 분야 마디: 분야 색으로 채운 원
-        ctx.save(); ctx.globalAlpha = lv(inN(t), hn(t), 1, 0.35); ctx.shadowColor = t.g.hex; ctx.shadowBlur = 8;
-        ctx.fillStyle = t.g.hex; ctx.beginPath(); ctx.arc(t.sx, t.sy, t.nr, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        ctx.globalAlpha = lv(inN(t), hn(t), 1, 0.35); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(t.sx, t.sy, t.nr, 0, Math.PI * 2); ctx.stroke();
+      ths.forEach(t => {   // field node: hollow ring in the field color like the 3D field core, larger than type rings
+        ctx.globalAlpha = lv(inN(t), hn(t), 1, 0.35); ctx.fillStyle = '#fff'; ctx.strokeStyle = t.g.hex; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(t.sx, t.sy, t.nr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       });
       ctx.globalAlpha = sset ? 0.35 : 1;   // 구는 선택 중에도 조금 보인다
       drawOrb(cx, cy, sc, now);
@@ -3766,13 +3784,18 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       return { ids, nds };
     };
     let sel = null, sset = null, zc = { k: 1, x: 0, y: 0 }, za = zc, zg = zc, zt0 = 0;   // 선택(고정)과 그 범위, 확대(지금, 시작, 목표)
+    let pan = { x: 0, y: 0 }, drag = null, wasDrag = false;   // 끌어서 옮긴 만큼(배치 좌표). 고르기·Esc 로 확대가 다시 잡히면 0 으로
+    const clampPan = () => {   // 보는 가운데가 배치 칸 밖으로 나가지 않게: 맞춤 배율에서 칸의 40%까지
+      const lx = w / 2 - w * 0.1 / zc.k, ly = h / 2 - h * 0.1 / zc.k;
+      pan.x = Math.max(-lx - zc.x, Math.min(lx - zc.x, pan.x)); pan.y = Math.max(-ly - zc.y, Math.min(ly - zc.y, pan.y));
+    };
     const zbox = () => {   // 선택 범위의 경계 상자가 칸의 70%에 들어오는 배율(1~1.8)과 그 가운데
       if (!sset) return { k: 1, x: 0, y: 0 };
       let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; const add = (p, r) => { x0 = Math.min(x0, p.x - r); y0 = Math.min(y0, p.y - r); x1 = Math.max(x1, p.x + r); y1 = Math.max(y1, p.y + r); };
       rows.forEach(r => sset.ids.has(r.t.id) && add(r, r.r + 14)); sset.nds.forEach(n => add(n, n.nr + 8));
       return { k: Math.max(1, Math.min(1.8, 0.7 * Math.min(w / (x1 - x0), h / (y1 - y0)))), x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
     };
-    const zgo = () => { za = zc; zg = zbox(); zt0 = performance.now(); if (reduce) zc = zg; };
+    const zgo = () => { za = zc = { k: zc.k, x: zc.x + pan.x, y: zc.y + pan.y }; pan = { x: 0, y: 0 }; zg = zbox(); zt0 = performance.now(); if (reduce) zc = zg; };   // 옮긴 자리에서 부드럽게 이어서
     const pick = o => {   // 선택을 바꾸고(null 이면 풀고) 그쪽으로 확대, 풀면 배율 1로
       sel = o; sset = o ? hotOf(o) : null;
       on = null; hs = null; tip.hidden = true; box.classList.toggle('sel', !!o);   // 보이는 업무가 바뀌므로 올림은 다음 움직임에서 다시 잡는다, 자료 종류 범례는 고르는 동안만
@@ -3788,15 +3811,32 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       const key = [...v].sort().join(',') + '|' + zg.k.toFixed(2);
       if (key !== visKey) { visKey = key; placeTasks(v); }
     };
+    const hitAt = e => {   // 커서 자리의 점(업무·자료·분야·종류)과 구 안인지. 누를 때도 그 자리로 다시 구한다 (끌기 캡처를 놓을 때 WebKit 이 pointerleave 를 보내 올림이 지워지므로)
+        const b = cv.getBoundingClientRect(), sx = e.clientX - b.left, sy = e.clientY - b.top, x = (sx - w / 2) / zc.k + w / 2 + zc.x + pan.x, y = (sy - h / 2) / zc.k + h / 2 + zc.y + pan.y;
+        let o = null;
+        for (let i = items.length - 1; i >= 0 && !o; i--) if (Math.hypot(x - items[i].x, y - items[i].y) <= items[i].rad + 4) o = items[i];
+        for (let i = rd.length - 1; i >= 0 && !o; i--) if (Math.hypot(x - rd[i].x, y - rd[i].y) <= rd[i].rad + 3) o = rd[i];
+        for (const n of [...tys, ...ths]) if (!o && Math.hypot(x - n.sx, y - n.sy) <= n.nr + 3) o = n;
+        return [o, Math.hypot(x - orb.x, y - orb.y) <= orb.r];
+    };
+    cv.addEventListener('pointerdown', e => {   // 빈 곳이든 점 위든 끌면 그래프를 옮긴다 (3px 넘게 움직여야 끌기, 아니면 누르기)
+      if (e.button !== 0) return;
+      drag = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, moved: false }; wasDrag = false;
+      cv.setPointerCapture(e.pointerId);
+    });
+    const endDrag = () => { if (drag) { wasDrag = drag.moved; drag = null; cv.style.cursor = 'grab'; } };
+    cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
     cv.addEventListener('pointermove', e => {
-      const b = cv.getBoundingClientRect(), sx = e.clientX - b.left, sy = e.clientY - b.top, x = (sx - w / 2) / zc.k + w / 2 + zc.x, y = (sy - h / 2) / zc.k + h / 2 + zc.y, inOrb = Math.hypot(x - orb.x, y - orb.y) <= orb.r;   // 확대한 화면 좌표를 그림 좌표로 되돌린다
-      on = null;
-      for (let i = items.length - 1; i >= 0 && !on; i--) if (Math.hypot(x - items[i].x, y - items[i].y) <= items[i].rad + 4) on = items[i];
-      for (let i = rd.length - 1; i >= 0 && !on; i--) if (Math.hypot(x - rd[i].x, y - rd[i].y) <= rd[i].rad + 3) on = rd[i];
-      for (const n of [...tys, ...ths]) if (!on && Math.hypot(x - n.sx, y - n.sy) <= n.nr + 3) on = n;
+      if (drag) {
+        if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 3) { drag.moved = true; on = null; hs = null; tip.hidden = true; cv.style.cursor = 'grabbing'; visSync(); }
+        if (drag.moved) { pan.x -= (e.clientX - drag.lx) / zc.k; pan.y -= (e.clientY - drag.ly) / zc.k; clampPan(); if (reduce) draw(0); }
+        drag.lx = e.clientX; drag.ly = e.clientY;
+        return;
+      }
+      const [hit, inOrb] = hitAt(e); on = hit;
       hs = on ? hotOf(on) : null;
       visSync();
-      cv.style.cursor = on && (on.r || on.kind || (on.uid && on.uid.length === 1)) ? 'pointer' : '';
+      cv.style.cursor = on && (on.r || on.kind || (on.uid && on.uid.length === 1)) ? 'pointer' : 'grab';   // 빈 곳은 끌 수 있다는 손
       if (on && on.r) { const nl = links.filter(l => l[0] === on.r.t.id || l[1] === on.r.t.id).length, nr = (own.get(on.r.t.id) || []).length + shared.filter(v => v.users.includes(on.r.t.id)).length;
         show(e, `<b>${esc(on.r.t.title)}</b><span><i style="background:${on.r.g.hex}"></i>${esc(on.r.g.name)}, ${fmt(on.r.mins)}</span><span>자료 ${nr}개${nl ? `, 같은 자료를 쓴 업무 ${nl}개` : ''}</span>`); }
       else if (on && on.kind === 'th') show(e, `<b>${esc(on.name)}</b><span><i style="background:${on.g.hex}"></i>분야</span><span>업무 ${on.n}개, ${fmt(on.mins)}, 종류 ${tys.filter(y => y.th === on).length}개</span>`);
@@ -3809,8 +3849,9 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     });
     cv.addEventListener('pointerleave', () => { tip.hidden = true; on = null; hs = null; visSync(); if (reduce) draw(0); });
     const solDesc = o => !o ? null : o.r ? { task: o.r.t.id } : o.kind === 'th' ? { theme: o.g.id } : o.kind === 'ty' ? { type: o.name } : o.it ? { item: o.it.k, name: o.it.name, tids: o.uid } : null;
-    cv.addEventListener('click', () => {   // 누르면 선택(고정)과 확대, 같은 것을 다시 누르거나 빈 곳을 누르면 푼다. 누른 것의 상세도 연다 (업무는 업무 상세)
-      const o = on;   // pick 이 올림(on)을 비우므로 먼저 챙겨 둔다
+    cv.addEventListener('click', e => {   // 누르면 선택(고정)과 확대, 같은 것을 다시 누르거나 빈 곳을 누르면 푼다. 누른 것의 상세도 연다 (업무는 업무 상세)
+      if (wasDrag) { wasDrag = false; return; }   // 끌기를 마친 놓기는 누르기가 아니다
+      const o = hitAt(e)[0];   // 누른 자리에서 다시 구한다 (올림은 캡처를 놓을 때 지워질 수 있다)
       if (o && o.r) { pick(sel && sel.r === o.r ? null : { r: o.r }); openDetail(o.r.t.id); }
       else if (o && o.kind) { pick(sel === o ? null : o); if (o.kind !== 'root') showNode(solDesc(o)); }
       else if (o && o.uid) { if (o.uid.length === 1) pick({ r: byRow.get(o.uid[0]) }); showNode(solDesc(o)); }   // 혼자 쓰는 자료는 그 업무를 고른 채로
@@ -3947,7 +3988,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
   const refOf = d => {
     if (!d) return null;
     if (d.task) { const t = TASK[d.task]; return t && t.key ? { label: 'Task', key: t.key } : null; }
-    if (d.theme) { const th = THEME[d.theme]; return th && th.key ? { label: 'Theme', key: th.key } : null; }
+    if (d.theme) { const th = THEME[d.theme]; return th && th.key ? { label: th.label, key: th.key } : null; }
     if (d.type) return TYPEKEY[d.type] ? { label: 'TaskType', key: TYPEKEY[d.type] } : null;
     if (d.session) return d.session.key ? { label: 'Session', key: d.session.key } : null;
     if (d.item) for (const id of d.tids || []) { const key = TASK[id]?.refs?.get(d.item + '|' + d.name); if (key) return { label: ITEM_LABEL[d.item], key }; }
@@ -4102,7 +4143,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     const cnt = id => [...themeOf.values()].filter(v => v === id).length;
     let spare = 0;
     [...tops.values()].filter(n => n.title !== '기타').sort((a, b) => (b.title in FIELD_COLORS) - (a.title in FIELD_COLORS) || cnt(b.id) - cnt(a.id))
-      .forEach(n => THEMES.push({ id: 'tt' + n.id, key: byField ? n.key : null, name: n.title, color: FIELD_COLORS[n.title] || SPARE_COLORS[spare++] || '#b9b3ae' }));   // key: 분야 노드 (업무 종류로 묶을 때는 클래스라 없음)
+      .forEach(n => THEMES.push({ id: 'tt' + n.id, key: n.key, label: n.label, name: n.title, color: FIELD_COLORS[n.title] || SPARE_COLORS[spare++] || '#b9b3ae' }));   // the Theme node, or the top TaskType when tasks group by type
     // 분야로 묶을 때 아직 분야가 안 붙은 업무(분야 단계 실패 등)는 기본으로 숨는 '기타' 대신 보이는 '분야 없음' 으로
     const noField = byField && nodes.some(n => n.label === 'Task' && !themeOf.has(n.id));
     if (noField) THEMES.push({ id: 'nofield', name: '분야 없음', color: '#b9b3ae' });

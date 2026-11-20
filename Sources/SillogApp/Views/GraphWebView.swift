@@ -7,6 +7,8 @@ import SillogCore
 struct GraphWebView: NSViewRepresentable {
     @EnvironmentObject private var state: AppState
     let version: Int
+    /// 업무 상세 카드가 덮는 오른쪽 폭: 그래프의 머리글과 단추줄이 카드 왼쪽에 오게 비켜 준다
+    var rightInset: CGFloat = 0
 
     func makeCoordinator() -> Coordinator { Coordinator(state: state) }
 
@@ -27,7 +29,8 @@ struct GraphWebView: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         if context.coordinator.pushedVersion != version { context.coordinator.push(version: version) }
-        // 드로어를 X 로 닫으면 지금 보기에서 기억한 업무도 지운다(보기를 바꿨다 돌아와도 다시 열리지 않게)
+        if context.coordinator.inset != rightInset { context.coordinator.inset = rightInset; context.coordinator.pushInset() }
+        // 상세 카드를 X 로 닫으면 지금 보기에서 기억한 업무도 지운다(보기를 바꿨다 돌아와도 다시 열리지 않게)
         let open = state.taskDetailOpen
         if context.coordinator.drawerOpen && !open { webView.evaluateJavaScript("window.WG && window.WG.detailClosed && window.WG.detailClosed()", completionHandler: nil) }
         context.coordinator.drawerOpen = open
@@ -57,6 +60,7 @@ struct GraphWebView: NSViewRepresentable {
         var pushedVersion = -1
         var drawerOpen = false
         var sentSel: Int64?
+        var inset: CGFloat = 0
         private var ready = false
 
         init(state: AppState) { self.state = state }
@@ -66,6 +70,12 @@ struct GraphWebView: NSViewRepresentable {
             pushedVersion = version
             let json = MainActor.assumeIsolated { state.graphJSON() }
             webView.callAsyncJavaScript("window.WG.setGraph(JSON.parse(data))", arguments: ["data": json], in: nil, in: .page, completionHandler: nil)
+        }
+
+        /// 카드가 덮는 폭을 페이지의 --card-inset 으로 (페이지가 다시 뜨면 ready 에서 한 번 더)
+        func pushInset() {
+            guard ready, let webView else { return }
+            webView.evaluateJavaScript("document.documentElement.style.setProperty('--card-inset', '\(Int(inset))px')", completionHandler: nil)
         }
 
         /// 우클릭 메뉴: 마우스 자리에 [상세 보기] [지우기…]. 업무 종류 같은 클래스는 지우기를 끈다
@@ -97,6 +107,7 @@ struct GraphWebView: NSViewRepresentable {
             case "ready":
                 ready = true
                 push(version: MainActor.assumeIsolated { state.graphVersion })
+                pushInset()
             case "log":
                 if let message = body["message"] as? String { AppLog.write(message) }
             case "resume":
