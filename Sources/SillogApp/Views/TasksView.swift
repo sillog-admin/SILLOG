@@ -8,6 +8,7 @@ struct TasksView: View {
     @State private var selectedTask: Int64?
     @State private var collapsed: Set<String> = []          // 접은 분야 폴더
     @State private var fieldFilter: Set<String> = []        // 분야 막대에서 고른 분야들 (다시 누르면 빠짐, 비면 전체)
+    @State private var typeFilter: Set<String> = []         // type pills chosen under the open fields (typeKey); a field with none shows all its tasks
     @State private var rowFrames: [Int64: CGRect] = [:]     // 업무 줄 위치(목록 좌표). 고른 줄 상자를 옮기는 데 씀
     @State private var boxTop: CGFloat = 0                  // 고른 줄 상자 위 모서리. 위아래를 따로 움직여 물방울처럼 늘었다 모임
     @State private var boxBottom: CGFloat = 0
@@ -160,7 +161,7 @@ struct TasksView: View {
     private var sidebar: some View {
         let fields = Self.fieldStats(state.taskList)
         let filter = fieldFilter.intersection(fields.map(\.name))                              // 그 분야 업무가 없어졌으면 무시
-        let shown = filter.isEmpty ? state.taskList : state.taskList.filter { filter.contains($0.field ?? Self.noField) }   // 받은 순서(최근 활동 순) 그대로
+        let shown = state.taskList.filter { Self.passes($0, fields: filter, types: typeFilter) }   // 받은 순서(최근 활동 순) 그대로
         let colors = Dictionary(uniqueKeysWithValues: fields.map { ($0.name, $0.color) })
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 14) {
@@ -213,74 +214,145 @@ struct TasksView: View {
 
     private func toggleField(_ name: String) {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-            if fieldFilter.contains(name) { fieldFilter.remove(name) } else { fieldFilter.insert(name) }
+            if fieldFilter.contains(name) { fieldFilter.remove(name); typeFilter = typeFilter.filter { !$0.hasPrefix(Self.typeKey(name, "")) } } else { fieldFilter.insert(name) }
         }
     }
 
     /// 분야 비율 막대: 분야마다 업무 수에 비례한 둥근 조각. 누르면 넣고 빼며(여러 개), 고른 분야는 아래로 늘어나 종류 나무가 펼쳐진다
     private func fieldBar(_ fields: [FieldStat], filter: Set<String>) -> some View {
+        let width: CGFloat = 277 - 27 * 2                                                 // shortcut: the sidebar is a fixed 277pt with 27pt padding
         let sel = fields.filter { filter.contains($0.name) }
         let rows = sel.map { Self.typeRows(state.taskList, field: $0.name) }
-        let longest = rows.map(\.count).max() ?? 1
-        let treeH: CGFloat = 46 + CGFloat(max(longest, 1) - 1) * 26 + 14
-        return GeometryReader { geo in
-            let total = CGFloat(fields.reduce(0) { $0 + $1.count })
-            let room = geo.size.width - 3 * CGFloat(fields.count - 1)
-            let widths = fields.map { max(8, room * CGFloat($0.count) / total) }
-            let starts: [CGFloat] = widths.indices.map { i in widths[..<i].reduce(CGFloat(0), +) + 3 * CGFloat(i) }
-            ZStack(alignment: .topLeading) {
-                HStack(spacing: 3) {
-                    ForEach(Array(fields.enumerated()), id: \.element.id) { i, field in
-                        let on = filter.contains(field.name)
-                        Button {
-                            toggleField(field.name)
-                        } label: {
-                            RoundedRectangle(cornerRadius: 4).fill(field.color)
-                                .opacity(filter.isEmpty || on ? 1 : 0.28)
-                                .frame(width: widths[i], height: 8)
-                                .contentShape(Rectangle().inset(by: -4))
-                        }
-                        .buttonStyle(.plain)
-                        .help(tr("\(field.title) \(field.count)개"))
-                        .accessibilityLabel(tr("\(field.title) 분야, 업무 \(field.count)개, \(on ? tr("골라짐") : tr("안 골라짐"))"))
+        let total = CGFloat(fields.reduce(0) { $0 + $1.count })
+        let room = width - 3 * CGFloat(fields.count - 1)
+        let widths = fields.map { max(8, room * CGFloat($0.count) / total) }
+        let starts: [CGFloat] = widths.indices.map { i in widths[..<i].reduce(CGFloat(0), +) + 3 * CGFloat(i) }
+        let at = sel.map { field in fields.firstIndex { $0.id == field.id } ?? 0 }
+        let colW = width / CGFloat(max(sel.count, 1))
+        let plan = Self.treeLayout(circles: at.indices.map { k in max(starts[at[k]] + 12, CGFloat(k) * colW + 12) },
+                                   needs: rows.map { $0.map { Self.pillWidth(L10n.tr(key: $0.label), $0.count) }.max() ?? 0 },
+                                   rows: rows.map(\.count), width: width)
+        let pillRows = zip(plan.spots, rows).map { $0.top + $1.count }.max() ?? 1
+        return ZStack(alignment: .topLeading) {
+            HStack(spacing: 3) {
+                ForEach(Array(fields.enumerated()), id: \.element.id) { i, field in
+                    let on = filter.contains(field.name)
+                    Button {
+                        toggleField(field.name)
+                    } label: {
+                        RoundedRectangle(cornerRadius: 4).fill(field.color)
+                            .opacity(filter.isEmpty || on ? 1 : 0.28)
+                            .frame(width: widths[i], height: 8)
+                            .contentShape(Rectangle().inset(by: -4))
                     }
-                }
-                if sel.isEmpty {
-                    Text(tr("막대를 누르면 종류가 펼쳐져요. 여러 개 고를 수 있어요."))
-                        .font(Brand.font(.tag)).foregroundStyle(Color(hex: 0x8C837C)).lineLimit(1)
-                        .offset(y: 16)
-                }
-                ForEach(Array(sel.enumerated()), id: \.element.id) { k, field in
-                    let i = fields.firstIndex { $0.id == field.id } ?? 0
-                    let colW = geo.size.width / CGFloat(sel.count)
-                    let left = CGFloat(k) * colW
-                    fieldTree(field, rows: rows[k], a: starts[i], b: starts[i] + widths[i], left: left, colW: colW)
-                        .offset(y: 8)
-                        .transition(.scale(scale: 0.01, anchor: .top).combined(with: .opacity))
+                    .buttonStyle(.plain)
+                    .help(tr("\(field.title) \(field.count)개"))
+                    .accessibilityLabel(tr("\(field.title) 분야, 업무 \(field.count)개, \(on ? tr("골라짐") : tr("안 골라짐"))"))
                 }
             }
+            if sel.isEmpty {
+                Text(tr("막대를 누르면 종류가 펼쳐져요. 여러 개 고를 수 있어요."))
+                    .font(Brand.font(.tag)).foregroundStyle(Color(hex: 0x8C837C)).lineLimit(1)
+                    .offset(y: 16)
+            }
+            ForEach(Array(sel.enumerated()), id: \.element.id) { k, field in
+                fieldTree(field, rows: rows[k], a: starts[at[k]], b: starts[at[k]] + widths[at[k]], cx: plan.circles[k], spot: plan.spots[k])
+                    .offset(y: 8)
+                    .transition(.scale(scale: 0.01, anchor: .top).combined(with: .opacity))
+            }
         }
-        .frame(height: 8 + (sel.isEmpty ? 22 : treeH))
+        .frame(width: width, height: 8 + (sel.isEmpty ? 22 : 46 + CGFloat(max(pillRows, 1) - 1) * 26 + 14), alignment: .topLeading)
     }
 
-    /// 그 분야 업무의 종류별 개수: 많은 순, 최대 4개, 넘치면 마지막에 "외 N". 종류가 비었거나 분야와 같으면 세지 않는다
-    static func typeRows(_ tasks: [TaskSummary], field: String) -> [(String, Int)] {
+    /// 그 분야 업무의 종류별 개수: 많은 순, 최대 4개, 넘치면 마지막에 "외 N". 종류가 비었거나 분야와 같으면 세지 않는다.
+    /// types: the task types a pill stands for ("외 N" stands for the rest)
+    static func typeRows(_ tasks: [TaskSummary], field: String) -> [(label: String, count: Int, types: [String])] {
         var counts: [String: Int] = [:]
         for t in tasks where (t.field ?? noField) == field {
             if let type = t.taskType, !type.isEmpty, type != field { counts[type, default: 0] += 1 }
         }
         let sorted = counts.sorted { ($0.value, $1.key) > ($1.value, $0.key) }
-        var rows = sorted.prefix(4).map { ($0.key, $0.value) }
-        if sorted.count > 4 { rows.append((tr("외 \(sorted.count - 4)"), sorted.dropFirst(4).reduce(0) { $0 + $1.value })) }
+        var rows = sorted.prefix(4).map { (label: $0.key, count: $0.value, types: [$0.key]) }
+        if sorted.count > 4 { rows.append((tr("외 \(sorted.count - 4)"), sorted.dropFirst(4).reduce(0) { $0 + $1.value }, sorted.dropFirst(4).map(\.key))) }
         return rows
     }
 
+    static func typeKey(_ field: String, _ type: String) -> String { field + "\u{1F}" + type }
+
+    /// Whether a task stays in the list: in a chosen field (or none chosen), and of a chosen type when its field has type picks
+    static func passes(_ task: TaskSummary, fields: Set<String>, types: Set<String>) -> Bool {
+        let field = task.field ?? noField
+        if !fields.isEmpty, !fields.contains(field) { return false }
+        let picks = types.filter { $0.hasPrefix(typeKey(field, "")) }
+        return picks.isEmpty || picks.contains(typeKey(field, task.taskType ?? ""))
+    }
+
+    private func toggleTypes(_ field: String, _ types: [String]) {
+        let keys = Set(types.map { Self.typeKey(field, $0) })
+        if keys.isSubset(of: typeFilter) { typeFilter.subtract(keys) } else { typeFilter.formUnion(keys) }
+    }
+
+    /// Width a type pill needs: padding, the medium type name, a gap and the count
+    static func pillWidth(_ label: String, _ count: Int) -> CGFloat {
+        func width(_ text: String, _ weight: Brand.Weight) -> CGFloat {
+            let font = NSFont(name: "SUIT-\(weight.rawValue)", size: 11 * Brand.scale) ?? .systemFont(ofSize: 11 * Brand.scale)
+            return ceil((text as NSString).size(withAttributes: [.font: font]).width)
+        }
+        return 18 + width(label, .medium) + 5 + width("\(count)", .regular) + 2
+    }
+
+    /// Where one field tree's type pills go: which side of its circle, how wide, and the first pill row (0 = right under the circles)
+    struct TreeSpot: Equatable { var left: Bool; var room: CGFloat; var top: Int }
+
+    /// Lays out the chosen field trees so every pill gets the width it needs and nothing crosses: a tree's pills open beside its
+    /// circle up to the next line still running down, trees that do not fit drop below the earlier pills, and when no tree fits
+    /// at first the circles on one side spread out to make room.
+    /// Args: circles: circle x per tree (left to right), needs: widest pill per tree, rows: pills per tree, width: bar width
+    static func treeLayout(circles: [CGFloat], needs: [CGFloat], rows: [Int], width: CGFloat) -> (circles: [CGFloat], spots: [TreeSpot]) {
+        var cx = circles, spots = [TreeSpot?](repeating: nil, count: circles.count), active = Array(circles.indices)
+        func room(_ k: Int, _ left: Bool, _ cx: [CGFloat]) -> CGFloat {
+            let p = active.firstIndex(of: k)!
+            let lo = p > 0 ? cx[active[p - 1]] + 15 : 0, hi = p < active.count - 1 ? cx[active[p + 1]] - 15 : width - 4
+            return max(0, left ? cx[k] - 14 - lo : hi - cx[k] - 14)
+        }
+        func spread(_ k: Int, _ left: Bool) -> [CGFloat] {                                // push the circles beside k away, kept 26pt apart and on the bar
+            var c = cx
+            if left {
+                for j in stride(from: k - 1, through: 0, by: -1) { c[j] = min(c[j], j == k - 1 ? c[k] - 29 - needs[k] : c[j + 1] - 26) }
+                if c[0] < 11 { c[0] = 11; for j in 1..<k { c[j] = max(c[j], c[j - 1] + 26) } }
+            } else {
+                for j in (k + 1)..<c.count { c[j] = max(c[j], j == k + 1 ? c[k] + 29 + needs[k] : c[j - 1] + 26) }
+                if let last = c.indices.last, c[last] > width - 11 { c[last] = width - 11; for j in stride(from: last - 1, to: k, by: -1) { c[j] = min(c[j], c[j + 1] - 26) } }
+            }
+            return c
+        }
+        while !active.isEmpty {
+            let options = active.flatMap { k in [(k: k, left: true), (k: k, left: false)] }
+            var pick = options.filter { room($0.k, $0.left, cx) >= needs[$0.k] }.max { room($0.k, $0.left, cx) < room($1.k, $1.left, cx) }
+            if pick == nil, spots.allSatisfy({ $0 == nil }) {                               // nothing fits yet: spread the circles for the best tree
+                let best = options.max { room($0.k, $0.left, spread($0.k, $0.left)) - needs[$0.k] < room($1.k, $1.left, spread($1.k, $1.left)) - needs[$1.k] }!
+                cx = spread(best.k, best.left); pick = best
+            }
+            let p = pick ?? options.max { room($0.k, $0.left, cx) - needs[$0.k] < room($1.k, $1.left, cx) - needs[$1.k] }!
+            let w = min(room(p.k, p.left, cx), needs[p.k])
+            let region = p.left ? (cx[p.k] - 14 - w)...(cx[p.k] - 14) : (cx[p.k] + 14)...(cx[p.k] + 14 + w)
+            var top = 0                                                                    // below every earlier tree whose pills or line are in the way
+            for u in cx.indices { if let s = spots[u] {
+                let r = s.left ? (cx[u] - 14 - s.room)...(cx[u] - 14) : (cx[u] + 14)...(cx[u] + 14 + s.room)
+                if region.overlaps(min(r.lowerBound, cx[u])...max(r.upperBound, cx[u])) { top = max(top, s.top + rows[u]) }
+            } }
+            spots[p.k] = TreeSpot(left: p.left, room: w, top: top)
+            active.removeAll { $0 == p.k }
+        }
+        return (cx, spots.map { $0! })
+    }
+
     /// 막대 조각(a..b) 아래로 늘어난 목과 동그라미, 종류 가지와 알약. 좌표는 막대 아래 끝이 y=0
-    private func fieldTree(_ field: FieldStat, rows: [(String, Int)], a: CGFloat, b: CGFloat, left: CGFloat, colW: CGFloat) -> some View {
-        let cx = max(a + 12, left + 12)
-        let avail = max(20, left + colW - (cx + 14) - 4)
+    private func fieldTree(_ field: FieldStat, rows: [(label: String, count: Int, types: [String])], a: CGFloat, b: CGFloat, cx: CGFloat, spot: TreeSpot) -> some View {
+        let side: CGFloat = spot.left ? -1 : 1                                            // branches and pills go this way from the circle
         let count = TasksView.fieldCount(state.taskList, field.name)
-        let lastY = 46 + CGFloat(max(rows.count, 1) - 1) * 26
+        let firstY = 46 + CGFloat(spot.top) * 26                                          // a tree that did not fit beside the others hangs lower
+        let lastY = firstY + CGFloat(max(rows.count, 1) - 1) * 26
         return ZStack(alignment: .topLeading) {
             Path { p in
                 p.move(to: CGPoint(x: a, y: -2))
@@ -298,25 +370,30 @@ struct TasksView: View {
                 Path { p in
                     p.move(to: CGPoint(x: cx, y: 37))
                     p.addLine(to: CGPoint(x: cx, y: lastY - 6))
-                    p.addQuadCurve(to: CGPoint(x: cx + 6, y: lastY), control: CGPoint(x: cx, y: lastY))
-                    p.addLine(to: CGPoint(x: cx + 12, y: lastY))
+                    p.addQuadCurve(to: CGPoint(x: cx + 6 * side, y: lastY), control: CGPoint(x: cx, y: lastY))
+                    p.addLine(to: CGPoint(x: cx + 12 * side, y: lastY))
                     for i in 0..<(rows.count - 1) {
-                        let y = 46 + CGFloat(i) * 26
-                        p.move(to: CGPoint(x: cx, y: y)); p.addLine(to: CGPoint(x: cx + 12, y: y))
+                        let y = firstY + CGFloat(i) * 26
+                        p.move(to: CGPoint(x: cx, y: y)); p.addLine(to: CGPoint(x: cx + 12 * side, y: y))
                     }
                 }
                 .stroke(field.color.opacity(0.55), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
             }
             ForEach(Array(rows.enumerated()), id: \.offset) { i, row in
-                HStack(spacing: 5) {
-                    Text(L10n.tr(key: row.0)).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
-                    Text("\(row.1)").font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
+                let on = Set(row.types.map { Self.typeKey(field.name, $0) }).isSubset(of: typeFilter)
+                Button { toggleTypes(field.name, row.types) } label: {                    // narrows the list to this type
+                    HStack(spacing: 5) {
+                        Text(L10n.tr(key: row.label)).font(Brand.font(.caption, on ? .semibold : .medium)).foregroundStyle(Brand.ink).lineLimit(1)
+                        Text("\(row.count)").font(Brand.font(.caption)).foregroundStyle(Brand.gray).lineLimit(1)
+                    }
+                    .padding(.vertical, 3).padding(.horizontal, 9)
+                    .background(Capsule().fill(field.color.opacity(on ? 0.34 : 0.13)))
+                    .contentShape(Capsule())
                 }
-                .padding(.vertical, 3).padding(.horizontal, 9)
-                .background(Capsule().fill(field.color.opacity(0.13)))
-                .frame(maxWidth: avail, alignment: .leading)
+                .buttonStyle(.plain)
+                .frame(maxWidth: spot.room, alignment: spot.left ? .trailing : .leading)
                 .frame(height: 20)
-                .offset(x: cx + 14, y: 46 + CGFloat(i) * 26 - 10)
+                .offset(x: spot.left ? cx - 14 - spot.room : cx + 14, y: firstY + CGFloat(i) * 26 - 10)
             }
         }
     }
