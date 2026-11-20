@@ -242,7 +242,8 @@ final class AppState: ObservableObject {
         codexStatus = await codexAuth.status()
         bootstrapped = true
         updatePhase()
-        if phase == .ready { await loadCodexModels() }
+        // Models load behind the window: a Codex app-server that never answers once kept the main window from opening
+        if phase == .ready { Task { await loadCodexModels() } }
     }
 
     private func updatePhase() {
