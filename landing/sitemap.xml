@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://sillog.app/</loc><lastmod>2026-11-17</lastmod></url>
-  <url><loc>https://sillog.app/privacy</loc><lastmod>2026-11-17</lastmod></url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url><loc>https://sillog.app/</loc><lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://sillog.app/"/><xhtml:link rel="alternate" hreflang="en" href="https://sillog.app/en/"/></url>
+  <url><loc>https://sillog.app/en/</loc><lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://sillog.app/"/><xhtml:link rel="alternate" hreflang="en" href="https://sillog.app/en/"/></url>
+  <url><loc>https://sillog.app/privacy</loc><lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://sillog.app/privacy"/><xhtml:link rel="alternate" hreflang="en" href="https://sillog.app/en/privacy"/></url>
+  <url><loc>https://sillog.app/en/privacy</loc><lastmod>2026-11-20</lastmod>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://sillog.app/privacy"/><xhtml:link rel="alternate" hreflang="en" href="https://sillog.app/en/privacy"/></url>
 </urlset>

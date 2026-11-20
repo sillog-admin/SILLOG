@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SILLOG · Your work, organized by task, automatically</title>
+<meta name="description" content="SILLOG records what you do on your Mac and organizes it by task. Turn your records into weekly reports, retrospectives, and next steps with AI. Your raw records stay on your Mac.">
+<meta name="application-name" content="SILLOG">
+<meta name="apple-mobile-web-app-title" content="SILLOG">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#050A15">
+<link rel="canonical" href="https://sillog.app/en/">
+<link rel="alternate" hreflang="ko" href="https://sillog.app/">
+<link rel="alternate" hreflang="en" href="https://sillog.app/en/">
+<link rel="alternate" hreflang="x-default" href="https://sillog.app/en/">
+<link rel="icon" type="image/png" href="/assets/icon-256.png">
+<link rel="apple-touch-icon" href="/assets/icon-256.png">
+<!-- Open Graph / Twitter: absolute URLs so link previews resolve -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="SILLOG">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="ko_KR">
+<meta property="og:url" content="https://sillog.app/en/">
+<meta property="og:title" content="SILLOG · Your work, organized by task, automatically">
+<meta property="og:description" content="Records what you do on your Mac and organizes it by task. Start reports and your next task from the records you have built up.">
+<meta property="og:image" content="https://sillog.app/assets/og.png?v=2">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="SILLOG logo and mint character">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SILLOG · Your work, organized by task, automatically">
+<meta name="twitter:description" content="Records what you do on your Mac and organizes it by task. Start reports and your next task from the records you have built up.">
+<meta name="twitter:image" content="https://sillog.app/assets/og.png?v=2">
+<meta name="twitter:image:alt" content="SILLOG logo and mint character">
+<!-- Same entities as the Korean page, described in English -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://sillog.app/#website",
+      "url": "https://sillog.app/",
+      "name": "SILLOG",
+      "alternateName": ["실록", "SILLOG(실록)"],
+      "inLanguage": ["ko-KR", "en"],
+      "publisher": { "@id": "https://sillog.app/#org" }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://sillog.app/#org",
+      "name": "SILLOG",
+      "alternateName": "실록",
+      "url": "https://sillog.app/",
+      "logo": "https://sillog.app/assets/icon-256.png",
+      "sameAs": ["https://github.com/sillog-admin/sillog"]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "SILLOG",
+      "alternateName": "실록",
+      "url": "https://sillog.app/en/",
+      "description": "A macOS app that records what you do on your Mac and organizes it by task. Turn your records into work reports, retrospectives, and next steps.",
+      "image": "https://sillog.app/assets/og.png?v=2",
+      "screenshot": "https://sillog.app/assets/screen-answer.webp",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "Work logging, productivity",
+      "operatingSystem": "macOS 14 or later",
+      "softwareRequirements": "Mac with Apple silicon",
+      "inLanguage": ["ko", "en"],
+      "featureList": ["Automatic logging of apps, windows, URLs, and on-screen text", "Automatic organization by task", "Task graph", "AI chat grounded in your records", "Weekly work reports", "Lecture and meeting recording with transcription"],
+      "downloadUrl": "https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "publisher": { "@id": "https://sillog.app/#org" }
+    }
+  ]
+}
+</script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></symbol>
+    <symbol id="i-table" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 5v14"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h1M4 12h1M4 18h1"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4h10a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h10"/></symbol>
+    <symbol id="i-slides" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16zM14 7l3 3"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M17 3l3 3-3 3M4 11V9a3 3 0 0 1 3-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 0 1-3 3H4"/></symbol>
+  </defs>
+</svg>
+<div class="stars" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a href="#top" aria-label="SILLOG"><img decoding="async" class="wordmark" src="/assets/wordmark.png" alt="SILLOG" width="131" height="22"></a>
+    <nav class="nav">
+      <a class="l" href="#features">Features</a>
+      <a class="l" href="#privacy">Privacy</a>
+      <a class="l" href="#faq">FAQ</a>
+      <a class="l pp" href="/en/privacy">Privacy Policy</a>
+      <a class="l" href="https://github.com/sillog-admin/sillog" target="_blank" rel="noopener">GitHub</a>
+      <a class="l" href="/?lang=ko" lang="ko">한국어</a>
+      <a class="mint dl" href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg" download>Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="hero-scene">
+      <i class="orb" style="--r:-6%;--b:58%;--s:min(38vh,360px);--c1:#9FFFFB;--c2:#12B9B3;--c3:#06343C;--fd:13s;--fy:8px"></i>
+      <i class="orb" style="--l:24%;--b:30%;--s:min(5vh,46px);--c1:#EFFFFE;--c2:#8CE9E5;--c3:#2B6F74;--fd:9s;--bd:-3s"></i>
+      <i class="orb" style="--l:62%;--b:74%;--s:min(3vh,26px);--c1:#EFFFFE;--c2:#A9F3F0;--c3:#3B7F84;--fd:11s;--bd:-6s"></i>
+      <div class="hm hide-s" style="--l:14%;--b:64%;--s:min(13vh,130px);--bd:-2s;--fd:8s;--rt:5deg"><div class="m3d"><img class="m3d-fb" decoding="async" src="/assets/m3.webp" alt=""><canvas data-m3d="solo" data-color="#8CFFFB" data-yaw="20" data-pitch="-3" data-roll="-14" data-expr="idle" data-look="pointer"></canvas></div></div>
+      <div class="hm hide-s" style="--r:22%;--b:68%;--s:min(11vh,110px);--bd:-3.4s;--fd:9s;--rt:6deg"><div class="m3d"><img class="m3d-fb" decoding="async" src="/assets/m5.webp" alt=""><canvas data-m3d="solo" data-color="#C9FFFD" data-yaw="-22" data-pitch="-3" data-roll="16" data-expr="idle" data-look="pointer"></canvas></div></div>
+      <div class="hm hide-s" style="--l:35%;--b:9%;--s:min(14vh,140px);--bd:-.8s;--fd:7s;--rt:5deg"><div class="m3d"><img class="m3d-fb" decoding="async" src="/assets/m3.webp" alt=""><canvas data-m3d="solo" data-color="#8CFFFB" data-yaw="8" data-pitch="-3" data-roll="12" data-expr="idle" data-look="pointer"></canvas></div></div>
+      <div class="hm hm-e" style="--l:57%;--b:6%;--s:min(18vh,180px);--bd:-4.1s;--fd:8.5s;--rt:4deg"><div class="m3d"><img class="m3d-fb" decoding="async" src="/assets/m1.webp" alt=""><canvas data-m3d="solo" data-color="#00B8B2" data-yaw="-10" data-pitch="-3" data-roll="-7" data-expr="idle" data-look="pointer"></canvas></div></div>
+      <div class="hm hm-f" style="--r:7%;--b:15%;--s:min(30vh,300px);--bd:-1.6s;--fd:10s;--rt:3deg"><div class="m3d"><img class="m3d-fb" decoding="async" src="/assets/m4.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="-18" data-pitch="-3" data-roll="-10" data-expr="idle" data-look="pointer"></canvas></div></div>
+      <div class="hm hm-c" style="--l:4%;--b:5%;--s:min(40vh,400px);--bd:-2.7s;--fd:11s;--rt:3deg"><div class="m3d"><img class="m3d-fb" decoding="async" src="/assets/m2.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="14" data-pitch="-3" data-roll="8" data-expr="smile" data-look="pointer"></canvas></div></div>
+    </div>
+    <div class="hero-copy">
+      <h1>Start your next task<br>from what you’ve done</h1>
+      <p class="sub">A macOS app that sorts your computer work by task<img class="wordmark" src="/assets/wordmark.png" alt="SILLOG" width="178" height="30"></p>
+    </div>
+    <a class="chev" href="#intro" aria-label="Scroll down"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></a>
+  </section>
+
+  <section class="intro center paper" id="intro">
+    <div class="wrap-w">
+      <h2 class="h2 rv">SILLOG sorts what you have done by task<br>and lets AI work from those records</h2>
+      <a class="mint btn-dl rv" href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>Download for macOS</a>
+      <p class="req rv">macOS 14 or later, Mac with Apple silicon</p>
+    </div>
+    <div class="stage rv">
+      <i class="ring" style="--w:1200;--h:636;--r:-9deg"></i>
+      <i class="ring" style="--w:1080;--h:736;--r:11deg"></i>
+      <div class="m3d chr peek" style="--bd:-1s;--x:250;--y:-60;--s:260;--z:0"><img decoding="async" class="m3d-fb" src="/assets/m2.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="-18" data-pitch="-4" data-roll="-8" data-expr="smile" data-look="pointer"></canvas></div>
+      <div class="winbox"><div class="screen" id="screens">
+        <img decoding="async" class="on" src="/assets/screen-answer.webp" alt="SILLOG writing a report with the document skill" width="1800" height="1252">
+        <img decoding="async" src="/assets/screen-result.webp" alt="SILLOG saving an output" width="1800" height="1252">
+        <img decoding="async" src="/assets/screen-resume.webp" alt="SILLOG reopening a session" width="1800" height="1252">
+        <img decoding="async" src="/assets/screen-schedule.webp" alt="SILLOG showing a scheduled task proposal" width="1800" height="1252">
+        <img decoding="async" src="/assets/screen-file.webp" alt="SILLOG suggesting where to file a download" width="1800" height="1252">
+        <img decoding="async" src="/assets/screen-log.webp" alt="SILLOG showing the activity log" width="1800" height="1252">
+      </div></div>
+      <div class="planets" role="tablist">
+          <button class="pl l on" style="--x:-477;--y:150;--d:16px" data-i="0" role="tab"><i></i><span>Write reports</span></button>
+          <button class="pl l" style="--x:-572;--y:381;--d:14px" data-i="1" role="tab"><i></i><span>Save outputs</span></button>
+          <button class="pl l" style="--x:-542;--y:598;--d:18px" data-i="2" role="tab"><i></i><span>Reopen work</span></button>
+          <button class="pl r" style="--x:542;--y:178;--d:15px" data-i="3" role="tab"><i></i><span>Scheduled tasks</span></button>
+          <button class="pl r" style="--x:520;--y:372;--d:18px" data-i="4" role="tab"><i></i><span>File suggestions</span></button>
+          <button class="pl r" style="--x:477;--y:626;--d:14px" data-i="5" role="tab"><i></i><span>Check what was sent</span></button>
+      </div>
+      <p class="cap" id="cap"></p>
+      <div class="m3d chr hide-s" style="--bd:-2.4s;--x:-600;--y:650;--s:130;--z:2"><img decoding="async" class="m3d-fb" src="/assets/m3.webp" alt=""><canvas data-m3d="solo" data-color="#8CFFFB" data-yaw="24" data-pitch="-4" data-roll="10" data-expr="idle" data-look="pointer"></canvas></div>
+    </div>
+  </section>
+
+  <section class="ask center paper" id="ask">
+    <div class="wrap-w">
+      <h2 class="h2 rv">Just ask like this</h2>
+      <p class="lead rv">Pick a skill and ask the way you normally would. SILLOG finds what it needs in your records.</p>
+    </div>
+    <div class="qwall rv" id="qwall"></div>
+  </section>
+
+  <section class="features paper" id="features">
+    <div class="wrap-w">
+      <div class="center">
+        <h2 class="h2 rv">Organized by task,<br>without typing a thing</h2>
+        <p class="lead rv">Grant permissions once, and SILLOG keeps recording without any input from you.</p>
+      </div>
+      <div class="flow rv" id="flow" role="img" aria-label="Scattered records passing through SILLOG and coming out as task cards">
+        <div id="fdots"></div>
+        <div class="fmk"><div class="m3d"><img decoding="async" class="m3d-fb" src="/assets/m1.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="0" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
+        <div class="fc" style="--x:63;--y:6;--i:0"><b><i style="background:#5B8FD0"></i>Prepare the product launch</b><small>Deliverables › Planning doc</small></div>
+        <div class="fc" style="--x:70;--y:24.5;--i:1"><b><i style="background:#E7B645"></i>Compare competitor prices</b><small>Research › Competitors</small></div>
+        <div class="fc" style="--x:61;--y:43;--i:2"><b><i style="background:#8E5A93"></i>Review the launch schedule</b><small>Admin › Scheduling</small></div>
+        <div class="fc" style="--x:69;--y:61.5;--i:3"><b><i style="background:#57A377"></i>Write the announcement email</b><small>Communication › Email</small></div>
+        <div class="fc" style="--x:63;--y:80;--i:4"><b><i style="background:#5B8FD0"></i>Build the presentation</b><small>Deliverables › Slides</small></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="graph center paper" id="graph">
+    <div class="wrap-w">
+      <h2 class="h2 rv">Tasks and materials connect into a graph</h2>
+      <p class="lead rv">Tasks, sessions, materials, and topics are stored linked together.<br>Switch between 2D and 3D networks, a sunburst chart, and a Sankey diagram.</p>
+      <div class="tabs rv" id="tabs" role="tablist">
+        <button class="tab on" role="tab">2D network</button>
+        <button class="tab" role="tab">3D network</button>
+        <button class="tab" role="tab">Sunburst chart</button>
+        <button class="tab" role="tab">Sankey diagram</button>
+      </div>
+    </div>
+    <div class="gwin rv"><div class="gshow" id="gshow">
+      <video class="on" muted loop playsinline preload="none" poster="/assets/graph-solar.webp" src="/assets/graph-solar.mp4" width="1800" height="1252" aria-label="2D network linking tasks and materials"></video>
+      <video muted loop playsinline preload="none" poster="/assets/graph-3d.webp" src="/assets/graph-3d.mp4" width="1800" height="1252" aria-label="3D network of tasks and materials"></video>
+      <video muted loop playsinline preload="none" poster="/assets/graph-sunburst.webp" src="/assets/graph-sunburst.mp4" width="1800" height="1252" aria-label="Sunburst chart"></video>
+      <video muted loop playsinline preload="none" poster="/assets/graph-branch.webp" src="/assets/graph-branch.mp4" width="1800" height="1252" aria-label="Sankey diagram"></video>
+    </div></div>
+  </section>
+
+  <section class="privacy center paper" id="privacy">
+    <div class="wrap-w">
+      <h2 class="h2 nobr-m rv">Your raw records stay on your Mac, <br>and you can see what was sent</h2>
+      <p class="lead rv">SILLOG has no server of its own.<br>Organizing and chat run on the AI account you connect.</p>
+    </div>
+    <div class="wrap">
+      <div class="items">
+        <div class="it rv"><img decoding="async" src="/assets/icon3d-mac.webp" alt="Laptop" width="1040" height="1000" style="--fd:7s"><p class="lb">Storage</p><h3>Records are stored<br>on your Mac</h3></div>
+        <div class="it rv"><img decoding="async" src="/assets/icon3d-lens.webp" alt="Magnifier over records" width="1040" height="1000" style="--fd:9s;--bd:-3s"><p class="lb">Review</p><h3>See what was sent and received<br>in the activity log</h3></div>
+        <div class="it rv"><img decoding="async" src="/assets/icon3d-toggle.webp" alt="On and off switch" width="1040" height="1000" style="--fd:8s;--bd:-5s"><p class="lb">Control</p><h3>Turn sending off<br>feature by feature</h3></div>
+      </div>
+      <p class="note rv">Password fields are never recorded. For apps like password managers and Keychain, only the name and time are kept.</p>
+    </div>
+  </section>
+
+  <section class="faqs paper" id="faq">
+    <div class="wrap">
+      <h2 class="rv">Frequently asked questions</h2>
+          <div class="q open rv"><button aria-expanded="true">What is SILLOG?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>SILLOG is a macOS app that records what you do on your Mac and organizes it by task. Without keeping a work log, the apps you used, the documents and web pages you viewed, and your working time gather under each task. From those records, you can write weekly reports, retrospectives, and portfolio entries in AI chat.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">What does SILLOG record?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>Apps, window titles, URLs, file paths, on-screen text, screenshots, downloaded files, and the messages you type into AI coding tools (Claude Code, Codex CLI). If there is no input for more than 2 minutes, you are recorded as away. Audio is recorded only when you start a recording, and it is transcribed on your Mac.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">Where are my records stored?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>On your Mac. SILLOG has no server of its own.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">What leaves my Mac?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>To organize your work and answer in chat, SILLOG sends record content to the AI account you connect, along with screenshots of key screens and recording transcripts. Audio files are never sent. Text taken from your records goes out with phone numbers, emails, card numbers, ID numbers, and API keys masked. Materials looked up in chat, web searches you allow, and connector traffic also leave your Mac. You can check what was sent in the activity log and turn sending off feature by feature.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">Which AI account do I need?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>Connect either a ChatGPT subscription or an OpenAI-compatible API. To chat with a ChatGPT subscription, the Codex CLI or the Codex app must be installed. Connecting through an API incurs usage fees.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">There is an app I do not want recorded.<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>Add it to the apps not to record, and only its name and time are kept. Password managers and Keychain are excluded from the start, and password fields are never recorded.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">How long are screenshots kept?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>7 days by default. You can choose anything from 1 to 90 days.</p></div></div></div>
+          <div class="q rv"><button aria-expanded="false">Which computers does it run on?<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><div class="ans"><div><p>For now, Macs with Apple silicon running macOS 14 or later. Windows and mobile are not ready yet.</p></div></div></div>
+    </div>
+  </section>
+
+  <section class="end center" id="end">
+    <div class="planet" aria-hidden="true"></div>
+    <div class="wrap-w">
+      <h2 class="rv">Try SILLOG<br>today</h2>
+      <a class="mint btn-end rv" href="https://github.com/sillog-admin/sillog/releases/latest/download/SILLOG.dmg" download>Download for macOS</a>
+    </div>
+    <div class="fm hide-s" style="--x:-560px;--s:230px;--b:150px;--bd:-1s"><div class="m3d"><img class="m3d-fb" decoding="async" src="/assets/m2.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="14" data-pitch="-3" data-roll="0" data-expr="smile" data-look="pointer"></canvas></div></div>
+    <div class="fm f2" style="--x:-280px;--s:260px;--b:260px;--bd:-2.4s"><div class="m3d"><img class="m3d-fb" decoding="async" src="/assets/m3.webp" alt=""><canvas data-m3d="solo" data-color="#8CFFFB" data-yaw="7" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
+    <div class="fm f3" style="--x:0px;--s:280px;--b:290px;--bd:-3.3s"><div class="m3d"><img class="m3d-fb" decoding="async" src="/assets/m1.webp" alt=""><canvas data-m3d="solo" data-color="#00B8B2" data-yaw="0" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
+    <div class="fm f4" style="--x:280px;--s:260px;--b:260px;--bd:-.8s"><div class="m3d"><img class="m3d-fb" decoding="async" src="/assets/m5.webp" alt=""><canvas data-m3d="solo" data-color="#C9FFFD" data-yaw="-7" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
+    <div class="fm hide-s" style="--x:560px;--s:230px;--b:150px;--bd:-4.2s"><div class="m3d"><img class="m3d-fb" decoding="async" src="/assets/m4.webp" alt=""><canvas data-m3d="solo" data-color="#0AFFF7" data-yaw="-14" data-pitch="-3" data-roll="0" data-expr="idle" data-look="pointer"></canvas></div></div>
+    <div class="fmeta"><div>
+      <div><img decoding="async" class="wordmark" src="/assets/wordmark.png" alt="SILLOG" width="107" height="18"><small>© 2026 SILLOG</small></div>
+      <nav><a href="#features">Features</a><a href="#privacy">Privacy</a><a href="#faq">FAQ</a><a href="/en/privacy">Privacy Policy</a><a href="https://github.com/sillog-admin/sillog" target="_blank" rel="noopener">GitHub</a><a href="/?lang=ko" lang="ko">한국어</a></nav>
+    </div></div>
+  </section>
+</main>
+
+<script type="application/json" id="copy">{"asks": [[["doc", "Write this week’s work report"], ["doc", "Write a portfolio entry for this project"], ["table", "Turn what I read yesterday into a comparison table"], ["list", "Prioritize what’s left"], ["book", "Explain the concepts in what I read recently"]], [["slides", "Draft a presentation"], ["repeat", "Make the work report every week"], ["doc", "Organize entries for my résumé"], ["search", "Find more on this topic, with sources"], ["cal", "Make a plan for next week"]], [["book", "Make review notes"], ["pen", "Draft a post about this work"], ["doc", "Write the quarterly report"], ["search", "Show me what I found last week"], ["repeat", "Every morning, sum up what I did yesterday"]]], "caps": ["Ask with the document skill, and SILLOG reads your work records to write the report.", "Save outputs as files or export them as PDF.", "Pick a session to reopen the files, web pages, and apps you were using.", "For recurring work, SILLOG shows a proposal first and schedules it once you approve.", "SILLOG suggests a folder for each new download and moves it once you approve.", "See what was sent to your AI account and what came back in the activity log."], "dots": ["Market research.pdf", "example.com", "Word", "Meeting notes", "Keynote", "Excel"]}</script>
+<script src="/assets/site.js" defer></script>
+<script src="/assets/mascot3d.js" defer></script>
+</body>
+</html>
