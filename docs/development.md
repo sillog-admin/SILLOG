@@ -40,11 +40,22 @@ main 릴리스는 Developer ID 인증서로 서명하고, dmg를 Apple에 공증
 | `SILLOG_DB` | 기본값 대신 사용할 SQLite 파일 |
 | `SILLOG_CODEX_AUTH` | 앱 전용 ChatGPT 인증 파일 경로 |
 | `SILLOG_SHOW_WINDOW=1` | 시작 시 메인 창 표시 |
+| `SILLOG_DEV=1` | 개발용 실행(`scripts/dev.sh`): 온보딩을 건너뛰고 기록·정리를 하지 않음 |
 | `SILLOG_REQUEST_PERMISSIONS=1` | 시작 시 손쉬운 사용·화면 기록 권한 요청 |
 | (녹음 받아쓰기 모델) | Whisper large-v3-turbo 압축판(`openai_whisper-large-v3-v20240930_626MB`, 약 610MB)을 처음 받아쓸 때 데이터 폴더의 `models/` 아래로 내려받는다(WhisperKit, 기기 안). 녹음하는 동안 30초쯤마다 조용한 순간에 잘라 미리 받아써 두고(`LiveTranscription`), 끝나면 남은 조각만 받아쓴다(11분 녹음도 끝나고 약 2초). 앱을 다시 켰거나 미리 받아쓰기가 실패하면 파일 전체를 같은 30초 조각으로 받아쓴다. 내려받기·불러오기에 실패하면 애플 기기 안 음성 인식으로 받아쓴다. 모델은 90초 동안 안 쓰면 내려놓는다 |
 | `SILLOG_TRANSCRIBE_TRACE` | 개발용 받아쓰기 진단: `<녹음 파일>|<적을 파일>`. 앱과 같은 방식으로 받아쓰며 인식기 결과(마지막 결과·발화 끝 표시·끝 시각·글)를 하나하나 적고 끝난다. 음성 인식 권한이 앱 번들에만 있어 `open -n SILLOG.app --env 'SILLOG_TRANSCRIBE_TRACE=…'` 로 띄운다. `SILLOG_TRANSCRIBE_ENGINE=apple` 이면 애플 음성 인식으로(기본은 Whisper 로 파일 전체), `SILLOG_TRANSCRIBE_GAIN=2` 로 애플 인식의 키울 배수를 직접 정할 수 있다. `SILLOG_TRANSCRIBE_ENGINE=live` 면 파일을 녹음기처럼 흘려보내며 녹음 중 미리 받아쓰기를 하고 끝난 뒤 글이 나오기까지 걸린 시간을 적는다(`SILLOG_TRANSCRIBE_SPEED=8` 로 8배 빨리) |
 | (숨은 설정 `frameLog`) | `defaults write com.sillog.app frameLog -bool true` 면 화면 갱신마다 메인 스레드가 늦은 프레임을 재서, 늦은 프레임이 있던 1초마다 화면 이름과 함께 app.log 에 `프레임 기록 자료 > 파일: 120장 중 늦음 3 (많이 늦음 1), 가장 긴 간격 40ms` 처럼 남긴다. 앱을 다시 켜야 적용, `defaults delete … frameLog` 로 끈다 |
 | `SILLOG_TAB` | 시작 탭: `graph`, `chat`, `records`(기록 자료), `calendar`, `settings`. `files`, `history`(지난 기록), `library` 는 기록 자료의 그 구역으로, `activity` 는 설정의 활동 로그로 연다 (업무 목록은 그래프 탭에만 있다) |
+
+## 개발용 실행
+
+```bash
+./scripts/dev.sh            # 그래프 탭으로 시작
+./scripts/dev.sh chat       # 시작 탭 지정 (SILLOG_TAB 값)
+./scripts/dev.sh --fresh    # 데모 기록을 새로 만든다
+```
+
+데모 기록(최근 일주일 중 닷새)으로 디버그 빌드를 `SILLOG Dev.app`(번들 id `com.sillog.app.dev`)에 넣어 띄웁니다. `Sources`를 저장하면 다시 빌드하고 다시 띄우며, 빌드가 실패하면 앱은 그대로 둡니다. 실제 앱을 끄지 않아도 됩니다: DB가 달라 실행 잠금이 겹치지 않고, 설정(UserDefaults)도 따로이며, `SILLOG_DEV`라 화면을 기록하거나 백그라운드에서 AI 정리를 하지 않습니다. 채팅처럼 직접 누른 AI 기능은 실제 ChatGPT 연결을 씁니다. 데모 기록과 앱은 `$TMPDIR/sillog-dev`(`SILLOG_DEV_DIR`로 바꿀 수 있음)에 있습니다.
 
 ## 테스트와 CLI
 

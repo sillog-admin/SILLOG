@@ -246,9 +246,13 @@ final class AppState: ObservableObject {
         if phase == .ready { Task { await loadCodexModels() } }
     }
 
+    /// SILLOG_DEV=1 (scripts/dev.sh): a side-by-side dev instance on demo data. It skips onboarding and never records or tidies,
+    /// so it neither captures the screen a second time nor spends the ChatGPT plan in the background
+    static let devMode = SillogEnv.value("DEV") != nil
+
     private func updatePhase() {
         let previous = phase
-        let completed = UserDefaults.standard.bool(forKey: Self.onboardingKey)
+        let completed = Self.devMode || UserDefaults.standard.bool(forKey: Self.onboardingKey)
         // An API server key counts as connected without a ChatGPT login.
         phase = AppPhase.decide(loggedIn: codexStatus != .loggedOut || settings.llmUsesAPI, onboardingCompleted: completed)
         onboardingStep = OnboardingFlow.step(after: onboardingStep, phase: phase,
@@ -257,7 +261,7 @@ final class AppState: ObservableObject {
             bootstrapLogged = true
             AppLog.write("단계: \(phase) (손쉬운 사용 \(Permissions.accessibility(prompt: false) ? tr("허용") : tr("없음")), 화면 기록 \(Permissions.screenRecording() ? tr("허용") : tr("없음")))")
         }
-        phase.runsServices ? startServices() : stopServices()
+        phase.runsServices && !Self.devMode ? startServices() : stopServices()
     }
 
     /// 온보딩의 마지막 버튼. 이 뒤로는 실행할 때마다 바로 수집이 시작된다.
