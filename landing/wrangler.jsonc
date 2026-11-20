@@ -2,11 +2,14 @@
   "name": "sillog-landing",
   "account_id": "ce52c827c37e7107dfaee3b41326cd52",
   "compatibility_date": "2025-10-01",
+  "main": "worker.js",
   "build": {
     "command": "rm -rf dist && mkdir dist && cp -R index.html privacy.html robots.txt sitemap.xml assets dist/"
   },
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": true
   },
   "workers_dev": false,
   "routes": [
