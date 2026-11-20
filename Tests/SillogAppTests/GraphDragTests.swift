@@ -81,6 +81,19 @@ final class GraphDragTests: XCTestCase {
 
     private func settle() { RunLoop.main.run(until: Date().addingTimeInterval(0.4)) }
 
+    /// The 3D view draws only on animation frames, which WebKit stops for a window it thinks is hidden (a locked CI screen)
+    private func drawn3D(_ web: WKWebView) throws -> (x: Double, y: Double, n: Double, width: Double) {
+        for _ in 0..<25 {
+            let c = try centroid(web)
+            if c.n > 100 { return c }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        }
+        // shortcut: CI runners sometimes give no animation frames at all; drop the skip once they do
+        try XCTSkipIf(ProcessInfo.processInfo.environment["CI"] != nil, "3D 그래프가 5초 안에 그려지지 않음 (애니메이션 프레임 없음)")
+        XCTFail("3D 그래프가 그려져야 한다")
+        return try centroid(web)
+    }
+
     private func run(_ web: WKWebView, _ js: String, _ arguments: [String: Any] = [:]) -> Any? {
         let done = expectation(description: "js")
         var value: Any?
@@ -260,9 +273,7 @@ final class GraphDragTests: XCTestCase {
     func testShiftDraggingThe3DGraphStopsAtAnEdge() throws {
         let web = try page(onScreen: true)
         _ = run(web, "document.querySelector('[data-mode=\"cosmos\"]').click(); return 1")
-        settle()
-        let start = try centroid(web)
-        XCTAssertGreaterThan(start.n, 100, "3D 그래프가 그려져야 한다")
+        let start = try drawn3D(web)
         drag(web, dx: 6000, shift: true)
         let far = try centroid(web)
         XCTAssertLessThan(far.x - start.x, start.width * 0.5, "끝없이 밀려 나가지 않는다")
