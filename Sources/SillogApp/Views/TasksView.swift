@@ -472,13 +472,14 @@ struct TasksView: View {
                     meta.lineLimit(1)
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(Self.rowDuration(task.activeSeconds)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x8C837C)).fixedSize()
-                        Spacer(minLength: 4)
-                    }
-                    if on {                                                       // 누른 업무에만: 최근 14일 작업한 시간대를 0~24시 알약 한 줄에 겹쳐 칠한다
-                        DayTimeline(spans: DayTimeline.spans(state.sessions(ofTask: task.id).map { ($0.start, $0.end) }), color: color)
-                            .padding(.top, 5)
-                            .help(tr("최근 14일 작업한 시간대 (0시~24시)"))
-                            .accessibilityLabel(tr("최근 14일 작업한 시간대 (0시~24시)"))
+                        if on {                                                   // 누른 업무에만: 시간 오른쪽에 최근 14일 작업한 시간대 (0~24시 알약). 줄 높이는 그대로
+                            DayTimeline(spans: DayTimeline.spans(state.sessions(ofTask: task.id).map { ($0.start, $0.end) }), color: color)
+                                .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 2 }
+                                .help(tr("최근 14일 작업한 시간대 (0시~24시)"))
+                                .accessibilityLabel(tr("최근 14일 작업한 시간대 (0시~24시)"))
+                        } else {
+                            Spacer(minLength: 4)
+                        }
                     }
                 }
             }
