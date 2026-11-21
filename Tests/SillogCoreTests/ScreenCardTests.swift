@@ -74,8 +74,13 @@ final class ScreenCardBatchTests: XCTestCase {
     override func setUpWithError() throws {
         dir = FileManager.default.temporaryDirectory.appendingPathComponent("wg-cards-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // These tests are about batching; Vision sometimes fails for a while, which would fail the batch.
+        PIIMasker.enabled = false
     }
-    override func tearDown() { try? FileManager.default.removeItem(at: dir) }
+    override func tearDown() {
+        PIIMasker.enabled = true
+        try? FileManager.default.removeItem(at: dir)
+    }
 
     private func jpeg(_ name: String, gray: CGFloat) throws -> String {
         let url = dir.appendingPathComponent(name)
@@ -196,6 +201,26 @@ final class ScreenCardBatchTests: XCTestCase {
         let llm = StubLLM([.success(#"{"tasks":[],"rows":[{"rows":"1-2","task":"off"}],"work":[]}"#)])
         let batcher = OntologyBatcher(db: db, llm: llm, config: .singleCall, home: "/Users/me", fileExists: { FileManager.default.fileExists(atPath: $0) }, clock: { 2_000 })
         _ = await batcher.runIfDue(force: true)
+        XCTAssertTrue(try ScreenCardStore(db).cards(from: 0, to: 10_000).isEmpty)
+    }
+
+    func testUnreadableScreenHoldsTheRowsTwiceThenGoesOnWithoutCards() async throws {
+        let db = try SillogDatabase.inMemory()
+        let store = EventStore(db)
+        try await db.writer.write { try TBox.seed(GraphTx($0), at: 0) }
+        let id = try store.insert(Observation(ts: 100, trigger: "app_activate", appBundle: "com.apple.Preview", appName: "미리보기", windowTitle: "a.pdf"))
+        try store.attachScreen(observationId: id, path: try jpeg("c.jpg", gray: 0.4), hash: 1)
+        _ = try store.insert(Observation(ts: 200, trigger: "app_activate", appBundle: "com.apple.Preview", appName: "미리보기", windowTitle: "b.pdf"))
+        let llm = StubVisionLLM(assignAnswer: #"{"tasks":[],"rows":[{"rows":"1-2","task":"off"}],"work":[]}"#)
+        let batcher = OntologyBatcher(db: db, llm: llm, config: .singleCall, home: "/Users/me", fileExists: { FileManager.default.fileExists(atPath: $0) },
+                                      loadImage: { _ in throw ImageRedactor.Failure(detail: "vision down") }, clock: { 2_000 })
+        for attempt in 1...2 {
+            guard case .failed = await batcher.runIfDue(force: true) else { return XCTFail("attempt \(attempt) should hold the rows") }
+            XCTAssertEqual(try store.unprocessed(limit: 10).count, 2)
+        }
+        guard case .ok = await batcher.runIfDue(force: true) else { return XCTFail("the third attempt goes on without cards") }
+        XCTAssertTrue(try store.unprocessed(limit: 10).isEmpty)
+        XCTAssertEqual(llm.visionCalls, 0)
         XCTAssertTrue(try ScreenCardStore(db).cards(from: 0, to: 10_000).isEmpty)
     }
 }

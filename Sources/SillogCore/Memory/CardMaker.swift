@@ -65,25 +65,30 @@ public enum CardMaker {
         return lines.joined(separator: "\n")
     }
 
-    /// 파일을 imageWidth 로 줄여 JPEG 로
-    public static func loadImage(path: String, maxWidth: Int = imageWidth) -> Data? {
-        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil) else { return nil }
-        let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: maxWidth,
-                                        kCGImageSourceCreateThumbnailWithTransform: true]
-        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+    /// Args: path is a stored screenshot; maxWidth caps its longer side.
+    /// Returns: JPEG data with personal data painted over, or nil when the file cannot be read.
+    /// Raises: ImageRedactor.Failure when its text cannot be read for masking.
+    public static func loadImage(path: String, maxWidth: Int = imageWidth) throws -> Data? {
+        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
+              let original = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        // Text is read at full size, before scaling down makes small print harder to read.
+        let image = try ImageRedactor.redact(original)
         let output = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
-        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.7] as CFDictionary)
+        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.7,
+                                                        kCGImageDestinationImageMaxPixelSize: maxWidth] as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { return nil }
         return output as Data
     }
 
-    /// 묶음 순서대로 카드 초안. 이미지를 못 읽은 묶음은 건너뛰고, 돌려주는 배열의 순서는 입력 순서를 따른다 (nil = 못 만듦)
+    /// Args: groups are the screens to describe; load turns a screenshot path into the image to send, nil to skip it.
+    /// Returns: one draft per group in input order, nil where the image was skipped or no card came back, and the model call.
+    /// Raises: whatever load or the model call throws; no images are sent when load throws.
     public static func make(_ groups: [KeyframeSelector.Group], llm: any VisionLLMClient,
-                            load: (String) -> Data? = { loadImage(path: $0) }) async throws -> (drafts: [Draft?], result: LLMResult?) {
+                            load: (String) throws -> Data? = { try loadImage(path: $0) }) async throws -> (drafts: [Draft?], result: LLMResult?) {
         var sent: [(index: Int, data: Data)] = []
         for (index, group) in groups.enumerated() {
-            if let data = load(group.representative.path) { sent.append((index, data)) }
+            if let data = try load(group.representative.path) { sent.append((index, data)) }
         }
         guard !sent.isEmpty else { return (Array(repeating: nil, count: groups.count), nil) }
         let sentGroups = sent.map { groups[$0.index] }
