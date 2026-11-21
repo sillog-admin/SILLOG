@@ -220,6 +220,8 @@ public enum PIIMasker {
     // shortcut: addresses outside the Korean rules depend on the Mac's region, replace with a local model for even coverage.
     private static let addresses = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.address.rawValue)
     private static let numberRun = try! NSRegularExpression(pattern: #"(?<!\S)\d+(?:[^\S\n]+\d+){3,}(?!\S)"#)
+    // Romanized Korean roads like 12, Teheran-ro 34beon-gil, which the detector misses when a form puts the road on its own line.
+    private static let romanRoad = try! NSRegularExpression(pattern: #"(?<![0-9A-Za-z.-])\d{1,5}(?:-\d{1,4})?,?\h+(?:[A-Z][a-z]+(?:[ -][a-z]+)?-(?i:daero|ro|gil))(?:\h\d{1,4}(?i:beon)?-?(?i:gil))?|[A-Z][a-z]+(?:[ -][a-z]+)?-(?i:daero|ro|gil)(?:\h\d{1,4}(?i:beon)?-?(?i:gil))?\h\d{1,5}(?:-\d{1,4})?(?![0-9A-Za-z-])"#)
 
     /// Args: text is any text bound for an external model.
     /// Returns: the text with each match replaced by its tag, for example `[PHONE]`. Unchanged when `enabled` is false.
@@ -271,6 +273,8 @@ public enum PIIMasker {
             for match in addresses?.matches(in: scan, range: NSRange(location: start, length: end - start)) ?? [] { claim(match.range, .address, "address") }
             start = end
         }
+        // After the detector, so its wider match with the district and postcode wins.
+        for match in romanRoad.matches(in: text, range: whole) { claim(match.range, .address, "kr-road-roman") }
         return found
     }
 

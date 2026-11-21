@@ -352,6 +352,17 @@ final class PIIMaskerTests: XCTestCase {
         }
     }
 
+    func testMasksRomanizedKoreanRoads() {
+        // The region-dependent detector may take a wider span, so only the road and its numbers are checked.
+        let cases = [("Address line\n12, Bundang-ro 45beon-gil,\nSeongnam-si", "Bundang"), ("235, Pangyo yeok-ro, Bundang-gu", "Pangyo"),
+                     ("Seoul, Gangnam-gu, Teheran-ro 123", "Teheran"), ("Gangnam-daero 94-gil 20에서", "Gangnam")]
+        for (input, road) in cases {
+            let masked = PIIMasker.mask(input)
+            XCTAssertFalse(masked.contains(road) || masked.contains(where: \.isNumber), masked)
+        }
+        for text in ["Euro-ro", "Gangnam-gu, Seoul", "v1.2, Macro-ro", "Teheran-ro"] { XCTAssertEqual(PIIMasker.mask(text), text) }
+    }
+
     /// Code, versions, dates, file names, hashes and private IPs that look like the new formats.
     func testLeavesLookalikesAlone() {
         let texts = [
