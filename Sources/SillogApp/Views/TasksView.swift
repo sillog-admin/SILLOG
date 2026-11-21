@@ -472,8 +472,8 @@ struct TasksView: View {
                     meta.lineLimit(1)
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(Self.rowDuration(task.activeSeconds)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x8C837C)).fixedSize()
-                        if on {                                                   // 누른 업무에만: 시간 오른쪽에 최근 14일 작업한 시간대 (0~24시 알약). 줄 높이는 그대로
-                            DayTimeline(hours: DayTimeline.hours(state.sessions(ofTask: task.id).map { ($0.start, $0.end) }), color: color)
+                        if on {                                                   // inline so the chosen row keeps its height
+                            DayTimeline(hours: RangeTime.hourly(state.sessions(ofTask: task.id).map { ($0.start, $0.end) }), color: color)
                                 .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
                                 .help(tr("최근 14일 작업한 시간대 (0시~24시)"))
                                 .accessibilityLabel(tr("최근 14일 작업한 시간대 (0시~24시)"))
@@ -599,7 +599,7 @@ struct TasksView: View {
     private func heading(_ task: TaskSummary, lines: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                if let type = task.taskType {                                          // 분야 색 점 + 종류 이름 알약 (업무 목록과 같은 분야 색)
+                if let type = task.taskType {
                     let color = Self.fieldStats(state.taskList).first { $0.name == (task.field ?? Self.noField) }?.color ?? Brand.sub
                     HStack(spacing: 6) {
                         Circle().fill(color).frame(width: 8, height: 8)
@@ -1176,9 +1176,8 @@ private struct TimelineDotKey: PreferenceKey {
     static func reduce(value: inout [Anchor<CGRect>], nextValue: () -> [Anchor<CGRect>]) { value += nextValue() }
 }
 
-/// 하루 시간대 물결: 최근 14일 동안 0시~24시 각 시간에 일한 양을 부드러운 곡선 면으로 그린다. 숫자는 쓰지 않는다
+/// Smooth wave of the hours worked over a day (RangeTime.hourly); no numbers by design.
 struct DayTimeline: View {
-    /// 시간별(0~23시) 일한 초
     let hours: [Double]
     let color: Color
     var height: CGFloat = 12
@@ -1188,7 +1187,7 @@ struct DayTimeline: View {
         GeometryReader { g in
             let pts = Self.points(hours.map { $0 / top }, size: g.size)
             ZStack(alignment: .bottom) {
-                Capsule().fill(color.opacity(0.15)).frame(height: 1.5)              // 0시~24시 바닥선
+                Capsule().fill(color.opacity(0.15)).frame(height: 1.5)
                 Self.curve(pts, size: g.size, closed: true).fill(color.opacity(0.28))
                 Self.curve(pts, size: g.size, closed: false).stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
             }
@@ -1196,14 +1195,13 @@ struct DayTimeline: View {
         .frame(height: height)
     }
 
-    /// 칸 가운데마다 한 점, 양 끝은 바닥에서 시작하고 끝난다
     private static func points(_ v: [Double], size: CGSize) -> [CGPoint] {
         let step = size.width / CGFloat(max(v.count, 1))
         let inner = v.enumerated().map { CGPoint(x: step * (CGFloat($0.offset) + 0.5), y: size.height - 1 - (size.height - 2) * CGFloat($0.element)) }
         return [CGPoint(x: 0, y: size.height - 1)] + inner + [CGPoint(x: size.width, y: size.height - 1)]
     }
 
-    /// 점들을 지나는 부드러운 곡선 (가운데 점을 이은 2차 곡선). closed 면 바닥까지 닫아 면을 만든다
+    /// Quad curves through midpoints keep the line smooth without overshooting below the baseline.
     private static func curve(_ p: [CGPoint], size: CGSize, closed: Bool) -> Path {
         Path { path in
             guard p.count > 1 else { return }
@@ -1215,22 +1213,5 @@ struct DayTimeline: View {
             path.addLine(to: p[p.count - 1])
             if closed { path.addLine(to: CGPoint(x: size.width, y: size.height)); path.addLine(to: CGPoint(x: 0, y: size.height)); path.closeSubpath() }
         }
-    }
-
-    /// 세션(시작, 끝 초)에서 최근 days 일 동안 시간별(0~23시) 일한 초를 더한다. 자정, 정시를 넘긴 세션은 나눠 더한다
-    static func hours(_ sessions: [(Double, Double)], now: Date = Date(), days: Int = 14, calendar: Calendar = .current) -> [Double] {
-        let since = calendar.date(byAdding: .day, value: -(days - 1), to: calendar.startOfDay(for: now))!.timeIntervalSince1970
-        var out = [Double](repeating: 0, count: 24)
-        for (start, end) in sessions where end > since && end > start {
-            var t = max(start, since)
-            while t < end {
-                let date = Date(timeIntervalSince1970: t)
-                let hourStart = calendar.dateInterval(of: .hour, for: date)!
-                let next = min(end, hourStart.end.timeIntervalSince1970)
-                out[calendar.component(.hour, from: date)] += next - t
-                t = next
-            }
-        }
-        return out
     }
 }

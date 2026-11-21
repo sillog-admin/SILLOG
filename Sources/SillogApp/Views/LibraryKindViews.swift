@@ -98,7 +98,6 @@ struct LibraryActions {
 /// 저장한 답변의 첫 줄과 글자 수.
 struct LibraryTextInfo {
     var first = ""
-    /// 앞부분 본문 몇 줄 (카드 미리보기 칸을 채운다)
     var lead = ""
     var count = 0
 

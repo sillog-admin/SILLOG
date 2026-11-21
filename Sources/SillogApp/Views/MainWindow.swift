@@ -231,7 +231,7 @@ private struct TitlePill<Content: View>: View {
             .font(primary ? Brand.font(.body, .bold) : Brand.font(.body))
             .foregroundStyle(primary ? .white : Brand.tabText)
             .lineLimit(1).fixedSize()                              // keep the label on one line when the row is tight
-            .padding(.horizontal, primary ? 30 : 10).frame(height: primary ? 32 : titlePillHeight)   // 녹음 단추는 32 (학교용과 같게), 보조 알약은 24
+            .padding(.horizontal, primary ? 30 : 10).frame(height: primary ? 32 : titlePillHeight)
             .background(Capsule().fill(primary ? (hover ? Brand.accentDark : Brand.accent) : hover ? Brand.pillFill.opacity(0.7) : Brand.pillFill))
             .contentShape(Capsule())
             .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
@@ -363,7 +363,7 @@ struct TasksPanel: View {
     }
 }
 
-/// 업무 상세 카드: 업무 목록 오른쪽(그래프 왼쪽 위)에 떠 있는 둥근 카드. 그래프를 밀지 않고 위에 겹친다. ×나 Esc 로 닫는다
+/// Task detail card beside the task list, floating over the graph; closes with × or Esc.
 struct TaskDetailCard: View {
     @EnvironmentObject private var state: AppState
     let width: CGFloat
@@ -528,7 +528,7 @@ struct MainWindow: View {
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .overlay(alignment: .topLeading) {           // 업무 목록 바로 오른쪽에 뜬다
+                    .overlay(alignment: .topLeading) {
                         if detailOpen {                          // 닫히면 카드를 아예 안 그린다 (안 보이는 상세가 그래프 클릭을 가로채지 않게)
                             TaskDetailCard(width: TasksPanel.detailWidth(available: available))
                                 .transition(.move(edge: .leading).combined(with: .opacity))

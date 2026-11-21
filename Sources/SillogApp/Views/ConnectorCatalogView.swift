@@ -126,7 +126,7 @@ struct ConnectorCatalogView: View {
     private func filterPill(_ title: String, onlyConnected: Bool) -> some View {
         let on = connectedOnly == onlyConnected
         return Button { connectedOnly = onlyConnected } label: {
-            Text(title).font(Brand.font(.body, .medium)).foregroundStyle(on ? Brand.ink : Brand.tabText)   // 스킬 화면의 단추와 같은 글자, 높이
+            Text(title).font(Brand.font(.body, .medium)).foregroundStyle(on ? Brand.ink : Brand.tabText)   // matches the skill page buttons
                 .padding(.horizontal, 14).frame(height: 32)
                 .background(on ? Brand.badgeFill : .clear, in: Capsule())
                 .overlay(Capsule().strokeBorder(on ? .clear : Brand.line))

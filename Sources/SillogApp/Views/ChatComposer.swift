@@ -60,7 +60,7 @@ struct ChatComposer: View {
         VStack(alignment: .leading, spacing: 0) {
             box
             HStack(spacing: 0) {
-                skillChips                                          // 왼쪽 끝을 입력칸, 추천 문장과 맞춘다
+                skillChips
                 Spacer(minLength: 8)
                 if !modelName.isEmpty { connectionButton.padding(.trailing, 12) }
             }
