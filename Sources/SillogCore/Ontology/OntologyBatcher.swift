@@ -141,6 +141,7 @@ public actor OntologyBatcher {
                 }
                 accepted.input.cards = cards
                 let organized = try await StagedPipeline.organizeDecisions(accepted, llm: organizer)
+                acceptedRows = organized.input.rows
                 judgment = Judgment(patch: StagedPipeline.patch(from: organized), calls: organized.calls, failure: nil, fallbackModel: model)
             } else {
                 // No judge: the CLI, evals, and the app with off-work collection turned off.
