@@ -1816,5 +1816,6 @@
   "원문 보존, 이 업무 지우기": "Keep raw records, erase this task",
   "%@부터 한 주 %@": "Week of %1$@: %2$@",
   "최근 14일 하루 작업 시간": "Work time per day, last 14 days",
-  "%@ ~ 오늘": "%@ to today"
+  "%@ ~ 오늘": "%@ to today",
+  "최근 14일 작업한 시간대 (0시~24시)": "Hours worked over the last 14 days (0:00 to 24:00)"
 }

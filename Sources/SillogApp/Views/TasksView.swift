@@ -444,7 +444,7 @@ struct TasksView: View {
     /// The chosen row toggles off only while its own card shows; otherwise pressing it (re)opens that task
     static func pressCloses(chosen: Bool, cardOpen: Bool, showingNode: Bool) -> Bool { chosen && cardOpen && !showingNode }
 
-    /// Task row: field dot, title, field › type, then the total time with the 14-day bars at the right edge. The chosen row gets a ring and a bold title
+    /// Task row: field dot, title, field › type, then the total time; the chosen row also shows when in the day it was worked on (DayTimeline). The chosen row gets a ring and a bold title
     private func taskRow(_ task: TaskSummary, color: Color) -> some View {
         let on = task.id == selectedTask
         let field = task.field ?? Self.noField
@@ -470,15 +470,15 @@ struct TasksView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(task.title).font(Brand.font(.rowTitle, on ? .semibold : .medium)).foregroundStyle(Color(hex: 0x2A201B)).lineLimit(1)
                     meta.lineLimit(1)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {               // bars last so they line up whatever the time text width
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(Self.rowDuration(task.activeSeconds)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x8C837C)).fixedSize()
                         Spacer(minLength: 4)
-                        if !task.recent.isEmpty {
-                            ActivityBars(values: task.recent, color: color, height: 11)
-                                .frame(width: 48).alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
-                                .help(tr("최근 14일 하루 작업 시간"))
-                                .accessibilityLabel(tr("최근 14일 하루 작업 시간"))
-                        }
+                    }
+                    if on {                                                       // 누른 업무에만: 최근 14일 작업한 시간대를 0~24시 알약 한 줄에 겹쳐 칠한다
+                        DayTimeline(spans: DayTimeline.spans(state.sessions(ofTask: task.id).map { ($0.start, $0.end) }), color: color)
+                            .padding(.top, 5)
+                            .help(tr("최근 14일 작업한 시간대 (0시~24시)"))
+                            .accessibilityLabel(tr("최근 14일 작업한 시간대 (0시~24시)"))
                     }
                 }
             }
@@ -1165,4 +1165,48 @@ private struct RowFrameKey: PreferenceKey {
 private struct TimelineDotKey: PreferenceKey {
     static var defaultValue: [Anchor<CGRect>] = []
     static func reduce(value: inout [Anchor<CGRect>], nextValue: () -> [Anchor<CGRect>]) { value += nextValue() }
+}
+
+/// 하루 시간대 줄: 0시~24시 알약 위에 작업한 시간대를 같은 알약 모양으로 칠한다. 숫자는 쓰지 않는다
+struct DayTimeline: View {
+    /// 하루 안의 구간 (0...1, 0 = 0시, 1 = 24시)
+    let spans: [ClosedRange<Double>]
+    let color: Color
+
+    var body: some View {
+        GeometryReader { g in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color(hex: 0xE2DDD8))
+                ForEach(spans.indices, id: \.self) { i in
+                    Capsule().fill(color)
+                        .frame(width: max(6, g.size.width * (spans[i].upperBound - spans[i].lowerBound)))
+                        .offset(x: min(g.size.width - 6, g.size.width * spans[i].lowerBound))
+                }
+            }
+        }
+        .frame(height: 6)
+    }
+
+    /// 세션(시작, 끝 초)을 최근 days 일만 골라 하루 안의 위치로 바꾼다. 자정을 넘긴 세션은 나누고, 겹치는 구간은 합친다
+    static func spans(_ sessions: [(Double, Double)], now: Date = Date(), days: Int = 14, calendar: Calendar = .current) -> [ClosedRange<Double>] {
+        let since = calendar.date(byAdding: .day, value: -(days - 1), to: calendar.startOfDay(for: now))!.timeIntervalSince1970
+        var parts: [ClosedRange<Double>] = []
+        for (start, end) in sessions where end > since && end >= start {
+            var t = max(start, since)
+            while t < end {
+                let day = calendar.startOfDay(for: Date(timeIntervalSince1970: t)).timeIntervalSince1970
+                let next = calendar.date(byAdding: .day, value: 1, to: Date(timeIntervalSince1970: day))!.timeIntervalSince1970
+                let len = next - day                                             // 23, 25시간 날도 0...1 로
+                parts.append(((t - day) / len)...((min(end, next) - day) / len))
+                t = next
+            }
+        }
+        var merged: [ClosedRange<Double>] = []
+        for r in parts.sorted(by: { $0.lowerBound < $1.lowerBound }) {
+            if let last = merged.last, r.lowerBound <= last.upperBound + 0.005 {   // 7분 안쪽 틈은 한 덩어리로
+                merged[merged.count - 1] = last.lowerBound...max(last.upperBound, r.upperBound)
+            } else { merged.append(r) }
+        }
+        return merged
+    }
 }
