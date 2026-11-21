@@ -144,17 +144,18 @@ final class GraphDragTests: XCTestCase {
         XCTAssertGreaterThan(far.n, start.n * 0.3, "끝까지 밀어도 그래프가 화면에 남는다")
     }
 
-    // 기간·보기 단추: 오른쪽 여백(34) 안쪽 끝에 붙는다. 상세 카드가 덮으면(--card-inset) 그만큼 더 비키고, 좁아도 잘리지 않는다
+    // Filters stay at the right padding (34); the task card covers the left, so the search moves right by --card-inset.
     func testFiltersSitAtTheRightEdgeInsideThePadding() throws {
         let web = try page()
         for inset in [0, 389, 480] {
             let box = run(web, """
                 document.documentElement.style.setProperty('--card-inset', inset + 'px');
                 const v = document.getElementById('viewSec').getBoundingClientRect(), s = document.querySelector('.tsearch').getBoundingClientRect(), t = document.querySelector('.toolbar');
-                return [innerWidth - v.right, s.width, t.scrollWidth - t.clientWidth, v.top - s.top];
+                return [innerWidth - v.right, s.width, t.scrollWidth - t.clientWidth, v.top - s.top, s.left];
                 """, ["inset": inset]) as? [Double]
             let v = try XCTUnwrap(box)
-            XCTAssertEqual(v[0], 34 + Double(inset), accuracy: 2, "보기 단추 오른쪽 끝 = 여백 34 + 카드 (\(inset))")
+            XCTAssertEqual(v[0], 34, accuracy: 2, "보기 단추 오른쪽 끝 = 여백 34 (\(inset))")
+            XCTAssertGreaterThanOrEqual(v[4], 34 + Double(inset) - 2, "검색칸은 카드 오른쪽에서 시작 (\(inset))")
             XCTAssertGreaterThanOrEqual(v[1], 80, "검색칸은 줄어도 남는다 (\(inset))")
             XCTAssertEqual(v[2], 0, "단추줄이 넘치지 않는다 (\(inset))")
             XCTAssertLessThan(abs(v[3]), 20, "단추는 검색칸과 한 줄 (\(inset))")

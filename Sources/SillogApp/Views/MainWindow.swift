@@ -217,7 +217,7 @@ private struct WaveformIcon: View {
     }
 }
 
-/// One height for the record, 지금 정리 and connection pills; the user chose this over Figma's 32pt record button.
+/// Height of the 지금 정리 and connection pills; the record button stays at 32 like the school app.
 private let titlePillHeight: CGFloat = 24
 
 /// Title bar pill: brown with white text for recording, light for 지금 정리.
@@ -231,7 +231,7 @@ private struct TitlePill<Content: View>: View {
             .font(primary ? Brand.font(.body, .bold) : Brand.font(.body))
             .foregroundStyle(primary ? .white : Brand.tabText)
             .lineLimit(1).fixedSize()                              // keep the label on one line when the row is tight
-            .padding(.horizontal, primary ? 30 : 10).frame(height: titlePillHeight)
+            .padding(.horizontal, primary ? 30 : 10).frame(height: primary ? 32 : titlePillHeight)
             .background(Capsule().fill(primary ? (hover ? Brand.accentDark : Brand.accent) : hover ? Brand.pillFill.opacity(0.7) : Brand.pillFill))
             .contentShape(Capsule())
             .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
@@ -363,7 +363,7 @@ struct TasksPanel: View {
     }
 }
 
-/// 업무 상세 카드: 그래프 오른쪽 위에 떠 있는 둥근 카드. 그래프를 밀지 않고 위에 겹친다. ×나 Esc 로 닫는다
+/// Task detail card beside the task list, floating over the graph; closes with × or Esc.
 struct TaskDetailCard: View {
     @EnvironmentObject private var state: AppState
     let width: CGFloat
@@ -514,7 +514,7 @@ struct MainWindow: View {
                             LoginBlockedView()
                         } else {
                             switch state.selectedTab {
-                            case .graph: GraphWebView(version: state.graphVersion, rightInset: detailOpen ? TasksPanel.detailWidth(available: available) + 14 : 0).ignoresSafeArea(edges: .bottom)   // 웹 페이지의 빈 곳으로 창 바탕 유리가 보인다
+                            case .graph: GraphWebView(version: state.graphVersion, cardInset: detailOpen ? TasksPanel.detailWidth(available: available) + 14 : 0).ignoresSafeArea(edges: .bottom)   // 웹 페이지의 빈 곳으로 창 바탕 유리가 보인다
                             case .chat: if let chat = state.chat {
                                 ChatView(chat: chat, library: chat.library, modelName: state.settings.chatModelName,
                                          openSettings: { state.settingsSection = .ai; state.selectedTab = .settings },   // 모델 메뉴의 설정 → AI 연결
@@ -528,10 +528,10 @@ struct MainWindow: View {
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .overlay(alignment: .topTrailing) {
+                    .overlay(alignment: .topLeading) {
                         if detailOpen {                          // 닫히면 카드를 아예 안 그린다 (안 보이는 상세가 그래프 클릭을 가로채지 않게)
                             TaskDetailCard(width: TasksPanel.detailWidth(available: available))
-                                .transition(.move(edge: .trailing).combined(with: .opacity))
+                                .transition(.move(edge: .leading).combined(with: .opacity))
                         }
                     }
                     .animation(.easeOut(duration: 0.22), value: detailOpen)

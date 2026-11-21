@@ -98,6 +98,7 @@ struct LibraryActions {
 /// 저장한 답변의 첫 줄과 글자 수.
 struct LibraryTextInfo {
     var first = ""
+    var lead = ""
     var count = 0
 
     static func read(_ url: URL) -> LibraryTextInfo {
@@ -108,9 +109,9 @@ struct LibraryTextInfo {
     static func from(_ raw: String) -> LibraryTextInfo {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("<") ? plainText(raw) : raw
         // Office text starts each part with a "[word/document.xml]" line from FileTextExtractor.
-        let line = text.split(separator: "\n").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "#>*- \t")) }
-            .first { !$0.isEmpty && !($0.hasPrefix("[") && $0.hasSuffix(".xml]")) } ?? ""
-        return .init(first: line, count: text.count)
+        let lines = text.split(separator: "\n").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "#>*- \t")) }
+            .filter { !$0.isEmpty && !($0.hasPrefix("[") && $0.hasSuffix(".xml]")) }
+        return .init(first: lines.first ?? "", lead: String(lines.prefix(8).joined(separator: "\n").prefix(400)), count: text.count)
     }
 
     /// HTML 결과물: 머리(head, style, script)와 태그를 걷어 낸 본문 글. 카드 미리보기에 <!doctype html> 이 보이지 않게

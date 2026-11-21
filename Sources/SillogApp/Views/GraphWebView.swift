@@ -8,7 +8,7 @@ struct GraphWebView: NSViewRepresentable {
     @EnvironmentObject private var state: AppState
     let version: Int
     /// 업무 상세 카드가 덮는 오른쪽 폭: 그래프의 머리글과 단추줄이 카드 왼쪽에 오게 비켜 준다
-    var rightInset: CGFloat = 0
+    var cardInset: CGFloat = 0
 
     func makeCoordinator() -> Coordinator { Coordinator(state: state) }
 
@@ -29,7 +29,7 @@ struct GraphWebView: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         if context.coordinator.pushedVersion != version { context.coordinator.push(version: version) }
-        if context.coordinator.inset != rightInset { context.coordinator.inset = rightInset; context.coordinator.pushInset() }
+        if context.coordinator.inset != cardInset { context.coordinator.inset = cardInset; context.coordinator.pushInset() }
         // 상세 카드를 X 로 닫으면 지금 보기에서 기억한 업무도 지운다(보기를 바꿨다 돌아와도 다시 열리지 않게)
         let open = state.taskDetailOpen
         if context.coordinator.drawerOpen && !open { webView.evaluateJavaScript("window.WG && window.WG.detailClosed && window.WG.detailClosed()", completionHandler: nil) }

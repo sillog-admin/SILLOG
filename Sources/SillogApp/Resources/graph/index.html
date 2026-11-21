@@ -732,9 +732,8 @@ html, body { background: #fff; }
 .toolbar { container-type: inline-size; }
 .tfilters { flex: none; display: flex; align-items: center; gap: 22px; margin-left: auto; }
 @container (max-width: 380px) { .toolbar .tlab { display: none; } .tfilters { gap: 12px; } .tsearch { min-width: 80px; } }
-/* 앱의 업무 상세 카드가 그래프 오른쪽을 덮는 동안(--card-inset) 머리글과 단추줄을 카드 왼쪽으로 비킨다 */
-html .phead, html .toolbar { padding-right: calc(34px + var(--card-inset, 0px)); }   /* 뒤에서 .phead 여백을 다시 정해도 이 규칙이 이기게 html 을 붙인다 */
-html .lgp { right: calc(24px + var(--card-inset, 0px)); }   /* 범례 단추도 카드 왼쪽으로 */
+/* 앱의 업무 상세 카드가 그래프 왼쪽(업무 목록 바로 옆)을 덮는 동안(--card-inset) 머리글과 단추줄을 카드 오른쪽으로 비킨다 */
+html .phead, html .toolbar { padding-left: calc(34px + var(--card-inset, 0px)); }   /* 뒤에서 .phead 여백을 다시 정해도 이 규칙이 이기게 html 을 붙인다 */
 /* 머리글 칸이 좁아지면(카드가 덮을 때) 보기 단추는 아이콘만, 제목은 꺾지 않는다 */
 .phead { container-type: inline-size; }
 html .phead h1 { white-space: nowrap; }

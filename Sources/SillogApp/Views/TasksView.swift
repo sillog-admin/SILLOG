@@ -444,7 +444,7 @@ struct TasksView: View {
     /// The chosen row toggles off only while its own card shows; otherwise pressing it (re)opens that task
     static func pressCloses(chosen: Bool, cardOpen: Bool, showingNode: Bool) -> Bool { chosen && cardOpen && !showingNode }
 
-    /// Task row: field dot, title, field › type, then the total time with the 14-day bars at the right edge. The chosen row gets a ring and a bold title
+    /// Task row: field dot, title, field › type, then the total time; the chosen row also shows when in the day it was worked on (DayTimeline). The chosen row gets a ring and a bold title
     private func taskRow(_ task: TaskSummary, color: Color) -> some View {
         let on = task.id == selectedTask
         let field = task.field ?? Self.noField
@@ -470,14 +470,15 @@ struct TasksView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(task.title).font(Brand.font(.rowTitle, on ? .semibold : .medium)).foregroundStyle(Color(hex: 0x2A201B)).lineLimit(1)
                     meta.lineLimit(1)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {               // bars last so they line up whatever the time text width
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(Self.rowDuration(task.activeSeconds)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x8C837C)).fixedSize()
-                        Spacer(minLength: 4)
-                        if !task.recent.isEmpty {
-                            ActivityBars(values: task.recent, color: color, height: 11)
-                                .frame(width: 48).alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
-                                .help(tr("최근 14일 하루 작업 시간"))
-                                .accessibilityLabel(tr("최근 14일 하루 작업 시간"))
+                        if on {                                                   // inline so the chosen row keeps its height
+                            DayTimeline(hours: RangeTime.hourly(state.sessions(ofTask: task.id).map { ($0.start, $0.end) }), color: color)
+                                .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
+                                .help(tr("최근 14일 작업한 시간대 (0시~24시)"))
+                                .accessibilityLabel(tr("최근 14일 작업한 시간대 (0시~24시)"))
+                        } else {
+                            Spacer(minLength: 4)
                         }
                     }
                 }
@@ -598,7 +599,15 @@ struct TasksView: View {
     private func heading(_ task: TaskSummary, lines: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                if let type = task.taskType { BrandBadge(L10n.tr(key: type)) }
+                if let type = task.taskType {
+                    let color = Self.fieldStats(state.taskList).first { $0.name == (task.field ?? Self.noField) }?.color ?? Brand.sub
+                    HStack(spacing: 6) {
+                        Circle().fill(color).frame(width: 8, height: 8)
+                        Text(L10n.tr(key: type)).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink)
+                    }
+                    .padding(.horizontal, 11).frame(height: 26)
+                    .background(Capsule().fill(color.opacity(0.12)))
+                }
                 if state.isTaskPinned(task.key) { GrayBadge(tr("원문 보존 중")) }
             }
             Text(task.title).font(Brand.font(.screenTitle)).tracking(-1.26).foregroundStyle(Brand.ink).lineLimit(lines).padding(.top, 14)
@@ -1165,4 +1174,44 @@ private struct RowFrameKey: PreferenceKey {
 private struct TimelineDotKey: PreferenceKey {
     static var defaultValue: [Anchor<CGRect>] = []
     static func reduce(value: inout [Anchor<CGRect>], nextValue: () -> [Anchor<CGRect>]) { value += nextValue() }
+}
+
+/// Smooth wave of the hours worked over a day (RangeTime.hourly); no numbers by design.
+struct DayTimeline: View {
+    let hours: [Double]
+    let color: Color
+    var height: CGFloat = 12
+
+    var body: some View {
+        let top = max(hours.max() ?? 0, 1)
+        GeometryReader { g in
+            let pts = Self.points(hours.map { $0 / top }, size: g.size)
+            ZStack(alignment: .bottom) {
+                Capsule().fill(color.opacity(0.15)).frame(height: 1.5)
+                Self.curve(pts, size: g.size, closed: true).fill(color.opacity(0.28))
+                Self.curve(pts, size: g.size, closed: false).stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+            }
+        }
+        .frame(height: height)
+    }
+
+    private static func points(_ v: [Double], size: CGSize) -> [CGPoint] {
+        let step = size.width / CGFloat(max(v.count, 1))
+        let inner = v.enumerated().map { CGPoint(x: step * (CGFloat($0.offset) + 0.5), y: size.height - 1 - (size.height - 2) * CGFloat($0.element)) }
+        return [CGPoint(x: 0, y: size.height - 1)] + inner + [CGPoint(x: size.width, y: size.height - 1)]
+    }
+
+    /// Quad curves through midpoints keep the line smooth without overshooting below the baseline.
+    private static func curve(_ p: [CGPoint], size: CGSize, closed: Bool) -> Path {
+        Path { path in
+            guard p.count > 1 else { return }
+            path.move(to: p[0])
+            for i in 1..<p.count - 1 {
+                let mid = CGPoint(x: (p[i].x + p[i + 1].x) / 2, y: (p[i].y + p[i + 1].y) / 2)
+                path.addQuadCurve(to: mid, control: p[i])
+            }
+            path.addLine(to: p[p.count - 1])
+            if closed { path.addLine(to: CGPoint(x: size.width, y: size.height)); path.addLine(to: CGPoint(x: 0, y: size.height)); path.closeSubpath() }
+        }
+    }
 }

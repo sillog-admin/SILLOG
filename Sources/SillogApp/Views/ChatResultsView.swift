@@ -14,7 +14,7 @@ struct ChatResultCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.title).font(Brand.font(.tag, .medium)).foregroundStyle(Brand.ink).lineLimit(1)
-                    Text(first).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(2)
+                    Text(first).font(Brand.font(.tag)).foregroundStyle(Brand.gray).lineLimit(4)   // the first line alone is often a header, leaving the preview empty
                     Spacer(minLength: 0)
                 }.padding(.horizontal, 10).padding(.top, 10)
                     .frame(width: 164, height: 86, alignment: .topLeading)
@@ -27,6 +27,9 @@ struct ChatResultCard: View {
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(ChatPalette.cardLine, lineWidth: 1))
                 .contentShape(RoundedRectangle(cornerRadius: 12))
         }.buttonStyle(.plain)
-            .task(id: item.id) { first = LibraryTextInfo.from((try? library.store.text(for: item.id)) ?? "").first }
+            .task(id: item.id) {
+                let info = LibraryTextInfo.from((try? library.store.text(for: item.id)) ?? "")
+                first = info.lead.split(separator: "\n").filter { $0 != item.title }.joined(separator: "\n")
+            }
     }
 }
