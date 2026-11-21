@@ -217,7 +217,7 @@ private struct WaveformIcon: View {
     }
 }
 
-/// One height for the record, 지금 정리 and connection pills; the user chose this over Figma's 32pt record button.
+/// Height of the 지금 정리 and connection pills; the record button stays at 32 like the school app.
 private let titlePillHeight: CGFloat = 24
 
 /// Title bar pill: brown with white text for recording, light for 지금 정리.
@@ -231,7 +231,7 @@ private struct TitlePill<Content: View>: View {
             .font(primary ? Brand.font(.body, .bold) : Brand.font(.body))
             .foregroundStyle(primary ? .white : Brand.tabText)
             .lineLimit(1).fixedSize()                              // keep the label on one line when the row is tight
-            .padding(.horizontal, primary ? 30 : 10).frame(height: titlePillHeight)
+            .padding(.horizontal, primary ? 30 : 10).frame(height: primary ? 32 : titlePillHeight)   // 녹음 단추는 32 (학교용과 같게), 보조 알약은 24
             .background(Capsule().fill(primary ? (hover ? Brand.accentDark : Brand.accent) : hover ? Brand.pillFill.opacity(0.7) : Brand.pillFill))
             .contentShape(Capsule())
             .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
