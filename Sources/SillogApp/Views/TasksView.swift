@@ -473,8 +473,8 @@ struct TasksView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(Self.rowDuration(task.activeSeconds)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x8C837C)).fixedSize()
                         if on {                                                   // 누른 업무에만: 시간 오른쪽에 최근 14일 작업한 시간대 (0~24시 알약). 줄 높이는 그대로
-                            DayTimeline(spans: DayTimeline.spans(state.sessions(ofTask: task.id).map { ($0.start, $0.end) }), color: color)
-                                .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
+                            DayTimeline(hours: DayTimeline.hours(state.sessions(ofTask: task.id).map { ($0.start, $0.end) }), color: color)
+                                .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
                                 .help(tr("최근 14일 작업한 시간대 (0시~24시)"))
                                 .accessibilityLabel(tr("최근 14일 작업한 시간대 (0시~24시)"))
                         } else {
@@ -1176,51 +1176,61 @@ private struct TimelineDotKey: PreferenceKey {
     static func reduce(value: inout [Anchor<CGRect>], nextValue: () -> [Anchor<CGRect>]) { value += nextValue() }
 }
 
-/// 하루 시간대 줄: 0시~24시 알약 위에 작업한 시간대를 같은 알약 모양으로 칠한다. 6, 12, 18시에 옅은 눈금. 숫자는 쓰지 않는다
+/// 하루 시간대 물결: 최근 14일 동안 0시~24시 각 시간에 일한 양을 부드러운 곡선 면으로 그린다. 숫자는 쓰지 않는다
 struct DayTimeline: View {
-    /// 하루 안의 구간 (0...1, 0 = 0시, 1 = 24시)
-    let spans: [ClosedRange<Double>]
+    /// 시간별(0~23시) 일한 초
+    let hours: [Double]
     let color: Color
-    var height: CGFloat = 10
+    var height: CGFloat = 12
 
     var body: some View {
+        let top = max(hours.max() ?? 0, 1)
         GeometryReader { g in
-            let w = g.size.width
-            ZStack(alignment: .leading) {
-                Capsule().fill(color.opacity(0.12))
-                ForEach([0.25, 0.5, 0.75], id: \.self) { f in
-                    Rectangle().fill(color.opacity(0.25)).frame(width: 1, height: height * 0.5).offset(x: w * f)
-                }
-                ForEach(spans.indices, id: \.self) { i in
-                    Capsule().fill(color)
-                        .frame(width: max(height, w * (spans[i].upperBound - spans[i].lowerBound)))
-                        .offset(x: min(w - height, w * spans[i].lowerBound))
-                }
+            let pts = Self.points(hours.map { $0 / top }, size: g.size)
+            ZStack(alignment: .bottom) {
+                Capsule().fill(color.opacity(0.15)).frame(height: 1.5)              // 0시~24시 바닥선
+                Self.curve(pts, size: g.size, closed: true).fill(color.opacity(0.28))
+                Self.curve(pts, size: g.size, closed: false).stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
             }
         }
         .frame(height: height)
     }
 
-    /// 세션(시작, 끝 초)을 최근 days 일만 골라 하루 안의 위치로 바꾼다. 자정을 넘긴 세션은 나누고, 겹치는 구간은 합친다
-    static func spans(_ sessions: [(Double, Double)], now: Date = Date(), days: Int = 14, calendar: Calendar = .current) -> [ClosedRange<Double>] {
+    /// 칸 가운데마다 한 점, 양 끝은 바닥에서 시작하고 끝난다
+    private static func points(_ v: [Double], size: CGSize) -> [CGPoint] {
+        let step = size.width / CGFloat(max(v.count, 1))
+        let inner = v.enumerated().map { CGPoint(x: step * (CGFloat($0.offset) + 0.5), y: size.height - 1 - (size.height - 2) * CGFloat($0.element)) }
+        return [CGPoint(x: 0, y: size.height - 1)] + inner + [CGPoint(x: size.width, y: size.height - 1)]
+    }
+
+    /// 점들을 지나는 부드러운 곡선 (가운데 점을 이은 2차 곡선). closed 면 바닥까지 닫아 면을 만든다
+    private static func curve(_ p: [CGPoint], size: CGSize, closed: Bool) -> Path {
+        Path { path in
+            guard p.count > 1 else { return }
+            path.move(to: p[0])
+            for i in 1..<p.count - 1 {
+                let mid = CGPoint(x: (p[i].x + p[i + 1].x) / 2, y: (p[i].y + p[i + 1].y) / 2)
+                path.addQuadCurve(to: mid, control: p[i])
+            }
+            path.addLine(to: p[p.count - 1])
+            if closed { path.addLine(to: CGPoint(x: size.width, y: size.height)); path.addLine(to: CGPoint(x: 0, y: size.height)); path.closeSubpath() }
+        }
+    }
+
+    /// 세션(시작, 끝 초)에서 최근 days 일 동안 시간별(0~23시) 일한 초를 더한다. 자정, 정시를 넘긴 세션은 나눠 더한다
+    static func hours(_ sessions: [(Double, Double)], now: Date = Date(), days: Int = 14, calendar: Calendar = .current) -> [Double] {
         let since = calendar.date(byAdding: .day, value: -(days - 1), to: calendar.startOfDay(for: now))!.timeIntervalSince1970
-        var parts: [ClosedRange<Double>] = []
-        for (start, end) in sessions where end > since && end >= start {
+        var out = [Double](repeating: 0, count: 24)
+        for (start, end) in sessions where end > since && end > start {
             var t = max(start, since)
             while t < end {
-                let day = calendar.startOfDay(for: Date(timeIntervalSince1970: t)).timeIntervalSince1970
-                let next = calendar.date(byAdding: .day, value: 1, to: Date(timeIntervalSince1970: day))!.timeIntervalSince1970
-                let len = next - day                                             // 23, 25시간 날도 0...1 로
-                parts.append(((t - day) / len)...((min(end, next) - day) / len))
+                let date = Date(timeIntervalSince1970: t)
+                let hourStart = calendar.dateInterval(of: .hour, for: date)!
+                let next = min(end, hourStart.end.timeIntervalSince1970)
+                out[calendar.component(.hour, from: date)] += next - t
                 t = next
             }
         }
-        var merged: [ClosedRange<Double>] = []
-        for r in parts.sorted(by: { $0.lowerBound < $1.lowerBound }) {
-            if let last = merged.last, r.lowerBound <= last.upperBound + 0.005 {   // 7분 안쪽 틈은 한 덩어리로
-                merged[merged.count - 1] = last.lowerBound...max(last.upperBound, r.upperBound)
-            } else { merged.append(r) }
-        }
-        return merged
+        return out
     }
 }

@@ -2,23 +2,24 @@ import Foundation
 import XCTest
 @testable import SillogApp
 
-/// 업무 줄의 하루 시간대 줄: 자정을 넘긴 세션은 나누고, 겹치면 합치고, 14일보다 옛날은 뺀다
+/// 업무 줄의 시간대 물결: 세션을 시간별로 나눠 더하고, 14일보다 옛날은 뺀다
 final class DayTimelineTests: XCTestCase {
-    func testSplitsAtMidnightMergesAndDropsOld() {
+    func testAddsSecondsPerHourAcrossMidnightAndDropsOld() {
         var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "Asia/Seoul")!
         let now = cal.date(from: DateComponents(year: 2026, month: 11, day: 20, hour: 15))!
         let day = cal.startOfDay(for: now).timeIntervalSince1970
         let h = 3600.0
-        let spans = DayTimeline.spans([
-            (day - 2 * h, day + 1 * h),
-            (day + 9 * h, day + 10 * h), (day + 9.5 * h, day + 11 * h),
-            (day - 20 * 24 * h, day - 19 * 24 * h),
+        let hours = DayTimeline.hours([
+            (day - 0.5 * h, day + 1.5 * h),                // 23:30~01:30
+            (day + 9.25 * h, day + 9.75 * h),              // 9시에 30분
+            (day + 9.5 * h, day + 10.25 * h),              // 9시에 30분 더, 10시에 15분
+            (day - 20 * 24 * h, day - 19 * 24 * h),        // 14일보다 옛날
         ], now: now, calendar: cal)
-        XCTAssertEqual(spans.count, 3)
-        XCTAssertEqual(spans[0].upperBound, 1.0 / 24, accuracy: 1e-9)
-        XCTAssertEqual(spans[1].lowerBound, 9.0 / 24, accuracy: 1e-9)
-        XCTAssertEqual(spans[1].upperBound, 11.0 / 24, accuracy: 1e-9)
-        XCTAssertEqual(spans[2].lowerBound, 22.0 / 24, accuracy: 1e-9)
-        XCTAssertEqual(spans[2].upperBound, 1)
+        XCTAssertEqual(hours[23], 1800, accuracy: 1e-6)
+        XCTAssertEqual(hours[0], 3600, accuracy: 1e-6)
+        XCTAssertEqual(hours[1], 1800, accuracy: 1e-6)
+        XCTAssertEqual(hours[9], 3600, accuracy: 1e-6)
+        XCTAssertEqual(hours[10], 900, accuracy: 1e-6)
+        XCTAssertEqual(hours.reduce(0, +), 11700, accuracy: 1e-6)
     }
 }
