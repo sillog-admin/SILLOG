@@ -33,6 +33,12 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/SillogApp" "$APP/Contents/MacOS/Sillog"
 cp "$BIN_DIR/sillogctl" "$APP/Contents/MacOS/sillogctl"
+# Swift Build stamps the deployment target (14.0) as the SDK version, so macOS 26 draws the app in the old compatibility
+# look (short title bar, no glass). Restamp the SDK the app was really built with.
+SDK_VER="$(xcrun --sdk macosx --show-sdk-version)"
+for bin in "$APP/Contents/MacOS/Sillog" "$APP/Contents/MacOS/sillogctl"; do
+  vtool -set-build-version macos 14.0 "$SDK_VER" -replace -output "$bin.tmp" "$bin" && mv "$bin.tmp" "$bin"
+done
 cp -R "$ROOT/Sources/SillogApp/Resources/graph" "$APP/Contents/Resources/graph"
 cp -R "$ROOT/Sources/SillogApp/Resources/calendar" "$APP/Contents/Resources/calendar"   # 캘린더 화면 (FullCalendar 6, MIT)
 cp -R "$ROOT/Sources/SillogApp/Resources/mermaid" "$APP/Contents/Resources/mermaid"     # 채팅 다이어그램 (mermaid 11.4.1, MIT)

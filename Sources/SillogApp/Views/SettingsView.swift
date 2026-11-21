@@ -244,9 +244,9 @@ struct SettingsView: View {
     private var aiConnection: some View {
         VStack(alignment: .leading, spacing: 0) {
             ConnectionSection()
+            MCPConnectSection()
             SectionLabel(tr("채팅 답변 지침"))
             chatInstructions
-            MCPConnectSection()
         }
     }
 
