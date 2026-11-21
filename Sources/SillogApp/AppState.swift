@@ -171,6 +171,12 @@ final class AppState: ObservableObject {
             AppLog.write("이미 실행 중인 SILLOG이 있어 시작하지 않음 (터미널에서 swift run 으로 띄운 실행도 확인)")
             return
         }
+        // The onboarding flags live in UserDefaults, which outlives a deleted data folder, so a missing DB starts onboarding over.
+        if !FileManager.default.fileExists(atPath: databasePath) {
+            UserDefaults.standard.removeObject(forKey: Self.onboardingKey)
+            UserDefaults.standard.removeObject(forKey: Self.languageChosenKey)
+            AppLog.write("DB가 없어 온보딩을 처음부터 시작")
+        }
         do {
             let database = try SillogDatabase(path: databasePath)
             try database.writer.write { try TBox.seed(GraphTx($0), at: Date().timeIntervalSince1970) }
