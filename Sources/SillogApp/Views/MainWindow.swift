@@ -363,7 +363,7 @@ struct TasksPanel: View {
     }
 }
 
-/// 업무 상세 카드: 그래프 오른쪽 위에 떠 있는 둥근 카드. 그래프를 밀지 않고 위에 겹친다. ×나 Esc 로 닫는다
+/// 업무 상세 카드: 업무 목록 오른쪽(그래프 왼쪽 위)에 떠 있는 둥근 카드. 그래프를 밀지 않고 위에 겹친다. ×나 Esc 로 닫는다
 struct TaskDetailCard: View {
     @EnvironmentObject private var state: AppState
     let width: CGFloat
@@ -514,7 +514,7 @@ struct MainWindow: View {
                             LoginBlockedView()
                         } else {
                             switch state.selectedTab {
-                            case .graph: GraphWebView(version: state.graphVersion, rightInset: detailOpen ? TasksPanel.detailWidth(available: available) + 14 : 0).ignoresSafeArea(edges: .bottom)   // 웹 페이지의 빈 곳으로 창 바탕 유리가 보인다
+                            case .graph: GraphWebView(version: state.graphVersion, cardInset: detailOpen ? TasksPanel.detailWidth(available: available) + 14 : 0).ignoresSafeArea(edges: .bottom)   // 웹 페이지의 빈 곳으로 창 바탕 유리가 보인다
                             case .chat: if let chat = state.chat {
                                 ChatView(chat: chat, library: chat.library, modelName: state.settings.chatModelName,
                                          openSettings: { state.settingsSection = .ai; state.selectedTab = .settings },   // 모델 메뉴의 설정 → AI 연결
@@ -528,10 +528,10 @@ struct MainWindow: View {
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .overlay(alignment: .topTrailing) {
+                    .overlay(alignment: .topLeading) {           // 업무 목록 바로 오른쪽에 뜬다
                         if detailOpen {                          // 닫히면 카드를 아예 안 그린다 (안 보이는 상세가 그래프 클릭을 가로채지 않게)
                             TaskDetailCard(width: TasksPanel.detailWidth(available: available))
-                                .transition(.move(edge: .trailing).combined(with: .opacity))
+                                .transition(.move(edge: .leading).combined(with: .opacity))
                         }
                     }
                     .animation(.easeOut(duration: 0.22), value: detailOpen)

@@ -474,7 +474,7 @@ struct TasksView: View {
                         Text(Self.rowDuration(task.activeSeconds)).font(Brand.font(.caption)).foregroundStyle(Color(hex: 0x8C837C)).fixedSize()
                         if on {                                                   // 누른 업무에만: 시간 오른쪽에 최근 14일 작업한 시간대 (0~24시 알약). 줄 높이는 그대로
                             DayTimeline(spans: DayTimeline.spans(state.sessions(ofTask: task.id).map { ($0.start, $0.end) }), color: color)
-                                .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 2 }
+                                .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
                                 .help(tr("최근 14일 작업한 시간대 (0시~24시)"))
                                 .accessibilityLabel(tr("최근 14일 작업한 시간대 (0시~24시)"))
                         } else {
@@ -599,7 +599,15 @@ struct TasksView: View {
     private func heading(_ task: TaskSummary, lines: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
-                if let type = task.taskType { BrandBadge(L10n.tr(key: type)) }
+                if let type = task.taskType {                                          // 분야 색 점 + 종류 이름 알약 (업무 목록과 같은 분야 색)
+                    let color = Self.fieldStats(state.taskList).first { $0.name == (task.field ?? Self.noField) }?.color ?? Brand.sub
+                    HStack(spacing: 6) {
+                        Circle().fill(color).frame(width: 8, height: 8)
+                        Text(L10n.tr(key: type)).font(Brand.font(.caption, .medium)).foregroundStyle(Brand.ink)
+                    }
+                    .padding(.horizontal, 11).frame(height: 26)
+                    .background(Capsule().fill(color.opacity(0.12)))
+                }
                 if state.isTaskPinned(task.key) { GrayBadge(tr("원문 보존 중")) }
             }
             Text(task.title).font(Brand.font(.screenTitle)).tracking(-1.26).foregroundStyle(Brand.ink).lineLimit(lines).padding(.top, 14)
@@ -1168,24 +1176,29 @@ private struct TimelineDotKey: PreferenceKey {
     static func reduce(value: inout [Anchor<CGRect>], nextValue: () -> [Anchor<CGRect>]) { value += nextValue() }
 }
 
-/// 하루 시간대 줄: 0시~24시 알약 위에 작업한 시간대를 같은 알약 모양으로 칠한다. 숫자는 쓰지 않는다
+/// 하루 시간대 줄: 0시~24시 알약 위에 작업한 시간대를 같은 알약 모양으로 칠한다. 6, 12, 18시에 옅은 눈금. 숫자는 쓰지 않는다
 struct DayTimeline: View {
     /// 하루 안의 구간 (0...1, 0 = 0시, 1 = 24시)
     let spans: [ClosedRange<Double>]
     let color: Color
+    var height: CGFloat = 10
 
     var body: some View {
         GeometryReader { g in
+            let w = g.size.width
             ZStack(alignment: .leading) {
-                Capsule().fill(Color(hex: 0xE2DDD8))
+                Capsule().fill(color.opacity(0.12))
+                ForEach([0.25, 0.5, 0.75], id: \.self) { f in
+                    Rectangle().fill(color.opacity(0.25)).frame(width: 1, height: height * 0.5).offset(x: w * f)
+                }
                 ForEach(spans.indices, id: \.self) { i in
                     Capsule().fill(color)
-                        .frame(width: max(6, g.size.width * (spans[i].upperBound - spans[i].lowerBound)))
-                        .offset(x: min(g.size.width - 6, g.size.width * spans[i].lowerBound))
+                        .frame(width: max(height, w * (spans[i].upperBound - spans[i].lowerBound)))
+                        .offset(x: min(w - height, w * spans[i].lowerBound))
                 }
             }
         }
-        .frame(height: 6)
+        .frame(height: height)
     }
 
     /// 세션(시작, 끝 초)을 최근 days 일만 골라 하루 안의 위치로 바꾼다. 자정을 넘긴 세션은 나누고, 겹치는 구간은 합친다
