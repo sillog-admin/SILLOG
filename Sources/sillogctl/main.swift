@@ -275,7 +275,7 @@ func judgeOnce(_ input: JudgeInput, pipeline: BatchPipeline, client: any LLMClie
             state.input.cards = input.cards.filter { accepted.contains($0.key) }
             let organized = try await StagedPipeline.organizeDecisions(state, llm: client)
             // The app judges deferred rows again on its next batch, so the scorer retries instead of scoring them.
-            let deferred = input.rows.count - state.input.rows.count
+            let deferred = input.rows.count - organized.input.rows.count
             return (StagedPipeline.patch(from: organized), organized.calls.count, deferred > 0 ? "판단 모델이 행 \(deferred)개를 미룸" : nil, deferred > 0, organized.calls)
         } catch let error as PipelineError {
             if case .stageFailed(_, let underlying, _) = error { return (nil, error.calls.count, error.description, transient(underlying), error.calls) }
