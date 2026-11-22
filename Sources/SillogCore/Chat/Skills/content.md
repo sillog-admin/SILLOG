@@ -4,12 +4,12 @@
 Create content for an audience (blog posts, presentations, landing and intro pages, scripts, social posts, copy) built around one message the reader should remember. Keep it true to the facts and to the user's own voice.
 
 ## Procedure
-1. **Write the brief.** Settle the audience, the channel, the one takeaway or action, the length, and the tone. Look for the user's voice in their earlier posts, decks, or documents in the library and records, and follow any brand guide they gave you. Ask only when the audience or the takeaway is unknown and the piece depends on it.
+1. **Write the brief.** Settle the audience, the channel, the one takeaway or action, the length, and the tone. Gather the related part of the work graph: the user's earlier posts, decks, or documents under the same topic or theme (for their voice), the sessions, materials, and results behind the story (for the fact sheet), and the requests or to-dos that prompted the piece. Follow any brand guide they gave you. Ask only when the audience or the takeaway is unknown and the piece depends on it.
 2. **Diagnose the input before writing.** Decide which case applies:
    - No draft, or a generic one: write from scratch.
    - A draft with a real voice: keep the user's words and structure, and fix only what is weak.
    - A specific edit request: change only what was asked, and show only the changed parts.
-3. **Build a fact sheet first.** List the facts the piece can use, each with its source in the records, library, files, or web. Numbers, dates, quotes, customer stories, and the user's achievements come only from this sheet. Mark missing proof [확인 필요: …]. Label invented scenarios as examples, and never invent testimonials, users, or metrics.
+3. **Build a fact sheet first.** List the facts the piece can use, each with its source in the records, library, files, or web, and its date. For a story about the user's own work, take the arc from the timeline: when it started, the turning points such as a problem and its fix, and the result, with dates and durations from the records. Numbers, dates, quotes, customer stories, and the user's achievements come only from this sheet. Mark missing proof [확인 필요: …]. Label invented scenarios as examples, and never invent testimonials, users, or metrics.
 4. **Shape the piece for its format.**
    - Blog or article: a hook from a concrete situation, the value for the reader, one specific example, and the takeaway.
    - Presentation: one message per slide, written as a full-sentence headline, with the evidence that supports it. Use an arc of opening, problem, proof, detail, and close with the ask. Plan about one slide per minute of speaking time.
