@@ -180,7 +180,7 @@ public struct ContextSearch: Sendable {
             let node = Self.match(needle, index: "nodes_chat_fts", row: "id", fallback: "title || ' ' || key || ' ' || props")
             let nodes = try wants("node") ? Row.fetchAll(conn, sql: "SELECT id, label, title, key, props FROM nodes WHERE label NOT IN ('TaskType', 'ResourceType') AND updated_at >= ? AND created_at <= ? AND (\(node.0))\(Self.restriction("id", allowedNodes))\(activity) ORDER BY updated_at DESC LIMIT \(limit(12))", arguments: [from, to, node.1]) : []
             for row in nodes {
-                results.append(.init(id: "node:\(row["id"] as Int64)", title: "\(row["label"] as String) · \(row["title"] as String)", location: row["key"], excerpt: String((row["props"] as String).prefix(1200))))
+                results.append(.init(id: "node:\(row["id"] as Int64)", title: "\(row["label"] as String) · \(row["title"] as String)", location: row["key"], excerpt: Self.times(row["props"]) + String((row["props"] as String).prefix(1200))))
             }
             let card = Self.match(needle, index: "screen_cards_fts", row: "id", fallback: "activity || ' ' || content || ' ' || COALESCE(uri, '')")
             let cards = Self.cardRestriction(access)
@@ -309,7 +309,7 @@ public struct ContextSearch: Sendable {
                       SELECT dst FROM edges WHERE src = ? UNION SELECT src FROM edges WHERE dst = ?
                     ))\(Self.restriction("id", allowedNodes)) ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END, updated_at DESC LIMIT 25
                     """, arguments: [id, id, id, id])
-                return rows.map { row in .init(id: "node:\(row["id"] as Int64)", title: "\(row["label"] as String) · \(row["title"] as String)", location: row["key"], excerpt: String((row["props"] as String).prefix(2500))) }
+                return rows.map { row in .init(id: "node:\(row["id"] as Int64)", title: "\(row["label"] as String) · \(row["title"] as String)", location: row["key"], excerpt: Self.times(row["props"]) + String((row["props"] as String).prefix(2500))) }
             case "observation":
                 guard let row = try Row.fetchOne(conn, sql: "SELECT o.*, t.text FROM observations o LEFT JOIN text_snapshots t ON t.id = o.text_id WHERE o.id = ?", arguments: [id]) else { return [] }
                 return [.init(id: sourceID, title: row["window_title"] ?? "활동 기록", location: row["url"] ?? row["doc_path"] ?? "", excerpt: "\(Self.date(row["ts"]))\n" + String((row["text"] as String? ?? tr("텍스트 없음")).prefix(18000)))]
@@ -558,5 +558,12 @@ public struct ContextSearch: Sendable {
     /// Raises: 없음.
     private static func date(_ time: Double) -> String {
         Date(timeIntervalSince1970: time).formatted(Date.FormatStyle(date: .numeric, time: .shortened, locale: Locale(identifier: L10n.current.rawValue)))
+    }
+
+    // Models misread Unix seconds, so a node's time properties also go out in local time.
+    private static func times(_ props: String) -> String {
+        let object = JSONValue.decodeObject(props)
+        let parts = ["start", "end", "at", "started_at", "last_active"].compactMap { key in object[key]?.doubleValue.map { "\(key) \(date($0))" } }
+        return parts.isEmpty ? "" : parts.joined(separator: " · ") + "\n"
     }
 }
