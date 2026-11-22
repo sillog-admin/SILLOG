@@ -1376,6 +1376,7 @@
   "화면 기록": "Screen recording",
   "화면 기록은 허용한 뒤 앱을 다시 실행해 주세요.": "After allowing screen recording, restart the app.",
   "화면 내용 기록": "Record screen content",
+  "화면 속 개인정보를 가리지 못해 잠시 뒤 다시 정리해요.": "Couldn't mask personal data in a screenshot, so organizing will retry shortly.",
   "화면 요약": "Screen summaries",
   "화면 카드": "Screen cards",
   "화면 카드 %@장": "%@ screen cards",

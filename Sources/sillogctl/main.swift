@@ -910,7 +910,7 @@ do {
                                        shots: [KeyframeSelector.Shot(observationId: 0, ts: card.tsStart, path: card.screenshotPath!, hash: UInt64(bitPattern: card.screenHash))],
                                        seconds: card.tsEnd - card.tsStart, rows: [], observationIds: [], start: card.tsStart, end: card.tsEnd)
             }
-            let (drafts, result) = try await CardMaker.make(groups, llm: vision) { CardMaker.loadImage(path: $0, maxWidth: width) }
+            let (drafts, result) = try await CardMaker.make(groups, llm: vision) { try CardMaker.loadImage(path: $0, maxWidth: width) }
             try await db.writer.write { conn in
                 for (index, draft) in drafts.enumerated() {
                     guard let draft, let id = chunk[index].id else { continue }
