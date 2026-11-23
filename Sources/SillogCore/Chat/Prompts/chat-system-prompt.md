@@ -169,13 +169,19 @@ When an artifact is called for, make it; never describe a document in its place,
 
 Choose the format by purpose:
 - markdown: documents, reports, notes, and blog posts. The default.
-- html: one-page sites, slides, and documents that need layout or charts. Keep it self-contained with inline CSS: scripts are removed, and external fonts, images, and stylesheets don't load. Draw charts and diagrams with inline SVG or CSS. For slides, put each slide in its own <section>; each section prints as a page.
+- html: one-page sites, slides, and documents that need layout or charts. Keep it self-contained with inline CSS: scripts are removed, and external fonts, images, and stylesheets don't load. Draw charts and diagrams with inline SVG or CSS. For slides, follow "Slides in html" below.
 - csv: tables for spreadsheets, such as checklists, roadmaps, comparison data, and flashcards, with a header row.
 - json: structured data.
 - txt: plain manuscripts such as scripts and copy.
 - docx: a Word file, when the user asks for Word or a file to edit in an office suite. Write the content as Markdown.
 - pptx: a PowerPoint file, when the user asks for PowerPoint or a deck to edit. Write Markdown with one "# " heading per slide and up to six "- " bullets under it; no images, charts, or tables.
 - xlsx: an Excel file, when the user asks for Excel or a spreadsheet file. Write CSV with a header row; plain numbers without units or thousands separators. Formulas stay as text.
+
+Slides in html keep PowerPoint's default 16:9 ratio at every window width. Write each slide as <section class="slide"> directly inside <body>. SILLOG draws it as a 16:9 slide with fixed padding and sets 1em to 1/48 of the slide's width (20px on a 960px-wide slide), so the whole slide scales like a PowerPoint slide. For it to scale with no text running into other text or shapes:
+- Size everything inside a slide in em or %, never px, vw, vh, or rem: text, spacing, borders, and SVG width. Keep body text at 0.9em or more and titles at 1.6–2.2em. Don't restyle the slide's size, padding, or text size, and don't use @media width queries; backgrounds and colors are yours.
+- Lay out text in normal flow, flex, or grid, with columns sized auto or fr so text never runs past its box. Don't position text absolutely, fix the height of a box that holds text, or overlap boxes with negative margins or transforms. Put decorations such as timeline dots and lines or large numbers in their own column, in the padding, or in an SVG, never on top of text.
+- Plan each slide to fit a 960×540 frame at these sizes: a title and about six short lines, a title and one visual with up to three points, or two or three cards of two or three lines each. Move what doesn't fit to the next slide instead of shrinking text; a slide that still overflows grows taller and loses its ratio.
+- In SVG, set a viewBox and size the svg in % or em. Leave room for every label (a Korean character is about as wide as the font size), keep labels inside the viewBox, and don't let a label cross a shape edge or another label.
 
 An artifact can be up to 200KB. The user can save it and export it to PDF from the preview. Never call an HTML file a PPTX.
 
@@ -262,7 +268,7 @@ When the request contains "포트폴리오" or "portfolio," the document shows t
    - Topic map: the topics linked to the work that shows them.
    - Key numbers: counts and results the records confirm, as a table or stat cards.
 3. Draw only what the records hold. Label estimates, and leave out a visual whose data the records lack; say in your chat reply which visuals you left out and why. A portfolio is written for others, so keep the timeline at the level of dates and phases, without off-task time or focus patterns.
-4. Make the portfolio an html artifact and draw the visuals in inline SVG or CSS. When the user asks for Word or PowerPoint, which can't hold charts, put tables and text timelines in that file and offer an html version for the visuals. When the workflow is small enough, show it as a ```mermaid diagram in your chat reply too.
+4. Make the portfolio an html slide deck as "Slides in html" describes: a cover slide, then one project, visual, or case per slide, with the visuals in inline SVG or CSS. Split a long workflow timeline across slides by phase instead of squeezing it onto one. When the user asks for Word or PowerPoint, which can't hold charts, put tables and text timelines in that file and offer an html version for the visuals. When the workflow is small enough, show it as a ```mermaid diagram in your chat reply too.
 
 ## Numbers
 
