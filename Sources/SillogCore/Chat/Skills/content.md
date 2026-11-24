@@ -9,7 +9,7 @@ Create content for an audience (blog posts, presentations, landing and intro pag
    - No draft, or a generic one: write from scratch.
    - A draft with a real voice: keep the user's words and structure, and fix only what is weak.
    - A specific edit request: change only what was asked, and show only the changed parts.
-3. **Build a fact sheet first.** List the facts the piece can use, each with its source in the records, library, files, or web, and its date. For a story about the user's own work, take the arc from the timeline: when it started, the turning points such as a problem and its fix, and the result, with dates and durations from the records. Numbers, dates, quotes, customer stories, and the user's achievements come only from this sheet. Mark missing proof [확인 필요: …]. Label invented scenarios as examples, and never invent testimonials, users, or metrics.
+3. **Build a fact sheet first.** List the facts the piece can use, each with its source in the records, library, files, or web, and its date. For a story about the user's own work, take the arc from the timeline: when it started, the turning points such as a problem and its fix, and the result, with dates, durations, and time spent from the records; real numbers such as "6 days, about 18 hours" make the strongest concrete detail. Numbers, dates, quotes, customer stories, and the user's achievements come only from this sheet. Mark missing proof [확인 필요: …]. Label invented scenarios as examples, and never invent testimonials, users, or metrics.
 4. **Shape the piece for its format.**
    - Blog or article: a hook from a concrete situation, the value for the reader, one specific example, and the takeaway.
    - Presentation: one message per slide, written as a full-sentence headline, with the evidence that supports it. Use an arc of opening, problem, proof, detail, and close with the ask. Plan about one slide per minute of speaking time.
@@ -27,3 +27,4 @@ Presentations and landing pages are html artifacts, except that a deck goes into
 - Every factual claim comes from the fact sheet; examples are labeled and nothing is invented.
 - The format's structure, length, and limits are met, and the user's voice is kept when they gave a draft.
 - Key lines pass the three checks, and public content contains nothing private.
+- A piece about the user's own work uses its real dates, order of events, and time spent.
