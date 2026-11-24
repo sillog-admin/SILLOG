@@ -37,9 +37,20 @@ enum WebL10n {
         const core = s.trim().replace(/\s+/g, ' ');
         let hit = exact.get(core);
         // Captured values are translated too: the graph builds durations and names in Korean before they reach the DOM.
-        if (hit === undefined) for (const [re, v] of patterns) { const m = core.match(re); if (m) { hit = fill(v, m.slice(1).map(t)); break; } }
+        // A pattern can split a value wrongly ("학업, 3" in "%@시간 %@분", "직장" in "%@ %@개, %@%"), so the first match that leaves no Korean wins.
+        if (hit === undefined) for (const [re, v] of patterns) {
+          const m = core.match(re); if (!m) continue;
+          const out = fill(v, m.slice(1).map(t));
+          if (hit === undefined) hit = out;
+          if (!HANGUL.test(out)) { hit = out; break; }
+        }
         // A known label followed by a count, e.g. "업무 2".
         if (hit === undefined) { const m = core.match(/^(.+) ([\d,.]+)$/); if (m && exact.has(m[1])) hit = exact.get(m[1]) + ' ' + m[2]; }
+        // Values joined in one text node, e.g. "학업, 3시간 29분": each part on its own.
+        if ((hit === undefined || HANGUL.test(hit)) && core.includes(', ')) {
+          const parts = core.split(', ').map(t).join(', ');
+          if (!HANGUL.test(parts)) hit = parts;
+        }
         if (hit === undefined) return s;
         const lead = s.match(/^\s*/)[0], tail = s.match(/\s*$/)[0];
         return lead + hit + tail;
