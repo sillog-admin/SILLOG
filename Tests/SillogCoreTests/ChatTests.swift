@@ -656,6 +656,10 @@ final class ChatTests: XCTestCase {
     func testOfficeArtifactsPreviewAsHTML() {
         let deck = ChatArtifactHTML.render(.init(title: "d", format: "pptx", content: "# 하나\n- a\n## 둘\n- b"))
         XCTAssertTrue(deck.contains(#"<section class="slide" data-n="1">"#) && deck.contains(#"<section class="slide" data-n="2">"#), deck)
+        // Model-written HTML slides share the frame, which scales text with the slide instead of flooring it.
+        let html = ChatArtifactHTML.render(.init(title: "h", format: "html", content: #"<section class="slide"><h1>표지</h1></section>"#))
+        XCTAssertTrue(html.contains("aspect-ratio:16/9!important") && html.contains("font-size:calc(100cqw / 48)!important"), html)
+        XCTAssertFalse(html.contains("max(13px"), html)
         XCTAssertTrue(ChatArtifactHTML.render(.init(title: "s", format: "xlsx", content: "A,<B>\n1,2")).contains("<td>&lt;B&gt;</td>"))
         XCTAssertTrue(ChatArtifactHTML.render(.init(title: "w", format: "docx", content: "# 제목")).contains("<h1>제목</h1>"))
     }

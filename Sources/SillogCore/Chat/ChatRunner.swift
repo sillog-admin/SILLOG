@@ -452,7 +452,7 @@ public struct ChatRunner: Sendable {
                 "required": .array(["role", "task"]), "additionalProperties": false,
             ])])]), "required": .array(["tasks"]), "additionalProperties": false,
         ])))
-        specs.append(.init(name: "create_artifact", description: "Creates an artifact the user can save. Choose the format that fits the request. Make HTML self-contained, with no scripts or external resources. Write content as Markdown for docx, as Markdown with a # heading and - items for each slide for pptx, and as CSV with a header row for xlsx. If it revises an earlier artifact, put that previous_artifact's id in revises.", parameters: .object([
+        specs.append(.init(name: "create_artifact", description: "Creates an artifact the user can save. Choose the format that fits the request. Make HTML self-contained, with no scripts or external resources. Write HTML slides as <section class=\"slide\"> elements sized in em, which SILLOG shows at 16:9. Write content as Markdown for docx, as Markdown with a # heading and - items for each slide for pptx, and as CSV with a header row for xlsx. If it revises an earlier artifact, put that previous_artifact's id in revises.", parameters: .object([
             "type": "object", "properties": .object(["title": .object(["type": "string"]), "format": .object(["type": "string", "enum": .array(Self.artifactFormats.map { .string($0) })]), "content": .object(["type": "string"]),
                                                      "revises": .object(["type": "string", "description": "id of the previous_artifact this revises; omit for a new artifact"])]),
             "required": .array(["title", "format", "content"]), "additionalProperties": false,
