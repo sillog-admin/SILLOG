@@ -3824,8 +3824,10 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       cv.setPointerCapture(e.pointerId);
     });
     const endDrag = () => { if (drag) { wasDrag = drag.moved; drag = null; cv.style.cursor = 'grab'; } };
-    cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+    let lastPt = null;   // click coordinates are whole pixels while pointer ones keep the fraction, so a click at a dot's edge would miss what the hover showed
+    cv.addEventListener('pointerup', e => { lastPt = { clientX: e.clientX, clientY: e.clientY }; endDrag(); }); cv.addEventListener('pointercancel', endDrag);
     cv.addEventListener('pointermove', e => {
+      lastPt = { clientX: e.clientX, clientY: e.clientY };
       if (drag) {
         if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 3) { drag.moved = true; on = null; hs = null; tip.hidden = true; cv.style.cursor = 'grabbing'; visSync(); }
         if (drag.moved) { pan.x -= (e.clientX - drag.lx) / zc.k; pan.y -= (e.clientY - drag.ly) / zc.k; clampPan(); if (reduce) draw(0); }
@@ -3850,7 +3852,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     const solDesc = o => !o ? null : o.r ? { task: o.r.t.id } : o.kind === 'th' ? { theme: o.g.id } : o.kind === 'ty' ? { type: o.name } : o.it ? { item: o.it.k, name: o.it.name, tids: o.uid } : null;
     cv.addEventListener('click', e => {   // 누르면 선택(고정)과 확대, 같은 것을 다시 누르거나 빈 곳을 누르면 푼다. 누른 것의 상세도 연다 (업무는 업무 상세)
       if (wasDrag) { wasDrag = false; return; }   // 끌기를 마친 놓기는 누르기가 아니다
-      const o = hitAt(e)[0];   // 누른 자리에서 다시 구한다 (올림은 캡처를 놓을 때 지워질 수 있다)
+      const o = hitAt(lastPt && Math.abs(lastPt.clientX - e.clientX) < 1 && Math.abs(lastPt.clientY - e.clientY) < 1 ? lastPt : e)[0];   // re-hit at the click spot since the hover can be cleared when capture is released
       if (o && o.r) { pick(sel && sel.r === o.r ? null : { r: o.r }); openDetail(o.r.t.id); }
       else if (o && o.kind) { pick(sel === o ? null : o); if (o.kind !== 'root') showNode(solDesc(o)); }
       else if (o && o.uid) { if (o.uid.length === 1) pick({ r: byRow.get(o.uid[0]) }); showNode(solDesc(o)); }   // 혼자 쓰는 자료는 그 업무를 고른 채로

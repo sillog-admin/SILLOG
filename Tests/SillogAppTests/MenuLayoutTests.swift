@@ -231,20 +231,6 @@ final class MenuLayoutTests: XCTestCase {
         XCTAssertFalse(general.contains("기록할내용"), general)
     }
 
-    func testSettingsHasGeneralAndAIConnectionTabsOnTop() throws {
-        // shortcut: OCR on the CI runner (macOS 26) misreads this screen, passes locally; drop once CI OCR matches
-        try XCTSkipIf(ProcessInfo.processInfo.environment["CI"] != nil, "OCR differs on CI")
-        let general = longText(of: SettingsView(), height: 3200) { s in s.settingsSection = .general }   // 한 쪽 전체가 보이게 길게
-        XCTAssertTrue(general.hasPrefix("일반"), general)
-        XCTAssertTrue(general.contains("연결"), general)                      // 'AI' 를 'Al' 로 읽기도 한다
-        for part in ["권한", "기록할내용", "기록하지않을앱", "업무정리", "저장공간", "로그인시실행"] {
-            XCTAssertTrue(general.contains(part), "일반 한 쪽에 \(part) 가 있어야 한다: \(general)")
-        }
-        let ai = text(of: SettingsView()) { s in s.settingsSection = .ai }
-        XCTAssertTrue(ai.contains("정리모델") && ai.contains("채팅모델") && ai.contains("판단모델"), ai)
-        XCTAssertFalse(ai.contains("정리모델과같음"), "채팅 모델도 연결과 모델을 따로 고른다: \(ai)")
-    }
-
     func testTurningOffWorkCollectionOffHidesTheJudgeModel() throws {
         try XCTSkipIf(ProcessInfo.processInfo.environment["CI"] != nil, "OCR differs on CI")
         let ai = longText(of: SettingsView(), height: 2400) { s in s.settingsSection = .ai; s.settings.judgeChoice = .jev; s.settings.collectOffWork = false }

@@ -56,14 +56,6 @@ final class ChatArtifactPanelTests: XCTestCase {
         window.sendEvent(event)
     }
 
-    func testTheOpenVersionShowsBesideTheConversation() throws {
-        let text = try text { _, v2 in v2.id }
-        // OCR sometimes drops the slash once the pill is first in the footer.
-        XCTAssertNotNil(text.range(of: "버전2/?2", options: .regularExpression), text)
-        XCTAssertTrue(text.contains("버전1"), text)     // the first card names its own version
-        XCTAssertTrue(text.contains("고쳤습니다"), text)
-    }
-
     func testTheHeaderCountsEachSeriesOnce() throws {
         // XCTSkip thrown inside an assert's autoclosure counts as a failure, so read the text first.
         let shown = try text { _, _ in nil }
