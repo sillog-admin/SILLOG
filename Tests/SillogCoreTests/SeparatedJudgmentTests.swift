@@ -97,6 +97,28 @@ final class SeparatedJudgmentTests: XCTestCase {
         }
     }
 
+    func testWithNoGoalsAGoalNameFromTheGPTJudgeIsNew() async throws {
+        let judge = StubLLM([.success(#"{"rows":[{"row":1,"choice":"SILLOG","reason":"r"},{"row":2,"choice":"off","reason":"r"}]}"#)])
+        let state = try await StagedPipeline.decideSeparately(JudgeInput(rows: Array(Fixtures.frontendRows().prefix(2)), openTasks: [], now: 1_000_000), using: .gpt(judge))
+        XCTAssertEqual(state.input.rows.map(\.row), [1, 2])
+        XCTAssertEqual(state.verdicts[1]?.kind, .work)
+        XCTAssertNil(state.assignment.rows[1], "named later as new work")
+    }
+
+    func testOrganizerSlipsKeepTheFirstGroupAndDeferFromTheDroppedRow() async throws {
+        let judge = StubLLM([.success(#"{"rows":[{"row":1,"choice":"new","reason":"r"},{"row":2,"choice":"new","reason":"r"},{"row":3,"choice":"new","reason":"r"}]}"#)])
+        let decided = try await StagedPipeline.decideSeparately(JudgeInput(rows: Array(Fixtures.frontendRows().prefix(3)), openTasks: [], now: 1_000_000), using: .gpt(judge))
+        let organizer = StubLLM([
+            .success(#"{"tasks":[{"rows":[1,2],"title":"카드","goal":"카드 구현"},{"rows":[2],"title":"중복","goal":"중복"}]}"#),
+            .success(#"{"resources":[],"work":[],"problems":[],"later_items":[]}"#),
+        ])
+        let state = try await StagedPipeline.organizeDecisions(decided, llm: organizer)
+        XCTAssertEqual(state.input.rows.map(\.row), [1, 2], "row 3 was left out, so it waits for the next batch")
+        let patch = StagedPipeline.patch(from: state)
+        XCTAssertEqual(patch.tasks.map(\.title), ["카드"])
+        XCTAssertEqual(patch.rows.map(\.task), ["new-1", "new-1"])
+    }
+
     func testStateTextIsClipped() {
         var row = Fixtures.frontendRows()[0]
         row.snippet = String(repeating: "가", count: 30_000)

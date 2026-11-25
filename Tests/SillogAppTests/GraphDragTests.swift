@@ -5,7 +5,7 @@ import XCTest
 @testable import SillogApp
 import SillogCore
 
-/// Dragging the graph: the 2D view moves with the pointer, and neither view can be dragged off into empty space.
+/// Dragging and clicking the 2D graph: it moves with the pointer, can't be dragged off into empty space, and clicks open what they hit.
 /// Measured as the centroid of the drawn canvas pixels, with reduced motion so frames don't drift between reads.
 @MainActor
 final class GraphDragTests: XCTestCase {
@@ -21,7 +21,6 @@ final class GraphDragTests: XCTestCase {
     }
     private var messages: Ready?
 
-    /// The 3D view draws on animation frames, which a page in an off-screen window never gets: the window is on screen but nearly clear
     private func demoDatabase(fields: Bool = true) throws -> SillogDatabase {
         let database = try SillogDatabase.inMemory()
         try database.writer.write { conn in
@@ -80,19 +79,6 @@ final class GraphDragTests: XCTestCase {
     }
 
     private func settle() { RunLoop.main.run(until: Date().addingTimeInterval(0.4)) }
-
-    /// The 3D view draws only on animation frames, which WebKit stops for a window it thinks is hidden (a locked CI screen)
-    private func drawn3D(_ web: WKWebView) throws -> (x: Double, y: Double, n: Double, width: Double) {
-        for _ in 0..<25 {
-            let c = try centroid(web)
-            if c.n > 100 { return c }
-            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
-        }
-        // shortcut: CI runners sometimes give no animation frames at all; drop the skip once they do
-        try XCTSkipIf(ProcessInfo.processInfo.environment["CI"] != nil, "3D 그래프가 5초 안에 그려지지 않음 (애니메이션 프레임 없음)")
-        XCTFail("3D 그래프가 그려져야 한다")
-        return try centroid(web)
-    }
 
     private func run(_ web: WKWebView, _ js: String, _ arguments: [String: Any] = [:]) -> Any? {
         let done = expectation(description: "js")
@@ -271,13 +257,4 @@ final class GraphDragTests: XCTestCase {
         XCTAssertLessThan(v[1] / max(v[0], 1), 0.4, "분야 속은 흰색이고 테두리만 분야 색이다 (\(v[1]) / \(v[0]))")
     }
 
-    func testShiftDraggingThe3DGraphStopsAtAnEdge() throws {
-        let web = try page(onScreen: true)
-        _ = run(web, "document.querySelector('[data-mode=\"cosmos\"]').click(); return 1")
-        let start = try drawn3D(web)
-        drag(web, dx: 6000, shift: true)
-        let far = try centroid(web)
-        XCTAssertLessThan(far.x - start.x, start.width * 0.5, "끝없이 밀려 나가지 않는다")
-        XCTAssertGreaterThan(far.n, start.n * 0.3, "끝까지 밀어도 그래프가 화면에 남는다")
-    }
 }

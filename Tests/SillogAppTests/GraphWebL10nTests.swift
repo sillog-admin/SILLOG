@@ -35,11 +35,13 @@ final class GraphWebL10nTests: XCTestCase {
 
         let translated = expectation(description: "translated")
         var texts: [String] = []
-        web.callAsyncJavaScript("return [slT('업무 3개, 2시간 40분'), slT('업무 2'), slT('학업')]", arguments: [:], in: nil, in: .page) { result in
+        // The last three are 2D tooltip lines: a field name joined to a duration or a count, where the first matching pattern split the name.
+        web.callAsyncJavaScript("return [slT('업무 3개, 2시간 40분'), slT('업무 2'), slT('학업'), slT('학업, 3시간 29분'), slT('취업 준비, 48분'), slT('직장 업무 2개, 4%')]",
+                                arguments: [:], in: nil, in: .page) { result in
             texts = (try? result.get()) as? [String] ?? []
             translated.fulfill()
         }
         wait(for: [translated], timeout: 10)
-        XCTAssertEqual(texts, ["3 tasks, 2 h 40 min", "Tasks 2", "Studies"])
+        XCTAssertEqual(texts, ["3 tasks, 2 h 40 min", "Tasks 2", "Studies", "Studies, 3 h 29 min", "Job search, 48 min", "Work 2, 4%"])
     }
 }

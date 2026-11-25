@@ -48,17 +48,20 @@ public actor OntologyBatcher {
     private var config: BatchConfig
     private let home: String
     private let fileExists: @Sendable (String) -> Bool
+    private let loadImage: @Sendable (String) throws -> Data?
     private let clock: @Sendable () -> Double
 
     private var isRunning = false
     private var failures = 0
     private var nextAllowedAt = 0.0
+    private var redactionFailures = 0
 
     public init(db: SillogDatabase, llm: any LLMClient, config: BatchConfig = BatchConfig(), activityJudge: ActivityJudging? = nil, home: String = NSHomeDirectory(),
                 fileExists: @escaping @Sendable (String) -> Bool = { FileManager.default.fileExists(atPath: $0) },
+                loadImage: @escaping @Sendable (String) throws -> Data? = { try CardMaker.loadImage(path: $0) },
                 clock: @escaping @Sendable () -> Double = { Date().timeIntervalSince1970 }) {
         self.db = db; self.store = EventStore(db); self.llm = llm; self.config = config; self.activityJudge = activityJudge
-        self.home = home; self.fileExists = fileExists; self.clock = clock
+        self.home = home; self.fileExists = fileExists; self.loadImage = loadImage; self.clock = clock
     }
 
     public func setScreenCards(_ enabled: Bool) { config.screenCards = enabled }
@@ -137,15 +140,16 @@ public actor OntologyBatcher {
                 acceptedRows = accepted.input.rows
                 // 정리 모델에는 판단이 완료된 행의 화면만 보낸다.
                 if config.screenCards, let vision = organizer as? any VisionLLMClient {
-                    cards = await makeCards(rows: acceptedRows, window: window, llm: vision, now: now)
+                    cards = try await makeCards(rows: acceptedRows, window: window, llm: vision, now: now)
                 }
                 accepted.input.cards = cards
                 let organized = try await StagedPipeline.organizeDecisions(accepted, llm: organizer)
+                acceptedRows = organized.input.rows
                 judgment = Judgment(patch: StagedPipeline.patch(from: organized), calls: organized.calls, failure: nil, fallbackModel: model)
             } else {
                 // No judge: the CLI, evals, and the app with off-work collection turned off.
                 if config.screenCards, let vision = organizer as? any VisionLLMClient {
-                    cards = await makeCards(rows: rows, window: window, llm: vision, now: now)
+                    cards = try await makeCards(rows: rows, window: window, llm: vision, now: now)
                 }
                 judgment = try await judge(rows: rows, openTasks: openTasks, cards: cards, now: now)
             }
@@ -311,8 +315,10 @@ public actor OntologyBatcher {
         }
     }
 
-    /// 대표 화면을 골라 카드를 만들거나(같은 화면이면 재사용) 행에 연결한다. 행 번호 → 카드
-    private func makeCards(rows: [ActivityRow], window: [Observation], llm: any VisionLLMClient, now: Double) async -> [Int: [ScreenCard]] {
+    /// Args: rows and window are this batch's rows and observations.
+    /// Returns: row number → the cards of its screens, made fresh or reused from the same screen.
+    /// Raises: ImageRedactor.Failure when screenshots cannot be read for masking, until two batches in a row have failed that way.
+    private func makeCards(rows: [ActivityRow], window: [Observation], llm: any VisionLLMClient, now: Double) async throws -> [Int: [ScreenCard]] {
         var shots: [Int64: KeyframeSelector.Shot] = [:]
         for observation in window {
             guard let id = observation.id, let path = observation.screenshotPath, let hash = observation.screenHash, fileExists(path) else { continue }
@@ -353,12 +359,17 @@ public actor OntologyBatcher {
         var made: [(group: KeyframeSelector.Group, draft: CardMaker.Draft)] = []
         if !toSend.isEmpty {
             do {
-                let (drafts, result) = try await CardMaker.make(toSend, llm: llm)
+                let (drafts, result) = try await CardMaker.make(toSend, llm: llm, load: loadImage)
                 for (index, draft) in drafts.enumerated() { if let draft { made.append((toSend[index], draft)) } }
                 if let result { AppLog.write("화면 카드 \(made.count)/\(toSend.count)장 (재사용 \(reused.count)) 토큰 \(result.promptTokens)+\(result.completionTokens)") }
+            } catch let error as ImageRedactor.Failure where redactionFailures < 2 {
+                // Vision fails for a while and then recovers, so the rows wait for a later batch instead of losing their cards.
+                redactionFailures += 1
+                throw error
             } catch {
                 AppLog.write("화면 카드 실패 (카드 없이 계속): \(String(describing: error).prefix(200))")
             }
+            redactionFailures = 0
         }
 
         let madeFinal = made

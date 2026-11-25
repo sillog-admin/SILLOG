@@ -275,7 +275,7 @@ func judgeOnce(_ input: JudgeInput, pipeline: BatchPipeline, client: any LLMClie
             state.input.cards = input.cards.filter { accepted.contains($0.key) }
             let organized = try await StagedPipeline.organizeDecisions(state, llm: client)
             // The app judges deferred rows again on its next batch, so the scorer retries instead of scoring them.
-            let deferred = input.rows.count - state.input.rows.count
+            let deferred = input.rows.count - organized.input.rows.count
             return (StagedPipeline.patch(from: organized), organized.calls.count, deferred > 0 ? "판단 모델이 행 \(deferred)개를 미룸" : nil, deferred > 0, organized.calls)
         } catch let error as PipelineError {
             if case .stageFailed(_, let underlying, _) = error { return (nil, error.calls.count, error.description, transient(underlying), error.calls) }
@@ -910,7 +910,7 @@ do {
                                        shots: [KeyframeSelector.Shot(observationId: 0, ts: card.tsStart, path: card.screenshotPath!, hash: UInt64(bitPattern: card.screenHash))],
                                        seconds: card.tsEnd - card.tsStart, rows: [], observationIds: [], start: card.tsStart, end: card.tsEnd)
             }
-            let (drafts, result) = try await CardMaker.make(groups, llm: vision) { CardMaker.loadImage(path: $0, maxWidth: width) }
+            let (drafts, result) = try await CardMaker.make(groups, llm: vision) { try CardMaker.loadImage(path: $0, maxWidth: width) }
             try await db.writer.write { conn in
                 for (index, draft) in drafts.enumerated() {
                     guard let draft, let id = chunk[index].id else { continue }

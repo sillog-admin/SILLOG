@@ -82,7 +82,9 @@ extension StagedPipeline {
             state.calls.append(record("assign", system: choiceRules, user: user, result))
             let output = try? JSONDecoder().decode(Decisions.self, from: result.arguments)
             for (id, answers) in Dictionary(grouping: output?.rows ?? [], by: \.row) where rowIDs.contains(id) && answers.count == 1 {
-                let answer = answers[0]
+                var answer = answers[0]
+                // With no goals listed, the GPT judge sometimes answers with the goal it sees instead of new.
+                if ids.isEmpty, !answer.choice.isEmpty, !special.contains(answer.choice) { answer = Decision(row: id, choice: "new", reason: answer.reason) }
                 if ids.contains(answer.choice) || special.contains(answer.choice) { selected[id] = answer }
             }
         case .choice(let client):
@@ -186,8 +188,8 @@ extension StagedPipeline {
 
     /// Names new tasks from decided rows, then runs the shared describe stage.
     /// Args: state from `decideSeparately`, with cards for its accepted rows.
-    /// Returns: state ready for `patch(from:)`.
-    /// Raises: `PipelineError.incomplete` when the organizer drops rows, `PipelineError.stageFailed` when an organizer call fails.
+    /// Returns: state ready for `patch(from:)`; `input.rows` stops before the first row the organizer left out.
+    /// Raises: `PipelineError.incomplete` when the organizer leaves out the first row, `PipelineError.stageFailed` when an organizer call fails.
     public static func organizeDecisions(_ judgment: JudgeState, llm: any LLMClient) async throws -> JudgeState {
         var state = judgment
         let fresh = state.unassigned
@@ -198,17 +200,30 @@ extension StagedPipeline {
             state.calls.append(record("describe-new", system: system, user: user, result))
             let expected = Set(fresh.map(\.row))
             let tasks = (try? JSONDecoder().decode(NewTasks.self, from: result.arguments))?.tasks ?? []
-            let returned = tasks.flatMap(\.rows)
-            guard Set(returned) == expected, returned.count == expected.count,
-                  tasks.allSatisfy({ !$0.rows.isEmpty && !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else {
-                throw PipelineError.incomplete(stage: "새 업무 이름 정리", missing: fresh.map(\.row), calls: state.calls)
+            // The organizer sometimes puts a row in two groups or leaves one out: the first group wins,
+            // and rows from the first left-out one wait for the next batch, as undecided judge rows do.
+            var owner: [Int: Int] = [:]
+            var groups = Array(repeating: [Int](), count: tasks.count)
+            for (index, task) in tasks.enumerated() where !task.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                for id in task.rows where expected.contains(id) && owner[id] == nil {
+                    owner[id] = index
+                    groups[index].append(id)
+                }
             }
+            if let gap = fresh.first(where: { owner[$0.row] == nil }) {
+                let kept = state.input.rows.prefix { $0.row != gap.row }
+                if kept.isEmpty { throw PipelineError.incomplete(stage: "새 업무 이름 정리", missing: fresh.map(\.row), calls: state.calls) }
+                state.input.rows = Array(kept)
+            }
+            let keptIDs = Set(state.input.rows.map(\.row))
             for (index, task) in tasks.enumerated() {
+                let rows = groups[index].filter(keptIDs.contains)
+                guard !rows.isEmpty else { continue }
                 let ref = "new-\(index + 1)"
                 var named = AssignmentPatch.TaskDef(ref: ref, match: "new", title: task.title)
                 named.goal = task.goal
                 state.assignment.tasks.append(named)
-                for id in task.rows { state.assignment.rows[id] = .init(task: ref, reason: state.verdicts[id]?.reason ?? "") }
+                for id in rows { state.assignment.rows[id] = .init(task: ref, reason: state.verdicts[id]?.reason ?? "") }
             }
         }
         if !state.assignedRows.isEmpty { state = try await describe(state, llm) }
