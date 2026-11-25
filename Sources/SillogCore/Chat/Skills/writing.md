@@ -14,22 +14,22 @@ Turn the user's records and materials into a finished document (status report, p
 
    Work that an AI coding tool, a background agent, or a teammate did is not the user's contribution unless the records show the user's authorship. When the evidence stops below what the sentence needs, lower the wording ("구현 중", "요청함") or leave [확인 필요: …]; don't round up.
 4. **Use the structure the document type calls for**, unless the user's template says otherwise:
-   - Status update: one-line status, progress since the last update, problems and risks with how long each has been open, next steps, decisions needed. Readable in under a minute; numbers where they exist.
+   - Status update: one-line status, progress since the last update with the time spent on it, problems and risks with how long each has been open, next steps, decisions needed. Readable in under a minute; numbers where they exist.
    - Proposal: the problem with evidence, the proposal, alternatives considered and why not, cost and effort as stated assumptions, risks, and the specific ask.
-   - Portfolio entry: context, the user's role, what the user did, verified results, what they learned. Keep team outcomes and personal contribution in separate sentences. When the request contains "포트폴리오", add the visuals described under "Portfolios," always including the workflow over time when the records trace it.
+   - Portfolio entry: context, the user's role, what the user did, verified results, what they learned. Keep team outcomes and personal contribution in separate sentences. When the request contains "포트폴리오", follow "Portfolios": research each project in its order first (every session in date order, the materials' own text, each problem with what the user searched and what fixed it, the AI tools used, and coding practice for a developer), then put the figures, with each project's timeline and flow chart, in an html artifact and this text in the chat reply, with each project's dates and time spent.
    - Retrospective: what happened in order, with dates and how long each phase took, what worked, what didn't and why, and one change for next time with a way to tell whether it worked.
 5. **Draft long documents in sections.** For anything longer than a few pages, fix the outline first, write the section with the most open questions first, and write the summary last, once the body is settled. When the user asks for changes, change what they asked for and keep the rest of the text as it was.
 6. **Test the draft as its reader would.** Before delivering, list the five questions the reader is most likely to ask and check that the document alone answers them. Check that numbers, dates, and statuses agree with each other and with their sources. Remove any sentence whose removal loses nothing.
 7. **Do a privacy pass when the document leaves the user.** For anything written for others, remove unrelated activity, internal URLs, email addresses, other people's private messages, and anything that looks like a credential; refer to people outside the reader's circle by role.
 
 ## Output
-A document to keep, submit, or share goes into create_artifact (markdown by default, html when layout matters). A short message or email the user will paste elsewhere stays in chat. After creating the artifact, tell the user in a few lines what still needs their check: open [확인 필요] items, assumptions you made, and claims that rest only on AI summaries.
+A document to keep, submit, or share goes into create_artifact (markdown by default, html when layout matters). A short message or email the user will paste elsewhere stays in chat. A portfolio is split: its figures go in an html artifact and its text in chat, as "Portfolios" describes. After creating the artifact, tell the user in a few lines what still needs their check: open [확인 필요] items, assumptions you made, and claims that rest only on AI summaries.
 
 ## Definition of done
 - The reader's status, decision, or next action is in the opening lines.
 - Every statement of completion or contribution matches its evidence level; no invented owners, dates, numbers, or quotes.
 - Structure, length, and required sections match the request, the form, or the user's earlier documents.
 - The five reader questions are answered by the document itself, and its numbers agree throughout.
-- Dates, durations, and the order of events match the records, and the scope line gives the period and the latest record used.
+- Dates, durations, time spent, and the order of events match the records, and the scope line gives the period and the latest record used.
 - A document for others contains no unrelated or personal activity.
-- A portfolio carries every visual the records support, including the workflow over time whenever the records trace it.
+- A portfolio rests on every session, material, problem, and AI request of its projects, not on task summaries alone; its figures include each project's timeline and flow chart, the problem-solving flow, and the time spent; its text in chat tells what the user searched and how each problem was solved and names the figure for each part; and for a developer it includes coding practice, counting only passing verdicts as solved.

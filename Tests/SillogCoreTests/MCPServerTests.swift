@@ -102,6 +102,28 @@ final class MCPServerTests: XCTestCase {
         XCTAssertEqual(tasks, "[]")
     }
 
+    // The in-app chat gets the same graph tools as MCP clients, and what it follows can be cited
+    func testChatListsSessionsAndFollowsATaskToItsMaterials() async throws {
+        let db = try SillogDatabase.inMemory()
+        let task = try await db.writer.write { conn -> Int64 in
+            let tx = GraphTx(conn)
+            let task = try tx.upsertNode(label: NodeLabel.task, key: "t", subtype: nil, title: "전환", props: [:], at: 1_000)
+            let session = try tx.upsertNode(label: NodeLabel.session, key: "s", subtype: nil, title: "세션", props: ["start": .number(1_000), "end": .number(2_000)], at: 1_000)
+            let doc = try tx.upsertNode(label: NodeLabel.resource, key: "https://doc", subtype: nil, title: "결정 문서", props: [:], at: 1_000)
+            _ = try tx.upsertEdge(src: session, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: 1_000)
+            _ = try tx.upsertEdge(src: session, dst: doc, type: EdgeType.touched, props: [:], addWeight: 0, at: 1_000)
+            return task
+        }
+        let tools = ChatTools(db: db, scope: .init())
+        XCTAssertTrue(["list_items", "get_related"].allSatisfy { name in tools.specs.contains { $0.name == name } })
+        let sessions = try await tools.execute(.init(id: "a", name: "list_items", arguments: #"{"type":"session","from":"","to":""}"#))
+        XCTAssertEqual(sessions.sources.map(\.location), ["s"])
+        XCTAssertTrue(sessions.text.contains("결정 문서"), "a session lists the material it touched")
+        let related = try await tools.execute(.init(id: "b", name: "get_related", arguments: "{\"id\":\"node:\(task)\",\"hops\":\"2\"}"))
+        XCTAssertTrue(related.text.contains("| Resource | 결정 문서 |"), "two hops reach the material through the session")
+        XCTAssertTrue(related.sources.contains { $0.title == "Resource · 결정 문서" })
+    }
+
     func testListItemsSaysWhenOlderItemsAreLeftOut() async throws {
         let db = try SillogDatabase.inMemory()
         try await db.writer.write { conn in

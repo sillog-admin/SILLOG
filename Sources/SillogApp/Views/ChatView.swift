@@ -704,7 +704,7 @@ struct ChatView: View {
             let revealed = hoveredMessageID == message.id || focusedActions == message.id || chat.messages.last?.id == message.id || message.status == "running"
             VStack(alignment: .leading, spacing: 12) {
                 let picked = chat.skills.filter { chat.current.skillIDs.contains($0.id) }
-                if !picked.isEmpty { HStack(spacing: 4) { ForEach(picked, id: \.id) { BrandBadge($0.title) } } }
+                if !picked.isEmpty { HStack(spacing: 4) { ForEach(picked, id: \.id) { BrandBadge($0.displayTitle) } } }
                 if shown.status == "running" || !shown.steps.isEmpty || !(shown.trace ?? []).isEmpty {
                     ChatWorkLog(message: shown, isExpanded: Binding(
                         get: { message.status == "running" ? !collapsedSteps.contains(message.id) : expandedSteps.contains(message.id) },

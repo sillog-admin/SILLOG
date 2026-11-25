@@ -435,9 +435,9 @@ public struct ChatRunner: Sendable {
         if let role {
             var names: Set<String>
             switch role {
-            case "context": names = ["search_context", "read_context", "summarize_period"]
+            case "context": names = ["search_context", "read_context", "list_items", "get_related", "summarize_period"]
             case "repository": names = ["search_library", "read_library", "list_files", "read_file", "inspect_repository", "read_revision", "github_search", "github_read", "github_list", "drive_search", "drive_read", "notion_search", "notion_read", "notion_tools"]
-            case "research": names = ["search_context", "read_context", "summarize_period", "search_library", "read_library", "list_files", "read_file", "web_search", "web_read", "drive_search", "drive_read", "notion_search", "notion_read"]
+            case "research": names = ["search_context", "read_context", "list_items", "get_related", "summarize_period", "search_library", "read_library", "list_files", "read_file", "web_search", "web_read", "drive_search", "drive_read", "notion_search", "notion_read"]
             default: return specs
             }
             if role == "research" {
@@ -452,7 +452,7 @@ public struct ChatRunner: Sendable {
                 "required": .array(["role", "task"]), "additionalProperties": false,
             ])])]), "required": .array(["tasks"]), "additionalProperties": false,
         ])))
-        specs.append(.init(name: "create_artifact", description: "Creates an artifact the user can save. Choose the format that fits the request. Make HTML self-contained, with no scripts or external resources. Write content as Markdown for docx, as Markdown with a # heading and - items for each slide for pptx, and as CSV with a header row for xlsx. If it revises an earlier artifact, put that previous_artifact's id in revises.", parameters: .object([
+        specs.append(.init(name: "create_artifact", description: "Creates an artifact the user can save. Choose the format that fits the request. Make HTML self-contained, with no scripts or external resources. Write HTML slides as <section class=\"slide\"> elements sized in em, where 1em is 20px of a 960px-wide slide, which SILLOG shows at 16:9. Write content as Markdown for docx, as Markdown with a # heading and - items for each slide for pptx, and as CSV with a header row for xlsx. If it revises an earlier artifact, put that previous_artifact's id in revises.", parameters: .object([
             "type": "object", "properties": .object(["title": .object(["type": "string"]), "format": .object(["type": "string", "enum": .array(Self.artifactFormats.map { .string($0) })]), "content": .object(["type": "string"]),
                                                      "revises": .object(["type": "string", "description": "id of the previous_artifact this revises; omit for a new artifact"])]),
             "required": .array(["title", "format", "content"]), "additionalProperties": false,
@@ -498,7 +498,7 @@ public struct ChatRunner: Sendable {
     private static func roleTitle(_ role: String) -> String { roleTitles[role] ?? role }
 
     static let roleTitles = ["context": "활동 조사", "repository": "코드·문서 조사", "research": "자료 조사", "review": "근거 검토"]
-    static let toolTitles = ["search_context": "기록 검색", "read_context": "기록 상세 확인", "summarize_period": "기간 집계", "search_library": "보관 자료 검색", "read_library": "보관 자료 읽기", "list_files": "파일 찾기", "read_file": "파일 읽기", "inspect_repository": "Git 이력 확인", "read_revision": "커밋 파일 확인", "github_search": "GitHub 저장소 검색", "github_read": "GitHub 확인", "github_list": "GitHub 파일 목록", "drive_search": "Drive 검색", "drive_read": "Drive 읽기", "notion_search": "Notion 검색", "notion_read": "Notion 읽기", "web_search": "웹 검색", "web_read": "웹 원문 확인", "delegate": "작업 분담", "create_artifact": "결과물 생성", "propose_automation": "예약안 작성"]
+    static let toolTitles = ["search_context": "기록 검색", "read_context": "기록 상세 확인", "list_items": "기록 목록", "get_related": "연결 따라가기", "summarize_period": "기간 집계", "search_library": "보관 자료 검색", "read_library": "보관 자료 읽기", "list_files": "파일 찾기", "read_file": "파일 읽기", "inspect_repository": "Git 이력 확인", "read_revision": "커밋 파일 확인", "github_search": "GitHub 저장소 검색", "github_read": "GitHub 확인", "github_list": "GitHub 파일 목록", "drive_search": "Drive 검색", "drive_read": "Drive 읽기", "notion_search": "Notion 검색", "notion_read": "Notion 읽기", "web_search": "웹 검색", "web_read": "웹 원문 확인", "delegate": "작업 분담", "create_artifact": "결과물 생성", "propose_automation": "예약안 작성"]
 
     /// Args: title is a stored step title such as "활동 조사 · 기록 검색" or "Slack 읽기".
     /// Returns: the title in the app language, a part repeating the one before it dropped. Titles are saved in Korean, so old answers follow a language change too.

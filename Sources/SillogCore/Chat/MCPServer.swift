@@ -140,17 +140,9 @@ public struct MCPServer: Sendable {
         case "summarize_period":
             return try await run("summarize_period", ["from": text("from"), "to": text("to"), "task": text("task")]).text
         case "list_items":
-            guard let type = ItemType(rawValue: text("type")) else {
-                throw ChatToolError.unavailable(tr("type은 \(ItemType.allCases.map(\.rawValue).joined(separator: ", ")) 중 하나로 지정하세요."))
-            }
-            let from = try ChatTools.date(text("from"), fallback: 0)
-            let to = try ChatTools.date(text("to"), fallback: Date().timeIntervalSince1970, endOfDay: true)
-            // One extra row tells whether older items were left out.
-            let items = try tools.search.nodes(label: type.label, from: from, to: to, limit: Self.maxItems + 1)
-            let note = items.count > Self.maxItems ? "\n[Showed only the latest \(Self.maxItems). For earlier items, set `to` to an earlier date.]" : ""
-            return try ChatTools.output(Array(items.suffix(Self.maxItems))).text + note
+            return try await run("list_items", ["type": text("type"), "from": text("from"), "to": text("to")]).text
         case "get_related":
-            return Self.describe(try tools.search.related(text("id"), hops: Int(text("hops", "1")) ?? 1))
+            return try await run("get_related", ["id": text("id"), "hops": text("hops", "1")]).text
         default:
             throw ChatToolError.unavailable(tr("알 수 없는 도구입니다."))
         }

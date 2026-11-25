@@ -11,21 +11,32 @@ public enum ChatArtifactHTML {
                 .replacingOccurrences(of: "(?is)<script\\b[^>]*>.*?</script\\s*>", with: "", options: .regularExpression)
                 .replacingOccurrences(of: "(?is)<(?:meta|base|link)\\b[^>]*>", with: "", options: .regularExpression)
         } else if artifact.format == "markdown" || artifact.format == "docx" { body = markdown(artifact.content) }
-        // Slides mirror OfficeFile.pptx: 16:9 with its text insets, 32pt title and 20pt body on a 960pt-wide slide; long slides grow taller so the PDF export keeps all text.
-        // Numbers come from data-n because container-type scopes CSS counters to each slide.
+        // Slides mirror OfficeFile.pptx: 16:9 with its text insets, 32pt title and 20pt body on a 960pt-wide slide.
+        // 1em is 1/48 of the slide width at any panel width, so a slide that fits once fits everywhere; one that overflows grows taller instead of clipping or overlapping.
+        // The frame is !important because model-written HTML slides would otherwise restyle it.
+        // A deck that declares its own slide width in em (13.333em: PowerPoint's inches) sized its text on that scale, so 1em follows it.
         else if artifact.format == "pptx" { body = OfficeFile.slides(artifact.content).enumerated().map { #"<section class="slide" data-n="\#($0.offset + 1)">\#(markdown($0.element))</section>"# }.joined() }
         else if artifact.format == "xlsx" || artifact.format == "csv" {
             body = "<table>" + OfficeFile.csvRows(artifact.content).map { "<tr>" + $0.map { "<td>\(escape($0))</td>" }.joined() + "</tr>" }.joined() + "</table>"
         } else if artifact.format == "json", (try? JSONSerialization.jsonObject(with: Data(artifact.content.utf8), options: .fragmentsAllowed)) != nil {
             body = "<pre>\(escape(reindent(artifact.content)))</pre>"
         } else { body = "<pre>\(escape(artifact.content))</pre>" }
+        let scale = (artifact.format == "html" ? declaredSlideWidth(artifact.content) : nil).map { ".slide{font-size:calc(100cqw / \($0))!important}" } ?? ""
         return """
         <!doctype html><html lang="\(L10n.current.rawValue)"><head><meta charset="utf-8">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
         <meta name="viewport" content="width=device-width, initial-scale=1"><title>\(escape(artifact.title))</title>
-        <style>body{font:14px/1.7 -apple-system,BlinkMacSystemFont,sans-serif;color:#141210;background:#fff;margin:32px 28px;overflow-wrap:anywhere}h1,h2,h3{line-height:1.3}h1{font-size:24px}h2{font-size:18px;margin-top:28px}p{white-space:pre-wrap}pre{white-space:pre-wrap;background:#F6F5F4;padding:16px;border-radius:6px}code{font-family:ui-monospace,monospace}table{border-collapse:collapse;width:100%;margin:20px 0}td,th{border:1px solid #E5E2DF;padding:8px 12px;text-align:left}tr:first-child td{background:#F6F5F4;font-weight:600}blockquote{border-left:3px solid #E5E2DF;margin-left:0;padding-left:16px;color:#736D68}a{color:#265ed4}hr{border:0;border-top:1px solid #E5E2DF;margin:24px 0}.task{list-style:none}.slide{position:relative;box-sizing:border-box;aspect-ratio:16/9;container-type:inline-size;margin:0 0 24px;padding:3.75% 5% 4.7%;border:1px solid #E5E2DF;border-radius:8px;box-shadow:0 1px 4px rgba(20,18,16,.08)}.slide>*{font-size:max(13px,2.1cqw)}.slide>:first-child{margin-top:0}.slide>h1:first-child,.slide>h2:first-child{font-size:max(18px,3.4cqw);margin-bottom:.8em}.slide::after{content:attr(data-n);position:absolute;right:12px;bottom:6px;font-size:11px;color:#A8A29E}@media print{body{margin:0}pre,table{break-inside:avoid}.slide{break-after:page;break-inside:avoid;box-shadow:none}}</style>
+        <style>body{font:14px/1.7 -apple-system,BlinkMacSystemFont,sans-serif;color:#141210;background:#fff;margin:32px 28px;overflow-wrap:anywhere}h1,h2,h3{line-height:1.3}h1{font-size:24px}h2{font-size:18px;margin-top:28px}p{white-space:pre-wrap}pre{white-space:pre-wrap;background:#F6F5F4;padding:16px;border-radius:6px}code{font-family:ui-monospace,monospace}table{border-collapse:collapse;width:100%;margin:20px 0}td,th{border:1px solid #E5E2DF;padding:8px 12px;text-align:left}tr:first-child td{background:#F6F5F4;font-weight:600}blockquote{border-left:3px solid #E5E2DF;margin-left:0;padding-left:16px;color:#736D68}a{color:#265ed4}hr{border:0;border-top:1px solid #E5E2DF;margin:24px 0}.task{list-style:none}:has(>.slide){container-type:inline-size}.slide{position:relative;box-sizing:border-box;width:auto!important;height:auto!important;min-height:auto!important;max-height:none!important;aspect-ratio:16/9!important;overflow:visible!important;margin:0 0 24px;padding:3.75% 5% 4.7%!important;font-size:calc(100cqw / 48)!important;line-height:1.5;border:1px solid #E5E2DF;border-radius:8px;box-shadow:0 1px 4px rgba(20,18,16,.08)}:where(.slide)>:first-child{margin-top:0}:where(.slide) :is(h1,h2){font-size:1.6em;margin:0 0 .6em}:where(.slide) h3{font-size:1.2em;margin:.8em 0 .4em}:where(.slide) p{white-space:normal;margin:.5em 0}:where(.slide) :is(ul,ol){margin:.5em 0;padding-left:1.3em}:where(.slide) table{margin:.6em 0;font-size:.85em}:where(.slide) td{padding:.35em .7em}:where(.slide) pre{font-size:.8em;padding:.8em}:where(.slide) :is(img,svg){max-width:100%;height:auto}.slide::after{content:attr(data-n);position:absolute;right:12px;bottom:6px;font-size:11px;color:#A8A29E}@media print{body{margin:0}pre,table{break-inside:avoid}.slide{break-after:page;break-inside:avoid;box-shadow:none}}\(scale)</style>
         </head><body>\(body)</body></html>
         """
+    }
+
+    /// The slide width a deck sets in em, as in `.slide{width:13.333em}`; nil when it sets none or an implausible one.
+    private static func declaredSlideWidth(_ html: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: #"\.slide\s*\{(?:[^}]*[;\s])?width\s*:\s*([0-9]*\.?[0-9]+)em"#),
+              let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+              let range = Range(match.range(at: 1), in: html), let width = Double(html[range]), (4...100).contains(width) else { return nil }
+        return String(width)
     }
 
     /// Args: text는 이스케이프할 원문이다.

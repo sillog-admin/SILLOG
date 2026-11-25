@@ -23,3 +23,4 @@ Goal and done criteria, current state, the task list (a table with task, done ch
 - Dependencies, capacity, and the deadline are consistent, or the conflict is stated with options.
 - Owners, dates, and costs are marked 확정, 추정, or 미정; nothing undecided is written as decided.
 - The decisions the user must make and the first action are clear.
+- Estimates, capacity, and slips come from the records' time spent and dates, not from assumed hours.
