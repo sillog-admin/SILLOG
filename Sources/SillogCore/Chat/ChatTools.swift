@@ -50,8 +50,10 @@ public struct ChatTools: Sendable {
         var tools: [ToolSpec] = []
         if scope.useActivity || scope.projectID != nil {
             tools += [
-                Self.spec("search_context", "Searches all permitted records of tasks, conversations, outputs and recordings. Project-only records are not read outside their project. Conversations in the current project come first.", ["query": "Key search terms. An empty string returns recent records", "from": "Start date YYYY-MM-DD, or an empty string for no limit", "to": "End date YYYY-MM-DD, or an empty string for no limit"]),
+                Self.spec("search_context", "Searches all permitted records of tasks, conversations, outputs and recordings. Project-only records are not read outside their project. Conversations in the current project come first.", ["query": "One word or a short phrase that appears verbatim in the records, such as a file, project, site or error name. Several words find only records that contain the whole phrase, so search one term at a time and send several searches together. An empty string returns recent records", "from": "Start date YYYY-MM-DD, or an empty string for no limit", "to": "End date YYYY-MM-DD, or an empty string for no limit"]),
                 Self.spec("read_context", "Continues reading the original text of a search result. For a long conversation, read the original text by message ID. For a node: id, returns the node and up to 24 of its most recently updated neighbors; read their node: ids to follow the work graph further.", ["id": "The id from a search result", "start": "For a conversation, the starting message number; for a message or recording, the starting character position. 1 to start from the beginning"]),
+                Self.spec("list_items", "Lists the tasks, sessions, problems or to-dos of a period in chronological order, each with its time, properties and up to 8 linked nodes, such as a session's task, materials and problems, or what resolved a problem. Use it to lay out a project's sessions day by day or to see every problem and to-do of a period. Sessions carry summaries, so list them a few days at a time. Over 100, it returns only the latest 100.", ["type": "task, session, problem or todo", "from": "Start date YYYY-MM-DD, or an empty string for no limit", "to": "End date YYYY-MM-DD (inclusive), or an empty string for no limit"]),
+                Self.spec("get_related", "Follows the work graph from one node, one line per node and one per link: a task's sessions, topics and project, or a session's materials, apps and problems. With hops 2 from a task it also reaches what its sessions touched, such as the materials and problems of the whole task.", ["id": "A node: id from a result", "hops": "1 or 2"]),
                 Self.spec("summarize_period", "Calculates from the usage-time ledger the work time per task, the most-used materials, the app breakdown, and changes in problems and to-dos for a period. Periods whose original text has already been pruned still return the same figures. Compute time and counts for a period with this tool.", ["from": "Start date YYYY-MM-DD", "to": "End date YYYY-MM-DD (inclusive)", "task": "A task key or part of its title. An empty string for all"]),
             ]
         }
@@ -125,6 +127,22 @@ public struct ChatTools: Sendable {
             let to = try Self.date(args["to"] ?? "", fallback: Date().timeIntervalSince1970, endOfDay: true)
             return try Self.output(search.search(query: args["query"] ?? "", from: from, to: to))
         case "read_context": return try Self.output(search.read(args["id"] ?? "", start: Int(args["start"] ?? "1") ?? 1))
+        case "list_items":
+            guard let type = MCPServer.ItemType(rawValue: args["type"] ?? "") else {
+                throw ChatToolError.unavailable(tr("type은 \(MCPServer.ItemType.allCases.map(\.rawValue).joined(separator: ", ")) 중 하나로 지정하세요."))
+            }
+            let from = try Self.date(args["from"] ?? "", fallback: 0)
+            let to = try Self.date(args["to"] ?? "", fallback: Date().timeIntervalSince1970, endOfDay: true)
+            // One extra row tells whether older items were left out.
+            let items = try search.nodes(label: type.label, from: from, to: to, limit: MCPServer.maxItems + 1)
+            var output = try Self.output(Array(items.suffix(MCPServer.maxItems)))
+            if items.count > MCPServer.maxItems { output.text += "\n[Showed only the latest \(MCPServer.maxItems). For earlier items, set `to` to an earlier date.]" }
+            return output
+        case "get_related":
+            let graph = try search.related(args["id"] ?? "", hops: Int(args["hops"] ?? "1") ?? 1)
+            // The nodes become sources so the model can cite what it found here.
+            let sources = graph.nodes.prefix(MCPServer.maxNodes).map { ChatSource(id: "node:\($0.id)", title: "\($0.label) · \($0.title)", location: $0.key, excerpt: "") }
+            return .init(text: MCPServer.describe(graph), sources: Array(sources))
         case "summarize_period":
             let to = try Self.date(args["to"] ?? "", fallback: Date().timeIntervalSince1970, endOfDay: true)
             let from = try Self.date(args["from"] ?? "", fallback: to - 7 * 86_400)
