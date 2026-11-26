@@ -225,7 +225,8 @@ public struct GraphTx {
         var nodes = try Row.fetchAll(db, sql: "SELECT * FROM nodes WHERE id IN (\(list)) ORDER BY id").map(Self.node)
         if !includeTBox { nodes.removeAll { NodeLabel.tbox.contains($0.label) } }
         let kept = Set(nodes.map(\.id))
-        let edges = try Row.fetchAll(db, sql: "SELECT * FROM edges WHERE src IN (\(list)) AND dst IN (\(list)) ORDER BY id")
+        // The unary + keeps SQLite off the (src, dst) index, which it probed once per pair of ids: 30 s for 18,000 nodes
+        let edges = try Row.fetchAll(db, sql: "SELECT * FROM edges WHERE src IN (\(list)) AND +dst IN (\(list)) ORDER BY id")
             .map(Self.edge)
             .filter { kept.contains($0.src) && kept.contains($0.dst) }
         return Subgraph(nodes: nodes, edges: edges)

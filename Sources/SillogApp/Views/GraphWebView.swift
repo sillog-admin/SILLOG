@@ -7,6 +7,8 @@ import SillogCore
 struct GraphWebView: NSViewRepresentable {
     @EnvironmentObject private var state: AppState
     let version: Int
+    /// False while another tab is shown: WebKit stops drawing a hidden page, and data waits until it is shown again
+    var visible = true
     /// 업무 상세 카드가 덮는 오른쪽 폭: 그래프의 머리글과 단추줄이 카드 왼쪽에 오게 비켜 준다
     var cardInset: CGFloat = 0
 
@@ -19,6 +21,7 @@ struct GraphWebView: NSViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.setValue(false, forKey: "drawsBackground")              // 로딩 중 흰 화면 방지
         context.coordinator.webView = webView
+        context.coordinator.watchKeyWindow()
         if let directory = Self.graphDirectory() {
             webView.loadFileURL(directory.appendingPathComponent("index.html"), allowingReadAccessTo: directory.deletingLastPathComponent())   // ../Brand/Fonts 의 SUIT 글꼴도 읽게
         } else {
@@ -28,6 +31,8 @@ struct GraphWebView: NSViewRepresentable {
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
+        webView.isHidden = !visible
+        guard visible else { return }                                   // what changed meanwhile is caught up here when the tab is shown again
         if context.coordinator.pushedVersion != version { context.coordinator.push(version: version) }
         if context.coordinator.inset != cardInset { context.coordinator.inset = cardInset; context.coordinator.pushInset() }
         // 상세 카드를 X 로 닫으면 지금 보기에서 기억한 업무도 지운다(보기를 바꿨다 돌아와도 다시 열리지 않게)
@@ -62,14 +67,36 @@ struct GraphWebView: NSViewRepresentable {
         var sentSel: Int64?
         var inset: CGFloat = 0
         private var ready = false
+        private var sentActive: Bool?
+        private var keyObservers: [NSObjectProtocol] = []
 
         init(state: AppState) { self.state = state }
 
+        deinit { keyObservers.forEach(NotificationCenter.default.removeObserver) }
+
         func push(version: Int) {
-            guard ready, let webView else { return }
+            guard ready, webView != nil else { return }
             pushedVersion = version
-            let json = MainActor.assumeIsolated { state.graphJSON() }
-            webView.callAsyncJavaScript("window.WG.setGraph(JSON.parse(data))", arguments: ["data": json], in: nil, in: .page, completionHandler: nil)
+            Task { @MainActor in
+                let json = await state.graphJSONInBackground()
+                guard pushedVersion == version, let webView else { return }   // a newer version is already on its way
+                webView.callAsyncJavaScript("window.WG.setGraph(JSON.parse(data))", arguments: ["data": json], in: nil, in: .page, completionHandler: nil)
+            }
+        }
+
+        /// The page pauses its idle animation while its window is behind others
+        func watchKeyWindow() {
+            for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
+                keyObservers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.sendActive() })
+            }
+        }
+
+        private func sendActive() {
+            guard ready, let webView else { return }
+            let active = webView.window?.isKeyWindow == true
+            guard active != sentActive else { return }
+            sentActive = active
+            webView.evaluateJavaScript("window.WG && window.WG.setActive && window.WG.setActive(\(active))", completionHandler: nil)
         }
 
         /// 카드가 덮는 폭을 페이지의 --card-inset 으로 (페이지가 다시 뜨면 ready 에서 한 번 더)
@@ -108,6 +135,7 @@ struct GraphWebView: NSViewRepresentable {
                 ready = true
                 push(version: MainActor.assumeIsolated { state.graphVersion })
                 pushInset()
+                sentActive = nil; sendActive()
             case "log":
                 if let message = body["message"] as? String { AppLog.write(message) }
             case "resume":
