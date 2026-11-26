@@ -37,6 +37,25 @@ public struct CodexAppServerClient: Sendable {
         guard text.contains(marker) else { throw ChatToolError.unavailable(tr("Codex 도구 연결 확인에 실패했습니다.")) }
     }
 
+    /// What to do with one tool call Codex makes in a turn.
+    enum ToolTurn: Equatable { case run, notOffered, budgetSpent, runaway }
+
+    /// Tool calls one agent's turn may run. Past it, research stops but the artifact and the answer still get written.
+    static let toolLimit = 48
+    /// A turn that keeps calling after being told the budget is spent is stopped here.
+    static let runawayLimit = 64
+    static let answerTools: Set<String> = ["create_artifact", "propose_automation"]
+    static let budgetSpent = "Tool call skipped: the research budget for this answer is used up. Don't call search or read tools again. Create the artifact now if the request needs one, then write the final answer from what you have gathered, and say which parts you could not check."
+
+    /// Args: count is this call's number in the turn, name the tool, offered the tools this agent has.
+    /// Returns: whether to run it, answer that it isn't offered, answer that the budget is spent, or stop a runaway turn.
+    /// Raises: none.
+    static func decide(count: Int, name: String, offered: [ToolSpec]) -> ToolTurn {
+        if count > runawayLimit { return .runaway }
+        guard offered.contains(where: { $0.name == name }) else { return .notOffered }
+        return count > toolLimit && !answerTools.contains(name) ? .budgetSpent : .run
+    }
+
     /// Args: system·messages는 대화, tools·execute는 허용된 앱 도구, useWeb은 외부 검색 허용, onEvent는 화면 업데이트이다.
     /// Returns: Codex가 완료한 최종 답변.
     /// Raises: CLI 미설치, 인증·프로토콜·실행 오류, 취소.
@@ -82,6 +101,7 @@ public struct CodexAppServerClient: Sendable {
             _ = try await connection.request("turn/start", turn)
             var finalText = ""
             var toolCount = 0
+            var budgetNoticed = false
             var summaries = ReasoningSummaries()
             while let event = try await connection.next() {
                 try Task.checkCancellation()
@@ -92,12 +112,21 @@ public struct CodexAppServerClient: Sendable {
                     switch method {
                     case "item/tool/call":
                         toolCount += 1
-                        guard toolCount <= 32, let name = params["tool"]?.stringValue, tools.contains(where: { $0.name == name }) else {
+                        let name = params["tool"]?.stringValue ?? ""
+                        let output: String
+                        switch Self.decide(count: toolCount, name: name, offered: tools) {
+                        case .runaway:
                             throw ChatToolError.unavailable(tr("Codex의 허용된 도구 실행 범위를 초과했습니다."))
+                        case .notOffered:
+                            output = "Tool call failed: \(name) is not offered here. Use only the listed tools."
+                        case .budgetSpent:
+                            if !budgetNoticed { budgetNoticed = true; await onEvent(.step(tr("조사 예산을 다 써서 지금까지 모은 내용으로 답을 씁니다"))) }
+                            output = Self.budgetSpent
+                        case .run:
+                            let arguments = try JSONEncoder().encode(params["arguments"] ?? .object([:]))
+                            let call = ChatToolCall(id: params["callId"]?.stringValue ?? UUID().uuidString, name: name, arguments: String(decoding: arguments, as: UTF8.self))
+                            output = try await execute(call)
                         }
-                        let arguments = try JSONEncoder().encode(params["arguments"] ?? .object([:]))
-                        let call = ChatToolCall(id: params["callId"]?.stringValue ?? UUID().uuidString, name: name, arguments: String(decoding: arguments, as: UTF8.self))
-                        let output = try await execute(call)
                         try connection.send(["id": id, "result": .object(["success": true, "contentItems": .array([.object(["type": "inputText", "text": .string(output)])])])])
                     case "account/chatgptAuthTokens/refresh":
                         credentials = try await auth.refreshAfterRejection(of: credentials.accessToken)

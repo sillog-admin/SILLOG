@@ -87,13 +87,22 @@ private actor ChatRunLedger {
         return !trimmed.isEmpty && (userText.contains(trimmed) || sources.values.contains { $0.location == url || $0.location == trimmed })
     }
 
+    /// Model calls one request may make, shared by the main agent and its sub-agents.
+    static let limit = 24
+    var remaining: Int { Self.limit - calls }
+
     /// Args: 없음.
     /// Returns: 없음. 주·하위 에이전트가 공유하는 실행 예산을 차감한다.
     /// Raises: 한 요청에서 모델 호출이 24회를 초과한 경우.
     func consume() throws {
-        guard calls < 24 else { throw ChatToolError.unavailable(tr("조사 단계 한도에 도달했습니다. 요청 범위를 좁혀 다시 시도하세요.")) }
+        guard calls < Self.limit else { throw ChatToolError.unavailable(tr("조사 단계 한도에 도달했습니다. 요청 범위를 좁혀 다시 시도하세요.")) }
         calls += 1
     }
+
+    /// Args: count is how many sub-agents start together, reserve the calls kept for the main agent's answer.
+    /// Returns: the rounds each may use, at most a sub-agent's usual 6, so together they never spend the reserve.
+    /// Raises: none.
+    func share(among count: Int, keeping reserve: Int) -> Int { max(0, min(6, (remaining - reserve) / max(1, count))) }
 
     /// Args: values는 실제 도구에서 얻은 출처이다.
     /// Returns: 없음. 중복 출처는 최신 조회 내용으로 갱신한다.
@@ -309,11 +318,11 @@ public struct ChatRunner: Sendable {
         }
     }
 
-    /// Args: messages는 작업 입력, prompt는 시스템 프롬프트, role이 있으면 재위임 없는 읽기 전용 하위 작업이다.
+    /// Args: messages는 작업 입력, prompt는 시스템 프롬프트, role이 있으면 재위임 없는 읽기 전용 하위 작업이다. rounds caps a sub-agent's model calls (its share of the budget).
     /// Returns: 해당 에이전트의 최종 답변.
     /// Raises: 모델 오류, 예산 초과, 취소.
     private func loop(messages: [ChatModelMessage], prompt: ChatSystemPrompt, role: String?, allowAutomation: Bool,
-                      ledger: ChatRunLedger, onEvent: @escaping @Sendable (ChatRunEvent) async -> Void) async throws -> String {
+                      ledger: ChatRunLedger, rounds: Int? = nil, onEvent: @escaping @Sendable (ChatRunEvent) async -> Void) async throws -> String {
         var history = messages
         let label = role.map { Self.roleTitle($0) + " · " } ?? ""
         let available = availableTools(role: role, allowAutomation: allowAutomation)
@@ -337,13 +346,24 @@ public struct ChatRunner: Sendable {
                     struct Arguments: Decodable { var tasks: [Assignment] }
                     let args = try JSONDecoder().decode(Arguments.self, from: Data(call.arguments.utf8))
                     guard (1...3).contains(args.tasks.count), args.tasks.allSatisfy({ ["context", "repository", "research", "review"].contains($0.role) && !$0.task.isEmpty }) else { throw ChatToolError.unavailable(tr("1~3개의 독립적인 조사·검토 작업을 지정하세요.")) }
+                    // Split what is left up front, so sub-agents running side by side can't spend the main agent's answer.
+                    let share = await ledger.share(among: args.tasks.count, keeping: Self.answerReserve)
+                    guard share >= 2 else { throw ChatToolError.unavailable(tr("조사 예산이 남지 않아 나눠 맡기지 않았어요. 지금까지 모은 내용으로 답하세요.")) }
                     output = try await withThrowingTaskGroup(of: (Int, String).self) { group in
                         for (index, assignment) in args.tasks.enumerated() {
                             group.addTask {
                                 await onEvent(.step("\(Self.roleTitle(assignment.role)) 시작"))
-                                let answer = try await loop(messages: [.init(role: "user", text: assignment.task)], prompt: prompt, role: assignment.role, allowAutomation: false, ledger: ledger, onEvent: onEvent)
-                                await onEvent(.step("\(Self.roleTitle(assignment.role)) 완료"))
-                                return (index, "\(assignment.role):\n\(answer)")
+                                do {
+                                    let answer = try await loop(messages: [.init(role: "user", text: assignment.task)], prompt: prompt, role: assignment.role, allowAutomation: false,
+                                                                ledger: ledger, rounds: share, onEvent: onEvent)
+                                    await onEvent(.step("\(Self.roleTitle(assignment.role)) 완료"))
+                                    return (index, "\(assignment.role):\n\(answer)")
+                                } catch {
+                                    // One sub-agent's failure must not discard what the others found.
+                                    if Task.isCancelled || error is CancellationError { throw CancellationError() }
+                                    AppLog.write("chat sub-agent \(assignment.role) failed: \(error)")
+                                    return (index, "\(assignment.role): stopped before finishing (\(error.localizedDescription)). Rely on the other reports and your own reads.")
+                                }
                             }
                         }
                         var answers: [(Int, String)] = []
@@ -400,11 +420,20 @@ public struct ChatRunner: Sendable {
             }
         }
         guard case .model(let client) = backend else { preconditionFailure() }
-        for _ in 0..<(role == nil ? 10 : 6) {
+        let maxRounds = rounds ?? (role == nil ? 10 : 6)
+        for round in 0..<maxRounds {
             try Task.checkCancellation()
+            // Calls this agent can still make, this one included. Sub-agents got their share up front.
+            let left = role == nil ? min(await ledger.remaining, maxRounds - round) : maxRounds - round
             try await ledger.consume()
+            // Running out must end in an answer, not an error: the main agent keeps its last two calls
+            // for the artifact and the reply, and a sub-agent's last call reports what it found.
+            let stage: (tools: [ToolSpec], note: String)
+            if left <= 1 { stage = ([], role == nil ? Self.answerNow : Self.reportNow) }
+            else if left == 2 && role == nil { stage = (available.filter { $0.name == "create_artifact" }, Self.finishNow) }
+            else { stage = (available, "") }
             if role == nil { await onEvent(.textReset) }
-            let reply = try await client.respond(system: system, messages: history, tools: available, onText: { delta in
+            let reply = try await client.respond(system: system + stage.note, messages: history, tools: stage.tools, onText: { delta in
                 if role == nil { await onEvent(.text(delta)) }
             }, onReasoning: { id, text in
                 if role == nil { await onEvent(.reasoning(id: id, text: text)) }
@@ -420,11 +449,20 @@ public struct ChatRunner: Sendable {
             }
             guard reply.calls.count <= 8 else { throw ChatToolError.unavailable(tr("한 번에 요청한 도구가 너무 많습니다.")) }
             for call in reply.calls {
-                history.append(.init(role: "tool", text: try await execute(call), callID: call.id))
+                // A tool the stage withdrew is not run, even if the model calls it anyway.
+                let text = stage.tools.contains(where: { $0.name == call.name }) ? try await execute(call) : Self.budgetSpent
+                history.append(.init(role: "tool", text: text, callID: call.id))
             }
         }
         throw ChatToolError.unavailable(tr("조사 단계 한도에 도달했습니다. 범위를 좁혀 다시 요청하세요."))
     }
+
+    /// Calls the main agent keeps for its answer: one for the artifact, one for the reply.
+    static let answerReserve = 2
+    static let finishNow = "\n\n# Research budget\nThe research budget for this request is almost used up, so search and read tools are no longer available. If the request calls for an artifact, create it now with create_artifact from what you have gathered; otherwise write the final answer now. Say which parts you could not check."
+    static let answerNow = "\n\n# Research budget\nThe research budget for this request is used up and no tools are available. Write the final answer now from what you have gathered, and say which parts you could not check."
+    static let reportNow = "\n\n# Research budget\nYour share of the research budget is used up and no tools are available. Report now what you found, with its source IDs, and what you could not check."
+    static let budgetSpent = "Tool call skipped: the research budget for this request is used up. Answer with what you have gathered."
 
     /// Args: role은 하위 역할, allowAutomation은 예약안 도구 노출 여부이다.
     /// Returns: 해당 역할이 실제 실행할 수 있는 도구 목록.
