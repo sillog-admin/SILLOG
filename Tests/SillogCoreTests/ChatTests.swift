@@ -566,6 +566,32 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(ChatRunner.stepDetail(.init(id: "a", name: "summarize_period", arguments: #"{"from":"2026-11-09","to":"2026-11-13"}"#)), "2026-11-09 – 2026-11-13")
     }
 
+    // API models spend the shared budget on every call; running out must still end in the artifact and an answer
+    func testRunningOutOfBudgetEndsInAnArtifactAndAnAnswer() async throws {
+        let model = BudgetHungryModel()
+        let runner = ChatRunner(client: model, tools: ChatTools(db: try .inMemory(), scope: .init()))
+        let result = try await runner.run(history: [.init(conversationID: "t", role: "user", text: "포트폴리오를 만들어줘")], skillIDs: []) { _ in }
+        XCTAssertEqual(result.text, "모은 내용으로 쓴 답")
+        XCTAssertEqual(result.artifacts.map(\.title), ["포트폴리오 그림"])
+        let calls = await model.calls, offered = await model.offered, systems = await model.systems, reports = await model.delegateOutput
+        XCTAssertLessThanOrEqual(calls, 24, "main and sub-agents together stay inside the budget")
+        XCTAssertEqual(offered.suffix(2), [["create_artifact"], []], "the last two calls only make the artifact, then answer")
+        XCTAssertTrue(systems.suffix(2).allSatisfy { $0.contains("# Research budget") })
+        XCTAssertTrue(reports.contains("context:\n보고: A") && reports.contains("context:\n보고: B"), "sub-agents report on their last call: \(reports)")
+        XCTAssertTrue(reports.contains("stopped before finishing"), "a failed sub-agent keeps the others' reports: \(reports)")
+    }
+
+    // Past Codex's tool limit research stops, but the artifact can still be made, so the turn ends in an answer
+    func testCodexStopsResearchPastTheToolLimitButStillMakesTheArtifact() {
+        let offered = [ToolSpec(name: "search_context", description: "", parameters: .object([:])), ToolSpec(name: "create_artifact", description: "", parameters: .object([:]))]
+        let limit = CodexAppServerClient.toolLimit, runaway = CodexAppServerClient.runawayLimit
+        XCTAssertEqual(CodexAppServerClient.decide(count: limit, name: "search_context", offered: offered), .run)
+        XCTAssertEqual(CodexAppServerClient.decide(count: limit + 1, name: "search_context", offered: offered), .budgetSpent)
+        XCTAssertEqual(CodexAppServerClient.decide(count: limit + 1, name: "create_artifact", offered: offered), .run)
+        XCTAssertEqual(CodexAppServerClient.decide(count: 3, name: "delegate", offered: offered), .notOffered, "a tool the agent lacks is answered, not fatal")
+        XCTAssertEqual(CodexAppServerClient.decide(count: runaway + 1, name: "create_artifact", offered: offered), .runaway)
+    }
+
     func testAStepThatReadsByIdShowsTheTitleOfWhatItRead() {
         let read = ChatToolCall(id: "a", name: "read_context", arguments: #"{"id":"node:833","start":"1"}"#)
         let sources = [ChatSource(id: "other", title: "대화 · 다른 것", location: "", excerpt: ""), ChatSource(id: "node:833", title: "업무 · 주간 보고", location: "", excerpt: "")]
@@ -829,6 +855,32 @@ private actor EventBox {
 }
 
 /// Calls create_artifact once per scripted argument string, then finishes.
+/// Calls a tool whenever one is offered: the main agent delegates once, then everyone keeps searching.
+private actor BudgetHungryModel: ChatModelClient {
+    nonisolated var modelName: String { "budget-hungry" }
+    var calls = 0
+    var offered: [[String]] = []
+    var systems: [String] = []
+    var delegateOutput = ""
+    func respond(system: String, messages: [ChatModelMessage], tools: [ToolSpec], onText: @escaping @Sendable (String) async -> Void) async throws -> ChatModelReply {
+        calls += 1
+        let names = tools.map(\.name), task = messages.first?.text ?? ""
+        let search = ChatToolCall(id: "s\(calls)", name: "search_context", arguments: #"{"query":"x","from":"","to":""}"#)
+        if ["A", "B", "실패"].contains(task) {
+            if task == "실패" { throw ChatToolError.unavailable("boom") }
+            return names.contains("search_context") ? .init(text: "", calls: [search]) : .init(text: "보고: \(task)")
+        }
+        offered.append(names); systems.append(system)
+        if let report = messages.first(where: { $0.role == "tool" && $0.text.contains("context:") }) { delegateOutput = report.text }
+        if names.contains("delegate") && !messages.contains(where: { $0.role == "tool" }) {
+            return .init(text: "", calls: [.init(id: "d", name: "delegate", arguments: #"{"tasks":[{"role":"context","task":"A"},{"role":"context","task":"B"},{"role":"context","task":"실패"}]}"#)])
+        }
+        if names.contains("search_context") { return .init(text: "", calls: [search]) }
+        if names == ["create_artifact"] { return .init(text: "", calls: [.init(id: "a", name: "create_artifact", arguments: #"{"title":"포트폴리오 그림","format":"html","content":"<p>x</p>"}"#)]) }
+        return .init(text: "모은 내용으로 쓴 답")
+    }
+}
+
 private actor ArtifactCallModel: ChatModelClient {
     nonisolated var modelName: String { "artifact-calls" }
     let calls: [String]
