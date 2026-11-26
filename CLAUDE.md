@@ -42,6 +42,8 @@ SwiftPM 패키지 하나에 타깃이 네 개 있습니다(`Package.swift`). 의
    - 앱 기본 경로(`Ontology/Staged/SeparatedJudgment.swift`): **판단 모델**(`ActivityJudging`)이 행마다 기존 업무 / `new` / `off` / `none` 중 하나를 고르고(`decideSeparately`), **정리 모델**이 새 업무의 이름과 요약을 씁니다(`organizeDecisions`). 고르기 전용 모델(Jev, Decisions)은 행 4개씩 동시에 묻고, 확신이 낮으면 `none`으로 봅니다. 앞에서부터 이어서 판단된 행만 반영하고 나머지는 다음 배치로 넘깁니다.
    - 판단 모델이 없을 때(CLI·평가, 또는 일반 > 업무가 아닌 기록도 수집하기를 끈 앱): `StagedPipeline.run`의 분류→배정→서술 3단계, 또는 한 번에 묻는 `single`.
 
+   설정 `sumunjang`(일반 > 보안 > 민감정보를 외부에 보내지 않기)이 켜져 있으면 그 전에 `withoutSensitive`가 화면 기록을 수문장(`Sumunjang`, `SumunjangModel`)으로 판정하고, 0.8 이상인 행은 제목, 주소, 본문, 스크린샷 없이 보냅니다. 모델은 Core ML이고 Hugging Face `beaver-zip/sumunjang`에서 받습니다. 받기 전에는 배치를 건너뛰고(`SumunjangError.notReady`), 실행에 실패하면 배치가 실패하고 다시 시도합니다.
+
    결과(`AssignmentPatch`)는 `AssignmentApplier`가 한 트랜잭션으로 그래프에 반영하고 처리 완료로 표시합니다. 실패하면 행을 그대로 두고 잠시 뒤 다시 시도합니다. 건너뛰지 않습니다.
 3. **기억 정리**: `Consolidator`가 사용 시간 기록(`usage_ledger`) → 주간·월간 요약 → 보관 기간이 지난 원문 삭제 순서로 진행합니다. 요약에 나온 숫자와 근거는 `DigestValidator`가 검증합니다.
 4. **채팅**: `ChatState`(App) → `ChatRunner`(Core)가 `ChatBackend`로 답을 스트리밍하고, `ChatTools`로 기록·보관함·커넥터를 검색합니다.

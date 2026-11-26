@@ -249,7 +249,7 @@ extension AppState {
         guard settings.suggestFolders, let suggester, let db, let path = recording.textPath else { return nil }
         let now = Date().timeIntervalSince1970
         let index = await currentFolderIndex()
-        let observations = (try? store?.recent(limit: 120)) ?? []
+        let observations = await withoutSensitive((try? store?.recent(limit: 120)) ?? [], since: recording.startedAt - 600)
         let openTasks: [TaskDigest] = (try? await db.writer.read { try GraphTx($0).openTasks(limit: 6) }) ?? []
         let currentTask = openTasks.first.flatMap { $0.lastActive > now - 1_800 ? $0.id : nil }
         let context = FolderSuggester.Context(recentTitles: Self.recentContext(from: observations, since: recording.startedAt - 600),

@@ -90,6 +90,8 @@ struct OnboardingSheet: View {
     @State private var judgeDecisionsKey = ""
     @State private var testing = false
     @State private var notice: String?
+    /// Nothing is picked at first, so the start button waits for a choice.
+    @State private var privacyChoice: Bool?
     @StateObject private var perms = OnboardingPermissions()
 
     private let poll = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -140,6 +142,7 @@ struct OnboardingSheet: View {
         switch step {
         case .language: languagePage
         case .permissions: permissionPage
+        case .privacy: privacyPage
         case .login:
             switch method {
             case .choose: choosePage
@@ -492,6 +495,26 @@ struct OnboardingSheet: View {
         .frame(maxWidth: 1068)
     }
 
+    // MARK: 6. 민감정보
+
+    private var privacyPage: some View {
+        VStack(spacing: 40) {
+            heading(tr("민감정보를 지킬지 정해요"), tr("건강, 종교, 정치 성향처럼 민감한 내용이 보이는 화면을 AI에 보낼지 골라요."))
+            HStack(spacing: 20) {
+                MethodTile(title: tr("보내지 않기"), detail: tr("수문장이 이 Mac에서 화면을 먼저 살펴봐요\n처음 한 번 모델을 내려받아요 (약 680MB)"),
+                           selected: privacyChoice == true) {
+                    Image(systemName: "shield.lefthalf.filled").font(.system(size: 62)).foregroundStyle(OB.brown).frame(width: 72, height: 72)
+                } action: { privacyChoice = true }
+                MethodTile(title: tr("그대로 보내기"), detail: tr("화면 기록을 거르지 않고 보내요\n전화번호 같은 개인정보는 계속 가려요"),
+                           selected: privacyChoice == false) {
+                    Image(systemName: "paperplane").font(.system(size: 62)).foregroundStyle(OB.brown).frame(width: 72, height: 72)
+                } action: { privacyChoice = false }
+            }
+            .frame(maxWidth: 700)
+            Text(tr("설정의 일반 탭에서 언제든 바꿀 수 있어요.")).font(Brand.font(.body)).foregroundStyle(Brand.gray)
+        }
+    }
+
     private func bigPermission(title: String, reads: String, warn: String, icon: String, granted: Bool, request: @escaping () -> Void) -> some View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 0) {
@@ -590,13 +613,15 @@ struct OnboardingSheet: View {
 
     private var backLabel: String? {
         if step == .language { return nil }
-        if step == .permissions || method == .judge { return tr("이전") }
+        if step == .permissions || step == .privacy || method == .judge { return tr("이전") }
         return method == .choose ? nil : tr("다른 방법 고르기")
     }
 
     private func goBack() {
         notice = nil
-        if step == .permissions {
+        if step == .privacy {
+            state.onboardingStep = .permissions
+        } else if step == .permissions {
             state.onboardingStep = .login        // 권한 앞 화면인 판단 모델 고르기로 돌아온다. 연결 방법은 거기서 이전으로 다시 고른다
             method = .judge
         } else if method == .judgeJev || method == .judgeDecisions {
@@ -612,10 +637,15 @@ struct OnboardingSheet: View {
             Button(tr("다음")) { state.advanceOnboarding() }.buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
         } else if step == .permissions {
             Button(tr("모두 허용")) { allowAll() }.buttonStyle(OBButtonStyle(kind: .secondary))
+            Button(tr("다음")) { state.advanceOnboarding() }.buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
+        } else if step == .privacy {
             Button(state.askedScreenRecording ? tr("다시 실행하고 시작") : tr("시작")) {
-                if state.askedScreenRecording { state.completeOnboardingAndRelaunch() } else { state.completeOnboarding() }
+                state.settings.sumunjang = privacyChoice == true
+                // A relaunch would cut the download short, so the new instance starts it.
+                if state.askedScreenRecording { state.settings.save(); state.completeOnboardingAndRelaunch() } else { state.applySettings(); state.completeOnboarding() }
             }
             .buttonStyle(OBButtonStyle(kind: .primary)).keyboardShortcut(.defaultAction)
+            .disabled(privacyChoice == nil)
         } else {
             switch method {
             case .choose:
@@ -677,7 +707,7 @@ private struct MethodTile<Icon: View>: View {
             VStack(spacing: 0) {
                 icon().frame(height: 76)
                 Text(title).font(Brand.font(.screenTitle)).foregroundStyle(Brand.ink).padding(.top, 22)
-                Text(detail).font(Brand.font(.body)).foregroundStyle(Brand.gray).padding(.top, 8)
+                Text(detail).font(Brand.font(.body)).foregroundStyle(Brand.gray).multilineTextAlignment(.center).padding(.top, 8)
             }
             .frame(maxWidth: .infinity, minHeight: 300)
             .background(RoundedRectangle(cornerRadius: 26).fill(.white))

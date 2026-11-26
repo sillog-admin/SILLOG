@@ -45,6 +45,8 @@ public actor OntologyBatcher {
     private var activityJudge: ActivityJudging?
     /// 캘린더에 이미 있는 일정 (앱이 EventKit 으로 읽어 준다: 시작, 끝). 일정 찾기가 같은 일정을 다시 제안하지 않게 쓴다
     private var upcomingEvents: (@Sendable (Date, Date) async -> [EventFinder.Known])?
+    /// When set, rows SUMUNJANG finds sensitive reach the models with the app name only.
+    private var sumunjang: Sumunjang?
     private var config: BatchConfig
     private let home: String
     private let fileExists: @Sendable (String) -> Bool
@@ -65,6 +67,8 @@ public actor OntologyBatcher {
     }
 
     public func setScreenCards(_ enabled: Bool) { config.screenCards = enabled }
+
+    public func setSumunjang(_ filter: Sumunjang?) { sumunjang = filter }
 
     public func setLLM(_ client: any LLMClient) {
         llm = client
@@ -123,7 +127,7 @@ public actor OntologyBatcher {
         let chats = (try? store.unprocessedChatMessages(upTo: windowEnd, notOlderThan: first.ts - 24 * 3600)) ?? []
         // 창 끝까지 끝난 받아쓴 녹음 (24시간 이내, 아직 어느 배치에도 안 들어간 것)
         let recordings = (try? RecordingStore(db).unprocessed(upTo: windowEnd, notOlderThan: first.ts - 24 * 3600)) ?? []
-        let rows = EventCompressor.merge(compressed, chats: chats, recordings: recordings, home: home, fileExists: fileExists, snippetChars: config.snippetChars)
+        var rows = EventCompressor.merge(compressed, chats: chats, recordings: recordings, home: home, fileExists: fileExists, snippetChars: config.snippetChars)
 
         // 최근 7일의 업무 전부 (최대 40개): 행이 어느 목표에 기여하는지 보려면 목표 목록이 다 있어야 한다
         let openTasks = try await db.writer.read { try GraphTx($0).openTasks(limit: 40, since: now - 7 * 86_400) }
@@ -132,15 +136,19 @@ public actor OntologyBatcher {
         let model = organizer.modelName
         var cards: [Int: [ScreenCard]] = [:]
         var acceptedRows = rows
+        var hidden: Set<Int> = []
         let judgment: Judgment
         do {
+            // Inside the do so a model that cannot run fails the batch and retries like a model error.
+            (rows, hidden) = try await withoutSensitive(rows, window: window)
+            acceptedRows = rows
             if let selectedJudge {
                 var accepted = try await StagedPipeline.decideSeparately(
                     JudgeInput(rows: rows, openTasks: openTasks, now: now), using: selectedJudge)
                 acceptedRows = accepted.input.rows
                 // 정리 모델에는 판단이 완료된 행의 화면만 보낸다.
                 if config.screenCards, let vision = organizer as? any VisionLLMClient {
-                    cards = try await makeCards(rows: acceptedRows, window: window, llm: vision, now: now)
+                    cards = try await makeCards(rows: acceptedRows.filter { !hidden.contains($0.row) }, window: window, llm: vision, now: now)
                 }
                 accepted.input.cards = cards
                 let organized = try await StagedPipeline.organizeDecisions(accepted, llm: organizer)
@@ -149,7 +157,7 @@ public actor OntologyBatcher {
             } else {
                 // No judge: the CLI, evals, and the app with off-work collection turned off.
                 if config.screenCards, let vision = organizer as? any VisionLLMClient {
-                    cards = try await makeCards(rows: rows, window: window, llm: vision, now: now)
+                    cards = try await makeCards(rows: rows.filter { !hidden.contains($0.row) }, window: window, llm: vision, now: now)
                 }
                 judgment = try await judge(rows: rows, openTasks: openTasks, cards: cards, now: now)
             }
@@ -161,7 +169,10 @@ public actor OntologyBatcher {
             return .failed(error.description)
         } catch {
             // 서버가 죽었거나 토큰이 만료된 경우: 데이터는 그대로 두고 기다린다. 건너뛰지 않는다.
-            let message = "\(error)"
+            // Until the model is downloaded nothing is sent, and waiting for it is not a failure.
+            if case SumunjangError.notReady = error { return .skipped(error.localizedDescription) }
+            if error is SumunjangError { AppLog.write("수문장 실패: \(error)") }
+            let message = error is SumunjangError ? error.localizedDescription : "\(error)"
             let sent = config.pipeline == .single ? OntologyPrompt.build(rows: rows, openTasks: openTasks, now: now, cards: cards) : nil
             try recordFailure(message: message, model: model, first: first, last: last, rowCount: rows.count, raw: nil, now: now, prompt: sent)
             scheduleBackoff(now: now)
@@ -313,6 +324,26 @@ public actor OntologyBatcher {
                 return Judgment(patch: nil, calls: error.calls, failure: error.description, fallbackModel: llm.modelName)
             }
         }
+    }
+
+    /// Args: rows are the batch rows, window the observations they came from.
+    /// Returns: the rows with the title, address and text of sensitive ones removed, and those rows' numbers.
+    /// Raises: SumunjangError when the model cannot score them. The batch then waits, so nothing is sent unchecked.
+    private func withoutSensitive(_ rows: [ActivityRow], window: [Observation]) async throws -> (rows: [ActivityRow], hidden: Set<Int>) {
+        guard let sumunjang else { return (rows, []) }
+        // shortcut: AI tool chats and recordings are not scored, the model was trained on screen records only.
+        let ids = Set(rows.flatMap(\.observationIds))
+        let flagged = try await sumunjang.sensitiveIDs(window.filter { $0.id.map(ids.contains) ?? false }, db: db)
+        guard !flagged.isEmpty else { return (rows, []) }
+        try await db.writer.write { try $0.execute(sql: "UPDATE observations SET sensitive = 1 WHERE id IN (\(flagged.map(String.init).joined(separator: ",")))") }
+        var out = rows, hidden: Set<Int> = []
+        for index in out.indices where out[index].observationIds.contains(where: flagged.contains) {
+            out[index].title = Sumunjang.placeholder; out[index].uri = nil; out[index].snippet = nil
+            out[index].projectKey = nil; out[index].projectTitle = nil
+            hidden.insert(out[index].row)
+        }
+        AppLog.write("수문장: 민감 기록 \(flagged.count)개, 행 \(hidden.count)개를 가리고 보냄")
+        return (out, hidden)
     }
 
     /// Args: rows and window are this batch's rows and observations.

@@ -16,12 +16,15 @@ sillogctl [--db PATH] <command>
   codex-status | codex-logout           로그인 상태 확인 / 로그아웃
   codex-models                          로그인한 계정에서 쓸 수 있는 모델 목록
   codex-usage                           구독 한도 대비 Codex 사용률 (5시간 창, 주간 창)
-  batch [--provider codex|openai] [--model M] [--base-url URL] [--api-key K] [--force] [--all] [--demo-llm]
-                                        미처리 행을 LLM 으로 온톨로지화한다
+  batch [--provider codex|openai] [--model M] [--base-url URL] [--api-key K] [--force] [--all] [--demo-llm] [--sumunjang]
+                                        미처리 행을 LLM 으로 온톨로지화한다 (--sumunjang: 민감한 화면은 내용 없이 보낸다)
                                         (--demo-llm: 모델 없이 데모 시드를 규칙으로 분류하는 가짜 LLM)
   llm-test [--provider codex|openai] [--model M] [--base-url URL]
                                         LLM 연결과 로그인이 유효한지 실제 호출로 확인
   check-judge jev|decisions             판단 모델 실제 호출 확인. 키는 TYPESAFE_API_KEY / OPENAI_API_KEY 환경변수나 ./.env 에서 읽는다
+  sumunjang-check MODEL_DIR RECORDS.jsonl REFERENCE.json
+                                        수문장 Core ML 점수를 scripts/sumunjang/convert.py 가 낸 PyTorch 점수와 비교한다
+                                        (MODEL_DIR 은 Hugging Face 저장소를 내려받은 폴더, RECORDS 는 가린 합성 기록)
   collect [--seconds N] [--no-screenshots]
                                         수집기를 N초(기본 20) 돌리며 생기는 행을 출력한다
                                         (권한은 이 명령을 실행한 터미널 앱 기준으로 적용된다)
@@ -509,6 +512,7 @@ do {
         // 데모 LLM 은 한 번 호출 형식으로만 답하고 분야 도구·일정 찾기는 모른다
         if demo { batchConfig.pipeline = .single; batchConfig.themes = false; batchConfig.findEvents = false }
         let batcher = OntologyBatcher(db: db, llm: client, config: batchConfig)
+        if flag("--sumunjang") { await batcher.setSumunjang(Sumunjang()) }
         var round = 0
         repeat {
             round += 1
@@ -518,6 +522,48 @@ do {
             break
         } while all && round < 50
         try printStats()
+
+    case "sumunjang-check":
+        guard args.count >= 3 else { fail("사용법: sillogctl sumunjang-check MODEL_DIR RECORDS.jsonl REFERENCE.json [기록 수]") }
+        let limit = args.count > 3 ? Int(args[3]) ?? .max : .max
+        let model = SumunjangModel(folder: URL(fileURLWithPath: args[0]))
+        try await model.compile()
+        func json(_ data: Data) throws -> [String: Any] { try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:] }
+        let reference = try json(Data(contentsOf: URL(fileURLWithPath: args[2])))
+        let threshold = reference["threshold"] as? Double ?? Sumunjang.threshold
+        // Paired by line, not id: the synthetic set repeats a few ids.
+        let rows = try String(contentsOfFile: args[1], encoding: .utf8).split(separator: "\n").map { try json(Data($0.utf8)) }
+        var sameWindows = 0, windows = 0, maxDiff = 0.0, flips = 0, seconds = 0.0, shown = false
+        let expectedRecords = (reference["records"] as? [[String: Any]] ?? []).prefix(limit)
+        guard rows.count >= expectedRecords.count else { fail("RECORDS 의 기록이 REFERENCE 보다 적습니다") }
+        for (expected, raw) in zip(expectedRecords, rows) {
+            guard "\(raw["id"] ?? "")" == "\(expected["id"] ?? "")" else { fail("기록 순서가 다릅니다: \(raw["id"] ?? "") 대 \(expected["id"] ?? "")") }
+            func text(_ key: String) -> String? { raw[key] as? String }
+            let record = Sumunjang.Record(app: text("app") ?? "", appKind: text("app_kind") ?? "", captureSource: text("capture_source") ?? "",
+                                          windowTitle: text("window_title"), url: text("url"), docPath: text("doc_path"), text: text("text") ?? "")
+            let want = (expected["windows"] as? [[String: Any]] ?? []).map { $0["ids"] as? [Int] ?? [] }
+            let got = try await model.inputs(record)
+            windows += want.count
+            sameWindows += zip(want, got).filter { $0 == $1 }.count
+            if !shown, let (w, pair) = zip(want, got).enumerated().first(where: { $0.element.0 != $0.element.1 }).map({ ($0.offset, $0.element) }) {
+                shown = true
+                let at = zip(pair.0, pair.1).enumerated().first { $0.element.0 != $0.element.1 }?.offset ?? min(pair.0.count, pair.1.count)
+                print("처음 어긋난 곳: 기록 \(expected["id"] ?? "") 창 \(w), 위치 \(at)/\(pair.0.count) 대 \(pair.1.count)")
+                print("  PyTorch \(Array(pair.0[max(0, at - 3)..<min(pair.0.count, at + 8)]))")
+                print("  Swift   \(Array(pair.1[max(0, at - 3)..<min(pair.1.count, at + 8)]))")
+            }
+            let started = Date()
+            let score = try await model.scores([record])[0]
+            seconds += Date().timeIntervalSince(started)
+            let pytorch = expected["score"] as? Double ?? 0
+            maxDiff = max(maxDiff, abs(score - pytorch))
+            if abs(score - pytorch) > 0.02 { print(String(format: "  %@ PyTorch %.4f, Swift %.4f", "\(expected["id"] ?? "")", pytorch, score)) }
+            if (score >= threshold) != (pytorch >= threshold) { flips += 1 }
+        }
+        print(String(format: "기록 %d개, 창 %d/%d개 입력 같음, 점수 차 최대 %.4f, %.1f 기준 판정이 다른 기록 %d개, 기록당 %.2f초",
+                     expectedRecords.count, sameWindows, windows, maxDiff, threshold, flips, seconds / Double(max(1, expectedRecords.count))))
+        // fp16 on the GPU: 0.011 at most on the 500 parity records.
+        if maxDiff > 0.02 || flips > 0 { fail("PyTorch 점수와 맞지 않습니다") }
 
     case "check-judge":
         guard let kind = args.first.flatMap(JudgeKind.init), kind != .codex else { fail("사용법: sillogctl check-judge jev|decisions") }

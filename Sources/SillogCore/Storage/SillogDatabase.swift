@@ -369,6 +369,10 @@ public final class SillogDatabase: @unchecked Sendable {
         migrator.registerMigration("v23-composed-file-keys") { db in
             try FileKeys.composeStored(db)
         }
+        // Same identifier and SQL as AJOU-SILLOG, whose databases already have the column.
+        migrator.registerMigration("v23-sensitive-observations") { db in
+            try db.execute(sql: "ALTER TABLE observations ADD COLUMN sensitive INTEGER NOT NULL DEFAULT 0")
+        }
         return migrator
     }
 }

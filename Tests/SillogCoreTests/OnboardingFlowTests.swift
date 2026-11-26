@@ -36,6 +36,13 @@ final class OnboardingFlowTests: XCTestCase {
         XCTAssertEqual(OnboardingFlow.step(after: nil, phase: .permissions, askLanguage: false), .permissions, "language already chosen, e.g. after Screen Recording's Quit & Reopen")
     }
 
+    func testPermissionsLeadToPrivacyWhichStaysUntilStart() {
+        XCTAssertEqual(OnboardingFlow.advance(from: .permissions, phase: .permissions), .privacy)
+        XCTAssertEqual(OnboardingFlow.step(after: .privacy, phase: .permissions, askLanguage: false), .privacy, "a status refresh keeps the choice up")
+        XCTAssertEqual(OnboardingFlow.step(after: .privacy, phase: .login, askLanguage: false), .login)
+        XCTAssertNil(OnboardingFlow.step(after: .privacy, phase: .ready, askLanguage: false))
+    }
+
     func testFinishingPermissionsClosesSheet() {
         XCTAssertNil(OnboardingFlow.step(after: .permissions, phase: .ready, askLanguage: false))
     }

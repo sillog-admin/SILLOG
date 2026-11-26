@@ -14,6 +14,7 @@ final class AppState: ObservableObject {
             // Every write redraws all text, so only a real change is written.
             if Brand.scale != settings.textScale { Brand.scale = settings.textScale }
             PIIMasker.enabled = settings.maskPII
+            Sumunjang.enabled = settings.sumunjang
         }
     }
     @Published var status = CollectorStatus()
@@ -23,6 +24,7 @@ final class AppState: ObservableObject {
     @Published var batchRunning = false
     /// 업무를 지우는 중 (그동안 정리를 멈춘다)
     @Published var erasing = false
+    @Published var sumunjangDownload = SumunjangDownload.idle
     @Published var batchResult: Bool?                  // 방금 끝난 지금 정리 결과(창 머리에 체크나 X 로 잠깐 보임). nil = 보이지 않음
     @Published var graphVersion = 0 { didSet { refreshTasks() } }   // Every graph change refreshes the task list here, once.
     @Published var recent: [Observation] = []
@@ -160,6 +162,7 @@ final class AppState: ObservableObject {
         L10n.current = settings.language
         Brand.scale = settings.textScale
         PIIMasker.enabled = settings.maskPII
+        Sumunjang.enabled = settings.sumunjang
         // Opened inside the dmg, SILLOG and the login item onboarding registers vanish on eject.
         if InstallLocation.needsMove(Bundle.main.bundleURL) {
             startupError = tr("SILLOG을 응용 프로그램 폴더로 옮긴 뒤 다시 열어 주세요. 디스크 이미지에서 연 SILLOG은 디스크 이미지를 꺼내면 함께 사라져요.")
@@ -200,7 +203,9 @@ final class AppState: ObservableObject {
             loadRetentionState()
             loadReview()
             let cardsOn = settings.screenCards && settings.captureScreenshots
-            Task { await batcher.setScreenCards(cardsOn) }
+            let sumunjang = settings.sumunjang ? Sumunjang() : nil
+            Task { await batcher.setScreenCards(cardsOn); await batcher.setSumunjang(sumunjang) }
+            prepareSumunjang()
             // 앱을 시작할 때 분야가 없거나 종류가 옛 판인 업무를 정리한다 (처음 한 번은 기존 업무 전부). 붙였으면 그래프를 새로 그린다
             Task { [weak self] in
                 if await batcher.assignThemes() != nil { self?.graphVersion += 1 }
@@ -806,6 +811,7 @@ final class AppState: ObservableObject {
         let client = makeClient()
         let judge = makeJudge()
         let cardsOn = settings.screenCards && settings.captureScreenshots
+        let sumunjang = settings.sumunjang ? Sumunjang() : nil
         if let db {
             suggester = FolderSuggester(db: db, llm: makeQuickClient())
             recordingPipeline = makeRecordingPipeline(db)
@@ -815,8 +821,10 @@ final class AppState: ObservableObject {
             await coordinator?.update(settings: collectorSettings)
             await batcher?.setModels(organizer: client, judge: judge)
             await batcher?.setScreenCards(cardsOn)
+            await batcher?.setSumunjang(sumunjang)
             await consolidator?.setLLM(client)
         }
+        prepareSumunjang()
     }
 
     func testLLM() async { await testConnection(settings.llmProvider) }

@@ -21,7 +21,9 @@ let package = Package(
     targets: [
         .target(
             name: "SillogCore",
-            dependencies: [.product(name: "GRDB", package: "GRDB.swift"), .product(name: "LangGraph", package: "LangGraph-Swift")],
+            // WhisperKit brings ArgmaxCore's Hugging Face download, which SUMUNJANG also uses.
+            dependencies: [.product(name: "GRDB", package: "GRDB.swift"), .product(name: "LangGraph", package: "LangGraph-Swift"),
+                           .product(name: "WhisperKit", package: "WhisperKit")],
             resources: [.copy("Chat/Skills"), .copy("Chat/Prompts"), .copy("Localization/en.json")]
         ),
         .target(

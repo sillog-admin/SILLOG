@@ -52,8 +52,11 @@ public struct ActivityTally {
         }
         guard !selected.isEmpty else { return [] }
         let ids = selected.map { String($0.span.id) }.joined(separator: ",")      // 정수만 들어간다
-        let observations = Dictionary(grouping: try Observation.fetchAll(conn, sql: "SELECT * FROM observations WHERE batch_id IN (\(ids)) ORDER BY ts, id"),
-                                      by: { $0.batchId ?? -1 })
+        // Rows SUMUNJANG flagged keep their time but never become a resource or project target, which digests and chat would show.
+        let flagged = Set(try Int64.fetchAll(conn, sql: "SELECT id FROM observations WHERE batch_id IN (\(ids)) AND sensitive = 1"))
+        var fetched = try Observation.fetchAll(conn, sql: "SELECT * FROM observations WHERE batch_id IN (\(ids)) ORDER BY ts, id")
+        for i in fetched.indices where fetched[i].id.map(flagged.contains) == true { fetched[i].resourceRelevant = false }
+        let observations = Dictionary(grouping: fetched, by: { $0.batchId ?? -1 })
         let chats = Dictionary(grouping: try ChatMessage.fetchAll(conn, sql: "SELECT * FROM chat_messages WHERE batch_id IN (\(ids)) ORDER BY ts, id"),
                                by: { $0.batchId ?? -1 })
         let recordings = Dictionary(grouping: try Recording.fetchAll(conn, sql: "SELECT * FROM recordings WHERE batch_id IN (\(ids)) ORDER BY started_at, id"),

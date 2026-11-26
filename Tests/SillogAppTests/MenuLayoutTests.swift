@@ -227,7 +227,8 @@ final class MenuLayoutTests: XCTestCase {
         L10n.current = .en
         defer { L10n.current = .ko }
         let general = longText(of: SettingsView(), height: 3200) { s in s.settingsSection = .general }
-        XCTAssertTrue(general.contains("Language"), general)
+        // OCR reads "Language" at its current height as "Lanauade".
+        XCTAssertTrue(general.contains("Storage") && general.contains("KeepsensitiveinformationonthisMac"), general)
         XCTAssertFalse(general.contains("기록할내용"), general)
     }
 

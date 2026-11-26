@@ -49,6 +49,8 @@ struct AppSettings: Codable, Equatable {
     /// Off runs the batch without the judge model.
     var collectOffWork = true
     var maskPII = true
+    /// SUMUNJANG holds back screens with sensitive information; while its model downloads, batches wait.
+    var sumunjang = false
     /// 정리 위치 후보를 찾을 폴더들 (~ 표기 허용)
     var folderRoots: [String] = ["~/Desktop", "~/Documents"]
     var language = AppLanguage.system
@@ -112,6 +114,7 @@ struct AppSettings: Codable, Equatable {
         screenCards = try c.decodeIfPresent(Bool.self, forKey: .screenCards) ?? d.screenCards
         collectOffWork = try c.decodeIfPresent(Bool.self, forKey: .collectOffWork) ?? d.collectOffWork
         maskPII = try c.decodeIfPresent(Bool.self, forKey: .maskPII) ?? d.maskPII
+        sumunjang = try c.decodeIfPresent(Bool.self, forKey: .sumunjang) ?? d.sumunjang
         folderRoots = try c.decodeIfPresent([String].self, forKey: .folderRoots) ?? d.folderRoots
         // Saves from before the setting existed had a Korean UI.
         language = try c.decodeIfPresent(AppLanguage.self, forKey: .language) ?? .ko

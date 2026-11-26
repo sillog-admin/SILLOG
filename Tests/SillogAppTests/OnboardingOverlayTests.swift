@@ -58,6 +58,23 @@ final class OnboardingOverlayTests: XCTestCase {
         XCTAssertEqual(state.onboardingStep, .login)
     }
 
+    /// Start stays off until a privacy option is picked, so Return cannot skip the choice.
+    func testReturnOnPermissionsGoesToPrivacyWhichWaitsForAChoice() {
+        let state = AppState(preview: { s in s.phase = .permissions; s.onboardingStep = .permissions; s.selectedTab = .records })
+        let window = show(MainWindow(), state)
+        let enter = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
+                                     context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)!
+        _ = window.performKeyEquivalent(with: enter)
+        settle(window)
+        XCTAssertEqual(state.onboardingStep, .privacy)
+
+        _ = window.performKeyEquivalent(with: enter)
+        settle(window)
+        XCTAssertEqual(state.onboardingStep, .privacy)
+        XCTAssertEqual(state.phase, .permissions)
+        XCTAssertFalse(state.settings.sumunjang)
+    }
+
     func testSheetTakesFocusAwayFromATextFieldBehindIt() {
         let state = AppState(preview: { s in s.phase = .ready; s.selectedTab = .records; s.recordsSection = .files })
         let window = show(MainWindow(), state)

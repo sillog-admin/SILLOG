@@ -177,6 +177,7 @@ Your records are stored on your Mac, but whatever is used for organizing and cha
 - **What chat won't do**: run commands, edit files, send messages, or write to connectors.
 - **What other AI apps read**: records and library items that an app connected through MCP looks up. That content goes to the AI that app uses.
 - **Secrets**: API keys and tokens go in the Keychain. ID numbers such as national ID numbers are masked before they reach the model.
+- **Sensitive information**: with "Keep sensitive information on this Mac" on in Settings → General → Security, screens that show things like health, religion, or political views are sent without their title, URL, text, or screenshot. The SUMUNJANG model picks out those screens on your Mac. It's downloaded once from [Hugging Face](https://huggingface.co/beaver-zip/sumunjang) when you first turn the setting on. It doesn't catch every sensitive screen.
 - **Deleting**: right-click a task or graph node to delete it together with its raw records.
 
 Default retention is below. You can change it in Settings → General, and SILLOG asks once before it deletes anything for the first time.
@@ -191,7 +192,7 @@ Default retention is below. You can change it in Settings → General, and SILLO
 ├── captures/       # screenshots
 ├── library/        # uploaded files, artifacts, saved answers
 ├── recordings/     # voice recordings
-├── models/         # transcription model
+├── models/         # transcription and SUMUNJANG models
 ├── codex-auth.json # app-only ChatGPT sign-in
 └── app.log         # run log
 ```

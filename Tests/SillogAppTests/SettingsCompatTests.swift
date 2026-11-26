@@ -102,6 +102,13 @@ final class SettingsCompatTests: XCTestCase {
         XCTAssertFalse(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s)).collectOffWork)
     }
 
+    func testSumunjangStartsOffForOldSavesAndRoundTrips() throws {
+        XCTAssertFalse(try decode(#"{"maskPII":true}"#).sumunjang, "saves from before the setting never download the model on their own")
+        var s = AppSettings()
+        s.sumunjang = true
+        XCTAssertTrue(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(s)).sumunjang)
+    }
+
     func testOldExcludedListDropsSystemWindowsAndMaskingStartsOn() throws {
         let s = try decode(#"{"excludedBundles":["com.apple.loginwindow","com.apple.Passwords","com.example.app"]}"#)
         XCTAssertEqual(s.excludedBundles, ["com.apple.Passwords", "com.example.app"])

@@ -44,6 +44,7 @@ main 릴리스는 Developer ID 인증서로 서명하고, dmg를 Apple에 공증
 | `SILLOG_REQUEST_PERMISSIONS=1` | 시작 시 손쉬운 사용·화면 기록 권한 요청 |
 | (녹음 받아쓰기 모델) | Whisper large-v3-turbo 압축판(`openai_whisper-large-v3-v20240930_626MB`, 약 610MB)을 처음 받아쓸 때 데이터 폴더의 `models/` 아래로 내려받는다(WhisperKit, 기기 안). 녹음하는 동안 30초쯤마다 조용한 순간에 잘라 미리 받아써 두고(`LiveTranscription`), 끝나면 남은 조각만 받아쓴다(11분 녹음도 끝나고 약 2초). 앱을 다시 켰거나 미리 받아쓰기가 실패하면 파일 전체를 같은 30초 조각으로 받아쓴다. 내려받기·불러오기에 실패하면 애플 기기 안 음성 인식으로 받아쓴다. 모델은 90초 동안 안 쓰면 내려놓는다 |
 | `SILLOG_TRANSCRIBE_TRACE` | 개발용 받아쓰기 진단: `<녹음 파일>|<적을 파일>`. 앱과 같은 방식으로 받아쓰며 인식기 결과(마지막 결과·발화 끝 표시·끝 시각·글)를 하나하나 적고 끝난다. 음성 인식 권한이 앱 번들에만 있어 `open -n SILLOG.app --env 'SILLOG_TRANSCRIBE_TRACE=…'` 로 띄운다. `SILLOG_TRANSCRIBE_ENGINE=apple` 이면 애플 음성 인식으로(기본은 Whisper 로 파일 전체), `SILLOG_TRANSCRIBE_GAIN=2` 로 애플 인식의 키울 배수를 직접 정할 수 있다. `SILLOG_TRANSCRIBE_ENGINE=live` 면 파일을 녹음기처럼 흘려보내며 녹음 중 미리 받아쓰기를 하고 끝난 뒤 글이 나오기까지 걸린 시간을 적는다(`SILLOG_TRANSCRIBE_SPEED=8` 로 8배 빨리) |
+| (수문장 모델) | 설정 > 일반 > 보안의 '민감정보를 외부에 보내지 않기'를 켜면 Hugging Face `beaver-zip/sumunjang`에서 `sumunjang.json`, `tokenizer/`, `coreml/`을 데이터 폴더의 `models/` 아래로 받고 한 번 컴파일한다(`SumunjangModel`, 받는 판은 `SumunjangModel.revision`으로 고정). 받기 전에는 정리 배치를 건너뛰고 기록은 계속 남긴다. 모델은 90초 동안 안 쓰면 내려놓는다. 변환과 올리기는 `scripts/sumunjang/convert.py` |
 | (숨은 설정 `frameLog`) | `defaults write com.sillog.app frameLog -bool true` 면 화면 갱신마다 메인 스레드가 늦은 프레임을 재서, 늦은 프레임이 있던 1초마다 화면 이름과 함께 app.log 에 `프레임 기록 자료 > 파일: 120장 중 늦음 3 (많이 늦음 1), 가장 긴 간격 40ms` 처럼 남긴다. 앱을 다시 켜야 적용, `defaults delete … frameLog` 로 끈다 |
 | `SILLOG_TAB` | 시작 탭: `graph`, `chat`, `records`(기록 자료), `calendar`, `settings`. `files`, `history`(지난 기록), `library` 는 기록 자료의 그 구역으로, `activity` 는 설정의 활동 로그로 연다 (업무 목록은 그래프 탭에만 있다) |
 
@@ -101,6 +102,16 @@ swift run sillogctl export-cypher graph.cypher
 ```bash
 sqlite3 "file:$HOME/Library/Application Support/Sillog/sillog.sqlite?mode=ro" ".backup '/tmp/wg-copy.sqlite'"
 SILLOG_DB=/tmp/wg-copy.sqlite swift run sillogctl find-events 1851 1779
+```
+
+### 수문장 모델 바꾸기
+
+학습한 모델은 `scripts/sumunjang/convert.py`로 Core ML로 바꾸고 Hugging Face에 비공개로 올립니다. 이때 검증용 합성 기록의 PyTorch 점수(`reference.json`)도 함께 만듭니다. 공개하기 전에 Mac에서 내려받아 Core ML 점수가 PyTorch 점수와 맞는지 봅니다. 점수 차가 0.02를 넘거나 0.8 기준 판정이 하나라도 다르면 실패합니다. 앱은 fp16 오차가 가장 작은 GPU로 계산합니다. 맞으면 저장소를 공개하고 `SumunjangModel.revision`을 올린 커밋으로 바꿉니다.
+
+```bash
+python scripts/sumunjang/convert.py MODEL_DIR out --val val.jsonl --reference reference.json --upload beaver-zip/sumunjang
+swift run sillogctl sumunjang-check 받은_폴더 val.jsonl reference.json
+swift run sillogctl --db "$SILLOG_TEST_DB" batch --all --sumunjang   # 배치에서 수문장 켜기
 ```
 
 ### MCP 서버

@@ -180,7 +180,7 @@ public struct DigestInput: Encodable, Sendable {
         // 새 파일 (내려받은 파일: 그 업무의 행에서 생긴 것)
         let files = try Row.fetchAll(conn, sql: """
             SELECT f.path, f.origin_url, f.ts FROM file_events f JOIN observations o ON o.id = f.observation_id
-            WHERE o.task_id = ? AND f.ts >= ? AND f.ts < ? ORDER BY f.ts
+            WHERE o.task_id = ? AND o.sensitive = 0 AND f.ts >= ? AND f.ts < ? ORDER BY f.ts
             """, arguments: [node.id, start, end])
         input.metrics.filesNew = files.count
         for file in files.prefix(10) {

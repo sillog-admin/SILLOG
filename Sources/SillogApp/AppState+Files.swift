@@ -104,7 +104,7 @@ extension AppState {
 
         let now = Date().timeIntervalSince1970
         let index = await currentFolderIndex()
-        let observations = (try? store.recent(limit: 120)) ?? []
+        let observations = await withoutSensitive((try? store.recent(limit: 120)) ?? [], since: now - 600)
         let recentTitles = Self.recentContext(from: observations, since: now - 600)
         // 받기 직전 화면의 텍스트 (강의 사이트라면 과목명·주차가 여기에 있다)
         let screenText: String? = observations.first { $0.ts >= now - 600 && $0.textId != nil }

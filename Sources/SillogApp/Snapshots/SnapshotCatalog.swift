@@ -80,6 +80,9 @@ enum SnapshotCatalog {
             shot("OUT-05", MainWindow(), size: window) { s in
                 permissionStep(s, PermissionGrants(accessibility: true, screenRecording: true)); s.askedScreenRecording = true
             },
+            shot("OUT-PRIVACY", MainWindow(), size: window) { s in
+                permissionStep(s, PermissionGrants(accessibility: true, screenRecording: true)); s.onboardingStep = .privacy
+            },
             shot("OUT-W1", MainWindow(), size: window) { s in s.phase = .login; s.loginBlocked = true },
             shot("OUT-W3", MainWindow(), size: window) { s in s.startupError = AppState.alreadyRunningMessage },
             shot("OUT-W4", MainWindow(), size: window) { s in s.bootstrapped = false },
@@ -507,6 +510,10 @@ enum SnapshotCatalog {
     static var storage: [Snapshot] {
         [
             shot("ST-STORAGE", SettingsView(), size: window) { s in storageState(s); s.settingsSection = .general },
+            // 보안 구역: 수문장 모델을 받는 동안
+            shot("ST-SECURITY", SettingsView(), size: CGSize(width: 1180, height: 2600)) { s in
+                storageState(s); s.settingsSection = .general; s.settings.sumunjang = true; s.sumunjangDownload = .downloading(0.42)
+            },
             shot("ST-STORAGE-ADVANCED", ScrollView { StorageDetailView(advanced: true).padding(.horizontal, 34).padding(.bottom, 40) }.background(.white),
                  size: CGSize(width: 946, height: 1500)) { s in storageState(s) },
             shot("ST-CLEANUP-CONSENT", CleanupPreviewSheet(preview: sampleCleanup)) { s in storageState(s) },

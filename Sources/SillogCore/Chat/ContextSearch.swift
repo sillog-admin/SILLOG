@@ -123,6 +123,9 @@ public struct ContextSearch: Sendable {
         access.tasks == nil ? "" : " AND o.id IS NOT NULL" + taskRestriction("o.task_id", access)
     }
 
+    // With SUMUNJANG on, rows no batch has scored yet stay out too; rows batched before it was on were already sent as they are.
+    private static var screenFilter: String { Sumunjang.enabled ? "AND o.sensitive = 0 AND o.batch_id IS NOT NULL" : "AND o.sensitive = 0" }
+
     private static func cardRestriction(_ access: Access) -> String {
         guard access.tasks != nil else { return "" }
         let condition = String(taskRestriction("task_id", access).dropFirst(5))
@@ -202,7 +205,7 @@ public struct ContextSearch: Sendable {
                 SELECT o.id, o.ts, o.app_name, o.window_title, o.url, o.doc_path, t.text
                 FROM observations o LEFT JOIN text_snapshots t ON t.id = o.text_id
                 WHERE o.ts >= ? AND o.ts <= ? AND ((\(snapshot.0)) OR instr(lower(COALESCE(o.window_title, '') || ' ' || COALESCE(o.url, '') || ' ' || COALESCE(o.doc_path, '')), lower(?)) > 0)
-                \(Self.taskRestriction("o.task_id", access))\(activity) ORDER BY o.ts DESC LIMIT \(limit(10))
+                \(Self.screenFilter)\(Self.taskRestriction("o.task_id", access))\(activity) ORDER BY o.ts DESC LIMIT \(limit(10))
                 """, arguments: [from, to, snapshot.1, needle]) {
                 results.append(.init(id: "observation:\(row["id"] as Int64)", title: "\(row["app_name"] as String) · \(row["window_title"] as String? ?? "활동")", location: row["url"] ?? row["doc_path"] ?? "", excerpt: "\(Self.date(row["ts"]))\n" + String((row["text"] as String? ?? "화면 텍스트 없음").prefix(1600))))
             }
@@ -311,7 +314,7 @@ public struct ContextSearch: Sendable {
                     """, arguments: [id, id, id, id])
                 return rows.map { row in .init(id: "node:\(row["id"] as Int64)", title: "\(row["label"] as String) · \(row["title"] as String)", location: row["key"], excerpt: Self.times(row["props"]) + String((row["props"] as String).prefix(2500))) }
             case "observation":
-                guard let row = try Row.fetchOne(conn, sql: "SELECT o.*, t.text FROM observations o LEFT JOIN text_snapshots t ON t.id = o.text_id WHERE o.id = ?", arguments: [id]) else { return [] }
+                guard let row = try Row.fetchOne(conn, sql: "SELECT o.*, t.text FROM observations o LEFT JOIN text_snapshots t ON t.id = o.text_id WHERE o.id = ? \(Self.screenFilter)", arguments: [id]) else { return [] }
                 return [.init(id: sourceID, title: row["window_title"] ?? "활동 기록", location: row["url"] ?? row["doc_path"] ?? "", excerpt: "\(Self.date(row["ts"]))\n" + String((row["text"] as String? ?? tr("텍스트 없음")).prefix(18000)))]
             case "card":
                 guard let row = try Row.fetchOne(conn, sql: "SELECT * FROM screen_cards WHERE id = ?", arguments: [id]) else { return [] }

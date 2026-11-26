@@ -7,6 +7,8 @@ public enum OnboardingStep: Equatable, Sendable {
     case language
     case login
     case permissions
+    /// Whether SUMUNJANG holds back sensitive screens; the last step, so its button starts the app.
+    case privacy
 }
 
 /// 온보딩 권한 단계가 읽는 두 권한
@@ -38,18 +40,19 @@ public enum OnboardingFlow {
     }
 
     /// Args: step is the step on screen, phase the app phase.
-    /// Returns: whether its Next button works: always on the language step, on login only once connected.
+    /// Returns: whether its Next button works: always on the language and permission steps, on login only once connected.
     /// Raises: none.
     public static func canAdvance(from step: OnboardingStep, phase: AppPhase) -> Bool {
-        step == .language || (step == .login && phase != .login)
+        step == .language || step == .permissions || (step == .login && phase != .login)
     }
 
     /// Args: step is the step on screen, phase the app phase.
-    /// Returns: the step after Next: login if not connected yet, then permissions if left, else nil to close.
+    /// Returns: the step after Next: login if not connected yet, then permissions and privacy if left, else nil to close.
     /// Raises: none.
     public static func advance(from step: OnboardingStep, phase: AppPhase) -> OnboardingStep? {
         guard canAdvance(from: step, phase: phase) else { return step }
         if phase == .login { return .login }
+        if step == .permissions { return .privacy }
         return phase == .permissions ? .permissions : nil
     }
 
