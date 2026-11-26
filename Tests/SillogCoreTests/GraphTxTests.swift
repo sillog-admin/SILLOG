@@ -101,6 +101,24 @@ final class GraphTxTests: XCTestCase {
         }
     }
 
+    // The edge query once probed the (src, dst) index for every pair of node ids, so the graph tab froze for seconds on a big graph
+    func testSubgraphOfABigGraphStaysFast() throws {
+        let db = try SillogDatabase.inMemory()
+        try db.writer.write { conn in
+            try conn.execute(sql: """
+                WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 6000)
+                INSERT INTO nodes(label, key, title, props, created_at, updated_at) SELECT 'Topic', 'k' || i, 't', '{}', 1, 1 FROM n;
+                INSERT INTO edges(src, dst, type, props, weight, hits, first_at, last_at)
+                SELECT id, id + 1, 'ABOUT', '{}', 0, 1, 1, 1 FROM nodes WHERE id < (SELECT MAX(id) FROM nodes);
+                """)
+        }
+        let start = Date()
+        let graph = try db.writer.read { try GraphTx($0).subgraph(since: nil, includeTBox: true) }
+        XCTAssertEqual(graph.nodes.count, 6000)
+        XCTAssertEqual(graph.edges.count, 5999)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 1, "the pairwise plan takes seconds here")
+    }
+
     func testOpenTasksDigest() throws {
         let db = try SillogDatabase.inMemory()
         try db.writer.write { conn in

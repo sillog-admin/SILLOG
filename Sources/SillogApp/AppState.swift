@@ -877,7 +877,15 @@ final class AppState: ObservableObject {
     }
 
     /// 그래프 뷰로 보낼 JSON. 클래스 층도 함께 보내고, 보일지 말지는 화면에서 정한다.
-    func graphJSON() -> String {
+    func graphJSON() -> String { Self.graphJSON(db) }
+
+    /// The same JSON built off the main thread: reading and encoding a large graph froze the window as the graph tab opened
+    func graphJSONInBackground() async -> String {
+        let db = self.db
+        return await Task.detached(priority: .userInitiated) { Self.graphJSON(db) }.value
+    }
+
+    nonisolated private static func graphJSON(_ db: SillogDatabase?) -> String {
         guard let db, let graph = try? db.writer.read({ try GraphTx($0).subgraph(since: nil, includeTBox: true) }),
               let data = try? GraphJSONExporter.export(graph) else { return #"{"nodes":[],"links":[]}"# }
         return String(data: data, encoding: .utf8) ?? #"{"nodes":[],"links":[]}"#

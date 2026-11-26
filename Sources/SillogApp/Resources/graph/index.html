@@ -309,6 +309,7 @@ button.theme-head:hover h2 { color: var(--text); }
 /* 2D 연결망: 흰 바탕 */
 .solbox { position: absolute; inset: 0; overflow: hidden; }
 .solbox canvas { display: block; }
+.solbox .solorb { position: absolute; left: 0; top: 0; pointer-events: none; transform-origin: 50% 50%; }
 .soltip { position: absolute; z-index: 3; pointer-events: none; white-space: nowrap; padding: 6px 10px; border-radius: 8px; font-size: 12px; line-height: 1.55; color: var(--text); background: rgba(255, 255, 255, 0.95); border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(36, 21, 15, 0.10); }
 .soltip b { display: block; font-weight: 600; }
 .soltip span { display: flex; align-items: center; gap: 6px; color: var(--muted); }
@@ -1021,6 +1022,13 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
 
   const state = { mode: 'solar', range: 'all', q: '', themesOff: new Set(), kindsOff: new Set(), showEtc: false, showLinks: true,
                   detail: null, focus: null, dview: 'cols', day: DAYS - 1, rel: new Map() };
+  // Decorative motion (the 2D orb, the 3D spin) stops IDLE ms after the last input and while the app window is in the background
+  // (the app calls WG.setActive), so a graph left open costs no CPU
+  const IDLE = 20000;
+  let lastInput = performance.now(), pageActive = true, wake = null;   // wake: restarts the shown view's motion
+  const lively = () => pageActive && performance.now() - lastInput < IDLE;
+  const poke = () => { lastInput = performance.now(); wake?.(); };
+  ['pointermove', 'pointerdown', 'keydown', 'wheel'].forEach(type => addEventListener(type, poke, { capture: true, passive: true }));
 
   const inRange = s => state.range === 'all' || (state.range === 'today' ? s.d === DAYS - 1 : s.d >= DAYS - (state.range === 'month' ? 30 : 7));
   const statsOf = t => {
@@ -1040,6 +1048,21 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       const shared = [...keysOf(o)].filter(k => mine.has(k));
       if (shared.length) out.set(o.id, shared);
     }
+    return out;
+  };
+  // related() for every task at once, as shared-key counts: grouping tasks by key instead of comparing every pair (seconds past a thousand tasks)
+  const relatedAll = pool => {
+    const keys = pool.map(keysOf), byKey = new Map();
+    keys.forEach((ks, i) => ks.forEach(k => { const l = byKey.get(k); if (l) l.push(i); else byKey.set(k, [i]); }));
+    return new Map(pool.map((t, i) => {
+      const n = new Map();
+      keys[i].forEach(k => byKey.get(k).forEach(j => { if (j !== i && pool[j].theme !== 'etc') n.set(j, (n.get(j) || 0) + 1); }));
+      return [t.id, new Map([...n].sort((a, b) => a[0] - b[0]).map(([j, c]) => [pool[j].id, c]))];   // pool order, like related()
+    }));
+  };
+  const linksOf = pool => {   // each pair that shares a key once, in pool order: [task id, task id, shared count]
+    const near = relatedAll(pool), at = new Map(pool.map((t, i) => [t.id, i])), out = [];
+    pool.forEach((t, i) => near.get(t.id).forEach((c, oid) => { if (at.get(oid) > i) out.push([t.id, oid, c]); }));
     return out;
   };
   const keyName = k => k.slice(2);
@@ -2570,17 +2593,18 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       const dist = (330 + (R() - 0.5) * 320 * (1 - 0.7 * CVT.clump)) * CVT.dist * NEAR - 40 * Math.sqrt(n.mins / maxM);   // 같은 분야는 비슷한 거리에
       n.c = v.map(q => q / l * dist);
     });
+    const maxRc = Math.max(...nodes.map(n => n.Rc));
+    const push = (A, B) => {                                    // move an overlapping pair of clouds apart, half each
+      let x = B.c[0] - A.c[0], d;
+      const y = B.c[1] - A.c[1], z = B.c[2] - A.c[2], want = (A.Rc + B.Rc) * CVT.gap, d2 = x * x + y * y + z * z;
+      if (d2 >= want * want) return;
+      d = Math.sqrt(d2); if (d < 0.01) { x = 1; d = 1; }
+      const m = (want - d) / 2 * 0.4 / d;
+      A.c[0] -= x * m; A.c[1] -= y * m; A.c[2] -= z * m; B.c[0] += x * m; B.c[1] += y * m; B.c[2] += z * m;
+    };
     for (let it = 0; it < 80; it++) {                         // 구름끼리 너무 겹치지 않게 밀어냄
-      for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
-        const A = nodes[i], B = nodes[j];
-        const d3 = [B.c[0] - A.c[0], B.c[1] - A.c[1], B.c[2] - A.c[2]];
-        let d = Math.hypot(...d3);
-        const want = (A.Rc + B.Rc) * CVT.gap;
-        if (d >= want) continue;
-        if (d < 0.01) { d3[0] = 1; d = 1; }
-        const m = (want - d) / 2 * 0.4;
-        for (let q = 0; q < 3; q++) { A.c[q] -= d3[q] / d * m; B.c[q] += d3[q] / d * m; }
-      }
+      const byX = [...nodes].sort((a, b) => a.c[0] - b.c[0]);   // only pairs this close along x can overlap: checking every pair took a second past a thousand tasks
+      for (let i = 0; i < byX.length; i++) { const A = byX[i], reach = (A.Rc + maxRc) * CVT.gap; for (let j = i + 1; j < byX.length && byX[j].c[0] - A.c[0] < reach; j++) push(A, byX[j]); }
       if (CVT.clump > 0) {                                        // 분야 가운데로 조금씩 당겨 무리를 만든다 (겹침 밀어내기와 번갈아)
         const cen = new Map();
         nodes.forEach(n => { const c = cen.get(n.t.theme) || [0, 0, 0, 0]; c[0] += n.c[0]; c[1] += n.c[1]; c[2] += n.c[2]; c[3]++; cen.set(n.t.theme, c); });
@@ -2656,7 +2680,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     const Rs = Math.max(200, ...nodes.map(n => Math.hypot(...n.c) + n.Rc));    // 장면 반지름(깊이 정규화)
     const half = Math.max(...nodes.map(n => Math.max(Math.hypot(n.c[0], n.c[2]), Math.abs(n.c[1])) + n.Rc * 0.7));
     const kb = CVT.fit * 0.82 * Math.min(W, H) / (2 * half);   // 10/28: 전체가 다 보이게 여유를 조금 더   // 한 발 뒤로: 원근을 키운 뒤에도 앞쪽 원까지 화면 안에 들어오게              // 맞춤: 장면 범위가 짧은 변 안에 들어오게(가장자리 잘림 줄임)
-    const rel = new Map(nodes.map(n => [n.t.id, new Set([n.t.id, ...related(n.t, pool).keys()])]));
+    const near = relatedAll(pool), rel = new Map(nodes.map(n => [n.t.id, new Set([n.t.id, ...near.get(n.t.id).keys()])]));
     // 가운데 구("나"): 2D 와 같은 makeMarble, 분야 색은 2D 와 같은 팔레트(업무 시간 순), 비율은 업무 개수
     const MB = (() => {
       const g = new Map();
@@ -2899,9 +2923,11 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       raf = 0;
       const now = performance.now();
       if (!cv.isConnected) return;
+      const turning = cvPlay && lively() && !drag && !cvFocus && !cvGal;   // the idle spin keeps on under the cursor, stops with lively() and in focus
+      if (turning && !anim && !cvCB && !spin.y && !spin.p && last && now - last < 30) { kick(); return; }   // the slow spin alone needs no more than 30 frames a second
       const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
       last = now;
-      if (cvPlay && !drag && !cvFocus && !cvGal) { cvT += dt * 0.5;   // 커서를 올려도 계속 돈다 (끄는 중에만 멈춤). 입자는 절반 속도
+      if (turning) { cvT += dt * 0.5;   // particles at half speed
         cvV.yaw += dt * 6.2832 / CVT.spin; }
       if (!drag && (Math.abs(spin.y) > 0.02 || Math.abs(spin.p) > 0.02)) {
         cvV.yaw += spin.y * dt; cvV.pit = Math.max(-1.3963, Math.min(1.3963, cvV.pit + spin.p * dt));
@@ -2921,7 +2947,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       cvV.x = Math.max(-W * lim(cvV.k), Math.min(W * lim(cvV.k), cvV.x));
       cvV.y = Math.max(-H * lim(cvV.k), Math.min(H * lim(cvV.k), cvV.y));
       draw();
-      if (cvPlay || anim || cvCB || spin.y || spin.p) kick(); else last = 0;
+      if (turning || anim || cvCB || spin.y || spin.p) kick(); else last = 0;
     }
     // 입력: 마지막으로 그린 화면 좌표로 판정(앞쪽 우선)
     const pick = e => {
@@ -3106,7 +3132,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     if (SEL && NODE.has(SEL)) cvFocus = SEL;   // 다른 보기에서 고른 업무
     if (cvFocus && !NODE.has(cvFocus)) cvFocus = null;
     Object.assign(cvV, cvFocus ? fitOf(NODE.get(cvFocus)) : cvGal ? fitGal(GAL.get(cvGal)) : { tx: 0, ty: 0, tz: 0 });    // 필터로 배치가 바뀌었을 수 있어 다시 맞춤
-    panel(); kick();
+    panel(); wake = kick; kick();
     $('stats').textContent = `업무 ${nodes.length}개, 항목 ${shared.length + nodes.reduce((a, n) => a + n.own.length, 0)}개`;
     renderKinds(pool);
   }
@@ -3546,8 +3572,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       g.rows.forEach(r => { r.r = 4 + 7 * Math.sqrt(r.mins / maxM); r.g = g; rows.push(r); });
     });
     const byCnt = [...orbs].sort((a, b) => b.rows.length - a.rows.length);   // 구 색은 시간이 아니라 업무 개수 순
-    const links = [];   // 같은 자료를 함께 쓴 업무끼리 잇는 선: [업무 id, 업무 id, 함께 쓴 자료 수]
-    pool.forEach((t, i) => related(t, pool).forEach((sh, oid) => { if (pool.findIndex(o => o.id === oid) > i) links.push([t.id, oid, sh.length]); }));
+    const links = linksOf(pool);   // lines between tasks that used the same resources: [task id, task id, shared count]
     const maxL = Math.max(1, ...links.map(l => l[2])), byRow = new Map(rows.map(r => [r.t.id, r]));
     // 자료(자료망을 합침): 혼자 쓰는 자료는 업무 점 둘레에, 둘이 함께 쓴 자료는 잇는 선 위에, 셋 이상이 함께 쓴 자료는 그 사이에
     const reg = new Map(), own = new Map(), byId = new Map(pool.map(t => [t.id, t]));
@@ -3658,43 +3683,47 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
         if (d < min) { const f = (min - d) / 2 / d; p.x -= dx * f; p.y -= dy * f; q.x += dx * f; q.y += dy * f; keep(p); keep(q); }
       }
       rows.forEach(r => { r.x = r.par.x + r.ox; r.y = r.par.y + r.oy; });   // 업무는 종류 마디를 따라 한 덩이로
-      placeBase(); visKey = null; visSync();
+      place(); placeBase(); visKey = null; visSync();
     };
     const fit = () => {
       const b = box.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
       w = b.width; h = b.height; cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + 'px'; cv.style.height = h + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       layout(); if (sset) zgo();   // 다시 배치해도 선택과 확대는 유지: 새 위치로 경계 상자를 다시 구한다
-      draw(reduce ? 0 : performance.now());   // 첫 프레임 전에 배치와 그리기를 동기로 한 번 끝낸다
+      draw(reduce ? 0 : performance.now()); paintOrb(performance.now());   // laid out and drawn once, synchronously, before the first frame
+      if (zc !== zg) need();
     };
     // 가운데 구: 공용 makeMarble(렌더 함수 바깥)로 칠한다. 분야 비율은 업무 개수
     const MB = makeMarble(byCnt.map(g => ({ c: g.col, n: g.rows.length })), pool.length), mb = MB.cv;
-    let mT = -1;
-    const drawOrb = (x, y, sc, now) => {
-      const R = orbR() * (reduce ? 1 : Math.sin(now * 0.0015) * 0.03 + 1);
-      ctx.save();
-      const N = Math.max(16, Math.min(240, Math.round(orbR() * 2 * (window.devicePixelRatio || 1) / 8) * 8));   // 맥박에 따라 크기를 바꾸지 않는다
-      if (mb.width !== N || (!reduce && now - mT > 33)) { MB.paint(N, reduce ? 0 : now / 1000); mT = now; }   // 초당 30번만 다시 칠한다
-      ctx.drawImage(mb, x - R, y - R, R * 2, R * 2);
-      ctx.restore();
-      orb = { x, y, r: R };
+    // The orb is the only part that moves by itself, so it has its own small canvas over the scene, repainted 10 times a second
+    // while lively(): the scene is drawn only when something in it changes
+    const oc = document.createElement('canvas'), octx = oc.getContext('2d');
+    oc.className = 'solorb'; cv.after(oc);
+    let orbRaf = 0, orbTo = 0, orbS = 0, orbAt = { x: 0, y: 0, k: 1, a: 1 };   // orbAt: centre on screen, zoom and alpha from the last scene draw
+    const placeOrb = () => { oc.style.transform = `translate(${orbAt.x + mx - orbS / 2}px, ${orbAt.y + my - orbS / 2}px) scale(${orbAt.k})`; oc.style.opacity = orbAt.a; };
+    const paintOrb = now => {
+      const dpr = window.devicePixelRatio || 1, R = orbR() * (reduce ? 1 : Math.sin(now * 0.0015) * 0.03 + 1);
+      orbS = Math.ceil(orbR() * 2.06) + 4;   // room for the 3% pulse
+      if (oc.width !== Math.round(orbS * dpr)) { oc.width = oc.height = Math.round(orbS * dpr); oc.style.width = oc.style.height = orbS + 'px'; }
+      MB.paint(Math.max(16, Math.min(240, Math.round(orbR() * 2 * dpr / 8) * 8)), reduce ? 0 : now / 1000);   // texture size does not follow the pulse
+      octx.setTransform(dpr, 0, 0, dpr, 0, 0); octx.clearRect(0, 0, orbS, orbS); octx.drawImage(mb, orbS / 2 - R, orbS / 2 - R, R * 2, R * 2);
+      placeOrb();
     };
+    const orbLoop = now => {   // a timer between frames: asking for every frame cost more than the painting
+      orbRaf = 0; paintOrb(now);
+      if (lively()) orbTo = setTimeout(() => { orbTo = 0; orbRaf = requestAnimationFrame(orbLoop); }, 100);
+    };
+    const startOrb = () => { if (!reduce && !orbRaf && !orbTo) orbRaf = requestAnimationFrame(orbLoop); };
     const ctl = (p, q) => { const sgn = hash(p.r.t.id + q.r.t.id) % 2 ? 1 : -1;   // 잇는 선의 휨: 살짝 옆으로, 쌍마다 방향이 다르다
       return [(p.x + q.x) / 2 - (q.y - p.y) * 0.12 * sgn, (p.y + q.y) / 2 + (q.x - p.x) * 0.12 * sgn]; };
     const bez = (p, q, t) => { const [c0, c1_] = ctl(p, q), u = 1 - t; return [u * u * p.x + 2 * u * t * c0 + t * t * q.x, u * u * p.y + 2 * u * t * c1_ + t * t * q.y]; };   // 잇는 선 위의 점
     const txt = (s, x, y, font, col, al) => { ctx.font = font.replace(/([\d.]+)px/, (m, n) => n / zc.k + 'px'); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.globalAlpha = al; ctx.lineWidth = 3 / zc.k;   // 글자 크기는 배율을 나눠 화면에서 같게
       ctx.strokeStyle = '#fff'; ctx.strokeText(s, x, y); ctx.fillStyle = col; ctx.fillText(s, x, y); };
-    const draw = now => {
-      if (!w) return;
-      mx += (tx - mx) * 0.06; my += (ty - my) * 0.06;
-      const cx = w / 2 + mx, cy = h / 2 + my;
-      if (zc !== zg) { const t = Math.min(1, (now - zt0) / 350), e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;   // 선택 쪽으로 확대: 0.35초 ease
-        zc = t >= 1 ? zg : { k: za.k + (zg.k - za.k) * e, x: za.x + (zg.x - za.x) * e, y: za.y + (zg.y - za.y) * e }; }
-      ctx.clearRect(0, 0, w, h);
-      clampPan();
-      ctx.save(); ctx.translate(w / 2 - zc.k * (w / 2 + zc.x + pan.x), h / 2 - zc.k * (h / 2 + zc.y + pan.y)); ctx.scale(zc.k, zc.k);
+    let at = new Map();   // task id -> its dot in items
+    const place = () => {   // dots for tasks, nodes and resources: they move only with the layout, so they are not rebuilt every frame
+      const cx = w / 2, cy = h / 2;
       items = rows.map(r => ({ r, x: cx + r.x, y: cy + r.y, rad: r.r }));
       [...ths, ...tys].forEach(n => { n.sx = cx + n.x; n.sy = cy + n.y; });
-      const at = new Map(items.map(o => [o.r.t.id, o]));
+      at = new Map(items.map(o => [o.r.t.id, o]));
       rd = [];
       items.forEach(o => {   // 혼자 쓰는 자료: 업무 점 둘레에 작은 점, 10개 넘으면 두 겹
         const list = own.get(o.r.t.id) || [], m = list.length; if (!m) return;
@@ -3711,6 +3740,15 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
         const ax = us.reduce((t, o) => t + o.x, 0) / us.length, ay = us.reduce((t, o) => t + o.y, 0) / us.length, j = (hash(v.name) % 100) / 100 * Math.PI * 2;
         rd.push({ it: v, x: ax + 6 * Math.cos(j), y: ay + 6 * Math.sin(j), rad: 2.6, uid: v.users, star: us });
       });
+    };
+    const draw = now => {
+      if (!w) return;
+      const cx = w / 2, cy = h / 2;   // the mouse parallax moves the canvas (driftStep), not the drawing
+      if (zc !== zg) { const t = Math.min(1, (now - zt0) / 350), e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;   // zoom toward the selection over 0.35 s
+        zc = t >= 1 ? zg : { k: za.k + (zg.k - za.k) * e, x: za.x + (zg.x - za.x) * e, y: za.y + (zg.y - za.y) * e }; }
+      ctx.clearRect(0, 0, w, h);
+      clampPan();
+      ctx.save(); ctx.translate(w / 2 - zc.k * (w / 2 + zc.x + pan.x), h / 2 - zc.k * (h / 2 + zc.y + pan.y)); ctx.scale(zc.k, zc.k);
       const ids = hs && hs.ids, hn = n => hs && hs.nds.has(n), hotT = id => ids && ids.has(id);   // 올린 것과 이어진 업무, 마디
       const hotD = d => hs && (on.it === d.it || (!on.it && d.uid.some(id => ids.has(id))));   // 올린 것과 이어진 자료
       const si = sset && sset.ids, sn = sset && sset.nds, soft = sset && sset.soft;   // 선택 범위의 업무, 마디, (업무를 골랐을 때) 같은 자료를 쓰는 상대 업무
@@ -3752,8 +3790,8 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
         ctx.globalAlpha = lv(inN(t), hn(t), 1, 0.35); ctx.fillStyle = '#fff'; ctx.strokeStyle = t.g.hex; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(t.sx, t.sy, t.nr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       });
-      ctx.globalAlpha = sset ? 0.35 : 1;   // 구는 선택 중에도 조금 보인다
-      drawOrb(cx, cy, sc, now);
+      orb = { x: cx, y: cy, r: orbR() };
+      orbAt = { x: w / 2 - zc.k * (zc.x + pan.x), y: h / 2 - zc.k * (zc.y + pan.y), k: zc.k, a: sset ? 0.35 : 1 }; placeOrb();   // the orb stays faintly visible during a selection
       ctx.globalAlpha = 1;
       const INK = '#24150f', MUT = 'rgba(36,21,15,0.5)';
       if (on && on.r) txt('속함', (on.r.ty.sx + on.x) / 2 - 9, (on.r.ty.sy + on.y) / 2, fEd, MUT, 1);   // 업무를 올렸을 때만
@@ -3765,8 +3803,15 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       });
       ctx.restore(); ctx.globalAlpha = 1;
     };
-    const loop = now => { draw(now); raf = requestAnimationFrame(loop); };
-    const onMove = e => { tx = (e.clientX / innerWidth - 0.5) * 20; ty = (e.clientY / innerHeight - 0.5) * 12; };   // 마우스 시차
+    const frame = now => { raf = 0; draw(now); if (zc !== zg) need(); };   // the zoom eases over a few frames
+    const need = () => { if (reduce) draw(0); else if (!raf) raf = requestAnimationFrame(frame); };   // reduced motion draws at once, as before
+    let drift = 0;
+    const driftStep = () => {   // the mouse parallax eases both canvases with a CSS transform instead of redrawing the scene
+      drift = 0; mx += (tx - mx) * 0.06; my += (ty - my) * 0.06;
+      if (Math.abs(tx - mx) + Math.abs(ty - my) > 0.05) drift = requestAnimationFrame(driftStep); else { mx = tx; my = ty; }
+      cv.style.transform = `translate(${mx}px, ${my}px)`; placeOrb();
+    };
+    const onMove = e => { tx = (e.clientX / innerWidth - 0.5) * 20; ty = (e.clientY / innerHeight - 0.5) * 12; if (!reduce && !drift) drift = requestAnimationFrame(driftStep); };   // mouse parallax
     const show = (e, html) => {
       const b = box.getBoundingClientRect();
       tip.innerHTML = html; tip.hidden = false;
@@ -3799,7 +3844,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       sel = o; sset = o ? hotOf(o) : null;
       on = null; hs = null; tip.hidden = true; box.classList.toggle('sel', !!o);   // 보이는 업무가 바뀌므로 올림은 다음 움직임에서 다시 잡는다, 자료 종류 범례는 고르는 동안만
       if (o && o.r) { sset.soft = new Set(); links.forEach(([a, b]) => { if (a === o.r.t.id) sset.soft.add(b); else if (b === o.r.t.id) sset.soft.add(a); }); }
-      zgo(); visSync(); if (reduce) draw(0);
+      zgo(); visSync(); need();
     };
     const onKey = e => { if (e.key === 'Escape' && sel) pick(null); };   // Esc 로 선택 풀기
     let visKey = '';
@@ -3830,11 +3875,11 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
       lastPt = { clientX: e.clientX, clientY: e.clientY };
       if (drag) {
         if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 3) { drag.moved = true; on = null; hs = null; tip.hidden = true; cv.style.cursor = 'grabbing'; visSync(); }
-        if (drag.moved) { pan.x -= (e.clientX - drag.lx) / zc.k; pan.y -= (e.clientY - drag.ly) / zc.k; clampPan(); if (reduce) draw(0); }
+        if (drag.moved) { pan.x -= (e.clientX - drag.lx) / zc.k; pan.y -= (e.clientY - drag.ly) / zc.k; clampPan(); need(); }
         drag.lx = e.clientX; drag.ly = e.clientY;
         return;
       }
-      const [hit, inOrb] = hitAt(e); on = hit;
+      const [hit, inOrb] = hitAt(e), was = on; on = hit;
       hs = on ? hotOf(on) : null;
       visSync();
       cv.style.cursor = on && (on.r || on.kind || (on.uid && on.uid.length === 1)) ? 'pointer' : 'grab';   // 빈 곳은 끌 수 있다는 손
@@ -3846,9 +3891,9 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
         show(e, `<b>${esc(on.it.name)}</b><span><i style="background:${KINDS[on.it.k].color}"></i>${KINDS[on.it.k].name}</span><span>${esc(ts.slice(0, 3).join(', '))}${ts.length > 3 ? ` 외 ${ts.length - 3}개` : ''}</span>`); }
       else if (inOrb) show(e, `<b>분야별 업무 개수</b>${byCnt.map(g => `<span><i style="background:${g.hex}"></i>${esc(g.name)} ${g.rows.length}개, ${Math.round(g.rows.length / pool.length * 100)}%</span>`).join('')}`);
       else tip.hidden = true;
-      if (reduce) draw(0);   // 움직임 줄이기에서도 올린 업무의 선을 진하게
+      if (on !== was) need();   // redraw only when what is hovered changes
     });
-    cv.addEventListener('pointerleave', () => { tip.hidden = true; on = null; hs = null; visSync(); if (reduce) draw(0); });
+    cv.addEventListener('pointerleave', () => { tip.hidden = true; on = null; hs = null; visSync(); need(); });
     const solDesc = o => !o ? null : o.r ? { task: o.r.t.id } : o.kind === 'th' ? { theme: o.g.id } : o.kind === 'ty' ? { type: o.name } : o.it ? { item: o.it.k, name: o.it.name, tids: o.uid } : null;
     cv.addEventListener('click', e => {   // 누르면 선택(고정)과 확대, 같은 것을 다시 누르거나 빈 곳을 누르면 푼다. 누른 것의 상세도 연다 (업무는 업무 상세)
       if (wasDrag) { wasDrag = false; return; }   // 끌기를 마친 놓기는 누르기가 아니다
@@ -3862,8 +3907,8 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     const ro = new ResizeObserver(() => fit());
     ro.observe(box); addEventListener('pointermove', onMove); addEventListener('keydown', onKey); fit();
     if (SEL && byRow.get(SEL)) pick({ r: byRow.get(SEL) });   // 다른 보기에서 고른 업무
-    if (!reduce) raf = requestAnimationFrame(loop);
-    solarStop = () => { cancelAnimationFrame(raf); ro.disconnect(); removeEventListener('pointermove', onMove); removeEventListener('keydown', onKey); };
+    wake = startOrb; startOrb();
+    solarStop = () => { cancelAnimationFrame(raf); cancelAnimationFrame(orbRaf); clearTimeout(orbTo); cancelAnimationFrame(drift); ro.disconnect(); removeEventListener('pointermove', onMove); removeEventListener('keydown', onKey); };
   }
 
   // 가지 도표: 화면에 보이는 업무를 v2d_sankey.js 에 넘겨 분야 → 업무 종류 → 업무로 흐르는 생키 그림을 그린다
@@ -3880,8 +3925,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
                  return { d: s.d, start: s.start, end: s.end, active: s.active, apps: s.apps, when: `${dd.getMonth() + 1}/${dd.getDate()} ${hm(s.start)}` }; }),
                items: Object.fromEntries(itemsOf(t).filter(([k]) => !state.kindsOff.has(k)).map(([k, items]) => [k, items])) };
     });
-    const rel = [];
-    if (state.showLinks) pool.forEach((t, i) => related(t, pool).forEach((shared, oid) => { if (pool.findIndex(o => o.id === oid) > i) rel.push([t.id, oid, shared.length]); }));
+    const rel = state.showLinks ? linksOf(pool) : [];
     const themes = THEMES.filter(th => tasks.some(t => t.theme === th.id)).map(th => ({ id: th.id, name: th.name, color: th.color }));
     v3dOff = window.V3D[name](main, { tasks, themes, kinds: KINDS, rel }, { open: openDetail, sel: SEL, select: id => { SEL = id || null; }, node: showNode, menu: nodeMenu });   // select: 상세 칸을 열지 않고 고른 업무만 바꿈
   }
@@ -3897,7 +3941,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
   function render() {
     hot = null;
     { const vt = VIEW_TEXT[state.mode]; if (vt) { $('vtitle').textContent = vt[0]; $('vdesc').textContent = vt[1]; } }
-    skyOff(); solarOff();
+    skyOff(); solarOff(); wake = null;
     v3dOff?.(); v3dOff = null;
     bgOff?.(); bgOff = null; $('main').classList.remove('meshbg');
     $('main').classList.toggle('full', !state.detail && FULL.has(state.mode));
@@ -4206,6 +4250,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
   }
   const post = m => { try { window.webkit.messageHandlers.wg.postMessage(m); } catch (_) { /* 브라우저에서 열었을 때 */ } };
   window.WG = { setGraph(data) { loadGraph(data); render(); }, detailClosed() { SEL = null; render(); },
+    setActive(on) { pageActive = on; if (on) poke(); },   // the app window came to the front or went behind
     select(key) { const id = TASKS.find(t => t.key === key)?.id; if (!id || SEL === id) return; SEL = id; render(); } };   // 업무 목록에서 고른 업무
   if (window.__WG_DATA__) loadGraph(window.__WG_DATA__);
 

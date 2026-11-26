@@ -467,6 +467,8 @@ struct MainWindow: View {
     }
 
     @EnvironmentObject private var state: AppState
+    /// The graph page is made on the first visit to the graph tab and then kept, hidden under the other tabs
+    @State private var graphKept = false
     /// SILLOG_TAB=chat|records|files|history|library|calendar|settings|activity 로 시작 탭을 고를 수 있다 (개발·스크린샷용).
     static let initialTab: Tab = {
         switch SillogEnv.value("TAB") {
@@ -513,18 +515,26 @@ struct MainWindow: View {
                         } else if loginBlocked {
                             LoginBlockedView()
                         } else {
-                            switch state.selectedTab {
-                            case .graph: GraphWebView(version: state.graphVersion, cardInset: detailOpen ? TasksPanel.detailWidth(available: available) + 14 : 0).ignoresSafeArea(edges: .bottom)   // 웹 페이지의 빈 곳으로 창 바탕 유리가 보인다
-                            case .chat: if let chat = state.chat {
-                                ChatView(chat: chat, library: chat.library, modelName: state.settings.chatModelName,
-                                         openSettings: { state.settingsSection = .ai; state.selectedTab = .settings },   // 모델 메뉴의 설정 → AI 연결
-                                         pendingRecords: state.pendingCount, tidyNow: { Task { await state.runBatch(force: true) } })
+                            ZStack {
+                                // Kept after the first visit so coming back neither reloads the page nor rebuilds its data; hidden, it draws nothing.
+                                // shortcut: the page keeps its memory once opened; free it after a long time hidden if memory becomes a concern
+                                if graphKept || state.selectedTab == .graph {
+                                    GraphWebView(version: state.graphVersion, visible: state.selectedTab == .graph, cardInset: detailOpen ? TasksPanel.detailWidth(available: available) + 14 : 0).ignoresSafeArea(edges: .bottom)   // 웹 페이지의 빈 곳으로 창 바탕 유리가 보인다
+                                }
+                                switch state.selectedTab {
+                                case .graph: EmptyView()
+                                case .chat: if let chat = state.chat {
+                                    ChatView(chat: chat, library: chat.library, modelName: state.settings.chatModelName,
+                                             openSettings: { state.settingsSection = .ai; state.selectedTab = .settings },   // 모델 메뉴의 설정 → AI 연결
+                                             pendingRecords: state.pendingCount, tidyNow: { Task { await state.runBatch(force: true) } })
+                                }
+                                case .records: RecordsView()
+                                case .calendar: CalendarView()
+                                case .settings: SettingsView()
+                                case .connectors: CustomizeView()
+                                }
                             }
-                            case .records: RecordsView()
-                            case .calendar: CalendarView()
-                            case .settings: SettingsView()
-                            case .connectors: CustomizeView()
-                            }
+                            .onChange(of: state.selectedTab, initial: true) { _, tab in if tab == .graph { graphKept = true } }
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
