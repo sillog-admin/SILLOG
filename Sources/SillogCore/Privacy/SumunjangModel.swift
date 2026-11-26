@@ -49,9 +49,12 @@ public actor SumunjangModel {
     public func download(progress: @escaping @Sendable (Double) -> Void) async throws {
         guard !isReady else { return }
         do {
-            _ = try await HubApiWrapper(downloadBase: Self.downloadBase).snapshot(
-                from: .init(id: Self.repo), revision: Self.revision, matching: ["sumunjang.json", "tokenizer/*", "coreml/**"]
-            ) { progress($0.fractionCompleted) }
+            // Hub progress counts files, and the weights are 95% of the bytes, so they come alone and fill the bar.
+            let hub = HubApiWrapper(downloadBase: Self.downloadBase), repo = HubApiWrapper.Repo(id: Self.repo)
+            _ = try await hub.snapshot(from: repo, revision: Self.revision, matching: ["sumunjang.json", "tokenizer/*", "coreml/*.json", "coreml/*.mlmodel"]) {
+                progress(0.05 * $0.fractionCompleted)
+            }
+            _ = try await hub.snapshot(from: repo, revision: Self.revision, matching: ["coreml/*.bin"]) { progress(0.05 + 0.95 * $0.fractionCompleted) }
             try await compile()
             // The compiled copy is all scoring reads; the package would double the disk use.
             try? FileManager.default.removeItem(at: folder.appendingPathComponent("coreml", isDirectory: true))
