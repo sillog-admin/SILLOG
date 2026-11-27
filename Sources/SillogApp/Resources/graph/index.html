@@ -4153,7 +4153,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
   /* ---------- 앱 데이터 연결: Swift가 window.WG.setGraph(data)로 그래프 전체를 넘긴다 ---------- */
   // 업무 = Task, 상위 분류 = 분야(Theme, 없으면 업무 종류의 최상위), 세션 = PART_OF로 업무에 속한 Session,
   // 자료 = 세션이 TOUCHED한 Resource(코드, 문서, 노트, 디자인은 산출물), 앱 = USED, 주제 = ABOUT, 문제 = HIT, 나중에 할 일 = FOR
-  const OUTPUT_SUBTYPES = new Set(['CodeFile', 'Note', 'Document', 'Design']);
+  const OUTPUT_SUBTYPES = new Set(['CodeFile', 'Note', 'Document', 'Design', 'Recording']);
   const TOPICS_MAX = 8;    // 업무당 화면에 올리는 주제 수. 추출된 주제는 뜻이 겹치는 게 많아(한 업무에 80개+) 자주 본 순으로 자른다. DB 는 그대로
   // 분야 색 = 단청색. 이름에 고정해 분야가 늘어도 색이 밀리지 않는다. 모르는 분야는 업무 많은 순으로 예비 2색(석간주, 군청), 그 뒤는 회색
   const FIELD_COLORS = { '산출물작성': '#4A86C5', '정보수집': '#E9B23F', '학습': '#E0533D', '행정처리': '#8A4E7D', '커뮤니케이션': '#3D9B6B', '반복작업': '#6E9F8F' };

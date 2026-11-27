@@ -1,7 +1,7 @@
 import Foundation
 
 /// 업무 하나의 자료: 업무 드로어의 자료 탭. 그래프 화면의 업무 팝업(graph/index.html loadGraph, related)과 같은 기준이다.
-/// 세션(PART_OF 업무)이 건드린 자료(TOUCHED)는 산출물(코드, 노트, 문서, 디자인)과 참고자료로 나누고, 쓴 앱(USED), 업무의 주제(ABOUT, 자주 본 8개),
+/// 세션(PART_OF 업무)이 건드린 자료(TOUCHED)는 산출물(코드, 노트, 문서, 디자인, 녹음)과 참고자료로 나누고, 쓴 앱(USED), 업무의 주제(ABOUT, 자주 본 8개),
 /// 부딪힌 문제(HIT), 나중에 할 일(FOR)을 모은다. 같은 맥락 업무 = 같은 자료나 주제를 쓴 다른 업무('기타' 분야는 뺀다)
 public struct TaskMaterials: Equatable, Sendable {
     public struct Item: Equatable, Sendable, Identifiable {
@@ -33,8 +33,8 @@ public struct TaskMaterials: Equatable, Sendable {
         references.isEmpty && outputs.isEmpty && apps.isEmpty && topics.isEmpty && problems.isEmpty && later.isEmpty && related.isEmpty
     }
 
-    /// 산출물로 치는 자료 종류 (그래프의 OUTPUT_SUBTYPES)
-    public static let outputSubtypes: Set<String> = ["CodeFile", "Note", "Document", "Design"]
+    /// Resource kinds counted as outputs, as in the graph's OUTPUT_SUBTYPES. A recording is something the user made, so it is one
+    public static let outputSubtypes: Set<String> = ["CodeFile", "Note", "Document", "Design", "Recording"]
     /// 업무당 보여 줄 주제 수 (그래프의 TOPICS_MAX). 추출된 주제는 뜻이 겹치는 게 많아 자주 본 순으로 자른다
     public static let topicsMax = 8
 

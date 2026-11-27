@@ -17,7 +17,7 @@
     Class:       { name: '클래스 층',   color: '#c9c9c9' },
   };
   const GROUP_ORDER = Object.keys(GROUPS);
-  const OUTPUT_SUBTYPES = new Set(['CodeFile', 'Note', 'Document', 'Design']);
+  const OUTPUT_SUBTYPES = new Set(['CodeFile', 'Note', 'Document', 'Design', 'Recording']);
   const LABEL_NAMES = { Theme: '분야', Task: '업무', Session: '세션', Resource: '자료', App: '앱', Topic: '주제', Problem: '문제', Project: '프로젝트',
                         LaterItem: '나중에 할 일', File: '파일', Folder: '폴더', TaskType: '업무 종류', ResourceType: '자료 종류' };
   const EDGE_NAMES = {
