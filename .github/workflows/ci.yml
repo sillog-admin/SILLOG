@@ -16,6 +16,12 @@ concurrency:
 
 jobs:
   build-test:
+    # A PR runs its two halves on two runners at once (about 8 minutes instead of 15): build and test,
+    # and the release-style app bundle with its smoke test. main runs everything in one job, then releases.
+    strategy:
+      fail-fast: false
+      matrix:
+        part: ${{ fromJSON(github.event_name == 'pull_request' && '["test", "app"]' || '["all"]') }}
     runs-on: macos-latest
     timeout-minutes: 120
     permissions:
@@ -34,15 +40,18 @@ jobs:
           swift --version
 
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: matrix.part != 'app'
         with:
           path: .build
           key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
           restore-keys: spm-${{ runner.os }}-
 
       - name: Build
+        if: matrix.part != 'app'
         run: swift build --build-tests
 
       - name: Test
+        if: matrix.part != 'app'
         run: swift test --skip-build
 
       # main releases are signed with Developer ID so they can be notarized; PR builds stay ad-hoc.
@@ -69,6 +78,7 @@ jobs:
 
       # The release build has its own folder, so without this it recompiles every dependency on each run.
       - name: Restore app build cache
+        if: matrix.part != 'test'
         id: app-cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -77,6 +87,7 @@ jobs:
           restore-keys: app-build-${{ runner.os }}-
 
       - name: Build app bundle
+        if: matrix.part != 'test'
         env:
           SIGN_IDENTITY: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'Developer ID Application' || '-' }}
           SILLOG_GOOGLE_CLIENT_SECRET: ${{ secrets.SILLOG_GOOGLE_CLIENT_SECRET }}
@@ -86,7 +97,7 @@ jobs:
 
       # Saved here because the smoke test moves the folder away; the built app was already moved out, so no secrets.
       - name: Save app build cache
-        if: steps.app-cache.outputs.cache-hit != 'true'
+        if: matrix.part != 'test' && steps.app-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/sillog-build
@@ -94,6 +105,7 @@ jobs:
 
       # With the build folder gone, as on a user's Mac, a resource only this runner can see fails here instead of in the release.
       - name: Smoke test app bundle
+        if: matrix.part != 'test'
         run: |
           mv "$RUNNER_TEMP/sillog-build" "$RUNNER_TEMP/sillog-build-hidden"
           for lang in ko en; do
