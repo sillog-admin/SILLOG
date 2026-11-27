@@ -3,10 +3,10 @@ name: CI
 on:
   # Root *.md only: the .md files under Sources are prompts that ship in the app.
   pull_request:
-    paths-ignore: ['landing/**', '.github/workflows/landing.yml', '*.md', 'docs/**']
+    paths-ignore: ['landing/**', '.github/workflows/landing.yml', '.github/workflows/sync-sumunjang.yml', '*.md', 'docs/**']
   push:
     branches: [main]
-    paths-ignore: ['landing/**', '.github/workflows/landing.yml', '*.md', 'docs/**']
+    paths-ignore: ['landing/**', '.github/workflows/landing.yml', '.github/workflows/sync-sumunjang.yml', '*.md', 'docs/**']
   workflow_dispatch:
 
 concurrency:
