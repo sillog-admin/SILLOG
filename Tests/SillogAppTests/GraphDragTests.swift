@@ -117,6 +117,17 @@ final class GraphDragTests: XCTestCase {
         settle()
     }
 
+    // 그래프의 산출물·참고자료 구분은 업무 상세 자료 탭(TaskMaterials)과 같은 목록을 쓴다
+    func testTheGraphSplitsOutputsLikeTheTaskMaterials() throws {
+        let dir = try XCTUnwrap(GraphWebView.graphDirectory())
+        for file in ["index.html", "graph.js"] {
+            let text = try String(contentsOf: dir.appendingPathComponent(file), encoding: .utf8)
+            let line = try XCTUnwrap(text.components(separatedBy: "\n").first { $0.contains("const OUTPUT_SUBTYPES") }, file)
+            let names = Set(line.components(separatedBy: "'").enumerated().filter { $0.offset % 2 == 1 }.map(\.element))
+            XCTAssertEqual(names, TaskMaterials.outputSubtypes, file)
+        }
+    }
+
     func testDraggingThe2DGraphMovesItButNotOffScreen() throws {
         let web = try page()
         let start = try centroid(web)
