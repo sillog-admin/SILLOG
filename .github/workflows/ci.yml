@@ -17,11 +17,13 @@ concurrency:
 jobs:
   build-test:
     # A PR runs its two halves on two runners at once (about 8 minutes instead of 15): build and test,
-    # and the release-style app bundle with its smoke test. main runs everything in one job, then releases.
+    # and the release-style app bundle with its smoke test. main only builds the app and releases, since its PRs passed the tests.
+    # shortcut: main no longer saves the .build cache, so after a Package.resolved change each PR warms its own once.
+    name: ${{ matrix.part == 'test' && 'Build and test' || github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'Build and release' || 'App bundle' }}
     strategy:
       fail-fast: false
       matrix:
-        part: ${{ fromJSON(github.event_name == 'pull_request' && '["test", "app"]' || '["all"]') }}
+        part: ${{ fromJSON(github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && '["app"]' || '["test", "app"]') }}
     runs-on: macos-latest
     timeout-minutes: 120
     permissions:
