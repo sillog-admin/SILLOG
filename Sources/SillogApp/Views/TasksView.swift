@@ -77,7 +77,7 @@ struct TasksView: View {
             if let id = state.selectedTaskId { selectedTask = id }        // 그래프에서 고른 업무로 시작
             state.refreshTasks(); reload()
         }
-        .onChange(of: state.selectedTaskId) { _, id in if let id, id != selectedTask { selectedTask = id } }   // 그래프, 같은 맥락 업무에서 고를 때
+        .onChange(of: state.selectedTaskId) { _, id in if id != selectedTask { selectedTask = id } }   // picked in the graph or a related task, or cleared when the card closes
         .onChange(of: selectedTask) { _, id in openKinds = []; reload(); moveBox(to: id) }
         .onChange(of: state.graphVersion) { _, _ in reload() }
         .sheet(item: $editing) { digest in
