@@ -1,0 +1,44 @@
+name: Sync SUMUNJANG
+
+# Each merge to main is merged into the SUMUNJANG branch too, so that long-running branch never falls behind.
+# A conflict stops here without pushing anything: merge main into the branch by hand.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-sumunjang
+  cancel-in-progress: false
+
+env:
+  BRANCH: feat/sumunjang
+
+jobs:
+  merge-main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge main into the branch
+        run: |
+          if ! git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
+            echo "$BRANCH is gone (merged or deleted); nothing to sync"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch "$BRANCH"
+          if git merge --no-edit origin/main; then
+            git push origin "$BRANCH"
+          else
+            git merge --abort
+            echo "::error::main conflicts with $BRANCH. Merge main into it by hand."
+            exit 1
+          fi

@@ -98,6 +98,47 @@ final class TaskTreeTests: XCTestCase {
         XCTAssertEqual(chosen.count, plain.count + 1, "only the chosen row adds a wave: \(plain) -> \(chosen)")
     }
 
+    // 업무 상세 카드를 닫으면(×, Esc) 목록에서 고른 줄도 풀린다 (전에는 카드를 닫아도 선택 상자가 남았다)
+    func testClosingTheDetailCardClearsTheListSelection() throws {
+        let today = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
+        let database = try SillogDatabase.inMemory()
+        try database.writer.write { conn in
+            let tx = GraphTx(conn)
+            for key in ["flask", "report"] {
+                let taskId = try tx.upsertNode(label: NodeLabel.task, key: key, subtype: nil, title: key, props: ["active_seconds": .number(600), "last_active": .number(today)], at: today)
+                let sessionId = try tx.upsertNode(label: NodeLabel.session, key: "s-\(key)", subtype: nil, title: "세션",
+                                                  props: ["start": .number(today + 60), "active_seconds": .number(600)], at: today)
+                _ = try tx.upsertEdge(src: sessionId, dst: taskId, type: EdgeType.partOf, props: [:], addWeight: 0, at: today)
+            }
+        }
+        let state = AppState(preview: { s in s.phase = .ready }, database: database)
+        let host = NSHostingView(rootView: AnyView(TasksView(showsDetail: false).environmentObject(state)))
+        host.frame = NSRect(x: 0, y: 0, width: 277, height: 420)
+        let window = NSWindow(contentRect: host.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = host
+        func shot() throws -> NSBitmapImageRep {
+            for _ in 0..<8 { host.layoutSubtreeIfNeeded(); RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
+            let rep = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: rep)
+            return rep
+        }
+        func changed(_ a: NSBitmapImageRep, _ b: NSBitmapImageRep) -> Int {      // pixels that differ between two shots
+            var n = 0
+            for y in stride(from: 0, to: a.pixelsHigh, by: 2) { for x in stride(from: 0, to: a.pixelsWide, by: 2) {
+                guard let p = a.colorAt(x: x, y: y), let q = b.colorAt(x: x, y: y) else { continue }
+                if abs(p.redComponent - q.redComponent) + abs(p.greenComponent - q.greenComponent) + abs(p.blueComponent - q.blueComponent) > 0.02 { n += 1 }
+            } }
+            return n
+        }
+        let none = try shot()
+        let id = try XCTUnwrap(state.taskList.first?.id)
+        state.openTaskDetail(id: id)
+        XCTAssertGreaterThan(changed(none, try shot()), 300, "고른 줄에 상자가 그려진다")
+        state.taskDetailOpen = false
+        XCTAssertNil(state.selectedTaskId, "카드를 닫으면 고른 업무가 풀린다")
+        XCTAssertLessThan(changed(none, try shot()), 30, "목록도 아무것도 고르지 않은 모습으로 돌아간다")
+    }
+
     // 업무 화면이 닫혀 있어도 그래프가 바뀌면 업무 목록이 따라온다 (분야 다시 매기기, 녹음 연결 등)
     func testAGraphChangeRefreshesTheTaskList() throws {
         let database = try SillogDatabase.inMemory()

@@ -158,10 +158,21 @@ window.V3D.sankey = function (main, data, ui) {
     bar(cB, t0, T, th.color); bar(cM, t0, T, '#CFC8C1'); bar(cT, t0, T, '#CFC8C1');
     // 이름표: 분야는 막대 아래, 업무 종류는 막대 아래, 업무 이름과 요약은 띠 위
     const lab = (xx, y, a, txt, size, w, fill) => { const e = el('text', { x: xx, y, 'text-anchor': a, 'font-size': size, 'font-weight': w, fill }, vg); e.textContent = txt; return e; };
+    // In a narrow area (the app's detail card covers part of the graph) the names must not run into each other:
+    // the type drops under the field when they would touch, and the title and summary stay left of the kind names
+    const wOf = (str, size, weight) => { measure.setAttribute('font-size', size); measure.setAttribute('font-weight', weight); measure.textContent = str; return measure.getComputedTextLength(); };
+    const fitAt = (str, maxW, size, weight) => { if (wOf(str, size, weight) <= maxW) return str; let k = str.length; while (k > 1 && wOf(str.slice(0, --k) + '…', size, weight) > maxW); return str.slice(0, k) + '…'; };
+    const kindW = Math.max(0, ...KS.map(o => wOf(`${data.kinds[o.k].name} ${o.items.length}`, 12, 700)));
+    const stackType = cM - wOf(x.type, 13, 700) / 2 < cB + wOf(th.name, 13, 700) + 10;
     lab(cB, t0 + T + 20, 'start', th.name, 13, 700, th.color);
-    lab(cM, t0 + T + 20, 'middle', x.type, 13, 700, '#2A201B');
-    const tl = lab(cT, t0 - 34, 'middle', fitText(x.t.title, (cK - cM) * 1.6), 16, 700, '#2A201B'); tl.style.cursor = 'pointer'; tl.addEventListener('click', () => ui.open(x.t.id));
-    lab(cT, t0 - 14, 'middle', `${hm(x.mins)}, 세션 ${x.t.sessions.length}회, 자료 ${tot}개`, 11.5, 400, '#8C837C');
+    lab(stackType ? cB : cM, t0 + T + (stackType ? 38 : 20), stackType ? 'start' : 'middle', x.type, 13, 700, '#2A201B');
+    const right = cK - 20 - kindW, room = Math.max(40, right - cB);
+    const above = (y, txt, size, weight, fill) => {      // centered over the task bar when it fits, else shifted left of the kind names
+      const t = fitAt(txt, Math.min(room, (cK - cM) * 1.6), size, weight), w = wOf(t, size, weight);
+      return lab(Math.max(cB + w / 2, Math.min(cT, right - w / 2)), y, 'middle', t, size, weight, fill);
+    };
+    const tl = above(t0 - 34, x.t.title, 16, 700, '#2A201B'); tl.style.cursor = 'pointer'; tl.addEventListener('click', () => ui.open(x.t.id));
+    above(t0 - 14, `${hm(x.mins)}, 세션 ${x.t.sessions.length}회, 자료 ${tot}개`, 11.5, 400, '#8C837C');
     measure.remove();
     // 띠 말고 나머지(막대, 이름, 자료 목록)는 한 묶음으로: 띠가 옮겨 가는 동안 늦게 나타남
     [...vg.children].forEach(c => { if (c !== bandG && c !== extras) extras.appendChild(c); });
@@ -230,7 +241,7 @@ window.V3D.sankey = function (main, data, ui) {
     while (flo() > VH * .98 && minSlot > 4) minSlot -= .5;   // 그래도 넘치면 줄 높이를 줄임
     while (tot() > VH * .98 && sc > .01) sc *= .94;
     const fs = minSlot >= 13 ? 11 : 10;   // 줄이 좁으면 글자 10px
-    const extra = n > 1 ? Math.max(0, (VH - tot()) / (n - 1)) : 0;
+    const extra = n > 1 ? Math.max(0, (VH - tot()) / n) : 0;   // every row gets it, so divide by every row (n - 1 overflowed by one share)
     let yy = V0;
     // 줄 높이를 띠 두께로 다 씀(레퍼런스처럼 띠끼리 붙게): 남는 높이(extra)도 줄 두께에 더함
     L.forEach((x, i) => { yy += i ? gapAt(i) : 0; x.slotTop = yy; x.y0 = yy; x.w = slot(x) + extra; yy += x.w; });

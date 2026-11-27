@@ -62,7 +62,7 @@ final class AppState: ObservableObject {
     @Published var customizeSection: CustomizeSection = SillogEnv.value("TAB") == "skills" ? .skills : .connectors
     /// 업무 드로어(창 왼쪽 업무 목록)에서 고른 업무와 상세가 펼쳐졌는지. 업무 목록에서 눌러도, 그래프에서 눌러도 같은 드로어가 열린다
     @Published var selectedTaskId: Int64?
-    @Published var taskDetailOpen = false { didSet { if !taskDetailOpen { openNode = nil; nodeTrail = [] } } }   // 드로어를 닫으면 노드 상세도 닫는다
+    @Published var taskDetailOpen = false { didSet { if !taskDetailOpen { openNode = nil; nodeTrail = []; selectedTaskId = nil } } }   // closing the card also drops its node detail and the chosen task
     /// 드로어에 띄운 업무가 아닌 노드 (그래프에서 분야·세션·자료·앱·주제 등을 눌렀을 때). nil 이면 업무 상세
     @Published var openNode: NodeRef?
     /// 노드 상세에서 연결된 노드로 넘어간 길 (‹ 뒤로)

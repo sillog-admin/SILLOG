@@ -735,6 +735,9 @@ html, body { background: #fff; }
 @container (max-width: 380px) { .toolbar .tlab { display: none; } .tfilters { gap: 12px; } .tsearch { min-width: 80px; } }
 /* 앱의 업무 상세 카드가 그래프 왼쪽(업무 목록 바로 옆)을 덮는 동안(--card-inset) 머리글과 단추줄을 카드 오른쪽으로 비킨다 */
 html .phead, html .toolbar { padding-left: calc(34px + var(--card-inset, 0px)); }   /* 뒤에서 .phead 여백을 다시 정해도 이 규칙이 이기게 html 을 붙인다 */
+/* The graph itself moves out from under the card too: each view refits to the space right of it and centers there */
+html .stage { padding-left: var(--card-inset, 0px); }
+html .stage.m-branch .lgp { left: calc(24px + var(--card-inset, 0px)); }
 /* 머리글 칸이 좁아지면(카드가 덮을 때) 보기 단추는 아이콘만, 제목은 꺾지 않는다 */
 .phead { container-type: inline-size; }
 html .phead h1 { white-space: nowrap; }
@@ -4099,14 +4102,20 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
     if (e.target.classList.contains('card')) setFocus(e.target.dataset.id);
     else if (e.target.dataset?.open) openDetail(e.target.dataset.open);
   });
-  let resizeTimer;
-  window.addEventListener('resize', () => {
+  // Views that size themselves only when drawn redraw when the graph area changes size: the window, or the app's detail card
+  // covering its left (--card-inset). The first report is the starting size, not a change, so it draws nothing extra.
+  let resizeTimer, areaW = 0, areaH = 0;
+  new ResizeObserver(([e]) => {
+    const { width, height } = e.contentRect, first = !areaW;
+    if (width === areaW && height === areaH) return;
+    areaW = width; areaH = height;
+    if (first) return;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       if (sky) sky.g.width(sky.box.clientWidth).height(sky.box.clientHeight);
       else if (!state.detail && ['tree', 'cosmos', 'orbit', 'ring', 'radial', 'layer', 'bubble', 'gantt'].includes(state.mode)) render();   // 원형 차트·생키는 스스로 크기를 따라 그린다(다시 만들면 고른 분야가 풀린다)
     }, 150);
-  });
+  }).observe($('main'));
   document.addEventListener('keydown', e => {
     if (e.key === '/' && document.activeElement !== $('search')) { e.preventDefault(); $('search').focus(); }
     if (e.key === 'Escape' && state.detail) { state.detail = null; render(); }
@@ -4144,7 +4153,7 @@ qr.readability=function(t,n){var e=qr(t),r=qr(n);return(Math.max(e.getLuminance(
   /* ---------- 앱 데이터 연결: Swift가 window.WG.setGraph(data)로 그래프 전체를 넘긴다 ---------- */
   // 업무 = Task, 상위 분류 = 분야(Theme, 없으면 업무 종류의 최상위), 세션 = PART_OF로 업무에 속한 Session,
   // 자료 = 세션이 TOUCHED한 Resource(코드, 문서, 노트, 디자인은 산출물), 앱 = USED, 주제 = ABOUT, 문제 = HIT, 나중에 할 일 = FOR
-  const OUTPUT_SUBTYPES = new Set(['CodeFile', 'Note', 'Document', 'Design']);
+  const OUTPUT_SUBTYPES = new Set(['CodeFile', 'Note', 'Document', 'Design', 'Recording']);
   const TOPICS_MAX = 8;    // 업무당 화면에 올리는 주제 수. 추출된 주제는 뜻이 겹치는 게 많아(한 업무에 80개+) 자주 본 순으로 자른다. DB 는 그대로
   // 분야 색 = 단청색. 이름에 고정해 분야가 늘어도 색이 밀리지 않는다. 모르는 분야는 업무 많은 순으로 예비 2색(석간주, 군청), 그 뒤는 회색
   const FIELD_COLORS = { '산출물작성': '#4A86C5', '정보수집': '#E9B23F', '학습': '#E0533D', '행정처리': '#8A4E7D', '커뮤니케이션': '#3D9B6B', '반복작업': '#6E9F8F' };

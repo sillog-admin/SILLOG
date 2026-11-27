@@ -3,7 +3,7 @@ import XCTest
 @testable import SillogCore
 
 /// 업무 드로어의 자료 탭: 그래프 화면의 업무 팝업과 같은 기준.
-/// 세션이 건드린 자료를 산출물(코드, 노트, 문서, 디자인)과 참고자료로 나누고, 쓴 앱, 주제(자주 본 8개), 부딪힌 문제, 나중에 할 일, 같은 자료·주제를 쓴 업무
+/// 세션이 건드린 자료를 산출물(코드, 노트, 문서, 디자인, 녹음)과 참고자료로 나누고, 쓴 앱, 주제(자주 본 8개), 부딪힌 문제, 나중에 할 일, 같은 자료·주제를 쓴 업무
 final class TaskMaterialsTests: XCTestCase {
     private struct Graph {
         let db: SillogDatabase
@@ -70,6 +70,20 @@ final class TaskMaterialsTests: XCTestCase {
         XCTAssertEqual(m.problems.map(\.name), ["ImportError"])
         XCTAssertEqual(m.later.map(\.name), ["배포 설정"])
         XCTAssertEqual(m.outputs.first?.key, "file:///a/app.py", "자료는 눌러서 열 수 있게 키를 함께 둔다")
+    }
+
+    // 녹음은 내가 만든 것이라 참고자료가 아니라 산출물로 묶는다 (녹음 자료는 세션이 TOUCHED 로 건드린 Recording)
+    func testARecordingIsAnOutput() throws {
+        let g = try graph()
+        try g.db.writer.write { conn in
+            let tx = GraphTx(conn)
+            let session = try XCTUnwrap(try tx.edges(to: g.flask, type: EdgeType.partOf).first?.src)
+            let recording = try tx.upsertNode(label: NodeLabel.resource, key: "recording:4", subtype: "Recording", title: "기획 회의", props: [:], at: 1)
+            try edge(tx, session, recording, EdgeType.touched)
+        }
+        let m = try read(g, g.flask)
+        XCTAssertTrue(m.outputs.map(\.name).contains("기획 회의"), "녹음은 산출물: \(m.outputs.map(\.name))")
+        XCTAssertFalse(m.references.map(\.name).contains("기획 회의"))
     }
 
     func testTasksSharingAResourceAreInTheSameContext() throws {

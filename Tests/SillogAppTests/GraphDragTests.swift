@@ -117,6 +117,65 @@ final class GraphDragTests: XCTestCase {
         settle()
     }
 
+    /// The largest graph canvas: where it sits on the page and the page x of its drawn pixels' center
+    private func drawn(_ web: WKWebView) throws -> (left: Double, width: Double, center: Double, n: Double) {
+        let value = run(web, canvas + """
+            const b = cv.getBoundingClientRect(), r = cv.width / cv.clientWidth;
+            let n = 0, sx = 0;
+            try {
+              const g = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+              for (let y = 0; y < cv.height; y += 3) for (let x = 0; x < cv.width; x += 3) if (g[(y * cv.width + x) * 4 + 3] > 20) { sx += x; n++; }
+            } catch (e) {}
+            return [b.left, b.width, n ? b.left + sx / n / r : 0, n];
+            """) as? [Double]
+        let v = try XCTUnwrap(value)
+        return (v[0], v[1], v[2], v[3])
+    }
+
+    /// Covers the graph's left with the detail card and waits for the view to refit (it learns the new size from a ResizeObserver)
+    private func coverWithCard(_ web: WKWebView, _ inset: Double) throws -> (left: Double, width: Double, center: Double, n: Double) {
+        _ = run(web, "document.documentElement.style.setProperty('--card-inset', inset + 'px'); return 1", ["inset": inset])
+        var box = try drawn(web)
+        for _ in 0..<20 where box.left < inset - 2 { RunLoop.main.run(until: Date().addingTimeInterval(0.15)); box = try drawn(web) }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        return try drawn(web)
+    }
+
+    // 업무 상세 카드가 그래프 왼쪽을 덮으면 그래프는 카드 오른쪽 칸에 맞춰 줄고, 그 칸 가운데에 그려진다
+    func testThe2DGraphFitsAndCentersRightOfTheDetailCard() throws {
+        let web = try page(onScreen: true)
+        let box = try coverWithCard(web, 380)
+        XCTAssertEqual(box.left, 380, accuracy: 2, "그래프는 카드 오른쪽에서 시작한다")
+        XCTAssertEqual(box.width, 831 - 380, accuracy: 2, "남은 폭만 쓴다")
+        XCTAssertGreaterThan(box.n, 100, "다시 그려져 있다")
+        XCTAssertEqual(box.center, 380 + (831 - 380) / 2, accuracy: 60, "남은 칸 가운데에 그린다")
+    }
+
+    func testThe3DGraphFitsRightOfTheDetailCard() throws {
+        let web = try page(onScreen: true)
+        _ = run(web, "document.querySelector('[data-mode=\"cosmos\"]').click(); return 1")
+        settle()
+        let full = try drawn(web)
+        let box = try coverWithCard(web, 380)
+        XCTAssertGreaterThanOrEqual(box.left, 378, "3D 그래프도 카드 오른쪽에서 시작한다")
+        XCTAssertLessThan(box.width, full.width - 300, "3D 그래프도 남은 폭에 맞춰 줄어든다 (\(full.width) -> \(box.width))")
+    }
+
+    // 생키는 업무가 적어도 칸 아래로 넘치지 않는다 (남는 높이를 줄 수보다 하나 적게 나눠, 한 줄 몫만큼 넘쳐 잘렸다)
+    func testTheSankeyFitsItsAreaWithFewTasks() throws {
+        let web = try page()
+        _ = run(web, "document.querySelector('[data-mode=\"branch\"]').click(); return 1")
+        settle()
+        let value = run(web, """
+            const s = [...document.querySelectorAll('#main svg')].sort((a, b) => b.clientHeight - a.clientHeight)[0], r = s.getBoundingClientRect();
+            let bottom = 0;
+            s.querySelectorAll('path, rect').forEach(e => { const b = e.getBoundingClientRect(); if (b.height) bottom = Math.max(bottom, b.bottom); });
+            return [bottom, r.bottom];
+            """) as? [Double]
+        let v = try XCTUnwrap(value)
+        XCTAssertLessThanOrEqual(v[0], v[1] + 1, "그린 띠가 칸 아래로 넘치지 않는다 (\(v[0]) > \(v[1]))")
+    }
+
     func testDraggingThe2DGraphMovesItButNotOffScreen() throws {
         let web = try page()
         let start = try centroid(web)
@@ -257,4 +316,14 @@ final class GraphDragTests: XCTestCase {
         XCTAssertLessThan(v[1] / max(v[0], 1), 0.4, "분야 속은 흰색이고 테두리만 분야 색이다 (\(v[1]) / \(v[0]))")
     }
 
+    // 그래프의 산출물·참고자료 구분은 업무 상세 자료 탭(TaskMaterials)과 같은 목록을 쓴다
+    func testTheGraphSplitsOutputsLikeTheTaskMaterials() throws {
+        let dir = try XCTUnwrap(GraphWebView.graphDirectory())
+        for file in ["index.html", "graph.js"] {
+            let text = try String(contentsOf: dir.appendingPathComponent(file), encoding: .utf8)
+            let line = try XCTUnwrap(text.components(separatedBy: "\n").first { $0.contains("const OUTPUT_SUBTYPES") }, file)
+            let names = Set(line.components(separatedBy: "'").enumerated().filter { $0.offset % 2 == 1 }.map(\.element))
+            XCTAssertEqual(names, TaskMaterials.outputSubtypes, file)
+        }
+    }
 }

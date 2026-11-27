@@ -145,8 +145,9 @@ final class MenuLayoutTests: XCTestCase {
         XCTAssertEqual(state.selectedTaskId, 2)
         XCTAssertTrue(state.taskDetailOpen)
         state.taskDetailOpen = false
+        XCTAssertNil(state.selectedTaskId, "카드를 닫으면 고른 업무도 풀린다")
         state.openTaskDetail(key: "없는 업무")
-        XCTAssertEqual(state.selectedTaskId, 2, "모르는 키는 무시")
+        XCTAssertNil(state.selectedTaskId, "모르는 키는 무시")
         XCTAssertFalse(state.taskDetailOpen)
     }
 
