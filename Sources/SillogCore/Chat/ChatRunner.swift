@@ -415,12 +415,15 @@ public struct ChatRunner: Sendable {
                                         execute: execute) { event in
                 switch event {
                 case .text, .textReset, .reasoning: if role == nil { await onEvent(event) }
+                // A sub-agent's wrap-up carries its name, so it doesn't read as the answer being written.
+                case .step(let text): await onEvent(.step(label + text))
                 default: await onEvent(event)
                 }
             }
         }
         guard case .model(let client) = backend else { preconditionFailure() }
         let maxRounds = rounds ?? (role == nil ? 10 : 6)
+        var wrappingUp = false
         for round in 0..<maxRounds {
             try Task.checkCancellation()
             // Calls this agent can still make, this one included. Sub-agents got their share up front.
@@ -432,6 +435,7 @@ public struct ChatRunner: Sendable {
             if left <= 1 { stage = ([], role == nil ? Self.answerNow : Self.reportNow) }
             else if left == 2 && role == nil { stage = (available.filter { $0.name == "create_artifact" }, Self.finishNow) }
             else { stage = (available, "") }
+            if role == nil, !stage.note.isEmpty, !wrappingUp { wrappingUp = true; await onEvent(.step(Self.wrapUpStep)) }
             if role == nil { await onEvent(.textReset) }
             let reply = try await client.respond(system: system + stage.note, messages: history, tools: stage.tools, onText: { delta in
                 if role == nil { await onEvent(.text(delta)) }
@@ -459,6 +463,8 @@ public struct ChatRunner: Sendable {
 
     /// Calls the main agent keeps for its answer: one for the artifact, one for the reply.
     static let answerReserve = 2
+    /// Shown when the research budget runs out. Kept in Korean like the tool titles, so it follows a language change.
+    static let wrapUpStep = "이제 지금까지 확인한 정보를 정리해볼게요"
     static let finishNow = "\n\n# Research budget\nThe research budget for this request is almost used up, so search and read tools are no longer available. If the request calls for an artifact, create it now with create_artifact from what you have gathered; otherwise write the final answer now. Say which parts you could not check."
     static let answerNow = "\n\n# Research budget\nThe research budget for this request is used up and no tools are available. Write the final answer now from what you have gathered, and say which parts you could not check."
     static let reportNow = "\n\n# Research budget\nYour share of the research budget is used up and no tools are available. Report now what you found, with its source IDs, and what you could not check."

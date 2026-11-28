@@ -180,12 +180,12 @@ public struct ContextSearch: Sendable {
             let node = Self.match(needle, index: "nodes_chat_fts", row: "id", fallback: "title || ' ' || key || ' ' || props")
             let nodes = try wants("node") ? Row.fetchAll(conn, sql: "SELECT id, label, title, key, props FROM nodes WHERE label NOT IN ('TaskType', 'ResourceType') AND updated_at >= ? AND created_at <= ? AND (\(node.0))\(Self.restriction("id", allowedNodes))\(activity) ORDER BY updated_at DESC LIMIT \(limit(12))", arguments: [from, to, node.1]) : []
             for row in nodes {
-                results.append(.init(id: "node:\(row["id"] as Int64)", title: "\(row["label"] as String) · \(row["title"] as String)", location: row["key"], excerpt: Self.times(row["props"]) + String((row["props"] as String).prefix(1200))))
+                results.append(.init(id: "node:\(row["id"] as Int64)", title: "\(row["label"] as String) · \(row["title"] as String)", location: row["key"], excerpt: Self.times(row["props"]) + Self.clip(row["props"], 1200)))
             }
             let card = Self.match(needle, index: "screen_cards_fts", row: "id", fallback: "activity || ' ' || content || ' ' || COALESCE(uri, '')")
             let cards = Self.cardRestriction(access)
             for row in try !wants("card") ? [] : Row.fetchAll(conn, sql: "SELECT * FROM screen_cards WHERE ts_end >= ? AND ts_start <= ? AND (\(card.0))\(cards)\(activity) ORDER BY ts_start DESC LIMIT \(limit(10))", arguments: [from, to, card.1]) {
-                results.append(.init(id: "card:\(row["id"] as Int64)", title: "화면 요약 · \(row["activity"] as String)", location: row["uri"] ?? "", excerpt: tr("\(Self.date(row["ts_start"])) (AI 요약)\n") + String((row["content"] as String).prefix(1600))))
+                results.append(.init(id: "card:\(row["id"] as Int64)", title: "화면 요약 · \(row["activity"] as String)", location: row["uri"] ?? "", excerpt: tr("\(Self.date(row["ts_start"])) (AI 요약)\n") + Self.clip(row["content"], 1600)))
             }
             // 주간·월간 요약: 원문이 정리된 기간을 대신한다. 업무 접근 범위를 그대로 따른다
             let digest = Self.match(needle, index: "digests_fts", row: "d.id", fallback: "d.title || ' ' || d.body")
@@ -195,7 +195,7 @@ public struct ContextSearch: Sendable {
                 ORDER BY d.period_start DESC, d.level DESC LIMIT \(limit(8))
                 """, arguments: [from, to, digest.1]) {
                 results.append(.init(id: "digest:\(row["id"] as Int64)", title: row["title"], location: "",
-                                     excerpt: tr("AI 요약 (수치는 사용 시간 기록)\n") + String((row["body"] as String).prefix(1600))))
+                                     excerpt: tr("AI 요약 (수치는 사용 시간 기록)\n") + Self.clip(row["body"], 1600)))
             }
             let snapshot = Self.match(needle, index: "text_snapshots_chat_fts", row: "o.text_id", fallback: "COALESCE(t.text, '')")
             for row in try !wants("observation") ? [] : Row.fetchAll(conn, sql: """
@@ -204,11 +204,11 @@ public struct ContextSearch: Sendable {
                 WHERE o.ts >= ? AND o.ts <= ? AND ((\(snapshot.0)) OR instr(lower(COALESCE(o.window_title, '') || ' ' || COALESCE(o.url, '') || ' ' || COALESCE(o.doc_path, '')), lower(?)) > 0)
                 \(Self.taskRestriction("o.task_id", access))\(activity) ORDER BY o.ts DESC LIMIT \(limit(10))
                 """, arguments: [from, to, snapshot.1, needle]) {
-                results.append(.init(id: "observation:\(row["id"] as Int64)", title: "\(row["app_name"] as String) · \(row["window_title"] as String? ?? "활동")", location: row["url"] ?? row["doc_path"] ?? "", excerpt: "\(Self.date(row["ts"]))\n" + String((row["text"] as String? ?? "화면 텍스트 없음").prefix(1600))))
+                results.append(.init(id: "observation:\(row["id"] as Int64)", title: "\(row["app_name"] as String) · \(row["window_title"] as String? ?? "활동")", location: row["url"] ?? row["doc_path"] ?? "", excerpt: "\(Self.date(row["ts"]))\n" + Self.clip(row["text"] as String? ?? "화면 텍스트 없음", 1600)))
             }
             let chat = Self.match(needle, index: "chat_messages_chat_fts", row: "id", fallback: "text || ' ' || COALESCE(cwd, '')")
             for row in try !wants("chat") ? [] : Row.fetchAll(conn, sql: "SELECT * FROM chat_messages WHERE ts >= ? AND ts <= ? AND (\(chat.0))\(Self.taskRestriction("task_id", access))\(activity) ORDER BY ts DESC LIMIT \(limit(8))", arguments: [from, to, chat.1]) {
-                results.append(.init(id: "chat:\(row["id"] as Int64)", title: "\(row["tool"] as String) 사용자 메시지", location: row["cwd"] ?? "", excerpt: "\(Self.date(row["ts"]))\n" + String((row["text"] as String).prefix(1600))))
+                results.append(.init(id: "chat:\(row["id"] as Int64)", title: "\(row["tool"] as String) 사용자 메시지", location: row["cwd"] ?? "", excerpt: "\(Self.date(row["ts"]))\n" + Self.clip(row["text"], 1600)))
             }
             // 받아쓴 녹음: 제목·요약·받아쓴 글. 업무 접근 범위를 AI 도구 대화처럼 따른다
             let recording = Self.match(needle, index: "recordings_fts", row: "id", fallback: "COALESCE(title, '') || ' ' || COALESCE(summary, '') || ' ' || transcript")
@@ -251,7 +251,7 @@ public struct ContextSearch: Sendable {
                 let text: String = row["text"]
                 let range = words.compactMap { text.range(of: $0, options: .caseInsensitive) }.first
                 let start = range.map { text.distance(from: text.startIndex, to: $0.lowerBound) } ?? 0
-                results.append(.init(id: "message:\(row["id"] as String)", title: "대화 · \(row["title"] as String)", location: "", excerpt: String(text.dropFirst(max(0, start - 200)).prefix(1600))))
+                results.append(.init(id: "message:\(row["id"] as String)", title: "대화 · \(row["title"] as String)", location: "", excerpt: Self.clip(text, from: max(0, start - 200), 1600)))
             }
             return results
         }
@@ -309,7 +309,10 @@ public struct ContextSearch: Sendable {
                       SELECT dst FROM edges WHERE src = ? UNION SELECT src FROM edges WHERE dst = ?
                     ))\(Self.restriction("id", allowedNodes)) ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END, updated_at DESC LIMIT 25
                     """, arguments: [id, id, id, id])
-                return rows.map { row in .init(id: "node:\(row["id"] as Int64)", title: "\(row["label"] as String) · \(row["title"] as String)", location: row["key"], excerpt: Self.times(row["props"]) + String((row["props"] as String).prefix(2500))) }
+                let nodes: [ChatSource] = rows.map { row in .init(id: "node:\(row["id"] as Int64)", title: "\(row["label"] as String) · \(row["title"] as String)", location: row["key"], excerpt: Self.times(row["props"]) + String((row["props"] as String).prefix(2500))) }
+                // A material's text is in the screen records it came from, so reading it from the map needs no search by name.
+                guard let first = rows.first, first["id"] as Int64 == id, first["label"] as String == NodeLabel.resource else { return nodes }
+                return nodes + (try Self.materialTexts(conn, key: first["key"], access: access))
             case "observation":
                 guard let row = try Row.fetchOne(conn, sql: "SELECT o.*, t.text FROM observations o LEFT JOIN text_snapshots t ON t.id = o.text_id WHERE o.id = ?", arguments: [id]) else { return [] }
                 return [.init(id: sourceID, title: row["window_title"] ?? "활동 기록", location: row["url"] ?? row["doc_path"] ?? "", excerpt: "\(Self.date(row["ts"]))\n" + String((row["text"] as String? ?? tr("텍스트 없음")).prefix(18000)))]
@@ -352,19 +355,24 @@ public struct ContextSearch: Sendable {
         }
     }
 
-    /// Args: label is a node label, from and to bound the period in Unix seconds.
+    /// Args: label is a node label, from and to bound the period in Unix seconds, task keeps one task's items:
+    ///   the task itself, its sessions and to-dos, and the problems its sessions hit.
     /// Returns: The newest `limit` nodes of that label active in the period, oldest first. Each excerpt has the node's time, its props, and up to 8 directly linked nodes.
     /// Raises: DB read errors.
-    public func nodes(label: String, from: Double = 0, to: Double = Date().timeIntervalSince1970, limit: Int = 100) throws -> [ChatSource] {
+    public func nodes(label: String, from: Double = 0, to: Double = Date().timeIntervalSince1970, task: Int64? = nil, limit: Int = 100) throws -> [ChatSource] {
         guard includeActivity else { return [] }
         return try db.writer.read { conn in
             let allowed = Self.restriction("id", try access(conn).nodes)
+            let owned = task.map { """
+                 AND id IN (SELECT \($0) UNION SELECT src FROM edges WHERE dst = \($0) AND type IN ('PART_OF', 'FOR')
+                   UNION SELECT h.dst FROM edges h JOIN edges p ON p.src = h.src AND p.type = 'PART_OF' AND p.dst = \($0) WHERE h.type = 'HIT')
+                """ } ?? ""
             // Sessions carry start/end, problems and later items carry at, tasks carry last_active.
             let rows = try Row.fetchAll(conn, sql: """
                 SELECT id, label, title, key, props, COALESCE(json_extract(props, '$.start'), json_extract(props, '$.at'), created_at) AS at,
                   EXISTS(SELECT 1 FROM edges r WHERE r.src = nodes.id AND r.type = 'RESOLVED_BY') AS resolved
                 FROM nodes WHERE label = ? AND COALESCE(json_extract(props, '$.end'), json_extract(props, '$.last_active'), updated_at) >= ? AND at <= ?
-                \(allowed) ORDER BY at DESC LIMIT ?
+                \(allowed)\(owned) ORDER BY at DESC LIMIT ?
                 """, arguments: [label, from, to, limit]).reversed()
             // Without the links a model calls get_related once per item to learn what a problem was solved by or which task a to-do is for.
             let list = rows.map { String($0["id"] as Int64) }.joined(separator: ",")
@@ -384,13 +392,15 @@ public struct ContextSearch: Sendable {
                 let state = label == NodeLabel.problem ? (row["resolved"] as Bool ? " · 해결됨" : " · 미해결") : ""
                 let linked = links[id].map { "\n연결:\n" + $0.joined(separator: "\n") } ?? ""
                 return .init(id: "node:\(id)", title: "\(label) · \(row["title"] as String)", location: row["key"],
-                             excerpt: "\(Self.date(row["at"]))\(state)\n" + String((row["props"] as String).prefix(1200)) + linked)
+                             excerpt: "\(Self.date(row["at"]))\(state)\n" + Self.clip(row["props"], 1200) + linked)
             }
         }
     }
 
     /// Args: sourceID is a "node:<id>" from search results, hops is how many edges to follow (1 or 2).
-    /// Returns: The reachable nodes, start node first then most recent, with the edges between them. Empty when the node is outside the allowed scope.
+    /// Returns: The reachable nodes with the edges between them: the start node, then tasks, problems, to-dos, topics and projects,
+    ///   then materials and sessions, each kind newest first. A task's map leaves out other tasks' sessions and apps.
+    ///   Empty when the node is outside the allowed scope.
     /// Raises: DB read errors.
     public func related(_ sourceID: String, hops: Int = 1) throws -> Subgraph {
         let pieces = sourceID.split(separator: ":")
@@ -407,7 +417,17 @@ public struct ContextSearch: Sendable {
                 for _ in 0..<hops { reach.formUnion(edges.filter { reach.contains($0.src) || reach.contains($0.dst) }.flatMap { [$0.src, $0.dst] }) }
                 graph = Subgraph(nodes: graph.nodes.filter { reach.contains($0.id) }, edges: edges.filter { reach.contains($0.src) && reach.contains($0.dst) })
             }
-            graph.nodes.sort { ($0.id == id ? .infinity : $0.updatedAt) > ($1.id == id ? .infinity : $1.updatedAt) }
+            if graph.nodes.contains(where: { $0.id == id && $0.label == NodeLabel.task }) {
+                // Sessions of other tasks it switched to, and the apps, took a third of a project's map and pushed its problems past the cap.
+                let own = Set(graph.edges.filter { $0.dst == id && $0.type == EdgeType.partOf }.map(\.src))
+                graph.nodes.removeAll { $0.label == NodeLabel.app || ($0.label == NodeLabel.session && !own.contains($0.id)) }
+                let kept = Set(graph.nodes.map(\.id))
+                graph.edges.removeAll { !kept.contains($0.src) || !kept.contains($0.dst) }
+            }
+            // Few-of-a-kind nodes first, so a capped map still has every problem and to-do.
+            let order = [NodeLabel.task, NodeLabel.problem, NodeLabel.laterItem, NodeLabel.topic, NodeLabel.project, NodeLabel.resource, NodeLabel.session]
+            func rank(_ node: GraphNode) -> Int { node.id == id ? -1 : order.firstIndex(of: node.label) ?? order.count }
+            graph.nodes.sort { rank($0) != rank($1) ? rank($0) < rank($1) : $0.updatedAt > $1.updatedAt }
             return graph
         }
     }
@@ -548,7 +568,7 @@ public struct ContextSearch: Sendable {
         let start = range.map { transcript.distance(from: transcript.startIndex, to: $0.lowerBound) } ?? 0
         let id: Int64 = row["id"]
         let title: String? = row["title"]
-        let body = String(transcript.dropFirst(max(0, start - 200)).prefix(1400))
+        let body = clip(transcript, from: max(0, start - 200), 1400)
         return .init(id: "recording:\(id)", title: "녹음 · \(title ?? "제목 없음")", location: row["text_path"] ?? "",
                      excerpt: recordingHeader(row) + "\n" + body)
     }
@@ -565,5 +585,39 @@ public struct ContextSearch: Sendable {
         let object = JSONValue.decodeObject(props)
         let parts = ["start", "end", "at", "started_at", "last_active"].compactMap { key in object[key]?.doubleValue.map { "\(key) \(date($0))" } }
         return parts.isEmpty ? "" : parts.joined(separator: " · ") + "\n"
+    }
+
+    /// Args: key is a Resource node's key, access the reader's allowed scope.
+    /// Returns: Up to three distinct screen texts recorded for that material, the longest ones, oldest first.
+    /// Raises: DB read errors.
+    private static func materialTexts(_ conn: Database, key: String, access: Access) throws -> [ChatSource] {
+        // Nothing stores which material a screen record became, so each candidate is classified again by the batch's rule.
+        // shortcut: the key's last path part narrows the scan to the newest 500 matches; a URL saved differently there (encoding) finds nothing.
+        let tail = key.split(separator: "?").first?.split(separator: "/").last ?? Substring(key)
+        let needle = String(tail.split(separator: ":").last ?? tail)
+        let rows = try Row.fetchAll(conn, sql: """
+            SELECT o.id, o.ts, o.app_bundle, o.app_name, o.window_title, o.url, o.doc_path, t.text
+            FROM observations o JOIN text_snapshots t ON t.id = o.text_id
+            WHERE instr(COALESCE(o.url, '') || ' ' || COALESCE(o.doc_path, '') || ' ' || COALESCE(o.window_title, ''), ?) > 0
+            \(taskRestriction("o.task_id", access)) ORDER BY o.ts DESC LIMIT 500
+            """, arguments: [needle])
+        let home = NSHomeDirectory()
+        var seen = Set<String>()
+        let texts = rows.filter { row in
+            RuleClassifier.classify(appBundle: row["app_bundle"], appName: row["app_name"], windowTitle: row["window_title"], url: row["url"],
+                                    docPath: row["doc_path"], home: home, fileExists: { _ in false })?.key == key && seen.insert(row["text"]).inserted
+        }
+        return texts.sorted { ($0["text"] as String).count > ($1["text"] as String).count }.prefix(3)
+            .sorted { ($0["ts"] as Double) < ($1["ts"] as Double) }
+            .map { row in .init(id: "observation:\(row["id"] as Int64)", title: row["window_title"] ?? "활동 기록", location: row["url"] ?? row["doc_path"] ?? "",
+                                excerpt: "\(date(row["ts"]))\n" + clip(row["text"], 1600)) }
+    }
+
+    /// Marks an excerpt that stops short, so one without the mark can be taken as the whole text and isn't read again.
+    /// The "characters in all" line is the paging footer that ChatSource.shownExcerpt keeps off the source cards.
+    static func clip(_ text: String, from start: Int = 0, _ limit: Int) -> String {
+        let shown = String(text.dropFirst(start).prefix(limit))
+        guard shown.count < text.count else { return shown }
+        return shown + "\n[\(text.count) characters in all · this excerpt shows \(shown.count) · read_context reads the full text]"
     }
 }

@@ -41,9 +41,9 @@ public struct CodexAppServerClient: Sendable {
     enum ToolTurn: Equatable { case run, notOffered, budgetSpent, runaway }
 
     /// Tool calls one agent's turn may run. Past it, research stops but the artifact and the answer still get written.
-    static let toolLimit = 48
+    static let toolLimit = 58
     /// A turn that keeps calling after being told the budget is spent is stopped here.
-    static let runawayLimit = 64
+    static let runawayLimit = 74
     static let answerTools: Set<String> = ["create_artifact", "propose_automation"]
     static let budgetSpent = "Tool call skipped: the research budget for this answer is used up. Don't call search or read tools again. Create the artifact now if the request needs one, then write the final answer from what you have gathered, and say which parts you could not check."
 
@@ -54,6 +54,15 @@ public struct CodexAppServerClient: Sendable {
         if count > runawayLimit { return .runaway }
         guard offered.contains(where: { $0.name == name }) else { return .notOffered }
         return count > toolLimit && !answerTools.contains(name) ? .budgetSpent : .run
+    }
+
+    /// Args: count is this research call's number in the turn.
+    /// Returns: the line closing its output with the calls left, since the model can't count them and was cut off mid-read.
+    /// Raises: none.
+    static func budgetNote(count: Int) -> String {
+        // Past two thirds, a new search takes a call that reading what was already found needs.
+        let advice = count * 3 >= toolLimit * 2 ? " From here, read what you have found instead of searching for more." : ""
+        return "\n\n[Research budget: \(max(0, toolLimit - count)) of \(toolLimit) tool calls left.\(advice)]"
     }
 
     /// Args: system·messages는 대화, tools·execute는 허용된 앱 도구, useWeb은 외부 검색 허용, onEvent는 화면 업데이트이다.
@@ -120,12 +129,12 @@ public struct CodexAppServerClient: Sendable {
                         case .notOffered:
                             output = "Tool call failed: \(name) is not offered here. Use only the listed tools."
                         case .budgetSpent:
-                            if !budgetNoticed { budgetNoticed = true; await onEvent(.step(tr("조사 예산을 다 써서 지금까지 모은 내용으로 답을 씁니다"))) }
+                            if !budgetNoticed { budgetNoticed = true; await onEvent(.step(ChatRunner.wrapUpStep)) }
                             output = Self.budgetSpent
                         case .run:
                             let arguments = try JSONEncoder().encode(params["arguments"] ?? .object([:]))
                             let call = ChatToolCall(id: params["callId"]?.stringValue ?? UUID().uuidString, name: name, arguments: String(decoding: arguments, as: UTF8.self))
-                            output = try await execute(call)
+                            output = try await execute(call) + (Self.answerTools.contains(name) ? "" : Self.budgetNote(count: toolCount))
                         }
                         try connection.send(["id": id, "result": .object(["success": true, "contentItems": .array([.object(["type": "inputText", "text": .string(output)])])])])
                     case "account/chatgptAuthTokens/refresh":

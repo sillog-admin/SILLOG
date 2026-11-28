@@ -570,7 +570,8 @@ final class ChatTests: XCTestCase {
     func testRunningOutOfBudgetEndsInAnArtifactAndAnAnswer() async throws {
         let model = BudgetHungryModel()
         let runner = ChatRunner(client: model, tools: ChatTools(db: try .inMemory(), scope: .init()))
-        let result = try await runner.run(history: [.init(conversationID: "t", role: "user", text: "포트폴리오를 만들어줘")], skillIDs: []) { _ in }
+        let log = StepBox()
+        let result = try await runner.run(history: [.init(conversationID: "t", role: "user", text: "포트폴리오를 만들어줘")], skillIDs: []) { await log.add($0) }
         XCTAssertEqual(result.text, "모은 내용으로 쓴 답")
         XCTAssertEqual(result.artifacts.map(\.title), ["포트폴리오 그림"])
         let calls = await model.calls, offered = await model.offered, systems = await model.systems, reports = await model.delegateOutput
@@ -579,6 +580,8 @@ final class ChatTests: XCTestCase {
         XCTAssertTrue(systems.suffix(2).allSatisfy { $0.contains("# Research budget") })
         XCTAssertTrue(reports.contains("context:\n보고: A") && reports.contains("context:\n보고: B"), "sub-agents report on their last call: \(reports)")
         XCTAssertTrue(reports.contains("stopped before finishing"), "a failed sub-agent keeps the others' reports: \(reports)")
+        let notes = await log.notes
+        XCTAssertEqual(notes.filter { $0 == ChatRunner.wrapUpStep }.count, 1, "the user is told once that the answer is being put together: \(notes)")
     }
 
     // Past Codex's tool limit research stops, but the artifact can still be made, so the turn ends in an answer
@@ -590,6 +593,10 @@ final class ChatTests: XCTestCase {
         XCTAssertEqual(CodexAppServerClient.decide(count: limit + 1, name: "create_artifact", offered: offered), .run)
         XCTAssertEqual(CodexAppServerClient.decide(count: 3, name: "delegate", offered: offered), .notOffered, "a tool the agent lacks is answered, not fatal")
         XCTAssertEqual(CodexAppServerClient.decide(count: runaway + 1, name: "create_artifact", offered: offered), .runaway)
+        // The model can't count its calls, so each research result says how many are left
+        XCTAssertTrue(CodexAppServerClient.budgetNote(count: 1).hasSuffix("[Research budget: \(limit - 1) of \(limit) tool calls left.]"))
+        XCTAssertFalse(CodexAppServerClient.budgetNote(count: limit * 2 / 3).contains("instead of searching"))
+        XCTAssertTrue(CodexAppServerClient.budgetNote(count: limit * 2 / 3 + 1).contains("instead of searching"), "past two thirds it says to read, not search")
     }
 
     func testAStepThatReadsByIdShowsTheTitleOfWhatItRead() {
@@ -711,7 +718,7 @@ final class ChatTests: XCTestCase {
     }
 
     func testStepTitlesHaveEnglishAndTranslateEachPart() {
-        for title in Array(ChatRunner.roleTitles.values) + Array(ChatRunner.toolTitles.values) {
+        for title in Array(ChatRunner.roleTitles.values) + Array(ChatRunner.toolTitles.values) + [ChatRunner.wrapUpStep] {
             XCTAssertNotNil(L10n.english[title], title)
         }
         L10n.current = .en
@@ -843,7 +850,9 @@ private actor MemoryModel: ChatModelClient {
 private actor StepBox {
     var started: [ChatStep] = []
     var finished: [(String, String, Bool)] = []
+    var notes: [String] = []
     func add(_ event: ChatRunEvent) {
+        if case .step(let text) = event { notes.append(text) }
         if case .stepStarted(let step) = event { started.append(step) }
         if case .stepFinished(let id, let result, let failed, _) = event { finished.append((id, result, failed)) }
     }
