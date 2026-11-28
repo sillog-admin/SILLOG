@@ -18,7 +18,8 @@ public struct MCPServer: Sendable {
         }
     }
 
-    static let maxNodes = 60
+    /// Room for a week-long project's whole map: about 90 nodes and 11,000 characters.
+    static let maxNodes = 100
     static let maxItems = 100
     static let maxSearch = 50
     let tools: ChatTools
@@ -60,6 +61,7 @@ public struct MCPServer: Sendable {
             "type": field("task (task), session (a time span spent on a task and a summary of what was done), problem (a blocking problem and whether it was solved), todo (something set aside to do later)", options: ItemType.allCases.map(\.rawValue)),
             "from": field("Start date YYYY-MM-DD. Omit for no limit"),
             "to": field("End date YYYY-MM-DD (inclusive). Omit for no limit"),
+            "task": field("A task's node: id from list_items type task, to list only that task's sessions, problems or to-dos. Omit for all"),
         ]),
         spec("get_related", "Follows the sessions, materials, apps, topics, problems and to-dos linked to one node in the work graph.", required: ["id"], [
             "id": field("An id from the search results that starts with node:"),
@@ -140,7 +142,7 @@ public struct MCPServer: Sendable {
         case "summarize_period":
             return try await run("summarize_period", ["from": text("from"), "to": text("to"), "task": text("task")]).text
         case "list_items":
-            return try await run("list_items", ["type": text("type"), "from": text("from"), "to": text("to")]).text
+            return try await run("list_items", ["type": text("type"), "from": text("from"), "to": text("to"), "task": text("task")]).text
         case "get_related":
             return try await run("get_related", ["id": text("id"), "hops": text("hops", "1")]).text
         default:
@@ -166,7 +168,9 @@ public struct MCPServer: Sendable {
         let nodes = graph.nodes.prefix(maxNodes), shown = Set(nodes.map(\.id))
         var lines = nodes.map { "node:\($0.id) | \($0.label) | \($0.title) | \($0.key)" }
         lines += graph.edges.filter { shown.contains($0.src) && shown.contains($0.dst) }.map { "node:\($0.src) -[\($0.type)]-> node:\($0.dst)" }
-        if graph.nodes.count > maxNodes { lines.append("[Showing only the latest \(maxNodes) of \(graph.nodes.count)]") }
+        if graph.nodes.count > maxNodes {
+            lines.append("[Showing \(maxNodes) of \(graph.nodes.count): problems, to-dos and topics first, then the newest materials and sessions. list_items with a task lists its sessions.]")
+        }
         return lines.isEmpty ? "[]" : lines.joined(separator: "\n")
     }
 

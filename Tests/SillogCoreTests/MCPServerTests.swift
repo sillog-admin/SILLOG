@@ -141,6 +141,106 @@ final class MCPServerTests: XCTestCase {
         XCTAssertTrue(bad["content"]?.arrayValue?.first?.objectValue?["text"]?.stringValue?.contains("task, session, problem, todo") ?? false)
     }
 
+    // Listing by period alone mixed in every other task's sessions; with a task the list is that project's
+    func testListItemsKeepsToOneTask() async throws {
+        let db = try SillogDatabase.inMemory()
+        let mine = try await db.writer.write { conn -> Int64 in
+            let tx = GraphTx(conn)
+            var tasks: [Int64] = []
+            for name in ["mine", "theirs"] {
+                let task = try tx.upsertNode(label: NodeLabel.task, key: "t_\(name)", subtype: nil, title: name, props: [:], at: 1_000)
+                let session = try tx.upsertNode(label: NodeLabel.session, key: "s_\(name)", subtype: nil, title: "s_\(name)", props: ["start": .number(1_000), "end": .number(2_000)], at: 1_000)
+                let problem = try tx.upsertNode(label: NodeLabel.problem, key: "p_\(name)", subtype: nil, title: "p_\(name)", props: ["at": 1_500], at: 1_500)
+                let later = try tx.upsertNode(label: NodeLabel.laterItem, key: "l_\(name)", subtype: nil, title: "l_\(name)", props: ["at": 1_600], at: 1_600)
+                _ = try tx.upsertEdge(src: session, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: 1_000)
+                _ = try tx.upsertEdge(src: session, dst: problem, type: EdgeType.hit, props: [:], addWeight: 0, at: 1_500)
+                _ = try tx.upsertEdge(src: later, dst: task, type: EdgeType.forTask, props: [:], addWeight: 0, at: 1_600)
+                tasks.append(task)
+            }
+            return tasks[0]
+        }
+        let tools = ChatTools(db: db, scope: .init())
+        for (type, expected) in [("task", "t_mine"), ("session", "s_mine"), ("problem", "p_mine"), ("todo", "l_mine")] {
+            let listed = try await tools.execute(.init(id: type, name: "list_items", arguments: #"{"type":"\#(type)","from":"","to":"","task":"node:\#(mine)"}"#))
+            XCTAssertEqual(listed.sources.map(\.location), [expected], type)
+        }
+        let all = try await tools.execute(.init(id: "all", name: "list_items", arguments: #"{"type":"session","from":"","to":"","task":""}"#))
+        XCTAssertEqual(all.sources.count, 2)
+        do {
+            _ = try await tools.execute(.init(id: "bad", name: "list_items", arguments: #"{"type":"session","from":"","to":"","task":"mine"}"#))
+            XCTFail("a task name is not an id")
+        } catch {}
+    }
+
+    // Switched-to sessions of other tasks and the apps once filled a project's map and pushed its problems past the cap
+    func testATaskMapLeavesOutOtherTasksAndPutsProblemsFirst() async throws {
+        let db = try SillogDatabase.inMemory()
+        let (task, problem, others) = try await db.writer.write { conn -> (Int64, Int64, [Int64]) in
+            let tx = GraphTx(conn)
+            let task = try tx.upsertNode(label: NodeLabel.task, key: "t", subtype: nil, title: "전환", props: [:], at: 1_000)
+            let session = try tx.upsertNode(label: NodeLabel.session, key: "s", subtype: nil, title: "세션", props: [:], at: 1_000)
+            let problem = try tx.upsertNode(label: NodeLabel.problem, key: "p", subtype: nil, title: "오래된 문제", props: [:], at: 100)
+            let app = try tx.upsertNode(label: NodeLabel.app, key: "com.google.Chrome", subtype: nil, title: "Chrome", props: [:], at: 2_000)
+            let elsewhere = try tx.upsertNode(label: NodeLabel.task, key: "t2", subtype: nil, title: "채용", props: [:], at: 2_000)
+            let switched = try tx.upsertNode(label: NodeLabel.session, key: "s2", subtype: nil, title: "다른 업무 세션", props: [:], at: 2_000)
+            _ = try tx.upsertEdge(src: session, dst: task, type: EdgeType.partOf, props: [:], addWeight: 0, at: 1_000)
+            _ = try tx.upsertEdge(src: session, dst: problem, type: EdgeType.hit, props: [:], addWeight: 0, at: 1_000)
+            _ = try tx.upsertEdge(src: session, dst: app, type: EdgeType.used, props: [:], addWeight: 0, at: 1_000)
+            _ = try tx.upsertEdge(src: session, dst: switched, type: EdgeType.switchedTo, props: [:], addWeight: 0, at: 1_000)
+            _ = try tx.upsertEdge(src: switched, dst: elsewhere, type: EdgeType.partOf, props: [:], addWeight: 0, at: 2_000)
+            for i in 0..<MCPServer.maxNodes {
+                let doc = try tx.upsertNode(label: NodeLabel.resource, key: "https://doc/\(i)", subtype: nil, title: "자료 \(i)", props: [:], at: Double(3_000 + i))
+                _ = try tx.upsertEdge(src: session, dst: doc, type: EdgeType.touched, props: [:], addWeight: 0, at: 3_000)
+            }
+            return (task, problem, [app, switched])
+        }
+        let graph = try ContextSearch(db).related("node:\(task)", hops: 2)
+        XCTAssertEqual(graph.nodes.prefix(2).map(\.id), [task, problem], "an old problem comes before newer materials")
+        XCTAssertFalse(graph.nodes.contains { others.contains($0.id) }, "other tasks' sessions and apps stay off a task's map")
+        let text = MCPServer.describe(graph)
+        XCTAssertTrue(text.contains("| Problem | 오래된 문제 |"))
+        XCTAssertTrue(text.contains("[Showing \(MCPServer.maxNodes) of \(graph.nodes.count): problems"), "the cap says what comes first")
+    }
+
+    // Reading a material from the map brings its own screen texts, so it takes no search by name
+    func testReadingAMaterialNodeBringsItsScreenTexts() throws {
+        let db = try SillogDatabase.inMemory()
+        let url = "https://www.notion.so/team/BaaS-review-1a2b"
+        let node = try db.writer.write { conn -> Int64 in
+            let doc = try GraphTx(conn).upsertNode(label: NodeLabel.resource, key: URINormalizer.normalize(url: url), subtype: "Note", title: "BaaS review", props: [:], at: 100)
+            try conn.execute(sql: "INSERT INTO text_snapshots(id, hash, source, text, created_at) VALUES (1, 'a', 'ax', '초안: Express 유지', 100), (2, 'b', 'ax', '결정: Supabase로 전환한다. 인증과 RLS를 쓴다', 100), (3, 'c', 'ax', '다른 페이지', 100)")
+            try conn.execute(sql: """
+                INSERT INTO observations(id, ts, trigger_kind, app_bundle, app_name, window_title, url, text_id) VALUES
+                  (1, 110, 'app_activate', 'com.google.Chrome', 'Google Chrome', 'BaaS review - Google Chrome', ?, 1),
+                  (2, 120, 'app_activate', 'com.google.Chrome', 'Google Chrome', 'BaaS review - Google Chrome', ?, 2),
+                  (3, 130, 'app_activate', 'com.google.Chrome', 'Google Chrome', 'BaaS review - Google Chrome', ?, 2),
+                  (4, 140, 'app_activate', 'com.google.Chrome', 'Google Chrome', 'BaaS-review-1a2b 사본', 'https://example.com/BaaS-review-1a2b-copy', 3)
+                """, arguments: [url, url, url])
+            return doc
+        }
+        let read = try ContextSearch(db).read("node:\(node)")
+        XCTAssertEqual(read.map(\.id), ["node:\(node)", "observation:1", "observation:3"], "each text once at its latest record, oldest first, and only this material's")
+        XCTAssertTrue(read[2].excerpt.hasSuffix("인증과 RLS를 쓴다"))
+    }
+
+    // An excerpt says when it stops short, so a whole one isn't read again; the source cards never show that line
+    func testASearchExcerptSaysWhenItStopsShort() throws {
+        let db = try SillogDatabase.inMemory()
+        try db.writer.write { conn in
+            try conn.execute(sql: "INSERT INTO text_snapshots(id, hash, source, text, created_at) VALUES (1, 'a', 'ax', ?, 100), (2, 'b', 'ax', '짧은 배포 메모', 100)",
+                             arguments: ["배포 " + String(repeating: "가", count: 2_000)])
+            try conn.execute(sql: """
+                INSERT INTO observations(id, ts, trigger_kind, app_bundle, app_name, window_title, text_id) VALUES
+                  (1, 110, 'app_activate', 'com.apple.Notes', 'Notes', '긴 메모', 1), (2, 120, 'app_activate', 'com.apple.Notes', 'Notes', '짧은 메모', 2)
+                """)
+        }
+        let found = try ContextSearch(db).search(query: "배포", kind: "observation")
+        let cut = try XCTUnwrap(found.first { $0.id == "observation:1" }), whole = try XCTUnwrap(found.first { $0.id == "observation:2" })
+        XCTAssertTrue(cut.excerpt.hasSuffix("\n[2003 characters in all · this excerpt shows 1600 · read_context reads the full text]"))
+        XCTAssertFalse(whole.excerpt.contains("characters in all"))
+        XCTAssertFalse(cut.shownExcerpt.contains("characters in all"), "the source card hides the line")
+    }
+
     func testSearchReachesLibraryFilesAndWholeConversations() async throws {
         let db = try SillogDatabase.inMemory()
         let server = MCPServer(db: db)
